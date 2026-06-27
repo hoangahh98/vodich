@@ -240,19 +240,39 @@
             <span class="small fw-normal">Ăn uống, cà phê, vui chơi, khám phá</span>
         </div>
         <div class="card-body">
-            <div class="row g-2 align-items-end">
-                <div class="col-lg-8">
-                    <label class="form-label small fw-semibold">Khách sạn / địa chỉ</label>
-                    <input class="form-control" id="hotelSuggestionInput" placeholder="Nhập tên khách sạn và địa chỉ để nhận gợi ý">
+            {% if suggestion_hotel %}
+            <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">
+                <div>
+                    <div class="small text-muted">Đang lấy theo khách sạn mới nhất</div>
+                    <div class="fw-semibold">{{ suggestion_hotel }}</div>
                 </div>
-                <div class="col-lg-4 d-grid">
-                    <button class="btn btn-primary" type="button" id="buildSuggestionLinks" data-feedback="off">Tạo gợi ý</button>
+                <span class="badge bg-success">Tự động</span>
+            </div>
+            <div class="list-group list-group-flush border rounded overflow-hidden">
+                {% for item in hotel_suggestions %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                        <div>
+                            <div class="fw-semibold">{{ item.title }}</div>
+                            <div class="small text-muted">{{ item.description }}</div>
+                            <div class="small mt-1">{{ item.query }}</div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 small">
+                            <a href="{{ item.maps_url }}" target="_blank" rel="noopener">Bản đồ</a>
+                            <a href="{{ item.search_url }}" target="_blank" rel="noopener">Đánh giá</a>
+                        </div>
+                    </div>
                 </div>
+                {% endfor %}
             </div>
-            <div class="small text-muted mt-2">
-                Các nút bên dưới mở nguồn công khai như Google Maps, Google Search và TikTok để xem đánh giá mới nhất. Muốn tự động fill địa chỉ, giờ mở cửa và điểm đánh giá vào đây thì cần cấu hình thêm API tìm kiếm/địa điểm hợp lệ trên Render.
+            <div class="small text-muted mt-3">
+                Gợi ý tự hiện sau khi thêm khoản chi Khách sạn có ghi chú tên khách sạn/địa chỉ. Để tự fill địa chỉ, giờ mở cửa và điểm đánh giá thật vào từng dòng, cần cấu hình thêm API địa điểm/tìm kiếm trên Render.
             </div>
-            <div class="row g-2 mt-2" id="suggestionLinks"></div>
+            {% else %}
+            <div class="alert alert-info mb-0">
+                Thêm khoản chi <strong>Khách sạn</strong> và nhập ghi chú là tên khách sạn/địa chỉ, hệ thống sẽ tự hiện danh sách gợi ý quanh khách sạn tại đây.
+            </div>
+            {% endif %}
         </div>
     </section>
 
@@ -385,69 +405,19 @@ function copyMemberEmails(button) {
 
 const expenseCategory = document.getElementById('expenseCategory');
 const expenseNote = document.getElementById('expenseNote');
-const hotelSuggestionInput = document.getElementById('hotelSuggestionInput');
-const suggestionLinks = document.getElementById('suggestionLinks');
-const suggestionButton = document.getElementById('buildSuggestionLinks');
 
 function updateExpenseNotePlaceholder() {
     if (!expenseCategory || !expenseNote) return;
     if (expenseCategory.value === 'Khách sạn') {
         expenseNote.placeholder = 'Ghi rõ tên khách sạn và địa chỉ để nhận gợi ý';
-        if (hotelSuggestionInput && !hotelSuggestionInput.value.trim()) {
-            hotelSuggestionInput.value = expenseNote.value.trim();
-        }
     } else {
         expenseNote.placeholder = 'Ghi chú khoản chi';
     }
 }
 
-function buildSuggestionSearchLinks() {
-    if (!hotelSuggestionInput || !suggestionLinks) return;
-    const hotel = hotelSuggestionInput.value.trim() || (expenseNote ? expenseNote.value.trim() : '');
-    suggestionLinks.innerHTML = '';
-    if (!hotel) {
-        suggestionLinks.innerHTML = '<div class="col-12"><div class="alert alert-warning py-2 mb-0">Nhập tên khách sạn và địa chỉ trước khi tạo gợi ý.</div></div>';
-        return;
-    }
-
-    const groups = [
-        ['Quán ăn ngon', `quán ăn ngon gần ${hotel}`],
-        ['Cà phê đẹp', `cà phê đẹp gần ${hotel}`],
-        ['Vui chơi', `địa điểm vui chơi gần ${hotel}`],
-        ['Khám phá', `địa điểm khám phá gần ${hotel}`],
-        ['Thể thao', `thể thao giải trí gần ${hotel}`],
-    ];
-    const sources = [
-        ['Google Maps', (query) => `https://www.google.com/maps/search/${encodeURIComponent(query)}`],
-        ['Google', (query) => `https://www.google.com/search?q=${encodeURIComponent(query + ' đánh giá giờ mở cửa địa chỉ')}`],
-        ['TikTok', (query) => `https://www.tiktok.com/search?q=${encodeURIComponent(query)}`],
-    ];
-
-    suggestionLinks.innerHTML = groups.map(([label, query]) => `
-        <div class="col-md-6 col-xl-4">
-            <div class="border rounded p-2 h-100 bg-light">
-                <div class="fw-semibold mb-2">${label}</div>
-                <div class="d-flex flex-wrap gap-1">
-                    ${sources.map(([source, toUrl]) => `<a class="btn btn-sm btn-outline-primary" target="_blank" rel="noopener" href="${toUrl(query)}">${source}</a>`).join('')}
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
-
 if (expenseCategory) {
     expenseCategory.addEventListener('change', updateExpenseNotePlaceholder);
     updateExpenseNotePlaceholder();
-}
-if (expenseNote && hotelSuggestionInput) {
-    expenseNote.addEventListener('input', function() {
-        if (expenseCategory && expenseCategory.value === 'Khách sạn') {
-            hotelSuggestionInput.value = expenseNote.value;
-        }
-    });
-}
-if (suggestionButton) {
-    suggestionButton.addEventListener('click', buildSuggestionSearchLinks);
 }
 </script>
 {% endblock %}

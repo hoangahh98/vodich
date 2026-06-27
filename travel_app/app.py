@@ -1,5 +1,6 @@
 from datetime import date
 from secrets import token_urlsafe
+from urllib.parse import quote_plus
 
 from flask import Flask, flash, redirect, render_template, request, send_from_directory, session, url_for
 
@@ -12,6 +13,42 @@ app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 
 EXPENSE_CATEGORIES = ("Khách sạn", "Ẩm thực", "Vui chơi", "Thể thao", "Khám phá", "Khác")
+HOTEL_CATEGORY = "Khách sạn"
+
+
+def build_hotel_suggestions(expenses):
+    hotel_expense = next(
+        (
+            expense["row"]
+            for expense in reversed(expenses)
+            if expense["row"][2] == HOTEL_CATEGORY and (expense["row"][4] or "").strip()
+        ),
+        None,
+    )
+    if not hotel_expense:
+        return None, []
+
+    hotel = hotel_expense[4].strip()
+    groups = [
+        ("Quán ăn ngon", "Nhà hàng, quán ăn được đánh giá tốt quanh khách sạn", f"quán ăn ngon gần {hotel}"),
+        ("Cà phê đẹp", "Quán cà phê đẹp, phù hợp ngồi nghỉ hoặc chụp ảnh", f"cà phê đẹp gần {hotel}"),
+        ("Vui chơi", "Địa điểm vui chơi gần nơi ở", f"địa điểm vui chơi gần {hotel}"),
+        ("Khám phá", "Điểm tham quan, check-in, đi dạo quanh khu vực", f"địa điểm khám phá gần {hotel}"),
+        ("Thể thao", "Hoạt động thể thao, giải trí vận động gần khách sạn", f"thể thao giải trí gần {hotel}"),
+    ]
+    suggestions = []
+    for title, description, query in groups:
+        encoded_query = quote_plus(query)
+        suggestions.append(
+            {
+                "title": title,
+                "description": description,
+                "query": query,
+                "maps_url": f"https://www.google.com/maps/search/{encoded_query}",
+                "search_url": f"https://www.google.com/search?q={quote_plus(query + ' đánh giá địa chỉ giờ mở cửa')}",
+            }
+        )
+    return hotel, suggestions
 
 with app.app_context():
     init_schema()
@@ -208,6 +245,7 @@ def trip_detail(trip_id):
         return "Không có quyền xem chuyến đi này", 403
     members = FinanceModel.members(trip_id)
     expenses = FinanceModel.expenses(trip_id)
+    suggestion_hotel, hotel_suggestions = build_hotel_suggestions(expenses)
     return render_template(
         "trip_detail.html",
         user=user,
@@ -222,6 +260,8 @@ def trip_detail(trip_id):
         permissions=TripModel.permissions(trip_id),
         can_manage_permissions=is_super_admin(user) or trip[3] == user["id"],
         expense_categories=EXPENSE_CATEGORIES,
+        suggestion_hotel=suggestion_hotel,
+        hotel_suggestions=hotel_suggestions,
     )
 
 
@@ -301,13 +341,17 @@ def add_expense(trip_id):
     if title not in EXPENSE_CATEGORIES:
         flash("Nội dung khoản chi không hợp lệ.", "danger")
         return redirect(url_for("trip_detail", trip_id=trip_id))
+    note = (request.form.get("note") or "").strip()
+    if title == HOTEL_CATEGORY and not note:
+        flash("Nhập tên khách sạn và địa chỉ ở ghi chú để hệ thống tự hiện gợi ý.", "danger")
+        return redirect(url_for("trip_detail", trip_id=trip_id))
     try:
         FinanceModel.add_expense(
             trip_id,
             request.form.get("spent_date") or date.today().isoformat(),
             title,
             request.form.get("amount"),
-            request.form.get("note", ""),
+            note,
             [member[0] for member in members],
         )
         flash("Đã thêm khoản chi và chia đều cho mọi người.", "success")

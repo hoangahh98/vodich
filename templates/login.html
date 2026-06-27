@@ -6,18 +6,124 @@
     <title>Đăng nhập - Vô địch Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        body { background: #eef2f7; min-height: 100vh; display: flex; align-items: center; }
+        body {
+            background:
+                linear-gradient(135deg, rgba(20, 83, 45, .12), transparent 38%),
+                linear-gradient(315deg, rgba(245, 158, 11, .14), transparent 42%),
+                #eef2f7;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
         .login-card { border: 0; border-radius: 10px; box-shadow: 0 14px 34px rgba(15,23,42,.16); }
+        .login-side {
+            min-height: 420px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 16px;
+        }
+        .login-side-panel {
+            border-radius: 10px;
+            padding: 22px;
+            background: rgba(255, 255, 255, .72);
+            border: 1px solid rgba(15, 23, 42, .08);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, .08);
+            backdrop-filter: blur(10px);
+        }
+        .login-side-kicker {
+            color: #14532d;
+            font-weight: 800;
+            text-transform: uppercase;
+            font-size: .78rem;
+            letter-spacing: 0;
+        }
+        .login-side-title {
+            color: #0f172a;
+            font-size: 1.45rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin: 6px 0 8px;
+        }
+        .login-side-text { color: #475569; margin: 0; }
+        .login-stat-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .login-stat {
+            border-radius: 10px;
+            background: #fff;
+            padding: 12px;
+            border: 1px solid rgba(15, 23, 42, .08);
+        }
+        .login-stat strong { display: block; color: #14532d; font-size: 1.1rem; }
+        .login-stat span { color: #64748b; font-size: .82rem; }
+        .login-orbit {
+            position: relative;
+            height: 170px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: linear-gradient(135deg, #14532d, #0f172a);
+        }
+        .login-orbit::before,
+        .login-orbit::after {
+            content: "";
+            position: absolute;
+            border: 2px solid rgba(255,255,255,.22);
+            border-radius: 999px;
+            inset: 28px 42px;
+            transform: rotate(-18deg);
+        }
+        .login-orbit::after {
+            inset: 48px 72px;
+            transform: rotate(22deg);
+        }
+        .login-orbit-icon {
+            position: absolute;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            color: #fff;
+            font-size: 4.6rem;
+            z-index: 1;
+        }
         .brand-icon { font-size: 3rem; line-height: 1; }
         .btn-admin { background: linear-gradient(90deg, #0f172a, #14532d); border: none; }
         .btn-admin:hover { background: linear-gradient(90deg, #14532d, #0f172a); color: white; }
+        @media (max-width: 991.98px) {
+            body { align-items: flex-start; padding-top: 28px; }
+            .login-side { min-height: auto; }
+            .login-side-panel.secondary { display: none; }
+            .login-orbit { height: 118px; }
+            .login-orbit-icon { font-size: 3.2rem; }
+        }
     </style>
     {% include '_pwa_head.html' %}
 </head>
 <body>
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-5 col-lg-4">
+    <div class="container py-4">
+        <div class="row justify-content-center align-items-center g-4">
+            <div class="col-lg-4 d-none d-lg-block">
+                <aside class="login-side">
+                    <div class="login-side-panel">
+                        <div class="login-side-kicker">Vô địch Tool</div>
+                        <div class="login-side-title">Theo dõi giải đấu gọn, rõ, dễ chốt điểm.</div>
+                        <p class="login-side-text">Quản lý vận động viên, đội, lịch thi đấu và bảng điểm trong cùng một nơi.</p>
+                    </div>
+                    <div class="login-stat-row">
+                        <div class="login-stat">
+                            <strong>Admin</strong>
+                            <span>Điều hành dữ liệu</span>
+                        </div>
+                        <div class="login-stat">
+                            <strong>Client</strong>
+                            <span>Xem thông tin nhanh</span>
+                        </div>
+                    </div>
+                </aside>
+            </div>
+            <div class="col-md-7 col-lg-4">
                 <div class="card login-card">
                     <div class="card-body p-5">
                         <div class="text-center mb-4">
@@ -57,6 +163,18 @@
                         </form>
                     </div>
                 </div>
+            </div>
+            <div class="col-lg-4 d-none d-lg-block">
+                <aside class="login-side">
+                    <div class="login-orbit" aria-hidden="true">
+                        <div class="login-orbit-icon">🐆</div>
+                    </div>
+                    <div class="login-side-panel secondary">
+                        <div class="login-side-kicker">Du Hý</div>
+                        <div class="login-side-title">Thu chi chuyến đi hiện ngay trong hệ thống.</div>
+                        <p class="login-side-text">Tách bạch khoản thu, khoản chi, chia tiền và gợi ý quanh khách sạn sau khi nhập dữ liệu.</p>
+                    </div>
+                </aside>
             </div>
         </div>
     </div>
