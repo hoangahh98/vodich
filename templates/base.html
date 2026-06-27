@@ -30,7 +30,9 @@
                             <a class="btn btn-sm btn-outline-light" href="/admin-settings">Quản lý admin</a>
                         {% endif %}
                     {% else %}
-                        <a class="btn btn-sm btn-outline-light" href="/nguoi-xem">Trang chủ</a>
+                        {% if request.path != '/nguoi-xem' %}
+                            <a class="btn btn-sm btn-outline-light" href="/nguoi-xem">Trang chủ</a>
+                        {% endif %}
                     {% endif %}
                     <span class="navbar-text d-none d-md-inline">{{ session.user.display_name }} · {{ 'Admin' if session.user.role == 'admin' else 'Người xem' }}</span>
                     <a class="btn btn-sm btn-outline-danger" href="/dang-xuat">Đăng xuất</a>
