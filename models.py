@@ -37,6 +37,7 @@ class UserModel:
                 SELECT u.id, u.email, u.display_name
                 FROM travel_users u
                 WHERE u.role = 'admin'
+                  AND lower(u.email) <> lower(%s)
                   AND (%s IS NULL OR u.id <> %s)
                   AND (%s IS NULL OR u.id <> %s)
                   AND NOT EXISTS (
@@ -46,7 +47,7 @@ class UserModel:
                   )
                 ORDER BY u.email ASC;
                 """,
-                (owner_admin_id, owner_admin_id, current_admin_id, current_admin_id, trip_id),
+                (SUPER_ADMIN_EMAIL, owner_admin_id, owner_admin_id, current_admin_id, current_admin_id, trip_id),
             )
             return cursor.fetchall()
 
@@ -232,21 +233,29 @@ class TripModel:
                 FROM trip_admin_permissions p
                 INNER JOIN travel_users u ON p.admin_id = u.id
                 WHERE p.trip_id = %s
+                  AND lower(u.email) <> lower(%s)
                 ORDER BY u.email ASC;
                 """,
-                (trip_id,),
+                (trip_id, SUPER_ADMIN_EMAIL),
             )
             return cursor.fetchall()
 
     @staticmethod
     def add_permission(trip_id, admin_id):
+        if not admin_id:
+            return
         with db_cursor(commit=True) as cursor:
             cursor.execute(
                 """
                 INSERT INTO trip_admin_permissions (trip_id, admin_id)
-                VALUES (%s, %s) ON CONFLICT DO NOTHING;
+                SELECT %s, u.id
+                FROM travel_users u
+                WHERE u.id = %s
+                  AND u.role = 'admin'
+                  AND lower(u.email) <> lower(%s)
+                ON CONFLICT DO NOTHING;
                 """,
-                (trip_id, admin_id),
+                (trip_id, admin_id, SUPER_ADMIN_EMAIL),
             )
 
     @staticmethod
