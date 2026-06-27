@@ -143,6 +143,20 @@ def init_schema():
         )
         cursor.execute(
             """
+            UPDATE travel_users u
+            SET email = split_part(lower(u.email), '@', 1)
+            WHERE u.role = 'admin'
+              AND position('@' IN u.email) > 0
+              AND NOT EXISTS (
+                  SELECT 1
+                  FROM travel_users other
+                  WHERE other.id <> u.id
+                    AND lower(other.email) = split_part(lower(u.email), '@', 1)
+              );
+            """
+        )
+        cursor.execute(
+            """
             INSERT INTO travel_users (email, password_hash, role, display_name)
             VALUES (%s, %s, 'admin', 'Admin')
             ON CONFLICT (email) DO NOTHING;

@@ -63,6 +63,12 @@ for key in ("user", "password", "host", "port"):
 FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SECRET_KEY") or "dev-change-me"
 DB_POOL_MIN = max(1, _env_int("DB_POOL_MIN", 1))
 DB_POOL_MAX = max(DB_POOL_MIN, _env_int("DB_POOL_MAX", 5))
-SUPER_ADMIN_EMAIL = os.environ.get("SUPER_ADMIN_EMAIL", "admin@dulich").strip().lower()
+
+
+def normalize_admin_user(value):
+    return (value or "").strip().lower().split("@", 1)[0]
+
+
+SUPER_ADMIN_EMAIL = normalize_admin_user(os.environ.get("SUPER_ADMIN_EMAIL", "admin"))
 DEFAULT_ADMIN_PASSWORD = os.environ.get("DEFAULT_ADMIN_PASSWORD", "123456789")
 APP_NAME = "Quan ly thu chi du lich"

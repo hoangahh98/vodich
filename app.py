@@ -4,7 +4,7 @@ from secrets import token_urlsafe
 from flask import Flask, flash, redirect, render_template, request, send_from_directory, session, url_for
 
 from auth import AuthService, admin_required, login_required
-from config import APP_NAME, FLASK_SECRET_KEY, SUPER_ADMIN_EMAIL
+from config import APP_NAME, FLASK_SECRET_KEY, SUPER_ADMIN_EMAIL, normalize_admin_user
 from models import FinanceModel, PeopleModel, TripModel, UserModel, admin_scope_id, build_summary, is_super_admin, money
 from schema import init_schema
 
@@ -125,11 +125,11 @@ def admin_settings():
 def add_admin():
     if not is_super_admin(session["user"]):
         return "Chi admin goc duoc quan ly admin", 403
-    email = (request.form.get("email") or "").strip().lower()
+    email = normalize_admin_user(request.form.get("email"))
     password = request.form.get("password") or ""
     display_name = request.form.get("display_name") or "Admin"
     if not email or len(password) < 6:
-        flash("Email và mật khẩu tối thiểu 6 ký tự là bắt buộc.", "danger")
+        flash("User admin và mật khẩu tối thiểu 6 ký tự là bắt buộc.", "danger")
         return redirect(url_for("admin_settings"))
     try:
         UserModel.create_admin(email, password, display_name)
@@ -147,11 +147,11 @@ def edit_admin(admin_id):
     admin = UserModel.get_admin(admin_id)
     if not admin:
         return "Không tìm thấy admin", 404
-    email = (request.form.get("email") or "").strip().lower()
+    email = normalize_admin_user(request.form.get("email"))
     display_name = request.form.get("display_name") or "Admin"
     password = request.form.get("password") or None
-    if (admin[1] or "").strip().lower() == SUPER_ADMIN_EMAIL and email != SUPER_ADMIN_EMAIL:
-        flash("Không được đổi email admin gốc.", "danger")
+    if normalize_admin_user(admin[1]) == SUPER_ADMIN_EMAIL and email != SUPER_ADMIN_EMAIL:
+        flash("Không được đổi user admin gốc.", "danger")
         return redirect(url_for("admin_settings"))
     try:
         UserModel.update_admin(admin_id, email, display_name, password)
@@ -172,10 +172,10 @@ def delete_admin(admin_id):
     admin = UserModel.get_admin(admin_id)
     if not admin:
         return "Không tìm thấy admin", 404
-    if (admin[1] or "").strip().lower() == SUPER_ADMIN_EMAIL:
+    if normalize_admin_user(admin[1]) == SUPER_ADMIN_EMAIL:
         flash("Không được xóa admin gốc.", "danger")
         return redirect(url_for("admin_settings"))
-    fallback = next((item for item in UserModel.get_admins() if (item[1] or "").strip().lower() == SUPER_ADMIN_EMAIL), None)
+    fallback = next((item for item in UserModel.get_admins() if normalize_admin_user(item[1]) == SUPER_ADMIN_EMAIL), None)
     if not fallback:
         flash("Không tìm thấy admin gốc để chuyển quyền sở hữu.", "danger")
         return redirect(url_for("admin_settings"))

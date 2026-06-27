@@ -1,7 +1,7 @@
 from decimal import Decimal, InvalidOperation
 
 from auth import AuthService
-from config import SUPER_ADMIN_EMAIL
+from config import SUPER_ADMIN_EMAIL, normalize_admin_user
 from db import db_cursor
 
 
@@ -13,7 +13,7 @@ def money(value):
 
 
 def is_super_admin(user):
-    return (user.get("email") or "").strip().lower() == SUPER_ADMIN_EMAIL
+    return normalize_admin_user(user.get("email")) == SUPER_ADMIN_EMAIL
 
 
 def admin_scope_id(user):
@@ -66,17 +66,19 @@ class UserModel:
 
     @staticmethod
     def create_admin(email, password, display_name):
+        email = normalize_admin_user(email)
         with db_cursor(commit=True) as cursor:
             cursor.execute(
                 """
                 INSERT INTO travel_users (email, password_hash, role, display_name)
                 VALUES (%s, %s, 'admin', %s);
                 """,
-                ((email or "").strip().lower(), AuthService.hash_password(password), display_name or "Admin"),
+                (email, AuthService.hash_password(password), display_name or "Admin"),
             )
 
     @staticmethod
     def update_admin(admin_id, email, display_name, password=None):
+        email = normalize_admin_user(email)
         with db_cursor(commit=True) as cursor:
             if password:
                 cursor.execute(
@@ -85,7 +87,7 @@ class UserModel:
                     SET email = %s, display_name = %s, password_hash = %s
                     WHERE id = %s AND role = 'admin';
                     """,
-                    ((email or "").strip().lower(), display_name or "Admin", AuthService.hash_password(password), admin_id),
+                    (email, display_name or "Admin", AuthService.hash_password(password), admin_id),
                 )
             else:
                 cursor.execute(
@@ -94,7 +96,7 @@ class UserModel:
                     SET email = %s, display_name = %s
                     WHERE id = %s AND role = 'admin';
                     """,
-                    ((email or "").strip().lower(), display_name or "Admin", admin_id),
+                    (email, display_name or "Admin", admin_id),
                 )
 
     @staticmethod
