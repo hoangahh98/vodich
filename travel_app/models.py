@@ -115,7 +115,7 @@ class UserModel:
             cursor.execute("SELECT name FROM trip_members WHERE id = %s;", (member_id,))
             member = cursor.fetchone()
             if not member:
-                raise ValueError("KhÃ´ng tÃ¬m tháº¥y thÃ nh viÃªn")
+                raise ValueError("Không tìm thấy thành viên")
             cursor.execute("SELECT id FROM user_clients WHERE lower(email) = lower(%s) LIMIT 1;", (email,))
             existing_vdv = cursor.fetchone()
             if existing_vdv:
@@ -507,7 +507,7 @@ class FinanceModel:
             )
             person = cursor.fetchone()
             if not person:
-                raise ValueError("KhÃ´ng tÃ¬m tháº¥y thÃ nh viÃªn")
+                raise ValueError("Không tìm thấy thành viên")
             cursor.execute(
                 """
                 INSERT INTO trip_members (trip_id, person_id, client_id, name, email)
@@ -627,9 +627,9 @@ class FinanceModel:
     def add_expense(trip_id, spent_date, title, amount, note, member_ids):
         amount = money(amount)
         if amount < 0:
-            raise ValueError("Sá»‘ tiá»n chi khÃ´ng há»£p lá»‡")
+            raise ValueError("Số tiền chi không hợp lệ")
         if not member_ids:
-            raise ValueError("Cáº§n cÃ³ thÃ nh viÃªn Ä‘á»ƒ chia tiá»n")
+            raise ValueError("Cần có thành viên để chia tiền")
         base = amount // len(member_ids)
         remainder = int(amount - (base * len(member_ids)))
         splits = []
@@ -656,7 +656,7 @@ class FinanceModel:
         amount = money(amount)
         total_split = sum(money(item["amount"]) for item in split_updates)
         if total_split != amount:
-            raise ValueError(f"Tá»•ng tiá»n chia ({total_split:,.0f}) pháº£i báº±ng tiá»n khoáº£n chi ({amount:,.0f})")
+            raise ValueError(f"Tổng tiền chia ({total_split:,.0f}) phải bằng tiền khoản chi ({amount:,.0f})")
         with db_cursor(commit=True) as cursor:
             cursor.execute(
                 """

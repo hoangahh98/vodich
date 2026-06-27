@@ -1,12 +1,37 @@
 from db import db_cursor
 from config import SUPER_ADMIN_EMAIL, normalize_admin_user
 
+
+def _decode_legacy_text(value):
+    if not isinstance(value, str):
+        return value
+    text = value
+    for _ in range(3):
+        changed = False
+        for encoding in ("latin1", "cp1252"):
+            try:
+                decoded = text.encode(encoding).decode("utf-8")
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                continue
+            if decoded != text:
+                text = decoded
+                changed = True
+                break
+        if not changed:
+            break
+    return text
+
+
+def _is_done_status(status):
+    return _decode_legacy_text(status) == 'Đã xong'
+
+
 class UserClientModel:
-    """Váº­n Ä‘á»™ng viÃªn (Players)"""
+    """Vận động viên (Players)"""
 
     @staticmethod
     def get_all():
-        """Get all VÄV"""
+        """Get all VĐV"""
         with db_cursor() as cursor:
             cursor.execute("SELECT id, display_name, skill_level, email, notes FROM user_clients ORDER BY display_name ASC;")
             return cursor.fetchall()
@@ -48,21 +73,21 @@ class UserClientModel:
 
     @staticmethod
     def get_by_id(vdv_id):
-        """Get VÄV by ID"""
+        """Get VĐV by ID"""
         with db_cursor() as cursor:
             cursor.execute("SELECT * FROM user_clients WHERE id = %s;", (vdv_id,))
             return cursor.fetchone()
 
     @staticmethod
     def get_by_email(email):
-        """Get VÄV by email"""
+        """Get VĐV by email"""
         with db_cursor() as cursor:
             cursor.execute("SELECT id, display_name, email, skill_level FROM user_clients WHERE lower(email) = lower(%s);", (email,))
             return cursor.fetchone()
 
     @staticmethod
     def email_exists(email, exclude_id=None):
-        """Check whether an email is already used by another VÄV."""
+        """Check whether an email is already used by another VĐV."""
         with db_cursor() as cursor:
             if exclude_id:
                 cursor.execute(
@@ -75,7 +100,7 @@ class UserClientModel:
 
     @staticmethod
     def create(display_name, skill_level, email, notes=''):
-        """Create new VÄV"""
+        """Create new VĐV"""
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
                 INSERT INTO user_clients (display_name, skill_level, email, notes)
@@ -86,7 +111,7 @@ class UserClientModel:
 
     @staticmethod
     def update(vdv_id, display_name, skill_level, email, notes=''):
-        """Update VÄV"""
+        """Update VĐV"""
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
                 UPDATE user_clients
@@ -96,7 +121,7 @@ class UserClientModel:
 
     @staticmethod
     def delete(vdv_id):
-        """Delete VÄV"""
+        """Delete VĐV"""
         with db_cursor(commit=True) as cursor:
             cursor.execute("DELETE FROM user_clients WHERE id = %s;", (vdv_id,))
 
@@ -211,7 +236,7 @@ class AdminUserModel:
 
 
 class TournamentModel:
-    """Giáº£i Ä‘áº¥u"""
+    """Giải đấu"""
 
     @staticmethod
     def ensure_score_rule_columns():
@@ -304,7 +329,7 @@ class TournamentModel:
             cursor.execute("DELETE FROM giai_dau_admin_quyen WHERE giai_dau_id = %s AND id = %s;", (giai_id, permission_id))
 
 class DangKyGiaiModel:
-    """ÄÄƒng kÃ½ giáº£i (Registration)"""
+    """Đăng ký giải (Registration)"""
 
     @staticmethod
     def get_by_tournament(giai_id):
@@ -322,7 +347,7 @@ class DangKyGiaiModel:
 
     @staticmethod
     def get_by_vdv(vdv_id):
-        """Get all tournaments VÄV registered in"""
+        """Get all tournaments VĐV registered in"""
         with db_cursor() as cursor:
             cursor.execute("""
                 SELECT dkg.id, dkg.giai_dau_id, g.ten_giai_dau, g.so_luong_san, g.dia_diem,
@@ -373,7 +398,7 @@ class DangKyGiaiModel:
 
     @staticmethod
     def register(user_client_id, giai_dau_id):
-        """Register VÄV for tournament"""
+        """Register VĐV for tournament"""
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
                 INSERT INTO dang_ky_giai (user_client_id, giai_dau_id)
@@ -419,7 +444,7 @@ class DangKyGiaiModel:
 
     @staticmethod
     def remove(dang_ky_id):
-        """Remove VÄV from tournament"""
+        """Remove VĐV from tournament"""
         with db_cursor(commit=True) as cursor:
             cursor.execute("DELETE FROM dang_ky_giai WHERE id = %s;", (dang_ky_id,))
 
@@ -525,7 +550,7 @@ class DoiBongModel:
                 SELECT tv.id, tv.user_client_id, COALESCE(vdv.display_name, tv.ten_thanh_vien),
                        COALESCE(vdv.skill_level, tv.skill_level), vdv.email,
                        tv.loai_thanh_vien, tv.notes,
-                       COALESCE(dp.so_tien_da_dong, 0), COALESCE(dp.trang_thai_dong_tien, 'ChÆ°a Ä‘Ã³ng'),
+                       COALESCE(dp.so_tien_da_dong, 0), COALESCE(dp.trang_thai_dong_tien, 'Chưa đóng'),
                        COALESCE(dp.notes, ''), dp.id
                 FROM doi_bong_thanh_vien tv
                 LEFT JOIN user_clients vdv ON tv.user_client_id = vdv.id
@@ -543,7 +568,7 @@ class DoiBongModel:
             """, (user_client_id,))
             vdv = cursor.fetchone()
             if not vdv:
-                raise ValueError("KhÃ´ng tÃ¬m tháº¥y váº­n Ä‘á»™ng viÃªn.")
+                raise ValueError("Không tìm thấy vận động viên.")
             cursor.execute("""
                 INSERT INTO doi_bong_thanh_vien
                     (doi_bong_id, user_client_id, ten_thanh_vien, skill_level, loai_thanh_vien, notes)
@@ -699,7 +724,7 @@ class DoiBongModel:
 
 
 class MatchModel:
-    """Tráº­n Ä‘áº¥u"""
+    """Trận đấu"""
 
     @staticmethod
     def ensure_score_order_column():
@@ -733,7 +758,7 @@ class MatchModel:
                 cursor.execute("""
                     INSERT INTO tran_dau (giai_dau_id, doi_a, doi_b, trang_thai, san_so_may, vong_dau, giai_doan, bang_dau)
                     VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
-                """, (giai_id, m['doi_a'], m['doi_b'], 'ChÆ°a diá»…n ra',
+                """, (giai_id, m['doi_a'], m['doi_b'], 'Chưa diễn ra',
                       m.get('san', 1), m.get('vong', 1), m.get('giai_doan', 'vong_tron'), m.get('bang')))
 
     @staticmethod
@@ -746,7 +771,7 @@ class MatchModel:
                     SET doi_a=%s, doi_b=%s, diem_doi_a=NULL, diem_doi_b=NULL,
                         thu_tu_danh=2, doi_dang_giao='A', trang_thai=%s
                     WHERE id=%s;
-                """, (doi_a, doi_b, 'ChÆ°a diá»…n ra', tran_id))
+                """, (doi_a, doi_b, 'Chưa diễn ra', tran_id))
 
     @staticmethod
     def update_score(tran_id, diem_a, diem_b, thu_tu_danh=2, doi_dang_giao='A'):
@@ -771,12 +796,13 @@ class MatchModel:
                 diem_a = min(diem_a, max_allowed(diem_b))
                 diem_b = min(diem_b, max_allowed(diem_a))
 
-            trang_thai = 'ChÆ°a diá»…n ra'
+            trang_thai = 'Chưa diễn ra'
             if diem_a is not None and diem_b is not None:
+                trang_thai = 'Đang đánh'
                 diem_cao = max(diem_a, diem_b)
                 chen_lech = abs(diem_a - diem_b)
                 if diem_cao >= diem_toi_da or (diem_cao >= diem_cham and chen_lech >= 2):
-                    trang_thai = 'ÄÃ£ xong'
+                    trang_thai = 'Đã xong'
 
             thu_tu_danh = int(thu_tu_danh) if thu_tu_danh in (1, 2, '1', '2') else 2
             doi_dang_giao = doi_dang_giao if doi_dang_giao in ('A', 'B') else 'A'
@@ -796,7 +822,7 @@ class MatchModel:
             for doi in [doi_a, doi_b]:
                 if doi not in bang:
                     bang[doi] = {"ten": doi, "thang": 0, "thua": 0, "hieu_so": 0, "diem": 0, "so_tran": 0}
-            if len(m) > 5 and m[5] != 'ÄÃ£ xong':
+            if len(m) > 5 and not _is_done_status(m[5]):
                 continue
             d_a = d_a or 0
             d_b = d_b or 0

@@ -1,7 +1,7 @@
 ﻿"""
-Há»‡ thá»‘ng xÃ¡c thá»±c cho Admin & VÄV
+Hệ thống xác thực cho Admin & VĐV
 - Admin: email + password
-- VÄV: email + password (123456789)
+- VĐV: email + password (123456789)
 """
 from db import db_cursor
 from functools import wraps
@@ -11,7 +11,7 @@ from config import normalize_admin_user
 class AuthService:
     @staticmethod
     def hash_password(password):
-        """Simple hash (trong production dÃ¹ng werkzeug.security.generate_password_hash)"""
+        """Simple hash (trong production dùng werkzeug.security.generate_password_hash)"""
         import hashlib
         return hashlib.sha256(password.encode()).hexdigest()
 
@@ -37,35 +37,35 @@ class AuthService:
             user = cursor.fetchone()
 
         if not user:
-            return None, "Email khÃ´ng tá»“n táº¡i"
+            return None, "Email không tồn tại"
 
         if not AuthService.verify_password(password, user[2]):
-            return None, "Máº­t kháº©u sai"
+            return None, "Mật khẩu sai"
 
         email = normalize_admin_user(user[1])
         return {"id": user[0], "email": email, "role": "admin", "display_name": email}, None
 
     @staticmethod
     def register_admin(email, password):
-        """Táº¡o tÃ i khoáº£n admin (chá»‰ cáº¥u hÃ¬nh láº§n Ä‘áº§u)"""
+        """Tạo tài khoản admin (chỉ cấu hình lần đầu)"""
         admin_user = normalize_admin_user(email)
         try:
             with db_cursor(commit=True) as cursor:
                 cursor.execute("SELECT id FROM users WHERE role = 'admin' AND lower(email) = lower(%s);", (admin_user,))
                 if cursor.fetchone():
-                    return False, "User admin Ä‘Ã£ tá»“n táº¡i"
+                    return False, "User admin đã tồn tại"
 
                 hashed = AuthService.hash_password(password)
                 cursor.execute("""
                     INSERT INTO users (email, password, role) VALUES (%s, %s, %s);
                 """, (admin_user, hashed, "admin"))
-            return True, "Táº¡o admin thÃ nh cÃ´ng"
+            return True, "Tạo admin thành công"
         except Exception as e:
             return False, str(e)
 
 
 def login_required(f):
-    """Decorator: chá»‰ cho phÃ©p user Ä‘Ã£ login"""
+    """Decorator: chỉ cho phép user đã login"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session:
@@ -74,7 +74,7 @@ def login_required(f):
     return decorated_function
 
 def admin_required(f):
-    """Decorator: chá»‰ cho phÃ©p admin"""
+    """Decorator: chỉ cho phép admin"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session or session['user'].get('role') != 'admin':
@@ -83,7 +83,7 @@ def admin_required(f):
     return decorated_function
 
 def vdv_required(f):
-    """Decorator: chá»‰ cho phÃ©p VÄV"""
+    """Decorator: chỉ cho phép VĐV"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user' not in session or session['user'].get('role') != 'vdv':

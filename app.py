@@ -142,7 +142,7 @@ def log_unhandled_exception(error):
         user_agent=request.headers.get("User-Agent"),
         cf_ray=request.headers.get("CF-Ray"),
     )
-    return "âŒ Lá»—i há»‡ thá»‘ng", 500
+    return "❌ Lỗi hệ thống", 500
 
 
 # ============ HELPER FUNCTION ============
@@ -217,7 +217,7 @@ def trang_chu():
 @app.route('/giai-dau')
 @login_required
 def quan_ly_giai_dau():
-    """Trang chá»§ admin"""
+    """Trang chủ admin"""
     user = session.get('user', {})
     DBLogger.log_request('GET', '/giai-dau', user.get('email'))
 
@@ -271,7 +271,7 @@ def quan_ly_giai_dau():
         return render_template('index.html', danh_sach_giai=danh_sach_giai)
     except Exception as e:
         DBLogger.log_error(f"Error loading tournaments: {str(e)}", user.get('email'), '/giai-dau', context=traceback.format_exc())
-        return f"âŒ Error: {str(e)}", 500
+        return f"❌ Error: {str(e)}", 500
 
 # ============ LOGGING VIEWER (ADMIN ONLY) ============
 
@@ -304,7 +304,7 @@ def view_logs():
     except Exception as e:
         user = session.get('user', {})
         DBLogger.log_error(f"Error viewing logs: {str(e)}", user.get('email'), '/logs')
-        return f"âŒ Error: {str(e)}", 500
+        return f"❌ Error: {str(e)}", 500
 
 @app.route('/logs-api/errors-today')
 @admin_required
@@ -332,7 +332,7 @@ def api_user_actions(email):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# ============ VÄV MANAGEMENT (ADMIN) ============
+# ============ VĐV MANAGEMENT (ADMIN) ============
 
 def _safe_vdv_return_to(default='/'):
     return_to = (request.values.get('return_to') or default).strip()
@@ -346,11 +346,11 @@ def _safe_vdv_return_to(default='/'):
 def _vdv_return_context():
     return_to = _safe_vdv_return_to()
     if return_to.startswith('/giai-dau'):
-        return_label = 'Giáº£i Ä‘áº¥u'
+        return_label = 'Giải đấu'
     elif return_to.startswith('/doi-bong'):
-        return_label = 'Quáº£n lÃ½ Ä‘á»™i bÃ³ng'
+        return_label = 'Quản lý đội bóng'
     else:
-        return_label = 'Trang chá»§'
+        return_label = 'Trang chủ'
     return {
         'return_to': return_to,
         'return_label': return_label,
@@ -361,20 +361,20 @@ def _vdv_return_context():
 @app.route('/van-dong-vien')
 @admin_required
 def van_dong_vien_list():
-    """Danh sÃ¡ch VÄV"""
+    """Danh sách VĐV"""
     user = session.get('user', {})
     try:
         vdv_list = VanDongVienModel.get_all()
         DBLogger.log_request('GET', '/van-dong-vien', user.get('email'))
         return render_template('van_dong_vien.html', vdv_list=vdv_list, **_vdv_return_context())
     except Exception as e:
-        DBLogger.log_error(f"Error loading VÄV list: {str(e)}", user.get('email'), '/van-dong-vien', context=traceback.format_exc())
-        return f"âŒ Error: {str(e)}", 500
+        DBLogger.log_error(f"Error loading VĐV list: {str(e)}", user.get('email'), '/van-dong-vien', context=traceback.format_exc())
+        return f"❌ Error: {str(e)}", 500
 
 @app.route('/van-dong-vien/them', methods=['GET', 'POST'])
 @admin_required
 def them_van_dong_vien():
-    """ThÃªm VÄV má»›i"""
+    """Thêm VĐV mới"""
     user = session.get('user', {})
     try:
         return_context = _vdv_return_context()
@@ -383,7 +383,7 @@ def them_van_dong_vien():
 
         form_data, errors = normalize_vdv_form(request.form)
         if not errors and VanDongVienModel.email_exists(form_data['email']):
-            errors.append("Email Ä‘Ã£ Ä‘Æ°á»£c dÃ¹ng cho VÄV khÃ¡c.")
+            errors.append("Email đã được dùng cho VĐV khác.")
         if errors:
             return render_template('them_van_dong_vien.html', form_data=form_data, errors=errors, **return_context), 400
 
@@ -393,32 +393,32 @@ def them_van_dong_vien():
         ghi_chu = form_data['ghi_chu']
 
         VanDongVienModel.create(ten_vdv, trinh_do, email, ghi_chu)
-        DBLogger.log_success(f"VÄV created: {ten_vdv}", user.get('email'), '/van-dong-vien/them')
+        DBLogger.log_success(f"VĐV created: {ten_vdv}", user.get('email'), '/van-dong-vien/them')
         return redirect(return_context['vdv_list_url'])
     except Exception as e:
-        DBLogger.log_error(f"Error creating VÄV: {str(e)}", user.get('email'), '/van-dong-vien/them', context=traceback.format_exc())
-        return f"âŒ Error: {str(e)}", 500
+        DBLogger.log_error(f"Error creating VĐV: {str(e)}", user.get('email'), '/van-dong-vien/them', context=traceback.format_exc())
+        return f"❌ Error: {str(e)}", 500
 
 @app.route('/van-dong-vien/<int:vdv_id>/sua', methods=['GET', 'POST'])
 @admin_required
 def sua_van_dong_vien(vdv_id):
-    """Sá»­a VÄV"""
+    """Sửa VĐV"""
     user = session.get('user', {})
     try:
         return_context = _vdv_return_context()
         if request.method == 'GET':
             vdv = VanDongVienModel.get_by_id(vdv_id)
             if not vdv:
-                return "KhÃ´ng tÃ¬m tháº¥y", 404
+                return "Không tìm thấy", 404
             return render_template('sua_van_dong_vien.html', vdv=vdv, errors=[], **return_context)
 
         vdv = VanDongVienModel.get_by_id(vdv_id)
         if not vdv:
-            return "KhÃ´ng tÃ¬m tháº¥y", 404
+            return "Không tìm thấy", 404
 
         form_data, errors = normalize_vdv_form(request.form)
         if not errors and VanDongVienModel.email_exists(form_data['email'], exclude_id=vdv_id):
-            errors.append("Email Ä‘Ã£ Ä‘Æ°á»£c dÃ¹ng cho VÄV khÃ¡c.")
+            errors.append("Email đã được dùng cho VĐV khác.")
         if errors:
             vdv_form = (vdv_id, form_data['ten_vdv'], form_data['trinh_do'], form_data['email'], None, form_data['ghi_chu'])
             return render_template('sua_van_dong_vien.html', vdv=vdv_form, errors=errors, **return_context), 400
@@ -429,27 +429,27 @@ def sua_van_dong_vien(vdv_id):
         ghi_chu = form_data['ghi_chu']
 
         VanDongVienModel.update(vdv_id, ten_vdv, trinh_do, email, ghi_chu)
-        DBLogger.log_success(f"VÄV {vdv_id} updated: {ten_vdv}", user.get('email'), f'/van-dong-vien/{vdv_id}/sua')
+        DBLogger.log_success(f"VĐV {vdv_id} updated: {ten_vdv}", user.get('email'), f'/van-dong-vien/{vdv_id}/sua')
         return redirect(return_context['vdv_list_url'])
     except Exception as e:
-        DBLogger.log_error(f"Error updating VÄV: {str(e)}", user.get('email'), f'/van-dong-vien/{vdv_id}/sua', context=traceback.format_exc())
-        return f"âŒ Error: {str(e)}", 500
+        DBLogger.log_error(f"Error updating VĐV: {str(e)}", user.get('email'), f'/van-dong-vien/{vdv_id}/sua', context=traceback.format_exc())
+        return f"❌ Error: {str(e)}", 500
 
 @app.route('/van-dong-vien/<int:vdv_id>/xoa')
 @admin_required
 def xoa_van_dong_vien(vdv_id):
-    """XÃ³a VÄV"""
+    """Xóa VĐV"""
     user = session.get('user', {})
     try:
         return_context = _vdv_return_context()
         vdv = VanDongVienModel.get_by_id(vdv_id)
         ten = vdv[1] if vdv else f"ID {vdv_id}"
         VanDongVienModel.delete(vdv_id)
-        DBLogger.log_success(f"VÄV deleted: {ten}", user.get('email'), f'/van-dong-vien/{vdv_id}/xoa')
+        DBLogger.log_success(f"VĐV deleted: {ten}", user.get('email'), f'/van-dong-vien/{vdv_id}/xoa')
         return redirect(return_context['vdv_list_url'])
     except Exception as e:
-        DBLogger.log_error(f"Error deleting VÄV: {str(e)}", user.get('email'), f'/van-dong-vien/{vdv_id}/xoa', context=traceback.format_exc())
-        return f"âŒ Error: {str(e)}", 500
+        DBLogger.log_error(f"Error deleting VĐV: {str(e)}", user.get('email'), f'/van-dong-vien/{vdv_id}/xoa', context=traceback.format_exc())
+        return f"❌ Error: {str(e)}", 500
 
 # ============ TEAM MANAGEMENT ============
 
@@ -548,11 +548,11 @@ def _knockout_stages(qualifier_count):
 
 
 def _placeholder_team(stage, index):
-    return f"Chá» {_stage_label(stage)} {index}"
+    return f"Chờ {_stage_label(stage)} {index}"
 
 
 def _winner_placeholder(stage, index):
-    return f"Tháº¯ng {_stage_label(stage)} {index}"
+    return f"Thắng {_stage_label(stage)} {index}"
 
 
 def _build_group_stage_matches(teams, num_courts, qualifier_count=2, teams_per_group=None, group_count=None):
@@ -671,8 +671,36 @@ def _seed_knockout_from_group_rankings(grouped, total_qualifiers):
     return seeded[:total_qualifiers]
 
 
+def _decode_legacy_text(value):
+    if not isinstance(value, str):
+        return value
+    text = value
+    for _ in range(3):
+        changed = False
+        for encoding in ("latin1", "cp1252"):
+            try:
+                decoded = text.encode(encoding).decode("utf-8")
+            except (UnicodeEncodeError, UnicodeDecodeError):
+                continue
+            if decoded != text:
+                text = decoded
+                changed = True
+                break
+        if not changed:
+            break
+    return text
+
+
 def _is_done_status(status):
-    return status in ('\u0110\u00e3 xong', 'Ã„ÂÃƒÂ£ xong', 'Ãƒâ€žÃ‚ÂÃƒÆ’Ã‚Â£ xong')
+    return _decode_legacy_text(status) == 'Đã xong'
+
+
+def _normalize_match_status(status):
+    if _is_done_status(status):
+        return 'Đã xong'
+    if _decode_legacy_text(status) == 'Chưa diễn ra':
+        return 'Chưa diễn ra'
+    return 'Đang đánh'
 
 
 def _get_winner_from_match(match):
@@ -824,7 +852,7 @@ def sua_doi_bong(doi_bong_id):
     try:
         doi_bong = _get_team_for_admin_or_403(doi_bong_id, user)
         if not doi_bong:
-            return "KhÃ´ng tÃ¬m tháº¥y Ä‘á»™i bÃ³ng", 404
+            return "Không tìm thấy đội bóng", 404
         if request.method == 'GET':
             return render_template('sua_doi_bong.html', doi_bong=doi_bong, errors=[])
 
@@ -847,7 +875,7 @@ def xoa_doi_bong(doi_bong_id):
     user = session.get('user', {})
     try:
         if not _get_team_for_admin_or_403(doi_bong_id, user):
-            return "KhÃ´ng cÃ³ quyá»n xÃ³a Ä‘á»™i bÃ³ng nÃ y", 403
+            return "Không có quyền xóa đội bóng này", 403
         DoiBongModel.delete(doi_bong_id)
         DBLogger.log_success(f"Team deleted: {doi_bong_id}", user.get('email'), f'/doi-bong/{doi_bong_id}/xoa')
         return redirect('/doi-bong')
@@ -1273,7 +1301,7 @@ def chi_tiet_giai_admin(giai_id):
             vong_dict[vong].append({
                 "id": m[0], "doi_a": m[1], "doi_b": m[2],
                 "diem_a": m[3], "diem_b": m[4],
-                "trang_thai": m[5], "san": m[6] or 1, "vong": vong,
+                "trang_thai": _normalize_match_status(m[5]), "san": m[6] or 1, "vong": vong,
                 "thu_tu_danh": m[8] if len(m) > 8 and m[8] else 2,
                 "doi_dang_giao": m[9] if len(m) > 9 and m[9] else 'A',
                 "giai_doan": m[10] if len(m) > 10 and m[10] else 'vong_tron',
@@ -1648,7 +1676,7 @@ def cap_nhat_ty_so(tran_id):
                 'diem_b': diem_b,
                 'thu_tu_danh': thu_tu_danh,
                 'doi_dang_giao': doi_dang_giao,
-                'trang_thai': trang_thai,
+                'trang_thai': _normalize_match_status(trang_thai),
                 'ranking': (
                     _build_group_rankings(matches)
                     if len(giai_raw) > 22 and giai_raw[22] == 'bang'
@@ -1691,7 +1719,7 @@ def live_scores_giai_dau(giai_id):
                     'tran_id': match[0],
                     'diem_a': match[3],
                     'diem_b': match[4],
-                    'trang_thai': match[5],
+                    'trang_thai': _normalize_match_status(match[5]),
                     'thu_tu_danh': match[8] if len(match) > 8 else 2,
                     'doi_dang_giao': match[9] if len(match) > 9 else 'A',
                 }
@@ -2007,7 +2035,7 @@ def chi_tiet_giai_vdv(giai_id):
             vong_dict[vong].append({
                 "id": m[0], "doi_a": m[1], "doi_b": m[2],
                 "diem_a": m[3], "diem_b": m[4],
-                "trang_thai": m[5], "san": m[6] or 1, "vong": vong,
+                "trang_thai": _normalize_match_status(m[5]), "san": m[6] or 1, "vong": vong,
                 "thu_tu_danh": m[8] if len(m) > 8 and m[8] else 2,
                 "doi_dang_giao": m[9] if len(m) > 9 and m[9] else 'A',
                 "giai_doan": m[10] if len(m) > 10 and m[10] else 'vong_tron',
