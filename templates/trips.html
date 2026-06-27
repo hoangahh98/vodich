@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-shell">
+    <div class="d-flex justify-content-between align-items-start mb-3 gap-3 flex-wrap">
+        <div>
+            <h1 class="h3 mb-1">Quan ly chuyen di</h1>
+            <div class="text-muted">Admin goc: {{ super_admin_email }}</div>
+        </div>
+        {% if user.email == super_admin_email %}
+            <a class="btn btn-outline-primary" href="/admin-settings">Quan ly admin</a>
+        {% endif %}
+    </div>
+
+    <section class="panel mb-4">
+        <form action="/chuyen-di/them" method="POST" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label fw-semibold">Ten chuyen di</label>
+                <input class="form-control" name="name" placeholder="Vi du: Da Nang 2026" required>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label fw-semibold">Ghi chu</label>
+                <input class="form-control" name="description" placeholder="Thoi gian, dia diem...">
+            </div>
+            <div class="col-md-2 d-grid">
+                <button class="btn btn-success" type="submit">Them</button>
+            </div>
+        </form>
+    </section>
+
+    <div class="row g-3">
+        {% for trip in trips %}
+            <div class="col-md-4">
+                <section class="panel h-100">
+                    <h2 class="h5">{{ trip[1] }}</h2>
+                    <p class="text-muted min-note">{{ trip[2] or 'Chua co ghi chu' }}</p>
+                    <div class="small text-muted mb-3">Thanh vien: {{ trip[3] }}</div>
+                    <div class="d-grid gap-2">
+                        <a class="btn btn-primary" href="/chuyen-di/{{ trip[0] }}">Xem chi tiet</a>
+                        <form action="/chuyen-di/{{ trip[0] }}/xoa" method="POST" onsubmit="return confirm('Xoa chuyen di nay?')">
+                            <button class="btn btn-outline-danger w-100" type="submit">Xoa</button>
+                        </form>
+                    </div>
+                </section>
+            </div>
+        {% endfor %}
+    </div>
+    {% if not trips %}
+        <div class="alert alert-info">Chua co chuyen di nao.</div>
+    {% endif %}
+</div>
+{% endblock %}

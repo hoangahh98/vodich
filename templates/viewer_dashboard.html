@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-shell">
+    <h1 class="h3 mb-3">Chuyen di cua toi</h1>
+    <div class="row g-3">
+        {% for trip in trips %}
+        <div class="col-md-4">
+            <section class="panel h-100">
+                <h2 class="h5">{{ trip[1] }}</h2>
+                <p class="text-muted">{{ trip[2] }}</p>
+                <div class="small text-muted mb-3">Ten trong chuyen di: {{ trip[3] }}</div>
+                <a class="btn btn-primary w-100" href="/nguoi-xem/chuyen-di/{{ trip[0] }}">Xem thu chi</a>
+            </section>
+        </div>
+        {% endfor %}
+    </div>
+    {% if not trips %}<div class="alert alert-info">Tai khoan nay chua duoc gan vao chuyen di nao.</div>{% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-shell wide">
+    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-3">
+        <div>
+            <a href="/chuyen-di" class="small text-decoration-none">← Danh sach chuyen di</a>
+            <h1 class="h3 mb-1">{{ trip[1] }}</h1>
+            <div class="text-muted">{{ trip[2] }}</div>
+        </div>
+    </div>
+
+    <div class="summary-grid mb-4">
+        <section class="metric"><span>Tong thu</span><strong>{{ summary.total_collected|vnd }} d</strong></section>
+        <section class="metric"><span>Tong chi</span><strong>{{ summary.total_spent|vnd }} d</strong></section>
+        <section class="metric {% if summary.balance < 0 %}negative{% endif %}"><span>Con lai</span><strong>{{ summary.balance|vnd }} d</strong></section>
+    </div>
+
+    <section class="panel mb-4">
+        <h2 class="h5 mb-3">Thanh vien</h2>
+        <form action="/chuyen-di/{{ trip[0] }}/thanh-vien" method="POST" class="row g-2 mb-3">
+            <div class="col-md-5"><input class="form-control" name="name" placeholder="Ten thanh vien" required></div>
+            <div class="col-md-5"><input class="form-control" name="email" type="email" placeholder="Email nguoi xem neu co"></div>
+            <div class="col-md-2 d-grid"><button class="btn btn-success">Them</button></div>
+        </form>
+        <div class="table-responsive">
+            <table class="table align-middle">
+                <thead><tr><th>Ten</th><th>Email xem</th><th>Da thu</th><th>Phan chi</th><th>Chenhlech</th><th></th></tr></thead>
+                <tbody>
+                    {% for member in members %}
+                    <tr>
+                        <td class="fw-semibold">{{ member[1] }}</td>
+                        <td>{{ member[2] or '-' }}</td>
+                        <td>{{ member[4]|vnd }} d</td>
+                        <td>{{ summary.member_spent[member[0]]|vnd }} d</td>
+                        <td class="{% if summary.balances[member[0]] < 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">{{ summary.balances[member[0]]|vnd }} d</td>
+                        <td class="text-end">
+                            <form class="d-inline" action="/chuyen-di/{{ trip[0] }}/thanh-vien/{{ member[0] }}/xoa" method="POST" onsubmit="return confirm('Xoa thanh vien nay?')">
+                                <button class="btn btn-sm btn-outline-danger">Xoa</button>
+                            </form>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="6">
+                            <form action="/chuyen-di/{{ trip[0] }}/viewer/{{ member[0] }}" method="POST" class="row g-2 compact-form">
+                                <div class="col-md-5"><input class="form-control form-control-sm" name="email" type="email" value="{{ member[2] }}" placeholder="Email nguoi xem"></div>
+                                <div class="col-md-4"><input class="form-control form-control-sm" name="password" value="123456789" placeholder="Mat khau"></div>
+                                <div class="col-md-3"><button class="btn btn-sm btn-outline-primary w-100">Tao/cap nhat tai khoan xem</button></div>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="panel mb-4">
+        <h2 class="h5 mb-3">Tien thu tung nguoi</h2>
+        <form action="/chuyen-di/{{ trip[0] }}/thu" method="POST">
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th>Thanh vien</th><th>So tien thu</th><th>Ghi chu</th></tr></thead>
+                    <tbody>
+                        {% for member in members %}
+                        <tr>
+                            <td class="fw-semibold">{{ member[1] }}</td>
+                            <td><input class="form-control money-input" name="collection_{{ member[0] }}" type="number" min="0" step="1" value="{{ member[4]|int }}"></td>
+                            <td><input class="form-control" name="collection_note_{{ member[0] }}" value="{{ member[5] }}"></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button class="btn btn-primary">Luu tien thu</button>
+        </form>
+    </section>
+
+    <section class="panel mb-4">
+        <h2 class="h5 mb-3">Them dong chi</h2>
+        <form action="/chuyen-di/{{ trip[0] }}/chi" method="POST" class="row g-2 align-items-end">
+            <div class="col-md-2"><label class="form-label">Ngay</label><input class="form-control" type="date" name="spent_date" value="{{ today }}"></div>
+            <div class="col-md-4"><label class="form-label">Noi dung</label><input class="form-control" name="title" placeholder="chi an uong, chi tien phong..." required></div>
+            <div class="col-md-3"><label class="form-label">So tien</label><input class="form-control" type="number" min="0" step="1" name="amount" required></div>
+            <div class="col-md-2"><label class="form-label">Ghi chu</label><input class="form-control" name="note"></div>
+            <div class="col-md-1 d-grid"><button class="btn btn-success">Them</button></div>
+        </form>
+        <div class="small text-muted mt-2">Khi them moi, he thong tu chia deu cho tat ca thanh vien dang active.</div>
+    </section>
+
+    <section class="panel mb-4">
+        <h2 class="h5 mb-3">Bang chi theo template</h2>
+        <div class="table-responsive expense-table-wrap">
+            <table class="table table-bordered align-middle expense-table">
+                <thead>
+                    <tr>
+                        <th class="sticky-col">Khoan chi</th>
+                        {% for member in members %}<th>{{ member[1] }}</th>{% endfor %}
+                        <th>Tong chi</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for expense in expenses %}
+                    {% set row = expense.row %}
+                    <tr>
+                        <td class="sticky-col">
+                            <form id="expense-form-{{ row[0] }}" action="/chuyen-di/{{ trip[0] }}/chi/{{ row[0] }}" method="POST"></form>
+                            <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm mb-1" name="title" value="{{ row[2] }}" required>
+                            <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm mb-1" type="date" name="spent_date" value="{{ row[1] }}">
+                            <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm" name="note" value="{{ row[4] }}" placeholder="Ghi chu">
+                        </td>
+                        {% for member in members %}
+                            <td><input form="expense-form-{{ row[0] }}" class="form-control form-control-sm split-input" type="number" min="0" step="1" name="split_{{ row[0] }}_{{ member[0] }}" value="{{ expense.splits.get(member[0], 0)|int }}"></td>
+                        {% endfor %}
+                        <td>
+                            <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm total-input" type="number" min="0" step="1" name="amount" value="{{ row[3]|int }}">
+                            <div class="small split-status"></div>
+                        </td>
+                        <td class="expense-actions">
+                            <button form="expense-form-{{ row[0] }}" class="btn btn-sm btn-primary mb-1 w-100">Luu</button>
+                            <form action="/chuyen-di/{{ trip[0] }}/chi/{{ row[0] }}/xoa" method="POST" onsubmit="return confirm('Xoa khoan chi nay?')">
+                                <button class="btn btn-sm btn-outline-danger w-100">Xoa</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if not expenses %}<div class="alert alert-info">Chua co khoan chi nao.</div>{% endif %}
+    </section>
+
+    {% if can_manage_permissions %}
+    <section class="panel">
+        <h2 class="h5 mb-3">Quyen admin</h2>
+        <form action="/chuyen-di/{{ trip[0] }}/quyen" method="POST" class="row g-2 mb-3">
+            <div class="col-md-9">
+                <select class="form-select" name="admin_id">
+                    {% for admin in admins %}
+                        {% if admin[0] != trip[3] %}
+                        <option value="{{ admin[0] }}">{{ admin[1] }}</option>
+                        {% endif %}
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3 d-grid"><button class="btn btn-outline-primary">Them quyen</button></div>
+        </form>
+        {% for permission in permissions %}
+            <form action="/chuyen-di/{{ trip[0] }}/quyen/{{ permission[0] }}/xoa" method="POST" class="d-inline-block me-2 mb-2">
+                <button class="btn btn-sm btn-outline-secondary">{{ permission[2] }} x</button>
+            </form>
+        {% endfor %}
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function updateSplitStatus(row) {
+    const splitInputs = row.querySelectorAll('.split-input');
+    const totalInput = row.querySelector('.total-input');
+    const status = row.querySelector('.split-status');
+    if (!totalInput || !status) return;
+    let sum = 0;
+    splitInputs.forEach(input => sum += Number(input.value || 0));
+    const total = Number(totalInput.value || 0);
+    const ok = sum === total;
+    status.textContent = ok ? 'Du: ' + sum.toLocaleString('vi-VN') : 'Lech: ' + (sum - total).toLocaleString('vi-VN');
+    status.className = 'small split-status ' + (ok ? 'text-success' : 'text-danger');
+}
+document.querySelectorAll('.expense-table tbody tr').forEach(row => {
+    row.addEventListener('input', () => updateSplitStatus(row));
+    updateSplitStatus(row);
+});
+</script>
+{% endblock %}

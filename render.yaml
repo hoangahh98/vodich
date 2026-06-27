@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: travel-expense-manager
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app

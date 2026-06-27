@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="login-wrap">
+    <section class="login-panel">
+        <h1>Thu chi du lich</h1>
+        <p class="text-muted mb-4">Dang nhap admin hoac nguoi xem</p>
+        {% if error %}
+            <div class="alert alert-danger">{{ error }}</div>
+        {% endif %}
+        <form method="POST" class="vstack gap-3">
+            <div>
+                <label class="form-label fw-semibold">Email</label>
+                <input type="email" class="form-control form-control-lg" name="email" required autofocus>
+            </div>
+            <div>
+                <label class="form-label fw-semibold">Mat khau</label>
+                <input type="password" class="form-control form-control-lg" name="password" required>
+            </div>
+            <div>
+                <label class="form-label fw-semibold">Vai tro</label>
+                <select class="form-select form-select-lg" name="role">
+                    <option value="viewer">Nguoi xem</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <button class="btn btn-primary btn-lg fw-bold" type="submit">Dang nhap</button>
+        </form>
+    </section>
+</div>
+{% endblock %}
