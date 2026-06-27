@@ -1,54 +1,61 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-shell wide">
-    <a href="/nguoi-xem" class="small text-decoration-none">← Chuyen di cua toi</a>
-    <h1 class="h3 mb-3">{{ trip[1] }}</h1>
-    <div class="summary-grid mb-4">
-        <section class="metric"><span>Tong thu</span><strong>{{ summary.total_collected|vnd }} d</strong></section>
-        <section class="metric"><span>Tong chi</span><strong>{{ summary.total_spent|vnd }} d</strong></section>
-        <section class="metric {% if summary.balance < 0 %}negative{% endif %}"><span>Con lai</span><strong>{{ summary.balance|vnd }} d</strong></section>
+    <a href="/nguoi-xem" class="small text-decoration-none">← Chuyến đi của tôi</a>
+    <div class="bg-white p-3 rounded shadow-sm mb-3 border-start border-success border-5">
+        <h1 class="h4 text-success fw-bold mb-1">🌴 {{ trip[1] }}</h1>
+        <div class="text-muted small">{{ trip[2] or 'Chưa có ghi chú' }}</div>
     </div>
-    <section class="panel mb-4">
-        <h2 class="h5 mb-3">Tong hop thanh vien</h2>
-        <div class="table-responsive">
-            <table class="table align-middle">
-                <thead><tr><th>Ten</th><th>Da thu</th><th>Phan chi</th><th>Chenhlech</th></tr></thead>
-                <tbody>
-                    {% for member in members %}
-                    <tr class="{% if member[0] == viewer_member_id %}table-primary{% endif %}">
-                        <td class="fw-semibold">{{ member[1] }}</td>
-                        <td>{{ member[4]|vnd }} d</td>
-                        <td>{{ summary.member_spent[member[0]]|vnd }} d</td>
-                        <td class="{% if summary.balances[member[0]] < 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">{{ summary.balances[member[0]]|vnd }} d</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <div class="row g-3 mb-3">
+        <div class="col-md-4"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng thu</div><div class="fw-bold fs-4 text-primary">{{ summary.total_collected|vnd }}đ</div></div></div></div>
+        <div class="col-md-4"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng chi</div><div class="fw-bold fs-4 text-danger">{{ summary.total_spent|vnd }}đ</div></div></div></div>
+        <div class="col-md-4"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Còn lại</div><div class="fw-bold fs-4 {{ 'text-success' if summary.balance >= 0 else 'text-danger' }}">{{ summary.balance|vnd }}đ</div></div></div></div>
+    </div>
+    <section class="card mb-3">
+        <div class="card-hdr blue">Tổng hợp du hý er</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light"><tr><th>Tên</th><th>Đã thu</th><th>Phần chi</th><th>Chênh lệch</th></tr></thead>
+                    <tbody>
+                        {% for member in members %}
+                        <tr class="{% if member[0] == viewer_member_id %}table-primary{% endif %}">
+                            <td class="fw-semibold">{{ member[1] }}</td>
+                            <td>{{ member[4]|vnd }}đ</td>
+                            <td>{{ summary.member_spent[member[0]]|vnd }}đ</td>
+                            <td class="{% if summary.balances[member[0]] < 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">{{ summary.balances[member[0]]|vnd }}đ</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </section>
-    <section class="panel">
-        <h2 class="h5 mb-3">Bang chi</h2>
-        <div class="table-responsive expense-table-wrap">
-            <table class="table table-bordered align-middle expense-table">
-                <thead>
-                    <tr>
-                        <th class="sticky-col">Khoan chi</th>
-                        {% for member in members %}<th>{{ member[1] }}</th>{% endfor %}
-                        <th>Tong</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for expense in expenses %}
-                    <tr>
-                        <td class="sticky-col fw-semibold">{{ expense.row[2] }}<div class="small text-muted">{{ expense.row[1] }}</div></td>
-                        {% for member in members %}
-                            <td class="{% if member[0] == viewer_member_id %}table-primary fw-semibold{% endif %}">{{ expense.splits.get(member[0], 0)|vnd }} d</td>
+    <section class="card">
+        <div class="card-hdr dark">Bảng chi</div>
+        <div class="card-body p-0">
+            <div class="table-responsive expense-table-wrap">
+                <table class="table table-bordered align-middle expense-table mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="sticky-col">Khoản chi</th>
+                            {% for member in members %}<th>{{ member[1] }}</th>{% endfor %}
+                            <th>Tổng</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in expenses %}
+                        <tr>
+                            <td class="sticky-col fw-semibold">{{ expense.row[2] }}<div class="small text-muted">{{ expense.row[1].strftime('%d/%m/%Y') if expense.row[1].strftime is defined else expense.row[1] }}</div></td>
+                            {% for member in members %}
+                                <td class="{% if member[0] == viewer_member_id %}table-primary fw-semibold{% endif %}">{{ expense.splits.get(member[0], 0)|vnd }}đ</td>
+                            {% endfor %}
+                            <td>{{ expense.row[3]|vnd }}đ</td>
+                        </tr>
                         {% endfor %}
-                        <td>{{ expense.row[3]|vnd }} d</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </section>
 </div>

@@ -28,9 +28,9 @@ class AuthService:
             )
             user = cursor.fetchone()
         if not user:
-            return None, "Email hoac vai tro khong dung"
+            return None, "Email hoặc vai trò không đúng"
         if not AuthService.verify_password(password, user[2]):
-            return None, "Mat khau sai"
+            return None, "Mật khẩu sai"
         return {
             "id": user[0],
             "email": user[1],
@@ -43,7 +43,7 @@ class AuthService:
         with db_cursor(commit=True) as cursor:
             cursor.execute("SELECT 1 FROM travel_users WHERE lower(email) = lower(%s);", (email,))
             if cursor.fetchone():
-                return False, "Email da ton tai"
+                return False, "Email đã tồn tại"
             cursor.execute(
                 """
                 INSERT INTO travel_users (email, password_hash, role, display_name)
@@ -51,7 +51,7 @@ class AuthService:
                 """,
                 (email.strip().lower(), AuthService.hash_password(password), display_name),
             )
-        return True, "Tao admin thanh cong"
+        return True, "Tạo admin thành công"
 
 
 def login_required(fn):

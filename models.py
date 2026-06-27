@@ -30,6 +30,27 @@ class UserModel:
             return cursor.fetchall()
 
     @staticmethod
+    def get_available_admins_for_trip(trip_id, owner_admin_id=None, current_admin_id=None):
+        with db_cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT u.id, u.email, u.display_name
+                FROM travel_users u
+                WHERE u.role = 'admin'
+                  AND (%s IS NULL OR u.id <> %s)
+                  AND (%s IS NULL OR u.id <> %s)
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM trip_admin_permissions p
+                      WHERE p.trip_id = %s AND p.admin_id = u.id
+                  )
+                ORDER BY u.email ASC;
+                """,
+                (owner_admin_id, owner_admin_id, current_admin_id, current_admin_id, trip_id),
+            )
+            return cursor.fetchall()
+
+    @staticmethod
     def get_admin(admin_id):
         with db_cursor() as cursor:
             cursor.execute(
@@ -87,7 +108,7 @@ class UserModel:
             cursor.execute("SELECT name FROM trip_members WHERE id = %s;", (member_id,))
             member = cursor.fetchone()
             if not member:
-                raise ValueError("Khong tim thay thanh vien")
+                raise ValueError("Không tìm thấy du hý er")
             cursor.execute(
                 """
                 INSERT INTO travel_users (email, password_hash, role, display_name)
@@ -247,6 +268,65 @@ class FinanceModel:
             return cursor.fetchall()
 
     @staticmethod
+    def all_members_for_admin(admin_id=None):
+        with db_cursor() as cursor:
+            if admin_id:
+                cursor.execute(
+                    """
+                    SELECT tm.id, tm.name, tm.email, tm.user_id, t.id, t.name,
+                           COALESCE(tc.amount, 0), tm.active
+                    FROM trip_members tm
+                    INNER JOIN trips t ON tm.trip_id = t.id
+                    LEFT JOIN trip_collections tc ON tm.id = tc.member_id AND tm.trip_id = tc.trip_id
+                    LEFT JOIN trip_admin_permissions p ON t.id = p.trip_id AND p.admin_id = %s
+                    WHERE tm.active = TRUE
+                      AND (t.owner_admin_id = %s OR p.admin_id IS NOT NULL)
+                    ORDER BY t.id DESC, tm.name ASC;
+                    """,
+                    (admin_id, admin_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT tm.id, tm.name, tm.email, tm.user_id, t.id, t.name,
+                           COALESCE(tc.amount, 0), tm.active
+                    FROM trip_members tm
+                    INNER JOIN trips t ON tm.trip_id = t.id
+                    LEFT JOIN trip_collections tc ON tm.id = tc.member_id AND tm.trip_id = tc.trip_id
+                    WHERE tm.active = TRUE
+                    ORDER BY t.id DESC, tm.name ASC;
+                    """
+                )
+            return cursor.fetchall()
+
+    @staticmethod
+    def get_member_for_admin(member_id, admin_id=None):
+        with db_cursor() as cursor:
+            if admin_id:
+                cursor.execute(
+                    """
+                    SELECT tm.id, tm.trip_id, tm.name, tm.email, tm.user_id, t.name
+                    FROM trip_members tm
+                    INNER JOIN trips t ON tm.trip_id = t.id
+                    LEFT JOIN trip_admin_permissions p ON t.id = p.trip_id AND p.admin_id = %s
+                    WHERE tm.id = %s AND tm.active = TRUE
+                      AND (t.owner_admin_id = %s OR p.admin_id IS NOT NULL);
+                    """,
+                    (admin_id, member_id, admin_id),
+                )
+            else:
+                cursor.execute(
+                    """
+                    SELECT tm.id, tm.trip_id, tm.name, tm.email, tm.user_id, t.name
+                    FROM trip_members tm
+                    INNER JOIN trips t ON tm.trip_id = t.id
+                    WHERE tm.id = %s AND tm.active = TRUE;
+                    """,
+                    (member_id,),
+                )
+            return cursor.fetchone()
+
+    @staticmethod
     def add_member(trip_id, name, email=""):
         with db_cursor(commit=True) as cursor:
             cursor.execute(
@@ -264,6 +344,27 @@ class FinanceModel:
     def delete_member(trip_id, member_id):
         with db_cursor(commit=True) as cursor:
             cursor.execute("UPDATE trip_members SET active = FALSE WHERE trip_id = %s AND id = %s;", (trip_id, member_id))
+
+    @staticmethod
+    def update_member(member_id, name, email):
+        with db_cursor(commit=True) as cursor:
+            cursor.execute(
+                """
+                UPDATE trip_members
+                SET name = %s, email = %s
+                WHERE id = %s;
+                """,
+                (name, (email or "").strip().lower(), member_id),
+            )
+            cursor.execute(
+                """
+                UPDATE travel_users u
+                SET display_name = %s
+                FROM trip_members tm
+                WHERE tm.user_id = u.id AND tm.id = %s;
+                """,
+                (name, member_id),
+            )
 
     @staticmethod
     def update_collections(trip_id, updates):
@@ -313,9 +414,9 @@ class FinanceModel:
     def add_expense(trip_id, spent_date, title, amount, note, member_ids):
         amount = money(amount)
         if amount < 0:
-            raise ValueError("So tien chi khong hop le")
+            raise ValueError("Số tiền chi không hợp lệ")
         if not member_ids:
-            raise ValueError("Can co thanh vien de chia tien")
+            raise ValueError("Cần có du hý er để chia tiền")
         base = amount // len(member_ids)
         remainder = int(amount - (base * len(member_ids)))
         splits = []
@@ -342,7 +443,7 @@ class FinanceModel:
         amount = money(amount)
         total_split = sum(money(item["amount"]) for item in split_updates)
         if total_split != amount:
-            raise ValueError(f"Tong tien chia ({total_split:,.0f}) phai bang tien khoan chi ({amount:,.0f})")
+            raise ValueError(f"Tổng tiền chia ({total_split:,.0f}) phải bằng tiền khoản chi ({amount:,.0f})")
         with db_cursor(commit=True) as cursor:
             cursor.execute(
                 """
@@ -384,6 +485,7 @@ def build_summary(members, expenses):
         "total_collected": total_collected,
         "total_spent": total_spent,
         "balance": total_collected - total_spent,
+        "average_spent": total_spent / len(members) if members else Decimal("0"),
         "member_spent": member_spent,
         "balances": balances,
     }

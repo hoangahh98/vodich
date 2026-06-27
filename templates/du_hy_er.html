@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-shell">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+        <div>
+            <h1 class="h3 text-success fw-bold mb-1">👥 Quản lý Du hý er</h1>
+            <div class="text-muted">Thêm, sửa và tạo tài khoản người xem cho người đi du lịch.</div>
+        </div>
+        <a href="/chuyen-di" class="btn btn-outline-secondary">← Chuyến đi</a>
+    </div>
+
+    <div class="row row-cols-2 row-cols-md-4 g-3 mb-3">
+        <div class="col">
+            <button type="button" class="card stat-filter active text-center p-3 w-100" data-trip="all">
+                <div class="stat-value text-primary">{{ members|length }}</div>
+                <div class="text-muted small">Tổng du hý er</div>
+            </button>
+        </div>
+        {% for trip in trips[:3] %}
+        <div class="col">
+            <button type="button" class="card stat-filter text-center p-3 w-100" data-trip="{{ trip[0] }}">
+                <div class="stat-value text-success">{{ trip_member_counts.get(trip[0], 0) }}</div>
+                <div class="text-muted small text-truncate">{{ trip[1] }}</div>
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+
+    <section class="card mb-4">
+        <div class="card-hdr green">Thêm du hý er vào chuyến đi</div>
+        <div class="card-body">
+            <form action="/du-hy-er/them" method="POST" class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Chuyến đi</label>
+                    <select class="form-select" name="trip_id" required>
+                        <option value="">Chọn chuyến đi</option>
+                        {% for trip in trips %}
+                        <option value="{{ trip[0] }}">{{ trip[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Tên du hý er</label>
+                    <input class="form-control" name="name" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Email người xem</label>
+                    <input class="form-control" name="email" type="email">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-success fw-bold">Thêm</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <div class="d-flex flex-column flex-md-row align-items-stretch align-items-md-center justify-content-md-end gap-2 mb-3">
+        <input type="text" id="searchInput" class="form-control" placeholder="🔍 Tìm tên / email / chuyến đi..." style="max-width: 360px;">
+    </div>
+
+    <section class="card">
+        <div class="card-hdr blue">Danh sách du hý er</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="duHyErTable">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width:48px">#</th>
+                            <th>Tên</th>
+                            <th>Email xem</th>
+                            <th>Chuyến đi</th>
+                            <th>Đã thu</th>
+                            <th style="width:120px" class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for member in members %}
+                    <tr data-trip="{{ member[4] }}">
+                        <td class="text-muted small">{{ loop.index }}</td>
+                        <td><strong>{{ member[1] }}</strong></td>
+                        <td class="small text-muted text-break-cell">{{ member[2] or 'Chưa có' }}</td>
+                        <td><a href="/chuyen-di/{{ member[4] }}" class="text-decoration-none">{{ member[5] }}</a></td>
+                        <td>{{ member[6]|vnd }}đ</td>
+                        <td class="text-center text-nowrap">
+                            <a href="/du-hy-er/{{ member[0] }}/sua" class="btn btn-sm btn-warning py-0">✏️</a>
+                            <form action="/du-hy-er/{{ member[0] }}/xoa" method="POST" class="d-inline" onsubmit="return confirm('Xóa du hý er này khỏi chuyến đi?')">
+                                <button class="btn btn-sm btn-danger py-0">🗑️</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if not members %}
+            <div class="alert alert-info m-3">Chưa có du hý er nào.</div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+let activeTrip = 'all';
+function filterRows() {
+    const q = document.getElementById('searchInput').value.toLowerCase();
+    document.querySelectorAll('#duHyErTable tbody tr').forEach(row => {
+        const matchesSearch = row.textContent.toLowerCase().includes(q);
+        const matchesTrip = activeTrip === 'all' || row.dataset.trip === activeTrip;
+        row.style.display = matchesSearch && matchesTrip ? '' : 'none';
+    });
+}
+document.getElementById('searchInput').addEventListener('input', filterRows);
+document.querySelectorAll('.stat-filter').forEach(button => {
+    button.addEventListener('click', function() {
+        activeTrip = this.dataset.trip;
+        document.querySelectorAll('.stat-filter').forEach(item => item.classList.remove('active'));
+        this.classList.add('active');
+        filterRows();
+    });
+});
+</script>
+{% endblock %}

@@ -62,11 +62,79 @@ def trips():
     )
 
 
+@app.route("/du-hy-er")
+@admin_required
+def du_hy_er_list():
+    user = session["user"]
+    members = FinanceModel.all_members_for_admin(admin_scope_id(user))
+    trip_member_counts = {}
+    for member in members:
+        trip_member_counts[member[4]] = trip_member_counts.get(member[4], 0) + 1
+    return render_template(
+        "du_hy_er.html",
+        members=members,
+        trips=TripModel.all_for_admin(admin_scope_id(user)),
+        trip_member_counts=trip_member_counts,
+        user=user,
+    )
+
+
+@app.route("/du-hy-er/them", methods=["POST"])
+@admin_required
+def du_hy_er_add():
+    user = session["user"]
+    trip_id = request.form.get("trip_id")
+    trip = TripModel.get_for_admin(trip_id, admin_scope_id(user)) if trip_id else None
+    if not trip:
+        flash("Bạn chưa chọn chuyến đi hợp lệ.", "danger")
+        return redirect(url_for("du_hy_er_list"))
+    name = (request.form.get("name") or "").strip()
+    if not name:
+        flash("Tên du hý er là bắt buộc.", "danger")
+        return redirect(url_for("du_hy_er_list"))
+    FinanceModel.add_member(trip_id, name, request.form.get("email", ""))
+    flash("Đã thêm du hý er vào chuyến đi.", "success")
+    return redirect(url_for("du_hy_er_list"))
+
+
+@app.route("/du-hy-er/<int:member_id>/sua", methods=["GET", "POST"])
+@admin_required
+def du_hy_er_edit(member_id):
+    user = session["user"]
+    member = FinanceModel.get_member_for_admin(member_id, admin_scope_id(user))
+    if not member:
+        return "Không có quyền sửa người đi này", 403
+    if request.method == "POST":
+        name = (request.form.get("name") or "").strip()
+        if not name:
+            flash("Tên du hý er là bắt buộc.", "danger")
+            return redirect(url_for("du_hy_er_edit", member_id=member_id))
+        FinanceModel.update_member(member_id, name, request.form.get("email", ""))
+        password = request.form.get("password") or ""
+        if request.form.get("create_viewer") and request.form.get("email"):
+            UserModel.create_viewer_for_member(member_id, request.form.get("email"), password or "123456789")
+        flash("Đã cập nhật du hý er.", "success")
+        return redirect(url_for("du_hy_er_list"))
+    return render_template("du_hy_er_edit.html", member=member)
+
+
+@app.route("/du-hy-er/<int:member_id>/xoa", methods=["POST"])
+@admin_required
+def du_hy_er_delete(member_id):
+    user = session["user"]
+    member = FinanceModel.get_member_for_admin(member_id, admin_scope_id(user))
+    if not member:
+        return "Không có quyền xóa người đi này", 403
+    FinanceModel.delete_member(member[1], member_id)
+    flash("Đã xóa du hý er khỏi chuyến đi.", "success")
+    return redirect(url_for("du_hy_er_list"))
+
+
 @app.route("/admin-settings")
 @admin_required
 def admin_settings():
     if not is_super_admin(session["user"]):
-        return "Chi admin goc duoc quan ly admin", 403
+        return "Chỉ admin gốc được quản lý admin", 403
     return render_template("admin_settings.html", admins=UserModel.get_admins(), super_admin_email=SUPER_ADMIN_EMAIL)
 
 
@@ -79,13 +147,13 @@ def add_admin():
     password = request.form.get("password") or ""
     display_name = request.form.get("display_name") or "Admin"
     if not email or len(password) < 6:
-        flash("Email va mat khau toi thieu 6 ky tu la bat buoc", "danger")
+        flash("Email và mật khẩu tối thiểu 6 ký tự là bắt buộc.", "danger")
         return redirect(url_for("admin_settings"))
     try:
         UserModel.create_admin(email, password, display_name)
-        flash("Da tao admin", "success")
+        flash("Đã tạo admin.", "success")
     except Exception as exc:
-        flash(f"Khong tao duoc admin: {exc}", "danger")
+        flash(f"Không tạo được admin: {exc}", "danger")
     return redirect(url_for("admin_settings"))
 
 
@@ -93,24 +161,24 @@ def add_admin():
 @admin_required
 def edit_admin(admin_id):
     if not is_super_admin(session["user"]):
-        return "Chi admin goc duoc quan ly admin", 403
+        return "Chỉ admin gốc được quản lý admin", 403
     admin = UserModel.get_admin(admin_id)
     if not admin:
-        return "Khong tim thay admin", 404
+        return "Không tìm thấy admin", 404
     email = (request.form.get("email") or "").strip().lower()
     display_name = request.form.get("display_name") or "Admin"
     password = request.form.get("password") or None
     if (admin[1] or "").strip().lower() == SUPER_ADMIN_EMAIL and email != SUPER_ADMIN_EMAIL:
-        flash("Khong duoc doi email admin goc", "danger")
+        flash("Không được đổi email admin gốc.", "danger")
         return redirect(url_for("admin_settings"))
     try:
         UserModel.update_admin(admin_id, email, display_name, password)
         if admin_id == session["user"]["id"]:
             session["user"]["email"] = email
             session["user"]["display_name"] = display_name
-        flash("Da cap nhat admin", "success")
+        flash("Đã cập nhật admin.", "success")
     except Exception as exc:
-        flash(f"Khong cap nhat duoc admin: {exc}", "danger")
+        flash(f"Không cập nhật được admin: {exc}", "danger")
     return redirect(url_for("admin_settings"))
 
 
@@ -118,19 +186,19 @@ def edit_admin(admin_id):
 @admin_required
 def delete_admin(admin_id):
     if not is_super_admin(session["user"]):
-        return "Chi admin goc duoc quan ly admin", 403
+        return "Chỉ admin gốc được quản lý admin", 403
     admin = UserModel.get_admin(admin_id)
     if not admin:
-        return "Khong tim thay admin", 404
+        return "Không tìm thấy admin", 404
     if (admin[1] or "").strip().lower() == SUPER_ADMIN_EMAIL:
-        flash("Khong duoc xoa admin goc", "danger")
+        flash("Không được xóa admin gốc.", "danger")
         return redirect(url_for("admin_settings"))
     fallback = next((item for item in UserModel.get_admins() if (item[1] or "").strip().lower() == SUPER_ADMIN_EMAIL), None)
     if not fallback:
-        flash("Khong tim thay admin goc de chuyen quyen so huu", "danger")
+        flash("Không tìm thấy admin gốc để chuyển quyền sở hữu.", "danger")
         return redirect(url_for("admin_settings"))
     UserModel.delete_admin(admin_id, fallback[0])
-    flash("Da xoa admin", "success")
+    flash("Đã xóa admin.", "success")
     return redirect(url_for("admin_settings"))
 
 
@@ -139,7 +207,7 @@ def delete_admin(admin_id):
 def add_trip():
     name = (request.form.get("name") or "").strip()
     if not name:
-        flash("Ten chuyen di la bat buoc", "danger")
+        flash("Tên chuyến đi là bắt buộc.", "danger")
         return redirect(url_for("trips"))
     TripModel.create(name, request.form.get("description", ""), session["user"]["id"])
     return redirect(url_for("trips"))
@@ -149,7 +217,7 @@ def add_trip():
 @admin_required
 def delete_trip(trip_id):
     if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
-        return "Khong co quyen", 403
+        return "Không có quyền", 403
     TripModel.delete(trip_id)
     return redirect(url_for("trips"))
 
@@ -160,7 +228,7 @@ def trip_detail(trip_id):
     user = session["user"]
     trip = TripModel.get_for_admin(trip_id, admin_scope_id(user))
     if not trip:
-        return "Khong co quyen xem chuyen di nay", 403
+        return "Không có quyền xem chuyến đi này", 403
     members = FinanceModel.members(trip_id)
     expenses = FinanceModel.expenses(trip_id)
     return render_template(
@@ -171,7 +239,7 @@ def trip_detail(trip_id):
         expenses=expenses,
         summary=build_summary(members, expenses),
         today=date.today().isoformat(),
-        admins=UserModel.get_admins(),
+        admins=UserModel.get_available_admins_for_trip(trip_id, trip[3], user["id"]),
         permissions=TripModel.permissions(trip_id),
         can_manage_permissions=is_super_admin(user) or trip[3] == user["id"],
     )
@@ -181,10 +249,10 @@ def trip_detail(trip_id):
 @admin_required
 def add_member(trip_id):
     if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
-        return "Khong co quyen", 403
+        return "Không có quyền", 403
     name = (request.form.get("name") or "").strip()
     if not name:
-        flash("Ten thanh vien la bat buoc", "danger")
+        flash("Tên du hý er là bắt buộc.", "danger")
         return redirect(url_for("trip_detail", trip_id=trip_id))
     FinanceModel.add_member(trip_id, name, request.form.get("email", ""))
     return redirect(url_for("trip_detail", trip_id=trip_id))
@@ -194,7 +262,7 @@ def add_member(trip_id):
 @admin_required
 def delete_member(trip_id, member_id):
     if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
-        return "Khong co quyen", 403
+        return "Không có quyền", 403
     FinanceModel.delete_member(trip_id, member_id)
     return redirect(url_for("trip_detail", trip_id=trip_id))
 
@@ -203,7 +271,7 @@ def delete_member(trip_id, member_id):
 @admin_required
 def update_collections(trip_id):
     if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
-        return "Khong co quyen", 403
+        return "Không có quyền", 403
     updates = []
     for member in FinanceModel.members(trip_id):
         member_id = member[0]
@@ -213,7 +281,7 @@ def update_collections(trip_id):
             "note": request.form.get(f"collection_note_{member_id}", ""),
         })
     FinanceModel.update_collections(trip_id, updates)
-    flash("Da cap nhat tien thu", "success")
+    flash("Đã cập nhật tiền thu.", "success")
     return redirect(url_for("trip_detail", trip_id=trip_id))
 
 
@@ -221,7 +289,7 @@ def update_collections(trip_id):
 @admin_required
 def add_expense(trip_id):
     if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
-        return "Khong co quyen", 403
+        return "Không có quyền", 403
     members = FinanceModel.members(trip_id)
     try:
         FinanceModel.add_expense(
@@ -232,7 +300,7 @@ def add_expense(trip_id):
             request.form.get("note", ""),
             [member[0] for member in members],
         )
-        flash("Da them khoan chi va chia deu cho moi nguoi", "success")
+        flash("Đã thêm khoản chi và chia đều cho mọi người.", "success")
     except ValueError as exc:
         flash(str(exc), "danger")
     return redirect(url_for("trip_detail", trip_id=trip_id))
@@ -242,7 +310,7 @@ def add_expense(trip_id):
 @admin_required
 def update_expense(trip_id, expense_id):
     if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
-        return "Khong co quyen", 403
+        return "Không có quyền", 403
     members = FinanceModel.members(trip_id)
     split_updates = [
         {"member_id": member[0], "amount": request.form.get(f"split_{expense_id}_{member[0]}")}
@@ -257,7 +325,7 @@ def update_expense(trip_id, expense_id):
             request.form.get("note", ""),
             split_updates,
         )
-        flash("Da cap nhat khoan chi", "success")
+        flash("Đã cập nhật khoản chi.", "success")
     except ValueError as exc:
         flash(str(exc), "danger")
     return redirect(url_for("trip_detail", trip_id=trip_id))
@@ -267,7 +335,7 @@ def update_expense(trip_id, expense_id):
 @admin_required
 def delete_expense(trip_id, expense_id):
     if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
-        return "Khong co quyen", 403
+        return "Không có quyền", 403
     FinanceModel.delete_expense(trip_id, expense_id)
     return redirect(url_for("trip_detail", trip_id=trip_id))
 
@@ -276,11 +344,11 @@ def delete_expense(trip_id, expense_id):
 @admin_required
 def create_viewer(trip_id, member_id):
     if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
-        return "Khong co quyen", 403
+        return "Không có quyền", 403
     email = request.form.get("email", "")
     password = request.form.get("password", "") or "123456789"
     UserModel.create_viewer_for_member(member_id, email, password)
-    flash("Da tao/cap nhat tai khoan nguoi xem", "success")
+    flash("Đã tạo/cập nhật tài khoản người xem.", "success")
     return redirect(url_for("trip_detail", trip_id=trip_id))
 
 
@@ -290,7 +358,7 @@ def add_permission(trip_id):
     user = session["user"]
     trip = TripModel.get_for_admin(trip_id, admin_scope_id(user))
     if not trip or not (is_super_admin(user) or trip[3] == user["id"]):
-        return "Khong co quyen chia se admin", 403
+        return "Không có quyền chia sẻ admin", 403
     TripModel.add_permission(trip_id, request.form.get("admin_id"))
     return redirect(url_for("trip_detail", trip_id=trip_id))
 
@@ -301,7 +369,7 @@ def remove_permission(trip_id, permission_id):
     user = session["user"]
     trip = TripModel.get_for_admin(trip_id, admin_scope_id(user))
     if not trip or not (is_super_admin(user) or trip[3] == user["id"]):
-        return "Khong co quyen chia se admin", 403
+        return "Không có quyền chia sẻ admin", 403
     TripModel.remove_permission(trip_id, permission_id)
     return redirect(url_for("trip_detail", trip_id=trip_id))
 
@@ -322,7 +390,7 @@ def viewer_trip(trip_id):
         return redirect(url_for("trips"))
     trip = TripModel.get_for_viewer(trip_id, user["id"])
     if not trip:
-        return "Khong co quyen xem", 403
+        return "Không có quyền xem", 403
     members = FinanceModel.members(trip_id)
     expenses = FinanceModel.expenses(trip_id)
     return render_template(

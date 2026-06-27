@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-shell">
+    <a href="/du-hy-er" class="small text-decoration-none">← Danh sách du hý er</a>
+    <section class="card mt-3">
+        <div class="card-hdr green">Sửa du hý er</div>
+        <div class="card-body">
+            <form method="POST" class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Tên du hý er</label>
+                    <input class="form-control" name="name" value="{{ member[2] }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Email người xem</label>
+                    <input class="form-control" name="email" type="email" value="{{ member[3] }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Chuyến đi</label>
+                    <input class="form-control" value="{{ member[5] }}" disabled>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label fw-semibold">Mật khẩu người xem</label>
+                    <input class="form-control" name="password" value="123456789">
+                </div>
+                <div class="col-12">
+                    <label class="form-check">
+                        <input class="form-check-input" type="checkbox" name="create_viewer" value="1" {% if member[4] %}checked{% endif %}>
+                        <span class="form-check-label">Tạo/cập nhật tài khoản người xem cho du hý er này</span>
+                    </label>
+                </div>
+                <div class="col-12 d-flex gap-2">
+                    <button class="btn btn-success fw-bold">Lưu thay đổi</button>
+                    <a class="btn btn-outline-secondary" href="/du-hy-er">Hủy</a>
+                </div>
+            </form>
+        </div>
+    </section>
+</div>
+{% endblock %}
