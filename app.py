@@ -204,6 +204,8 @@ def delete_member(trip_id, member_id):
     if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
         return "Không có quyền", 403
     FinanceModel.delete_member(trip_id, member_id)
+    FinanceModel.rebalance_expenses_equal(trip_id)
+    flash("Đã xóa thành viên và chia đều lại toàn bộ khoản chi.", "success")
     return redirect(url_for("trip_detail", trip_id=trip_id))
 
 
