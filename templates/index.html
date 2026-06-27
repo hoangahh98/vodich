@@ -1,0 +1,114 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Giải Đấu</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">🏸 PICKLEBALL MANAGER</span>
+            <div>
+                <a href="/" class="btn btn-sm btn-outline-light me-2">🏠 Trang chủ</a>
+                <a href="/van-dong-vien?return_to=/giai-dau" class="btn btn-sm btn-outline-info me-2">👥 Vận động viên</a>
+                {% if session.user.email|lower == super_admin_email %}
+                <a href="/admin-settings" class="btn btn-sm btn-outline-warning me-2">⚙️ Tài khoản admin</a>
+                {% endif %}
+                <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">🚪 Đăng xuất</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-success btn-lg fw-bold" data-bs-toggle="modal" data-bs-target="#themGiaiModal">
+                        ➕ THÊM GIẢI ĐẤU MỚI
+                    </button>
+                    <a href="/doc-diem-giao-luu" class="btn btn-primary btn-lg fw-bold">
+                        🔊 ĐỌC ĐIỂM GIAO LƯU
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+        {% for giai in danh_sach_giai %}
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold text-primary">{{ giai.ten_giai_dau }}</h5>
+                        <p class="card-text">
+                            <small>📍 {{ giai.dia_diem }}</small><br>
+                            <small>👥 {{ giai.so_luong_nguoi }}/{{ giai.so_nguoi_du_kien }} người</small><br>
+                            <small>💰 Lệ phí: {{ "{:,.0f}".format(giai.chi_phi_moi_nguoi) }}đ</small>
+                        </p>
+                        <div class="d-grid gap-2">
+                            <a href="/giai-dau/{{ giai.id }}/admin" class="btn btn-primary btn-sm">👁️ Xem Chi Tiết</a>
+                            <a href="/sua-giai-dau/{{ giai.id }}" class="btn btn-warning btn-sm">✏️ Sửa</a>
+                            <a href="/xoa-giai-dau/{{ giai.id }}" class="btn btn-danger btn-sm" onclick="return confirm('Xóa?')">🗑️ Xóa</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+    </div>
+
+    <!-- MODAL THÊM GIẢI -->
+    <div class="modal fade" id="themGiaiModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title">➕ THÊM GIẢI ĐẤU MỚI</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/them-giai-dau" method="POST">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Tên Giải <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" name="ten_giai_dau" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Địa Điểm</label>
+                            <input type="text" class="form-control" name="dia_diem">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Số Sân <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="so_luong_san" value="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Hình Thức Thi Đấu</label>
+                            <div class="btn-group w-100" role="group">
+                                <input type="radio" class="btn-check" name="loai_dau" value="don" id="modal_don" checked>
+                                <label class="btn btn-outline-primary" for="modal_don">👤 Thi Đơn (1v1)</label>
+
+                                <input type="radio" class="btn-check" name="loai_dau" value="doi" id="modal_doi">
+                                <label class="btn btn-outline-primary" for="modal_doi">👥 Thi Đôi (2v2)</label>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Dự Kiến VĐV <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" name="so_nguoi_du_kien" value="10" required>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">HỦY</button>
+                        <button type="submit" class="btn btn-success">✅ THÊM</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>
+
+

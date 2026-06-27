@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ doi_bong[1] }} - Đội Bóng</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f0f2f5; }
+        .card { border: none; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+        .card-hdr { color: #fff; font-weight: 700; padding: 10px 16px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+        .card-hdr.green { background: #198754; }
+        .card-hdr.blue { background: #0d6efd; }
+        .card-hdr.dark { background: #212529; }
+        .fee-table { min-width: 980px; }
+        .sufficient-row { background: #d4edda; }
+        .insufficient-row { background: #fff3cd; }
+    </style>
+    {% include '_pwa_head.html' %}
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark mb-3">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">{{ doi_bong[1] }}</span>
+            <div class="d-flex gap-2">
+                {% if can_edit %}
+                <a href="/doi-bong" class="btn btn-sm btn-outline-light">Đội bóng</a>
+                <a href="/van-dong-vien?return_to=/doi-bong" class="btn btn-sm btn-outline-info">Vận động viên</a>
+                <a href="/" class="btn btn-sm btn-outline-light">Trang chủ</a>
+                {% else %}
+                <a href="/vdv-dashboard" class="btn btn-sm btn-outline-light">Quay lại</a>
+                {% endif %}
+                <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">Đăng xuất</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container-fluid px-4 pb-4">
+        <div class="bg-white p-3 rounded shadow-sm mb-3 border-start border-success border-5">
+            <div class="d-flex justify-content-between flex-wrap gap-3">
+                <div>
+                    <h5 class="text-success fw-bold mb-1">{{ doi_bong[1] }}</h5>
+                    <div class="text-muted small">{{ doi_bong[2] or 'Chưa có ghi chú' }}</div>
+                </div>
+                <form method="GET" action="{{ '/doi-bong/' ~ doi_bong[0] if can_edit else '/doi-bong/' ~ doi_bong[0] ~ '/vdv' }}" class="d-flex align-items-end gap-2">
+                    <div>
+                        <label class="form-label small fw-semibold mb-1">Tháng quỹ</label>
+                        <input type="month" name="thang" class="form-control" value="{{ selected_month }}" onchange="this.form.submit()">
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="small text-muted">Tổng thu</div>
+                        <div class="fw-bold fs-4 text-primary">{{ "{:,.0f}".format(finance.tong_thu) }}đ</div>
+                        <div class="small text-muted">{{ finance.thanh_vien_list|length }} thành viên</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="small text-muted">Tổng donate</div>
+                        <div class="fw-bold fs-4 text-success">+{{ "{:,.0f}".format(finance.tong_donate) }}đ</div>
+                        <div class="small text-muted">Vượt mức {{ "{:,.0f}".format(finance.muc_phi_thang) }}đ/người</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="small text-muted">Tiền sân còn lại tháng trước</div>
+                        <div class="fw-bold fs-4 text-secondary">{{ "{:,.0f}".format(finance.tien_san_con_lai_thang_truoc) }}đ</div>
+                        <div class="small text-muted">Nhập trong cấu hình tháng</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="small text-muted">Quỹ còn lại</div>
+                        <div class="fw-bold fs-4 {{ 'text-success' if finance.quy_con_lai >= 0 else 'text-danger' }}">{{ "{:,.0f}".format(finance.quy_con_lai) }}đ</div>
+                        <div class="small text-muted">= Dư sân + Thu - Sân - Chi</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% if can_edit %}
+        <div class="row g-3 mb-3">
+            <div class="col-lg-4">
+                <div class="card h-100">
+                    <div class="card-hdr green">Cấu hình quỹ tháng {{ selected_month }}</div>
+                    <div class="card-body">
+                        <form action="/doi-bong/{{ doi_bong[0] }}/cap-nhat-quy" method="POST">
+                            <input type="hidden" name="thang" value="{{ selected_month }}">
+                            <div class="mb-2">
+                                <label class="form-label small fw-semibold">Mức phí tháng / người</label>
+                                <input type="number" class="form-control" name="muc_phi_thang" value="{{ finance.muc_phi_thang|int }}" min="0">
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small fw-semibold">Tiền sân tháng này</label>
+                                <input type="number" class="form-control" name="chi_phi_san_bai" value="{{ finance.chi_phi_san_bai|int }}" min="0">
+                            </div>
+                            <div class="mb-2">
+                                <label class="form-label small fw-semibold">Tiền sân còn lại tháng trước</label>
+                                <input type="number" class="form-control" name="tien_san_con_lai_thang_truoc" value="{{ finance.tien_san_con_lai_thang_truoc|int }}" min="0">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label small fw-semibold">Ghi chú tháng</label>
+                                <input type="text" class="form-control" name="ghi_chu" value="{{ finance.ghi_chu or '' }}">
+                            </div>
+                            <button type="submit" class="btn btn-success w-100">Lưu cấu hình tháng</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-8">
+                <div class="card h-100">
+                    <div class="card-hdr blue">Thêm thành viên từ danh sách VĐV</div>
+                    <div class="card-body">
+                        <form id="teamMemberAddForm" action="/doi-bong/{{ doi_bong[0] }}/thanh-vien/them" method="POST" class="row g-2 align-items-end">
+                            <input type="hidden" name="thang" value="{{ selected_month }}">
+                            <div class="col-md-6">
+                                <label class="form-label small fw-semibold">Vận động viên</label>
+                                <div id="teamMemberSelect" class="border rounded p-2 bg-white" style="max-height: 260px; overflow-y: auto;">
+                                    {% for vdv in all_vdv %}
+                                    <label class="d-flex align-items-start gap-2 border-bottom py-2 mb-0">
+                                        <input type="checkbox" class="form-check-input mt-1 team-member-checkbox" name="van_dong_vien_ids" value="{{ vdv[0] }}">
+                                        <span>
+                                            <span class="fw-semibold">{{ vdv[1] }}</span>
+                                            <span class="text-muted small d-block">{{ vdv[2] }} - {{ vdv[3] }}</span>
+                                        </span>
+                                    </label>
+                                    {% endfor %}
+                                </div>
+                                <div class="form-text d-flex justify-content-between gap-2">
+                                    <span>Chọn một hoặc nhiều VĐV rồi lưu một lần.</span>
+                                    <span id="teamMemberSelectedCount" class="fw-semibold text-primary text-nowrap">Đã chọn 0 mục</span>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Loại</label>
+                                <select name="loai_thanh_vien" class="form-select">
+                                    <option value="co_dinh">Cố định</option>
+                                    <option value="vang_lai">Vãng lai</option>
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Ghi chú</label>
+                                <input type="text" class="form-control" name="ghi_chu">
+                            </div>
+                            <div class="col-12 d-flex justify-content-end">
+                                <button type="submit" class="btn btn-primary">Lưu thành viên đã chọn</button>
+                            </div>
+                        </form>
+                        {% if not all_vdv %}
+                        <div class="small text-muted mt-2">Không còn VĐV nào để thêm vào đội này.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row g-3 mb-3">
+            <div class="col-lg-7">
+                <div class="card h-100">
+                    <div class="card-hdr dark">
+                        <span>Các khoản chi tháng {{ selected_month }}</span>
+                        <span>{{ "{:,.0f}".format(finance.tong_khoan_chi) }}đ</span>
+                    </div>
+                    <div class="card-body">
+                        {% if can_edit %}
+                        <form action="/doi-bong/{{ doi_bong[0] }}/khoan-chi/them" method="POST" class="row g-2 align-items-end mb-3">
+                            <input type="hidden" name="thang" value="{{ selected_month }}">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Ngày chi</label>
+                                <input type="date" class="form-control" name="ngay_chi" required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold">Nội dung</label>
+                                <input type="text" class="form-control" name="noi_dung" placeholder="Uống nước" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold">Số tiền</label>
+                                <input type="number" class="form-control" name="so_tien" min="0" required>
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="submit" class="btn btn-success">Thêm</button>
+                            </div>
+                        </form>
+                        {% endif %}
+                        {% if finance.khoan_chi_list %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light"><tr><th>Ngày</th><th>Nội dung</th><th>Tiền</th><th></th></tr></thead>
+                                <tbody>
+                                {% for chi in finance.khoan_chi_list %}
+                                <tr>
+                                    <td>{{ chi.ngay_chi.strftime('%d/%m/%Y') if chi.ngay_chi.strftime is defined else chi.ngay_chi }}</td>
+                                    <td>{{ chi.noi_dung }}</td>
+                                    <td>{{ "{:,.0f}".format(chi.so_tien) }}đ</td>
+                                    <td class="text-end">
+                                        {% if can_edit %}
+                                        <a href="/doi-bong/{{ doi_bong[0] }}/khoan-chi/{{ chi.id }}/xoa?thang={{ selected_month }}" class="btn btn-sm btn-outline-danger" onclick="return confirm('Xóa khoản chi này?')">Xóa</a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-muted small">Chưa có khoản chi nào trong tháng.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if can_edit and is_owner %}
+            <div class="col-lg-5">
+                <div class="card h-100">
+                    <div class="card-hdr blue">Quyền admin xem đội</div>
+                    <div class="card-body">
+                        <form action="/doi-bong/{{ doi_bong[0] }}/phan-quyen/them" method="POST" class="d-flex gap-2 mb-3">
+                            <select name="admin_id" class="form-select" required>
+                                <option value="">Chọn admin</option>
+                                {% for admin in admins %}
+                                <option value="{{ admin[0] }}">{{ admin[1] }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-primary">Thêm</button>
+                        </form>
+                        {% if not admins %}
+                        <div class="text-muted small mb-3">Không còn admin nào có thể cấp thêm quyền.</div>
+                        {% endif %}
+                        {% if owner_admin %}
+                        <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light">
+                            <span>
+                                {{ owner_admin[1] }}
+                                <span class="badge bg-success ms-2">Người tạo / Chủ đội</span>
+                            </span>
+                            <span class="text-muted small">Luôn có quyền</span>
+                        </div>
+                        {% else %}
+                        <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light">
+                            <span class="text-muted">Chưa xác định người tạo đội</span>
+                            <span class="text-muted small">Dữ liệu cũ</span>
+                        </div>
+                        {% endif %}
+                        {% if permissions %}
+                        {% for permission in permissions %}
+                        <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2">
+                            <span>
+                                {{ permission[2] }}
+                                <span class="badge bg-primary ms-2">Được cấp thêm</span>
+                            </span>
+                            <a href="/doi-bong/{{ doi_bong[0] }}/phan-quyen/{{ permission[0] }}/xoa" class="btn btn-sm btn-outline-danger">Xóa</a>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="text-muted small">Chưa cấp quyền cho admin khác.</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="card">
+            <div class="card-hdr dark">
+                <span>Danh sách đóng phí tháng {{ selected_month }}</span>
+                <span>Chi tháng: {{ "{:,.0f}".format(finance.tong_chi) }}đ</span>
+            </div>
+            <div class="card-body p-0">
+                {% if finance.thanh_vien_list %}
+                <form action="/doi-bong/{{ doi_bong[0] }}/cap-nhat-dong-phi" method="POST">
+                    <input type="hidden" name="thang" value="{{ selected_month }}">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 fee-table">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Tên</th>
+                                    <th>Trình</th>
+                                    <th>Email</th>
+                                    <th>Loại</th>
+                                    <th>Tiền đóng</th>
+                                    <th>Trạng thái</th>
+                                    <th>Donate/thiếu</th>
+                                    <th>Ghi chú phí</th>
+                                    {% if can_edit %}<th style="width:120px">Thao tác</th>{% endif %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for tv in finance.thanh_vien_list %}
+                                <tr class="{{ 'current-vdv-row' if current_vdv_id is defined and tv.van_dong_vien_id == current_vdv_id else '' }} {% if tv.so_tien_da_dong >= finance.muc_phi_thang and finance.muc_phi_thang > 0 %}sufficient-row{% else %}insufficient-row{% endif %}">
+                                    <td class="fw-semibold {{ 'current-vdv-name' if current_vdv_id is defined and tv.van_dong_vien_id == current_vdv_id else '' }}">{{ tv.ten }}</td>
+                                    <td><span class="badge bg-secondary">{{ tv.trinh_do }}</span></td>
+                                    <td class="small text-muted">{{ tv.email or '' }}</td>
+                                    <td><span class="badge {{ 'bg-info text-dark' if tv.loai_thanh_vien == 'vang_lai' else 'bg-success' }}">{{ tv.loai_hien_thi }}</span></td>
+                                    <td>
+                                        {% if can_edit %}
+                                        <input type="number" class="form-control form-control-sm" name="tien_{{ tv.id }}" value="{{ tv.so_tien_da_dong|int }}" min="0">
+                                        {% else %}
+                                        {{ "{:,.0f}".format(tv.so_tien_da_dong) }}đ
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if can_edit %}
+                                        <select class="form-select form-select-sm" name="trang_thai_{{ tv.id }}">
+                                            <option value="Đã đóng" {% if tv.trang_thai_dong_tien == 'Đã đóng' %}selected{% endif %}>Đã đóng</option>
+                                            <option value="Chưa đóng" {% if tv.trang_thai_dong_tien != 'Đã đóng' %}selected{% endif %}>Chưa đóng</option>
+                                        </select>
+                                        {% else %}
+                                        {{ tv.trang_thai_dong_tien }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if tv.loai_thanh_vien == 'vang_lai' %}
+                                        <span class="text-muted small">-</span>
+                                        {% elif tv.chenh_lech > 0 %}
+                                        <span class="badge bg-success">+{{ "{:,.0f}".format(tv.chenh_lech) }}đ</span>
+                                        {% elif tv.chenh_lech == 0 and finance.muc_phi_thang > 0 %}
+                                        <span class="badge bg-primary">Đủ phí</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">Thiếu {{ "{:,.0f}".format((tv.chenh_lech|abs) if finance.muc_phi_thang > 0 else 0) }}đ</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if can_edit %}
+                                        <input type="text" class="form-control form-control-sm" name="ghi_chu_phi_{{ tv.id }}" value="{{ tv.ghi_chu_phi }}">
+                                        {% else %}
+                                        {{ tv.ghi_chu_phi }}
+                                        {% endif %}
+                                    </td>
+                                    {% if can_edit %}
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editMember{{ tv.id }}">Sửa</button>
+                                        <a href="/doi-bong/{{ doi_bong[0] }}/thanh-vien/{{ tv.id }}/xoa?thang={{ selected_month }}" class="btn btn-sm btn-danger" onclick="return confirm('Xóa thành viên {{ tv.ten }}?')">Xóa</a>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% if can_edit %}
+                    <div class="p-3 text-end d-flex gap-2 justify-content-end flex-wrap">
+                        <button type="button" class="btn btn-info text-white fw-bold"
+                                data-bs-toggle="modal" data-bs-target="#modalTeamGetEmail">
+                            📧 Get Email
+                        </button>
+                        <button type="submit" class="btn btn-success fw-bold">Lưu đóng phí</button>
+                    </div>
+                    {% endif %}
+                </form>
+                {% else %}
+                <div class="p-3 text-muted">Chưa có thành viên nào trong đội.</div>
+                {% endif %}
+            </div>
+        </div>
+    </main>
+
+    <div class="modal fade" id="modalTeamGetEmail" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title fw-bold">📧 Danh sách Email thành viên</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-2">Copy toàn bộ email bên dưới, paste vào ô Bcc/To trong Gmail/Outlook:</p>
+                    <textarea id="teamEmailList" class="form-control font-monospace" rows="4" readonly>{% for tv in finance.thanh_vien_list if tv.email %}{{ tv.email }}{% if not loop.last %}; {% endif %}{% endfor %}</textarea>
+                    {% if not finance.thanh_vien_list|selectattr('email')|list %}
+                    <div class="text-muted small mt-2">Chưa có thành viên nào có email.</div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-info text-white fw-bold" onclick="copyText('teamEmailList', this)">
+                        📋 Copy tất cả
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if can_edit %}
+    {% for tv in finance.thanh_vien_list %}
+    <div class="modal fade" id="editMember{{ tv.id }}" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">Sửa thành viên</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form action="/doi-bong/{{ doi_bong[0] }}/thanh-vien/{{ tv.id }}/sua" method="POST">
+                    <div class="modal-body">
+                        <input type="hidden" name="thang" value="{{ selected_month }}">
+                        <div class="mb-3">
+                            <label class="form-label">Vận động viên</label>
+                            <input type="text" class="form-control" value="{{ tv.ten }} - {{ tv.email or '' }}" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Loại thành viên</label>
+                            <select name="loai_thanh_vien" class="form-select">
+                                <option value="co_dinh" {% if tv.loai_thanh_vien == 'co_dinh' %}selected{% endif %}>Cố định</option>
+                                <option value="vang_lai" {% if tv.loai_thanh_vien == 'vang_lai' %}selected{% endif %}>Vãng lai</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Ghi chú</label>
+                            <textarea class="form-control" name="ghi_chu" rows="2">{{ tv.ghi_chu or '' }}</textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                        <button type="submit" class="btn btn-warning">Lưu</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    function copyText(id, btn) {
+        const el = document.getElementById(id);
+        if (!el) {
+            return;
+        }
+        const text = el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' ? el.value : el.textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const original = btn.innerHTML;
+            btn.innerHTML = '✅ Đã copy!';
+            btn.classList.add('btn-secondary');
+            window.setTimeout(() => {
+                btn.innerHTML = original;
+                btn.classList.remove('btn-secondary');
+            }, 2000);
+        });
+    }
+
+    const teamMemberAddForm = document.getElementById('teamMemberAddForm');
+    const teamMemberCheckboxes = Array.from(document.querySelectorAll('.team-member-checkbox'));
+    const teamMemberSelectedCount = document.getElementById('teamMemberSelectedCount');
+    function updateTeamMemberSelectedCount() {
+        if (!teamMemberSelectedCount) {
+            return;
+        }
+        const count = teamMemberCheckboxes.filter(checkbox => checkbox.checked).length;
+        teamMemberSelectedCount.textContent = `Đã chọn ${count} mục`;
+    }
+    if (teamMemberCheckboxes.length) {
+        teamMemberCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', updateTeamMemberSelectedCount);
+        });
+        updateTeamMemberSelectedCount();
+    }
+    if (teamMemberAddForm) {
+        teamMemberAddForm.addEventListener('submit', event => {
+            if (!teamMemberCheckboxes.some(checkbox => checkbox.checked)) {
+                event.preventDefault();
+                teamMemberSelectedCount.textContent = 'Chưa chọn VĐV nào';
+                teamMemberSelectedCount.classList.remove('text-primary');
+                teamMemberSelectedCount.classList.add('text-danger');
+            }
+        });
+        teamMemberCheckboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                teamMemberSelectedCount.classList.add('text-primary');
+                teamMemberSelectedCount.classList.remove('text-danger');
+            });
+        });
+    }
+    </script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>

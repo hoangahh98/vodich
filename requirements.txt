@@ -1,4 +1,6 @@
 Flask
 psycopg2-binary
 gunicorn
+requests
 python-dotenv
+pytest

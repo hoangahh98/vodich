@@ -1,0 +1,462 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đọc Điểm Giao Lưu</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f5f7fb;
+        }
+
+        .score-board {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .team-card {
+            border: 2px solid #d8dee9;
+            border-radius: 8px;
+            background: #fff;
+            cursor: pointer;
+            transition: border-color .15s ease, box-shadow .15s ease, transform .15s ease;
+        }
+
+        .team-card.serving {
+            border-color: #198754;
+            box-shadow: 0 0 0 .25rem rgba(25, 135, 84, .15);
+        }
+
+        .team-card:not(.serving) {
+            opacity: .72;
+        }
+
+        .team-card:active {
+            transform: scale(.99);
+        }
+
+        .team-name {
+            min-height: 46px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .score-value {
+            width: 100%;
+            border: 0;
+            background: transparent;
+            text-align: center;
+            font-size: clamp(4rem, 18vw, 8rem);
+            font-weight: 800;
+            line-height: 1;
+            color: #111827;
+        }
+
+        .score-value:focus {
+            outline: none;
+        }
+
+        .score-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .75rem;
+        }
+
+        .score-controls .btn {
+            min-height: 56px;
+            font-size: 1.6rem;
+            font-weight: 800;
+        }
+
+        .order-button {
+            min-width: 96px;
+            min-height: 54px;
+            font-size: 1.2rem;
+            font-weight: 800;
+        }
+
+        .status-line {
+            min-height: 24px;
+        }
+
+        .number-input {
+            max-width: 120px;
+        }
+
+        @media (max-width: 576px) {
+            .navbar .container-fluid {
+                gap: .75rem;
+            }
+
+            .score-board {
+                margin: 0;
+            }
+
+            .card-body {
+                padding: 1rem;
+            }
+
+            .team-name {
+                font-size: .95rem;
+            }
+
+            .score-controls .btn {
+                min-height: 52px;
+            }
+        }
+    </style>
+    {% include '_pwa_head.html' %}
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">🔊 ĐỌC ĐIỂM GIAO LƯU</span>
+            <a href="{{ '/vdv-dashboard' if user.get('role') == 'vdv' else '/' }}" class="btn btn-sm btn-outline-light">← Quay lại</a>
+        </div>
+    </nav>
+
+    <main class="container pb-4">
+        <div class="score-board">
+            <div class="card shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="teamAName">Đội A</label>
+                            <input id="teamAName" class="form-control" type="text" maxlength="40" value="Đội A">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold" for="teamBName">Đội B</label>
+                            <input id="teamBName" class="form-control" type="text" maxlength="40" value="Đội B">
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label fw-semibold" for="touchScore">Chạm</label>
+                            <input id="touchScore" class="form-control number-input" type="number" min="1" max="99" value="11">
+                        </div>
+                        <div class="col-6 col-md-2">
+                            <label class="form-label fw-semibold" for="maxScore">Max</label>
+                            <input id="maxScore" class="form-control number-input" type="number" min="1" max="99" value="15">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-6">
+                    <section id="teamACard" class="team-card p-3 h-100" data-team="A">
+                        <div id="teamALabel" class="team-name">Đội A</div>
+                        <input id="scoreA" class="score-value" type="text" inputmode="numeric" value="0" readonly>
+                        <div class="score-controls mt-3">
+                            <button id="minusA" class="btn btn-outline-danger" type="button" data-team="A" data-delta="-1">−</button>
+                            <button id="plusA" class="btn btn-success" type="button" data-team="A" data-delta="1">+</button>
+                        </div>
+                    </section>
+                </div>
+                <div class="col-6">
+                    <section id="teamBCard" class="team-card p-3 h-100" data-team="B">
+                        <div id="teamBLabel" class="team-name">Đội B</div>
+                        <input id="scoreB" class="score-value" type="text" inputmode="numeric" value="0" readonly>
+                        <div class="score-controls mt-3">
+                            <button id="minusB" class="btn btn-outline-danger" type="button" data-team="B" data-delta="-1">−</button>
+                            <button id="plusB" class="btn btn-success" type="button" data-team="B" data-delta="1">+</button>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap justify-content-center gap-2 mb-3">
+                        <button id="orderOne" class="btn btn-outline-primary order-button" type="button" data-order="1">Tay 1</button>
+                        <button id="orderTwo" class="btn btn-outline-primary order-button" type="button" data-order="2">Tay 2</button>
+                    </div>
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        <button id="readScore" class="btn btn-primary" type="button">🔊 Đọc lại</button>
+                        <button id="resetScore" class="btn btn-outline-danger" type="button">Đặt lại</button>
+                    </div>
+                    <div id="statusLine" class="status-line text-center text-muted mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const cacheKey = 'pickleballFriendlyScore';
+        const defaultState = {
+            teamAName: 'Đội A',
+            teamBName: 'Đội B',
+            scoreA: 0,
+            scoreB: 0,
+            servingTeam: 'A',
+            order: 2,
+            touchScore: 11,
+            maxScore: 15
+        };
+
+        let state = loadState();
+        let voices = [];
+        let speakTimer = null;
+
+        function loadState() {
+            try {
+                const cached = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+                return { ...defaultState, ...cached };
+            } catch (error) {
+                return { ...defaultState };
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem(cacheKey, JSON.stringify(state));
+        }
+
+        function normalizeNumber(value, fallback) {
+            const number = parseInt(value, 10);
+            return Number.isFinite(number) ? number : fallback;
+        }
+
+        function clampScoreRules() {
+            state.touchScore = Math.max(1, normalizeNumber(state.touchScore, 11));
+            state.maxScore = Math.max(state.touchScore, normalizeNumber(state.maxScore, 15));
+            state.scoreA = Math.min(Math.max(0, normalizeNumber(state.scoreA, 0)), state.maxScore);
+            state.scoreB = Math.min(Math.max(0, normalizeNumber(state.scoreB, 0)), state.maxScore);
+            state.order = state.order === 1 ? 1 : 2;
+            state.servingTeam = state.servingTeam === 'B' ? 'B' : 'A';
+        }
+
+        function isLeadingFinished(team) {
+            const ownScore = team === 'A' ? state.scoreA : state.scoreB;
+            const otherScore = team === 'A' ? state.scoreB : state.scoreA;
+            return ownScore >= state.touchScore && ownScore > otherScore && ownScore - otherScore >= 2;
+        }
+
+        function canIncrease(team) {
+            const ownScore = team === 'A' ? state.scoreA : state.scoreB;
+            if (team !== state.servingTeam || ownScore >= state.maxScore) {
+                return false;
+            }
+            return !isLeadingFinished(team);
+        }
+
+        function canDecrease(team) {
+            const ownScore = team === 'A' ? state.scoreA : state.scoreB;
+            return team === state.servingTeam && ownScore > 0;
+        }
+
+        function render() {
+            clampScoreRules();
+            document.getElementById('teamAName').value = state.teamAName;
+            document.getElementById('teamBName').value = state.teamBName;
+            document.getElementById('teamALabel').textContent = state.teamAName || 'Đội A';
+            document.getElementById('teamBLabel').textContent = state.teamBName || 'Đội B';
+            document.getElementById('scoreA').value = state.scoreA;
+            document.getElementById('scoreB').value = state.scoreB;
+            document.getElementById('touchScore').value = state.touchScore;
+            document.getElementById('maxScore').value = state.maxScore;
+
+            document.getElementById('teamACard').classList.toggle('serving', state.servingTeam === 'A');
+            document.getElementById('teamBCard').classList.toggle('serving', state.servingTeam === 'B');
+            document.getElementById('orderOne').classList.toggle('btn-primary', state.order === 1);
+            document.getElementById('orderOne').classList.toggle('btn-outline-primary', state.order !== 1);
+            document.getElementById('orderTwo').classList.toggle('btn-primary', state.order === 2);
+            document.getElementById('orderTwo').classList.toggle('btn-outline-primary', state.order !== 2);
+
+            document.getElementById('plusA').disabled = !canIncrease('A');
+            document.getElementById('minusA').disabled = !canDecrease('A');
+            document.getElementById('plusB').disabled = !canIncrease('B');
+            document.getElementById('minusB').disabled = !canDecrease('B');
+            saveState();
+        }
+
+        function readVietnameseNumber(number) {
+            const words = {
+                0: 'không',
+                1: 'một',
+                2: 'hai',
+                3: 'ba',
+                4: 'bốn',
+                5: 'năm',
+                6: 'sáu',
+                7: 'bảy',
+                8: 'tám',
+                9: 'chín',
+                10: 'mười',
+                11: 'mười một',
+                12: 'mười hai',
+                13: 'mười ba',
+                14: 'mười bốn',
+                15: 'mười lăm',
+                16: 'mười sáu',
+                17: 'mười bảy',
+                18: 'mười tám',
+                19: 'mười chín'
+            };
+            if (words[number]) {
+                return words[number];
+            }
+            if (number < 100) {
+                const tens = Math.floor(number / 10);
+                const unit = number % 10;
+                if (unit === 0) {
+                    return `${words[tens]} mươi`;
+                }
+                if (unit === 1) {
+                    return `${words[tens]} mươi mốt`;
+                }
+                if (unit === 5) {
+                    return `${words[tens]} mươi lăm`;
+                }
+                return `${words[tens]} mươi ${words[unit]}`;
+            }
+            return String(number);
+        }
+
+        function getScoreText() {
+            const servingScore = state.servingTeam === 'A' ? state.scoreA : state.scoreB;
+            const otherScore = state.servingTeam === 'A' ? state.scoreB : state.scoreA;
+            const winner = getWinnerTeam();
+            const scoreText = `${readVietnameseNumber(servingScore)} ${readVietnameseNumber(otherScore)} ${readVietnameseNumber(state.order)}`;
+            if (!winner) {
+                return scoreText;
+            }
+            const winnerName = winner === 'A' ? state.teamAName : state.teamBName;
+            return `${scoreText}. Chúc mừng đội ${winnerName} chiến thắng`;
+        }
+
+        function getWinnerTeam() {
+            const diff = Math.abs(state.scoreA - state.scoreB);
+            const high = Math.max(state.scoreA, state.scoreB);
+            const finished = high >= state.maxScore || (high >= state.touchScore && diff >= 2);
+            if (!finished || state.scoreA === state.scoreB) {
+                return null;
+            }
+            return state.scoreA > state.scoreB ? 'A' : 'B';
+        }
+
+        function setStatus(message) {
+            document.getElementById('statusLine').textContent = message || '';
+        }
+
+        function refreshVoices() {
+            voices = window.speechSynthesis ? window.speechSynthesis.getVoices() : [];
+        }
+
+        function speakScore() {
+            if (!('speechSynthesis' in window)) {
+                setStatus('Trình duyệt này không hỗ trợ đọc điểm.');
+                return;
+            }
+            const scoreText = getScoreText();
+            const utterance = new SpeechSynthesisUtterance(scoreText);
+            refreshVoices();
+            const viVoice = voices.find(voice => voice.lang && voice.lang.toLowerCase().startsWith('vi'));
+            if (viVoice) {
+                utterance.voice = viVoice;
+            }
+            utterance.lang = 'vi-VN';
+            utterance.rate = 1.05;
+            utterance.pitch = 1;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+            setStatus(scoreText);
+        }
+
+        function scheduleSpeakScore() {
+            window.clearTimeout(speakTimer);
+            speakTimer = window.setTimeout(speakScore, 120);
+        }
+
+        function changeScore(team, delta) {
+            if (delta > 0 && !canIncrease(team)) {
+                setStatus(team === state.servingTeam ? 'Điểm đã chạm luật hiện tại.' : 'Chỉ đội đang sáng được tăng điểm.');
+                return;
+            }
+            if (delta < 0 && !canDecrease(team)) {
+                setStatus(team === state.servingTeam ? 'Điểm không thể nhỏ hơn 0.' : 'Chỉ đội đang sáng được giảm điểm.');
+                return;
+            }
+            if (team === 'A') {
+                state.scoreA += delta;
+            } else {
+                state.scoreB += delta;
+            }
+            render();
+            scheduleSpeakScore();
+        }
+
+        function changeServingTeam(team) {
+            if (team === state.servingTeam) {
+                return;
+            }
+            if (state.order !== 2) {
+                setStatus('Chỉ đổi đội giao khi đang ở tay 2.');
+                return;
+            }
+            state.servingTeam = team;
+            state.order = 1;
+            render();
+            scheduleSpeakScore();
+        }
+
+        document.querySelectorAll('.team-card').forEach(card => {
+            card.addEventListener('click', () => changeServingTeam(card.dataset.team));
+        });
+
+        document.querySelectorAll('[data-delta]').forEach(button => {
+            button.addEventListener('click', event => {
+                event.stopPropagation();
+                changeScore(button.dataset.team, parseInt(button.dataset.delta, 10));
+            });
+        });
+
+        document.querySelectorAll('[data-order]').forEach(button => {
+            button.addEventListener('click', () => {
+                state.order = parseInt(button.dataset.order, 10);
+                render();
+                scheduleSpeakScore();
+            });
+        });
+
+        document.getElementById('readScore').addEventListener('click', speakScore);
+        document.getElementById('resetScore').addEventListener('click', () => {
+            state = {
+                ...state,
+                scoreA: 0,
+                scoreB: 0,
+                servingTeam: 'A',
+                order: 2
+            };
+            render();
+            scheduleSpeakScore();
+        });
+
+        document.getElementById('teamAName').addEventListener('input', event => {
+            state.teamAName = event.target.value.trim() || 'Đội A';
+            render();
+        });
+        document.getElementById('teamBName').addEventListener('input', event => {
+            state.teamBName = event.target.value.trim() || 'Đội B';
+            render();
+        });
+        document.getElementById('touchScore').addEventListener('change', event => {
+            state.touchScore = normalizeNumber(event.target.value, 11);
+            render();
+        });
+        document.getElementById('maxScore').addEventListener('change', event => {
+            state.maxScore = normalizeNumber(event.target.value, 15);
+            render();
+        });
+
+        if ('speechSynthesis' in window) {
+            refreshVoices();
+            window.speechSynthesis.onvoiceschanged = refreshVoices;
+        }
+
+        render();
+    </script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>
+
+

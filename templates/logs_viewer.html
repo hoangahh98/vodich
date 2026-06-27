@@ -1,0 +1,215 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Logs Viewer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .log-error { background-color: #ffebee; }
+        .log-warning { background-color: #fff3e0; }
+        .log-success { background-color: #e8f5e9; }
+        .log-info { background-color: #e3f2fd; }
+        .log-request { background-color: #f3e5f5; }
+        .badge-error { background-color: #d32f2f; }
+        .badge-warning { background-color: #f57c00; }
+        .badge-success { background-color: #388e3c; }
+        .badge-info { background-color: #1976d2; }
+        .badge-request { background-color: #7b1fa2; }
+    </style>
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">📋 System Logs</span>
+            <div>
+                <a href="/" class="btn btn-sm btn-outline-light">⬅️ Quay lại</a>
+                <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">🚪 Đăng xuất</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- STATS CARD -->
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card bg-danger text-white">
+                    <div class="card-body text-center">
+                        <h5>🔴 Errors Today</h5>
+                        <h2 id="errors-count">{{ errors_count }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-primary text-white">
+                    <div class="card-body text-center">
+                        <h5>📊 Total Logs</h5>
+                        <h2>{{ logs|length }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-info text-white">
+                    <div class="card-body text-center">
+                        <h5>⏰ Last 50 Logs</h5>
+                        <p class="text-muted small">Showing most recent</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FILTERS -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-secondary text-white fw-bold">🔍 FILTERS</div>
+            <div class="card-body">
+                <form method="GET" class="row g-2">
+                    <div class="col-md-3">
+                        <select name="level" class="form-select" onchange="this.form.submit()">
+                            <option value="">All Levels</option>
+                            <option value="ERROR" {% if filter_level == 'ERROR' %}selected{% endif %}>❌ ERROR</option>
+                            <option value="WARNING" {% if filter_level == 'WARNING' %}selected{% endif %}>⚠️ WARNING</option>
+                            <option value="SUCCESS" {% if filter_level == 'SUCCESS' %}selected{% endif %}>✅ SUCCESS</option>
+                            <option value="REQUEST" {% if filter_level == 'REQUEST' %}selected{% endif %}>📍 REQUEST</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <a href="/logs" class="btn btn-outline-secondary w-100">🔄 Clear Filters</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- LOGS TABLE -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white fw-bold">📝 LOGS</div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Time</th>
+                                <th>Level</th>
+                                <th>Message</th>
+                                <th>User</th>
+                                <th>Route</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% if logs %}
+                            {% for log in logs %}
+                            <tr class="log-{{ log[1]|lower }}">
+                                <td>
+                                    <small>{{ log[7].strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                                </td>
+                                <td>
+                                    {% if log[1] == 'ERROR' %}
+                                        <span class="badge bg-danger">❌ ERROR</span>
+                                    {% elif log[1] == 'WARNING' %}
+                                        <span class="badge bg-warning">⚠️ WARNING</span>
+                                    {% elif log[1] == 'SUCCESS' %}
+                                        <span class="badge bg-success">✅ SUCCESS</span>
+                                    {% elif log[1] == 'REQUEST' %}
+                                        <span class="badge bg-info">📍 REQUEST</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">ℹ️ INFO</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <strong>{{ log[2] }}</strong>
+                                </td>
+                                <td>
+                                    {% if log[3] %}
+                                        <small><code>{{ log[3] }}</code></small>
+                                    {% else %}
+                                        <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log[4] %}
+                                        <small><code>{{ log[4] }}</code></small>
+                                    {% else %}
+                                        <small class="text-muted">-</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log[3] %}
+                                        <a href="/logs?user_email={{ log[3] }}" class="btn btn-xs btn-outline-primary btn-sm">See User</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">📭 No logs found</td>
+                            </tr>
+                        {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATS CHART -->
+        {% if stats %}
+        <div class="card shadow-sm mt-4">
+            <div class="card-header bg-dark text-white fw-bold">📊 7-DAY STATISTICS</div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date</th>
+                            <th>ERROR</th>
+                            <th>WARNING</th>
+                            <th>SUCCESS</th>
+                            <th>REQUEST</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for stat in stats %}
+                        <tr>
+                            <td><strong>{{ stat[2] }}</strong></td>
+                            <td>
+                                {% if stat[0] == 'ERROR' %}
+                                    {{ stat[1] }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if stat[0] == 'WARNING' %}
+                                    {{ stat[1] }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if stat[0] == 'SUCCESS' %}
+                                    {{ stat[1] }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if stat[0] == 'REQUEST' %}
+                                    {{ stat[1] }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>
+

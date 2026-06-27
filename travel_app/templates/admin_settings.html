@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-shell">
+    <h1 class="h3 mb-3 text-success fw-bold">⚙️ Quản lý admin</h1>
+    <section class="card mb-4">
+        <div class="card-hdr green">Thêm admin</div>
+        <div class="card-body">
+            <form action="/admin-settings/them" method="POST" class="row g-2 align-items-end">
+                <div class="col-md-4"><label class="form-label">User admin</label><input class="form-control" type="text" name="email" required></div>
+                <div class="col-md-3"><label class="form-label">Tên hiển thị</label><input class="form-control" name="display_name" value="Admin"></div>
+                <div class="col-md-3"><label class="form-label">Mật khẩu</label><input class="form-control" name="password" type="password" required></div>
+                <div class="col-md-2 d-grid"><button class="btn btn-success">Thêm</button></div>
+            </form>
+        </div>
+    </section>
+    <section class="card">
+        <div class="card-hdr blue">Danh sách admin</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                    <thead class="table-light"><tr><th>User admin</th><th>Tên hiển thị</th><th>Mật khẩu mới</th><th></th></tr></thead>
+                    <tbody>
+                        {% for admin in admins %}
+                        <tr>
+                            <form id="admin-form-{{ admin[0] }}" action="/admin-settings/{{ admin[0] }}/sua" method="POST"></form>
+                            <td><input form="admin-form-{{ admin[0] }}" class="form-control" type="text" name="email" value="{{ admin[1] }}" {% if admin[1] == super_admin_email %}readonly{% endif %}></td>
+                            <td><input form="admin-form-{{ admin[0] }}" class="form-control" name="display_name" value="{{ admin[2] }}"></td>
+                            <td><input form="admin-form-{{ admin[0] }}" class="form-control" type="password" name="password" placeholder="Bỏ trống nếu không đổi"></td>
+                            <td class="text-end">
+                                <button form="admin-form-{{ admin[0] }}" class="btn btn-sm btn-primary">Lưu</button>
+                                {% if admin[1] != super_admin_email %}
+                                <form action="/admin-settings/{{ admin[0] }}/xoa" method="POST" class="d-inline" onsubmit="return confirm('Xóa admin này?')">
+                                    <button class="btn btn-sm btn-outline-danger">Xóa</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}

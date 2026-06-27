@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title or 'Quản lý thu chi du lịch' }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+    <meta name="theme-color" content="#198754">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Du Hý">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/apple-touch-icon.png') }}">
+</head>
+<body>
+    <nav class="navbar navbar-dark app-navbar mb-0 py-2">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand fw-bold text-white" href="{{ url_for('index') }}">🏖️ Thu chi du lịch</a>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+                {% if session.get('user') %}
+                    {% if session.user.role == 'admin' %}
+                        {% if request.path.startswith('/chuyen-di/') or request.path == '/admin-settings' or request.path == '/thanh-vien' %}
+                            <a class="btn btn-sm btn-outline-light" href="{{ url_for('trips') }}">Trang chủ</a>
+                        {% endif %}
+                        {% if request.path != '/thanh-vien' %}
+                            <a class="btn btn-sm btn-outline-light" href="{{ url_for('people_list') }}">Thành viên</a>
+                        {% endif %}
+                        {% if session.user.email == super_admin_email and request.path != '/admin-settings' %}
+                            <a class="btn btn-sm btn-outline-light" href="{{ url_for('admin_settings') }}">Quản lý admin</a>
+                        {% endif %}
+                    {% else %}
+                        {% if request.path != '/nguoi-xem' %}
+                            <a class="btn btn-sm btn-outline-light" href="{{ url_for('viewer_dashboard') }}">Trang chủ</a>
+                        {% endif %}
+                    {% endif %}
+                    <span class="navbar-text d-none d-md-inline">{{ session.user.display_name }} · {{ 'Admin' if session.user.role == 'admin' else 'Người xem' }}</span>
+                    <a class="btn btn-sm btn-outline-danger" href="{{ url_for('logout') }}">Đăng xuất</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+    <main class="container-fluid px-4 py-3">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show mx-auto page-alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='interaction-feedback.js') }}"></script>
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('{{ url_for('service_worker') }}').catch(function(error) {
+                console.warn('Service worker registration failed:', error);
+            });
+        });
+    }
+    </script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,64 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Thêm Người Chơi</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <div class="container mt-5" style="max-width: 600px;">
+        <div class="card shadow">
+            <div class="card-header bg-success text-white fw-bold">➕ Thêm Người Chơi Mới</div>
+            <div class="card-body">
+                <form action="/giai-dau/{{ giai_id }}/them-nguoi-choi" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">👤 Tên người chơi / Tên đội <span class="text-danger">*</span></label>
+                        <input type="text" name="ten_nguoi_choi" class="form-control" placeholder="VD: Nguyễn Văn A" required>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">⭐ Trình độ <span class="text-danger">*</span></label>
+                            <select name="trinh_do" class="form-select" required>
+                                <option value="">-- Chọn trình độ --</option>
+                                <option value="A">Trình A (Mới bắt đầu)</option>
+                                <option value="B">Trình B (Sơ cấp)</option>
+                                <option value="C">Trình C (Trung cấp)</option>
+                                <option value="D">Trình D (Cao cấp)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">💰 Số tiền nộp (VND):</label>
+                            <input type="number" name="so_tien_da_dong" class="form-control" value="0" min="0">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">📧 Email (để nhận thông báo):</label>
+                        <input type="email" name="email" class="form-control" placeholder="vdv@example.com">
+                        <small class="text-muted">Email để gửi thông báo & xem lịch. Để trống nếu chưa có.</small>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">📝 Ghi chú:</label>
+                        <textarea name="ghi_chu" class="form-control" rows="2" placeholder="VD: Đối tác của Nguyễn Văn B"></textarea>
+                    </div>
+
+                    <div class="alert alert-info mb-3" role="alert">
+                        <small>💡 <strong>Lưu ý:</strong> VĐV sẽ đăng nhập bằng email này với mật khẩu mặc định <code>123456789</code></small>
+                    </div>
+
+                    <div class="d-flex justify-content-between gap-2">
+                        <a href="/giai-dau/{{ giai_id }}" class="btn btn-secondary">❌ Hủy</a>
+                        <button type="submit" class="btn btn-success">✅ Thêm Người Chơi</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>
+

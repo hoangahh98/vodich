@@ -1,12 +1,14 @@
 {
-  "name": "Du Hý - Thu chi du lịch",
-  "short_name": "Du Hý",
-  "description": "Quản lý thu chi chuyến đi du lịch",
+  "name": "Pickleball Tournament Manager",
+  "short_name": "Pickleball",
+  "description": "Quản lý giải đấu pickleball, vận động viên, lịch thi đấu và điểm số.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f0f2f5",
-  "theme_color": "#198754",
+  "orientation": "portrait",
+  "background_color": "#f5f7fa",
+  "theme_color": "#0d6efd",
+  "categories": ["sports", "productivity"],
   "icons": [
     {
       "src": "/static/icons/icon-192.png",
@@ -18,7 +20,13 @@
       "src": "/static/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/static/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

@@ -1,165 +1,339 @@
+import os
+
 from auth import AuthService
-from config import DEFAULT_ADMIN_PASSWORD, SUPER_ADMIN_EMAIL
+from config import SUPER_ADMIN_EMAIL
 from db import db_cursor
 
 
-def init_schema():
+LOG_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS app_logs (
+    id SERIAL PRIMARY KEY,
+    log_level VARCHAR(20),
+    message TEXT,
+    context TEXT,
+    user_email VARCHAR(255),
+    route VARCHAR(255),
+    method VARCHAR(20),
+    status_code INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE app_logs
+ADD COLUMN IF NOT EXISTS exception_type VARCHAR(255),
+ADD COLUMN IF NOT EXISTS request_path TEXT,
+ADD COLUMN IF NOT EXISTS request_method VARCHAR(20),
+ADD COLUMN IF NOT EXISTS ip_address VARCHAR(100),
+ADD COLUMN IF NOT EXISTS user_agent TEXT,
+ADD COLUMN IF NOT EXISTS cf_ray VARCHAR(100);
+
+CREATE TABLE IF NOT EXISTS user_actions (
+    id SERIAL PRIMARY KEY,
+    user_email VARCHAR(255),
+    user_role VARCHAR(50),
+    action VARCHAR(255),
+    route VARCHAR(255),
+    endpoint VARCHAR(255),
+    method VARCHAR(20),
+    status_code INTEGER,
+    ip_address VARCHAR(100),
+    user_agent TEXT,
+    cf_ray VARCHAR(100),
+    details JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE user_actions
+ADD COLUMN IF NOT EXISTS cf_ray VARCHAR(100);
+"""
+
+
+APP_SCHEMA_SQL = """
+CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'admin',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS van_dong_vien (
+    id SERIAL PRIMARY KEY,
+    ten_vdv VARCHAR(255) NOT NULL,
+    trinh_do VARCHAR(10) DEFAULT 'C',
+    email VARCHAR(255) NOT NULL DEFAULT '',
+    ghi_chu TEXT DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS giai_dau (
+    id SERIAL PRIMARY KEY,
+    ten_giai_dau VARCHAR(255) NOT NULL,
+    so_luong_san INTEGER DEFAULT 1,
+    dia_diem VARCHAR(255) DEFAULT '',
+    chi_phi_san_bai NUMERIC(12, 2) DEFAULT 0,
+    chi_phi_nuoc_noi NUMERIC(12, 2) DEFAULT 0,
+    chi_phi_giai_thuong NUMERIC(12, 2) DEFAULT 0,
+    chi_phi_khac NUMERIC(12, 2) DEFAULT 0,
+    ty_le_giai_1 NUMERIC(5, 2) DEFAULT 50,
+    ty_le_giai_2 NUMERIC(5, 2) DEFAULT 30,
+    ty_le_giai_3 NUMERIC(5, 2) DEFAULT 20,
+    so_nguoi_du_kien INTEGER DEFAULT 0,
+    thoi_gian_bat_dau TIMESTAMP,
+    banner_image TEXT,
+    qr_image TEXT,
+    loai_dau VARCHAR(20) DEFAULT 'don',
+    ngay_tao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS dang_ky_giai (
+    id SERIAL PRIMARY KEY,
+    van_dong_vien_id INTEGER NOT NULL REFERENCES van_dong_vien(id) ON DELETE CASCADE,
+    giai_dau_id INTEGER NOT NULL REFERENCES giai_dau(id) ON DELETE CASCADE,
+    so_tien_da_dong NUMERIC(12, 2) DEFAULT 0,
+    trang_thai_dong_tien VARCHAR(50) DEFAULT 'Chưa đóng',
+    ghi_chu TEXT DEFAULT '',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (van_dong_vien_id, giai_dau_id)
+);
+
+CREATE TABLE IF NOT EXISTS tran_dau (
+    id SERIAL PRIMARY KEY,
+    giai_dau_id INTEGER NOT NULL REFERENCES giai_dau(id) ON DELETE CASCADE,
+    doi_a VARCHAR(255) NOT NULL,
+    doi_b VARCHAR(255) NOT NULL,
+    diem_doi_a INTEGER,
+    diem_doi_b INTEGER,
+    trang_thai VARCHAR(50) DEFAULT 'Chưa diễn ra',
+    san_so_may INTEGER DEFAULT 1,
+    vong_dau INTEGER DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+UPDATE users
+SET email = lower(split_part(email, '@', 1))
+WHERE role = 'admin'
+  AND position('@' in email) > 0;
+
+ALTER TABLE giai_dau
+ADD COLUMN IF NOT EXISTS diem_cham INTEGER DEFAULT 11,
+ADD COLUMN IF NOT EXISTS diem_toi_da INTEGER DEFAULT 15;
+
+ALTER TABLE giai_dau
+ADD COLUMN IF NOT EXISTS tien_giai_1 NUMERIC(12, 2),
+ADD COLUMN IF NOT EXISTS tien_giai_2 NUMERIC(12, 2),
+ADD COLUMN IF NOT EXISTS tien_giai_3 NUMERIC(12, 2);
+
+ALTER TABLE giai_dau
+ADD COLUMN IF NOT EXISTS owner_admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE giai_dau
+ADD COLUMN IF NOT EXISTS the_thuc VARCHAR(20) DEFAULT 'vong_tron',
+ADD COLUMN IF NOT EXISTS so_doi_moi_bang INTEGER DEFAULT 4,
+ADD COLUMN IF NOT EXISTS so_bang INTEGER DEFAULT 2,
+ADD COLUMN IF NOT EXISTS so_doi_vao_vong_trong INTEGER DEFAULT 2;
+
+ALTER TABLE giai_dau
+ALTER COLUMN so_doi_vao_vong_trong SET DEFAULT 2;
+
+UPDATE giai_dau
+SET owner_admin_id = COALESCE(
+    (SELECT id FROM users WHERE lower(email) = lower('admin') LIMIT 1),
+    (SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1)
+)
+WHERE owner_admin_id IS NULL;
+
+CREATE TABLE IF NOT EXISTS giai_dau_admin_quyen (
+    id SERIAL PRIMARY KEY,
+    giai_dau_id INTEGER NOT NULL REFERENCES giai_dau(id) ON DELETE CASCADE,
+    admin_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (giai_dau_id, admin_id)
+);
+
+ALTER TABLE tran_dau
+ADD COLUMN IF NOT EXISTS thu_tu_danh INTEGER DEFAULT 2;
+
+ALTER TABLE tran_dau
+ADD COLUMN IF NOT EXISTS doi_dang_giao VARCHAR(1) DEFAULT 'A';
+
+ALTER TABLE tran_dau
+ADD COLUMN IF NOT EXISTS giai_doan VARCHAR(20) DEFAULT 'vong_tron',
+ADD COLUMN IF NOT EXISTS bang_dau VARCHAR(20);
+
+DROP TABLE IF EXISTS tran_dau_edit_lock;
+
+CREATE INDEX IF NOT EXISTS idx_van_dong_vien_lower_email
+ON van_dong_vien (lower(email));
+
+CREATE INDEX IF NOT EXISTS idx_van_dong_vien_ten
+ON van_dong_vien (ten_vdv);
+
+CREATE INDEX IF NOT EXISTS idx_users_role_email
+ON users (role, lower(email));
+
+CREATE INDEX IF NOT EXISTS idx_giai_dau_id_desc
+ON giai_dau (id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_giai_dau_owner
+ON giai_dau (owner_admin_id);
+
+CREATE INDEX IF NOT EXISTS idx_giai_dau_admin_quyen_admin
+ON giai_dau_admin_quyen (admin_id, giai_dau_id);
+
+CREATE INDEX IF NOT EXISTS idx_dang_ky_giai_giai
+ON dang_ky_giai (giai_dau_id);
+
+CREATE INDEX IF NOT EXISTS idx_dang_ky_giai_vdv
+ON dang_ky_giai (van_dong_vien_id);
+
+CREATE INDEX IF NOT EXISTS idx_dang_ky_giai_giai_vdv
+ON dang_ky_giai (giai_dau_id, van_dong_vien_id);
+
+CREATE INDEX IF NOT EXISTS idx_tran_dau_giai_order
+ON tran_dau (giai_dau_id, vong_dau, san_so_may, id);
+
+CREATE INDEX IF NOT EXISTS idx_app_logs_level_created
+ON app_logs (log_level, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_app_logs_created
+ON app_logs (created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_user_actions_email_created
+ON user_actions (user_email, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS doi_bong (
+    id SERIAL PRIMARY KEY,
+    ten_doi VARCHAR(255) NOT NULL,
+    mo_ta TEXT,
+    owner_admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE doi_bong
+ADD COLUMN IF NOT EXISTS owner_admin_id INTEGER REFERENCES users(id) ON DELETE SET NULL;
+
+UPDATE doi_bong
+SET owner_admin_id = COALESCE(
+    (SELECT id FROM users WHERE lower(email) = lower('admin') LIMIT 1),
+    (SELECT id FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1)
+)
+WHERE owner_admin_id IS NULL;
+
+CREATE TABLE IF NOT EXISTS doi_bong_thanh_vien (
+    id SERIAL PRIMARY KEY,
+    doi_bong_id INTEGER NOT NULL REFERENCES doi_bong(id) ON DELETE CASCADE,
+    van_dong_vien_id INTEGER REFERENCES van_dong_vien(id) ON DELETE CASCADE,
+    ten_thanh_vien VARCHAR(255) NOT NULL,
+    trinh_do VARCHAR(10) DEFAULT 'C',
+    loai_thanh_vien VARCHAR(20) DEFAULT 'co_dinh',
+    ghi_chu TEXT,
+    active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE doi_bong_thanh_vien
+ADD COLUMN IF NOT EXISTS van_dong_vien_id INTEGER REFERENCES van_dong_vien(id) ON DELETE CASCADE;
+
+CREATE TABLE IF NOT EXISTS doi_bong_quy_thang (
+    id SERIAL PRIMARY KEY,
+    doi_bong_id INTEGER NOT NULL REFERENCES doi_bong(id) ON DELETE CASCADE,
+    thang DATE NOT NULL,
+    muc_phi_thang NUMERIC(12, 2) DEFAULT 0,
+    chi_phi_san_bai NUMERIC(12, 2) DEFAULT 0,
+    chi_phi_nuoc_noi NUMERIC(12, 2) DEFAULT 0,
+    chi_phi_khac NUMERIC(12, 2) DEFAULT 0,
+    tien_san_con_lai_thang_truoc NUMERIC(12, 2) DEFAULT 0,
+    ghi_chu TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (doi_bong_id, thang)
+);
+
+ALTER TABLE doi_bong_quy_thang
+ADD COLUMN IF NOT EXISTS tien_san_con_lai_thang_truoc NUMERIC(12, 2) DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS doi_bong_khoan_chi (
+    id SERIAL PRIMARY KEY,
+    doi_bong_id INTEGER NOT NULL REFERENCES doi_bong(id) ON DELETE CASCADE,
+    thang DATE NOT NULL,
+    ngay_chi DATE NOT NULL,
+    noi_dung VARCHAR(255) NOT NULL,
+    so_tien NUMERIC(12, 2) DEFAULT 0,
+    ghi_chu TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS doi_bong_admin_quyen (
+    id SERIAL PRIMARY KEY,
+    doi_bong_id INTEGER NOT NULL REFERENCES doi_bong(id) ON DELETE CASCADE,
+    admin_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (doi_bong_id, admin_id)
+);
+
+CREATE TABLE IF NOT EXISTS doi_bong_dong_phi (
+    id SERIAL PRIMARY KEY,
+    thanh_vien_id INTEGER NOT NULL REFERENCES doi_bong_thanh_vien(id) ON DELETE CASCADE,
+    thang DATE NOT NULL,
+    so_tien_da_dong NUMERIC(12, 2) DEFAULT 0,
+    trang_thai_dong_tien VARCHAR(50) DEFAULT 'Chưa đóng',
+    ghi_chu TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (thanh_vien_id, thang)
+);
+
+CREATE INDEX IF NOT EXISTS idx_doi_bong_ten
+ON doi_bong (ten_doi);
+
+CREATE INDEX IF NOT EXISTS idx_doi_bong_thanh_vien_doi
+ON doi_bong_thanh_vien (doi_bong_id, active, ten_thanh_vien);
+
+CREATE INDEX IF NOT EXISTS idx_doi_bong_thanh_vien_doi_vdv_active
+ON doi_bong_thanh_vien (doi_bong_id, van_dong_vien_id, active);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_doi_bong_thanh_vien_doi_vdv
+ON doi_bong_thanh_vien (doi_bong_id, van_dong_vien_id)
+WHERE active = TRUE AND van_dong_vien_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_doi_bong_quy_thang
+ON doi_bong_quy_thang (doi_bong_id, thang);
+
+CREATE INDEX IF NOT EXISTS idx_doi_bong_dong_phi_thang
+ON doi_bong_dong_phi (thang, thanh_vien_id);
+
+CREATE INDEX IF NOT EXISTS idx_doi_bong_owner
+ON doi_bong (owner_admin_id);
+
+CREATE INDEX IF NOT EXISTS idx_doi_bong_khoan_chi_thang
+ON doi_bong_khoan_chi (doi_bong_id, thang, ngay_chi);
+
+CREATE INDEX IF NOT EXISTS idx_doi_bong_admin_quyen_admin
+ON doi_bong_admin_quyen (admin_id, doi_bong_id);
+"""
+
+
+def ensure_log_schema():
     with db_cursor(commit=True) as cursor:
+        cursor.execute(LOG_SCHEMA_SQL)
+
+
+def ensure_app_schema():
+    with db_cursor(commit=True) as cursor:
+        cursor.execute(APP_SCHEMA_SQL)
         cursor.execute(
             """
-            CREATE TABLE IF NOT EXISTS travel_users (
-                id SERIAL PRIMARY KEY,
-                email VARCHAR(255) NOT NULL UNIQUE,
-                password_hash VARCHAR(255) NOT NULL,
-                role VARCHAR(20) NOT NULL CHECK (role IN ('admin', 'viewer')),
-                display_name VARCHAR(255) NOT NULL DEFAULT '',
-                active BOOLEAN NOT NULL DEFAULT TRUE,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS trips (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                description TEXT NOT NULL DEFAULT '',
-                owner_admin_id INTEGER REFERENCES travel_users(id) ON DELETE SET NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS trip_admin_permissions (
-                id SERIAL PRIMARY KEY,
-                trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
-                admin_id INTEGER NOT NULL REFERENCES travel_users(id) ON DELETE CASCADE,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE (trip_id, admin_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS travel_people (
-                id SERIAL PRIMARY KEY,
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) NOT NULL DEFAULT '',
-                user_id INTEGER REFERENCES travel_users(id) ON DELETE SET NULL,
-                owner_admin_id INTEGER REFERENCES travel_users(id) ON DELETE SET NULL,
-                active BOOLEAN NOT NULL DEFAULT TRUE,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS trip_members (
-                id SERIAL PRIMARY KEY,
-                trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
-                person_id INTEGER REFERENCES travel_people(id) ON DELETE SET NULL,
-                user_id INTEGER REFERENCES travel_users(id) ON DELETE SET NULL,
-                name VARCHAR(255) NOT NULL,
-                email VARCHAR(255) NOT NULL DEFAULT '',
-                active BOOLEAN NOT NULL DEFAULT TRUE,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS trip_collections (
-                id SERIAL PRIMARY KEY,
-                trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
-                member_id INTEGER NOT NULL REFERENCES trip_members(id) ON DELETE CASCADE,
-                amount NUMERIC(14, 0) NOT NULL DEFAULT 0,
-                note TEXT NOT NULL DEFAULT '',
-                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE (trip_id, member_id)
-            );
-
-            CREATE TABLE IF NOT EXISTS trip_expenses (
-                id SERIAL PRIMARY KEY,
-                trip_id INTEGER NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
-                spent_date DATE NOT NULL DEFAULT CURRENT_DATE,
-                title VARCHAR(255) NOT NULL,
-                amount NUMERIC(14, 0) NOT NULL CHECK (amount >= 0),
-                note TEXT NOT NULL DEFAULT '',
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS trip_expense_splits (
-                id SERIAL PRIMARY KEY,
-                expense_id INTEGER NOT NULL REFERENCES trip_expenses(id) ON DELETE CASCADE,
-                member_id INTEGER NOT NULL REFERENCES trip_members(id) ON DELETE CASCADE,
-                amount NUMERIC(14, 0) NOT NULL DEFAULT 0 CHECK (amount >= 0),
-                UNIQUE (expense_id, member_id)
-            );
-            """
-        )
-        cursor.execute("ALTER TABLE trip_members ADD COLUMN IF NOT EXISTS person_id INTEGER REFERENCES travel_people(id) ON DELETE SET NULL;")
-        cursor.execute(
-            """
-            INSERT INTO travel_people (name, email, user_id, owner_admin_id)
-            SELECT DISTINCT ON (lower(trim(tm.name)), lower(trim(tm.email)))
-                   tm.name, COALESCE(tm.email, ''), tm.user_id, t.owner_admin_id
-            FROM trip_members tm
-            INNER JOIN trips t ON tm.trip_id = t.id
-            WHERE tm.active = TRUE
-              AND tm.person_id IS NULL
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM travel_people p
-                  WHERE lower(trim(p.name)) = lower(trim(tm.name))
-                    AND lower(trim(p.email)) = lower(trim(COALESCE(tm.email, '')))
-                    AND p.active = TRUE
-              )
-            ORDER BY lower(trim(tm.name)), lower(trim(tm.email)), tm.id;
-            """
-        )
-        cursor.execute(
-            """
-            UPDATE trip_members tm
-            SET person_id = p.id
-            FROM travel_people p
-            WHERE tm.person_id IS NULL
-              AND lower(trim(p.name)) = lower(trim(tm.name))
-              AND lower(trim(p.email)) = lower(trim(COALESCE(tm.email, '')))
-              AND p.active = TRUE;
-            """
-        )
-        cursor.execute(
-            """
-            UPDATE trip_members tm
-            SET user_id = u.id
-            FROM travel_users u
-            WHERE tm.user_id IS NULL
-              AND tm.email <> ''
-              AND lower(tm.email) = lower(u.email)
-              AND u.role = 'viewer'
-              AND tm.active = TRUE;
-            """
-        )
-        cursor.execute(
-            """
-            UPDATE travel_people p
-            SET user_id = u.id
-            FROM travel_users u
-            WHERE p.user_id IS NULL
-              AND p.email <> ''
-              AND lower(p.email) = lower(u.email)
-              AND u.role = 'viewer'
-              AND p.active = TRUE;
-            """
-        )
-        cursor.execute(
-            """
-            UPDATE travel_users u
-            SET email = split_part(lower(u.email), '@', 1)
-            WHERE u.role = 'admin'
-              AND position('@' IN u.email) > 0
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM travel_users other
-                  WHERE other.id <> u.id
-                    AND lower(other.email) = split_part(lower(u.email), '@', 1)
-              );
-            """
-        )
-        cursor.execute(
-            """
-            INSERT INTO travel_users (email, password_hash, role, display_name)
-            VALUES (%s, %s, 'admin', 'Admin')
+            INSERT INTO users (email, password, role)
+            VALUES (%s, %s, 'admin')
             ON CONFLICT (email) DO NOTHING;
             """,
-            (SUPER_ADMIN_EMAIL, AuthService.hash_password(DEFAULT_ADMIN_PASSWORD)),
+            (SUPER_ADMIN_EMAIL, AuthService.hash_password(os.environ.get("DEFAULT_ADMIN_PASSWORD", "123456789"))),
         )
+
+
+def ensure_all_schema():
+    ensure_log_schema()
+    ensure_app_schema()

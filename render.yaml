@@ -1,6 +1,8 @@
 services:
   - type: web
-    name: travel-expense-manager
-    env: python
+    name: duhy
+    runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: gunicorn app:app
+    healthCheckPath: /healthz
+    autoDeploy: true

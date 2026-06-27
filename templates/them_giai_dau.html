@@ -1,0 +1,250 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tạo Giải</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">🏸 Tạo Giải Mới</span>
+            <a href="/giai-dau" class="btn btn-sm btn-outline-light">⬅️ Quay lại</a>
+        </div>
+    </nav>
+
+    <div class="container" style="max-width: 600px;">
+        <div class="card shadow">
+            <div class="card-body p-4">
+                {% if errors %}
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        {% for error in errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+                <form method="POST" action="/them-giai-dau">
+                    <!-- TÊN GIẢI -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>📝 Tên Giải <span class="text-danger">*</span></strong></label>
+                        <input type="text" name="ten_giai_dau" class="form-control" value="{{ form_data.get('ten_giai_dau', '') if form_data else '' }}" required>
+                    </div>
+
+                    <!-- ĐỊA ĐIỂM -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>📍 Địa Điểm</strong></label>
+                        <input type="text" name="dia_diem" class="form-control" value="{{ form_data.get('dia_diem', '') if form_data else '' }}">
+                    </div>
+
+                    <!-- THỜI GIAN -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>⏰ Thời Gian Bắt Đầu</strong></label>
+                        <input type="datetime-local" name="thoi_gian_bat_dau" class="form-control" value="{{ form_data.get('thoi_gian_bat_dau', '') if form_data else '' }}">
+                    </div>
+
+                    <!-- SỐ SÂN -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>🏟️ Số Sân <span class="text-danger">*</span></strong></label>
+                        <input type="number" name="so_luong_san" class="form-control" value="{{ form_data.get('so_luong_san', 1) if form_data else 1 }}" required>
+                    </div>
+
+                    <!-- HÌNH THỨC THI ĐẤU -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>🎮 Hình Thức Thi Đấu</strong></label>
+                        <div class="btn-group w-100" role="group">
+                            <input type="radio" class="btn-check" name="loai_dau" value="don" id="don"
+                                   {% if not form_data or form_data.get('loai_dau', 'don') == 'don' %}checked{% endif %}>
+                            <label class="btn btn-outline-primary" for="don">👤 Thi Đơn (1v1)</label>
+                            
+                            <input type="radio" class="btn-check" name="loai_dau" value="doi" id="doi"
+                                   {% if form_data and form_data.get('loai_dau') == 'doi' %}checked{% endif %}>
+                            <label class="btn btn-outline-primary" for="doi">👥 Thi Đôi (2v2)</label>
+                        </div>
+                    </div>
+
+                    <!-- SỐ NGƯỜI DỰ KIẾN -->
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <h6 class="mb-3"><strong>🧩 Thể Thức Thi Đấu</strong></h6>
+                            <div class="mb-3">
+                                <div class="btn-group w-100" role="group">
+                                    <input type="radio" class="btn-check" name="the_thuc" value="vong_tron" id="theThucVongTron"
+                                           {% if not form_data or form_data.get('the_thuc', 'vong_tron') == 'vong_tron' %}checked{% endif %}>
+                                    <label class="btn btn-outline-primary" for="theThucVongTron">Vòng tròn</label>
+                                    <input type="radio" class="btn-check" name="the_thuc" value="bang" id="theThucBang"
+                                           {% if form_data and form_data.get('the_thuc') == 'bang' %}checked{% endif %}>
+                                    <label class="btn btn-outline-primary" for="theThucBang">Đánh bảng + Knockout</label>
+                                </div>
+                            </div>
+                            {% set knockout_teams = form_data.get('so_doi_vao_vong_trong', 2) if form_data else 2 %}
+                            <input type="hidden" name="so_doi_vao_vong_trong" id="soDoiVaoVongTrong" value="{{ knockout_teams }}">
+                            <div id="knockoutConfig">
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Đội / bảng</label>
+                                    <input type="number" name="so_doi_moi_bang" class="form-control" min="2"
+                                           value="{{ form_data.get('so_doi_moi_bang', 4) if form_data else 4 }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Số bảng</label>
+                                    <input type="number" name="so_bang" class="form-control" min="1"
+                                           value="{{ form_data.get('so_bang', 2) if form_data else 2 }}">
+                                </div>
+                            </div>
+                            <div class="row g-2" id="knockoutStageOptions">
+                                <div class="col-md-4">
+                                    <div class="form-check border rounded bg-white p-3 h-100">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" name="knockout_chung_ket" value="1" id="knockoutChungKet" data-min-teams="4" {% if knockout_teams >= 2 %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold" for="knockoutChungKet">Chung kết</label>
+                                        <div class="small text-muted">Lấy 2 đội đầu bảng</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check border rounded bg-white p-3 h-100">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" name="knockout_ban_ket" value="1" id="knockoutBanKet" data-min-teams="8" {% if knockout_teams >= 4 %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold" for="knockoutBanKet">Bán kết</label>
+                                        <div class="small text-muted">Lấy 4 đội vào vòng trong</div>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check border rounded bg-white p-3 h-100">
+                                        <input class="form-check-input ms-0 me-2" type="checkbox" name="knockout_tu_ket" value="1" id="knockoutTuKet" data-min-teams="16" {% if knockout_teams >= 8 %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold" for="knockoutTuKet">Tứ kết</label>
+                                        <div class="small text-muted">Lấy 8 đội vào vòng trong</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="form-text">Hệ thống dùng cấu hình bảng ở trên, tự phân bổ phần dư và rải sân theo từng lượt đấu.</div>
+                            <div id="knockoutConstraintHint" class="form-text text-danger fw-semibold"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SỐ NGƯỜI DỰ KIẾN -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>👥 Số Người Dự Kiến <span class="text-danger">*</span></strong></label>
+                        <input type="number" name="so_nguoi_du_kien" class="form-control" value="{{ form_data.get('so_nguoi_du_kien', 10) if form_data else 10 }}" required>
+                    </div>
+
+                    <!-- CHI PHÍ -->
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <h6 class="mb-3"><strong>💰 Chi Phí</strong></h6>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <label class="form-label">Sân Bãi (đ)</label>
+                                    <input type="number" name="chi_phi_san_bai" class="form-control" value="0">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Ăn uống (đ)</label>
+                                    <input type="number" name="chi_phi_nuoc_noi" class="form-control" value="0">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Giải Thưởng (đ)</label>
+                                    <input type="number" name="chi_phi_giai_thuong" class="form-control" value="0">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Khác (đ)</label>
+                                    <input type="number" name="chi_phi_khac" class="form-control" value="0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- TỶ LỆ GIẢI -->
+                    <div class="card bg-light mb-3">
+                        <div class="card-body">
+                            <h6 class="mb-3"><strong>🏆 Tỷ Lệ Giải</strong></h6>
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label">Giải 1 (%)</label>
+                                    <input type="number" name="ty_le_giai_1" class="form-control" min="0" placeholder="0">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Giải 2 (%)</label>
+                                    <input type="number" name="ty_le_giai_2" class="form-control" min="0" placeholder="0">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Giải 3 (%)</label>
+                                    <input type="number" name="ty_le_giai_3" class="form-control" min="0" placeholder="0">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- BUTTONS -->
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary btn-lg">✅ Tạo Giải</button>
+                        <a href="/giai-dau" class="btn btn-outline-secondary">Hủy</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    (() => {
+        const finalBox = document.getElementById('knockoutChungKet');
+        const semiBox = document.getElementById('knockoutBanKet');
+        const quarterBox = document.getElementById('knockoutTuKet');
+        const hidden = document.getElementById('soDoiVaoVongTrong');
+        const knockoutConfig = document.getElementById('knockoutConfig');
+        const roundRobinRadio = document.getElementById('theThucVongTron');
+        const groupRadio = document.getElementById('theThucBang');
+        const playerCountInput = document.querySelector('input[name="so_nguoi_du_kien"]');
+        const singleRadio = document.querySelector('input[name="loai_dau"][value="don"]');
+        const doubleRadio = document.querySelector('input[name="loai_dau"][value="doi"]');
+        const constraintHint = document.getElementById('knockoutConstraintHint');
+        if (!finalBox || !semiBox || !quarterBox || !hidden) return;
+
+        function getEstimatedTeams() {
+            const expectedPlayers = Number.parseInt(playerCountInput?.value || '0', 10) || 0;
+            return doubleRadio?.checked ? Math.floor(expectedPlayers / 2) : expectedPlayers;
+        }
+
+        function syncKnockoutOptions() {
+            const isGroupFormat = !groupRadio || groupRadio.checked;
+            const estimatedTeams = getEstimatedTeams();
+            if (knockoutConfig) {
+                knockoutConfig.classList.toggle('d-none', !isGroupFormat);
+                knockoutConfig.querySelectorAll('input').forEach((input) => {
+                    input.disabled = !isGroupFormat;
+                });
+            }
+            hidden.disabled = false;
+            if (!isGroupFormat) {
+                hidden.value = '2';
+                return;
+            }
+            [finalBox, semiBox, quarterBox].forEach((box) => {
+                const enoughTeams = estimatedTeams >= (Number.parseInt(box.dataset.minTeams, 10) || 0);
+                box.disabled = !enoughTeams;
+                if (!enoughTeams) box.checked = false;
+            });
+            semiBox.disabled = semiBox.disabled || !finalBox.checked;
+            if (semiBox.disabled) semiBox.checked = false;
+            quarterBox.disabled = quarterBox.disabled || !semiBox.checked;
+            if (quarterBox.disabled) quarterBox.checked = false;
+            if (constraintHint) {
+                constraintHint.textContent = `Hiện có khoảng ${estimatedTeams} đội. Chung kết cần ít nhất 4 đội, bán kết cần ít nhất 8 đội, tứ kết cần ít nhất 16 đội.`;
+            }
+            hidden.value = quarterBox.checked ? '8' : (semiBox.checked ? '4' : (finalBox.checked ? '2' : '2'));
+        }
+
+        [finalBox, semiBox, quarterBox].forEach((box) => box.addEventListener('change', syncKnockoutOptions));
+        [roundRobinRadio, groupRadio].forEach((radio) => radio && radio.addEventListener('change', syncKnockoutOptions));
+        [singleRadio, doubleRadio, playerCountInput].forEach((input) => input && input.addEventListener('input', syncKnockoutOptions));
+        [singleRadio, doubleRadio, playerCountInput].forEach((input) => input && input.addEventListener('change', syncKnockoutOptions));
+        syncKnockoutOptions();
+    })();
+    </script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>
+

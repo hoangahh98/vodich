@@ -1,0 +1,356 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-shell wide">
+    <div class="bg-white p-3 rounded shadow-sm mb-3 border-start border-success border-5">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <h1 class="h4 text-success fw-bold mb-1">🌴 {{ trip[1] }}</h1>
+                <div class="small text-muted">
+                    {{ trip[2] or 'Chưa có ghi chú' }} &nbsp;|&nbsp;
+                    👥 {{ members|length }} thành viên &nbsp;|&nbsp;
+                    💰 Còn lại {{ summary.balance|vnd }}đ
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-md-3">
+            <div class="card h-100"><div class="card-body text-center">
+                <div class="small text-muted">Tổng thu</div>
+                <div class="fw-bold fs-4 text-primary">{{ summary.total_collected|vnd }}đ</div>
+                <div class="small text-muted">{{ members|length }} người</div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100"><div class="card-body text-center">
+                <div class="small text-muted">Tổng chi</div>
+                <div class="fw-bold fs-4 text-danger">{{ summary.total_spent|vnd }}đ</div>
+                <div class="small text-muted">{{ expenses|length }} khoản chi</div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100"><div class="card-body text-center">
+                <div class="small text-muted">Quỹ còn lại</div>
+                <div class="fw-bold fs-4 {{ 'text-success' if summary.balance >= 0 else 'text-danger' }}">{{ summary.balance|vnd }}đ</div>
+                <div class="small text-muted">= Tổng thu - Tổng chi</div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100"><div class="card-body text-center">
+                <div class="small text-muted">Bình quân đã chi</div>
+                <div class="fw-bold fs-4 text-secondary">{{ summary.average_spent|vnd }}đ</div>
+                <div class="small text-muted">Tính theo số người hiện có</div>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-hdr green">Thêm thành viên</div>
+                <div class="card-body">
+                    <form action="/chuyen-di/{{ trip[0] }}/thanh-vien" method="POST" class="vstack gap-2" id="addMemberForm">
+                        <div>
+                            <label class="form-label small fw-semibold">Chọn thành viên</label>
+                            <select class="form-select" name="person_id" required>
+                                <option value="">Chọn thành viên</option>
+                                {% for person in available_people %}
+                                <option value="{{ person[0] }}">{{ person[1] }}{% if person[2] %} - {{ person[2] }}{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% if not available_people %}
+                        <div class="alert alert-warning py-2 mb-0 small">
+                            Chưa còn thành viên nào để thêm. Vào menu <a href="/thanh-vien">Thành viên</a> để tạo trước.
+                        </div>
+                        {% endif %}
+                        <div class="alert alert-info py-2 mb-0 small">
+                            Khi thêm thành viên mới, hệ thống tự chia đều lại toàn bộ khoản chi cho mọi người.
+                        </div>
+                        <button class="btn btn-success fw-bold" data-loading-text="Đang thêm..." {% if not available_people %}disabled{% endif %}>Thêm vào chuyến đi</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-hdr blue">
+                    <span>Thành viên trong chuyến đi</span>
+                    <div class="d-flex align-items-center gap-2 flex-wrap">
+                        <span>{{ members|length }} người</span>
+                        <button type="button" class="btn btn-sm btn-light text-primary fw-bold" data-bs-toggle="modal" data-bs-target="#memberEmailModal" data-feedback="off">
+                            📧 Get Email
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light"><tr><th>Tên</th><th>Email xem</th><th>Đã thu</th><th>Phần chi</th><th>Chênh lệch</th><th></th></tr></thead>
+                            <tbody>
+                                {% for member in members %}
+                                <tr class="{% if summary.balances[member[0]] >= 0 %}sufficient-row{% else %}insufficient-row{% endif %}">
+                                    <td class="fw-semibold">{{ member[1] }}</td>
+                                    <td class="small text-muted">{{ member[2] or 'Chưa có' }}</td>
+                                    <td>{{ member[4]|vnd }}đ</td>
+                                    <td>{{ summary.member_spent[member[0]]|vnd }}đ</td>
+                                    <td class="{% if summary.balances[member[0]] < 0 %}text-danger{% else %}text-success{% endif %} fw-bold">{{ summary.balances[member[0]]|vnd }}đ</td>
+                                    <td class="text-end text-nowrap">
+                                        <button type="button" class="btn btn-sm btn-warning py-0" data-bs-toggle="modal" data-bs-target="#editMemberModal{{ member[0] }}" data-feedback="off">✏️</button>
+                                        <form class="d-inline" action="/chuyen-di/{{ trip[0] }}/thanh-vien/{{ member[0] }}/xoa" method="POST" onsubmit="return confirm('Xóa thành viên này khỏi chuyến đi?')">
+                                            <button class="btn btn-sm btn-danger py-0">🗑️</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not members %}
+                                <tr><td colspan="6" class="text-muted">Chưa có thành viên nào.</td></tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% for member in members %}
+    <div class="modal fade" id="editMemberModal{{ member[0] }}" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form action="/chuyen-di/{{ trip[0] }}/thanh-vien/{{ member[0] }}/sua" method="POST">
+                    <div class="modal-header bg-warning">
+                        <h5 class="modal-title fw-bold">Sửa thành viên</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Tên thành viên</label>
+                            <input class="form-control" name="name" value="{{ member[1] }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Email người xem</label>
+                            <input class="form-control" name="email" type="email" value="{{ member[2] }}">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Mật khẩu người xem</label>
+                            <input class="form-control" name="password" value="123456789">
+                        </div>
+                        <label class="form-check">
+                            <input class="form-check-input" type="checkbox" name="create_viewer" value="1" {% if member[3] %}checked{% endif %}>
+                            <span class="form-check-label">Tạo/cập nhật tài khoản người xem</span>
+                        </label>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-feedback="off">Hủy</button>
+                        <button class="btn btn-warning fw-bold" data-loading-text="Đang lưu...">Lưu thay đổi</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="modal fade" id="memberEmailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title fw-bold">📧 Email thành viên trong chuyến đi</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-2">Copy danh sách email bên dưới để gửi thông báo cho thành viên:</p>
+                    <textarea id="memberEmailList" class="form-control font-monospace" rows="4" readonly>{% for member in members %}{% if member[2] %}{{ member[2] }}{% if not loop.last %}; {% endif %}{% endif %}{% endfor %}</textarea>
+                    <div class="small text-muted mt-2">Thành viên chưa có email sẽ được bỏ qua.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-info text-white fw-bold" onclick="copyMemberEmails(this)" data-feedback="off">Copy tất cả</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-feedback="off">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+        <div class="col-lg-5">
+            <div class="card h-100">
+                <div class="card-hdr blue">Tiền thu từng người</div>
+                <div class="card-body">
+                    <form action="/chuyen-di/{{ trip[0] }}/thu" method="POST">
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle">
+                                <thead class="table-light"><tr><th>Thành viên</th><th>Số tiền thu</th><th>Ghi chú</th></tr></thead>
+                                <tbody>
+                                    {% for member in members %}
+                                    <tr>
+                                        <td class="fw-semibold">{{ member[1] }}</td>
+                                        <td><input class="form-control form-control-sm" name="collection_{{ member[0] }}" type="number" min="0" step="1" value="{{ member[4]|int }}"></td>
+                                        <td><input class="form-control form-control-sm" name="collection_note_{{ member[0] }}" value="{{ member[5] }}"></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <button class="btn btn-primary w-100" data-loading-text="Đang lưu...">Lưu tiền thu</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-7">
+            <div class="card h-100">
+                <div class="card-hdr green">
+                    <span>Thêm khoản chi</span>
+                    <span>{{ summary.total_spent|vnd }}đ</span>
+                </div>
+                <div class="card-body">
+                    <form action="/chuyen-di/{{ trip[0] }}/chi" method="POST" class="row g-2 align-items-end mb-2">
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold">Ngày chi</label>
+                            <input class="form-control" type="date" name="spent_date" value="{{ today }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label small fw-semibold">Nội dung</label>
+                            <input class="form-control" name="title" placeholder="Ăn uống, tiền phòng..." required>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold">Số tiền</label>
+                            <input class="form-control" type="number" min="0" step="1" name="amount" required>
+                        </div>
+                        <div class="col-md-2 d-grid">
+                            <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button>
+                        </div>
+                        <div class="col-12">
+                            <input class="form-control" name="note" placeholder="Ghi chú khoản chi">
+                        </div>
+                    </form>
+                    <div class="small text-muted">Khi thêm mới, hệ thống tự chia đều cho tất cả thành viên trong chuyến đi.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <section class="card mb-3">
+        <div class="card-body p-0">
+            <div class="table-responsive expense-table-wrap">
+                <table class="table table-bordered align-middle expense-table mb-0">
+                    <thead class="table-success">
+                        <tr>
+                            <th class="sticky-col">Chi tiêu</th>
+                            {% for member in members %}<th>{{ member[1] }}</th>{% endfor %}
+                            <th>Tổng chi</th>
+                            <th>{{ summary.total_spent|vnd }}đ</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for expense in expenses %}
+                        {% set row = expense.row %}
+                        <tr>
+                            <td class="sticky-col">
+                                <form id="expense-form-{{ row[0] }}" action="/chuyen-di/{{ trip[0] }}/chi/{{ row[0] }}" method="POST"></form>
+                                <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm mb-1 fw-semibold" name="title" value="{{ row[2] }}" required>
+                                <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm mb-1" type="date" name="spent_date" value="{{ row[1] }}">
+                                <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm" name="note" value="{{ row[4] }}" placeholder="Ghi chú">
+                            </td>
+                            {% for member in members %}
+                                <td><input form="expense-form-{{ row[0] }}" class="form-control form-control-sm split-input" type="number" min="0" step="1" name="split_{{ row[0] }}_{{ member[0] }}" value="{{ expense.splits.get(member[0], 0)|int }}"></td>
+                            {% endfor %}
+                            <td>
+                                <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm total-input fw-bold" type="number" min="0" step="1" name="amount" value="{{ row[3]|int }}">
+                                <div class="small split-status"></div>
+                            </td>
+                            <td class="expense-actions">
+                                <button form="expense-form-{{ row[0] }}" class="btn btn-sm btn-primary mb-1 w-100" data-loading-text="Đang lưu...">Lưu</button>
+                                <form action="/chuyen-di/{{ trip[0] }}/chi/{{ row[0] }}/xoa" method="POST" onsubmit="return confirm('Xóa khoản chi này?')">
+                                    <button class="btn btn-sm btn-outline-danger w-100">Xóa</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% if not expenses %}
+                        <tr><td colspan="{{ members|length + 3 }}" class="text-muted">Chưa có khoản chi nào.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
+
+    {% if can_manage_permissions %}
+    <section class="card">
+        <div class="card-hdr blue">Quyền admin xem chuyến đi</div>
+        <div class="card-body">
+            {% if owner_admin %}
+            <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-3 bg-light">
+                <span>
+                    {{ owner_admin[1] }}
+                    <span class="badge bg-success ms-2">Người tạo / Kế toán</span>
+                </span>
+                <span class="text-muted small">Luôn có quyền</span>
+            </div>
+            {% else %}
+            <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-3 bg-light">
+                <span class="text-muted">Chưa xác định người tạo / kế toán</span>
+                <span class="text-muted small">Dữ liệu cũ</span>
+            </div>
+            {% endif %}
+            <form action="/chuyen-di/{{ trip[0] }}/quyen" method="POST" class="d-flex gap-2 mb-3">
+                <select class="form-select" name="admin_id" required>
+                    <option value="">Chọn admin</option>
+                    {% for admin in admins %}
+                        <option value="{{ admin[0] }}">{{ admin[1] }}</option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-primary" data-loading-text="Đang thêm...">Thêm</button>
+            </form>
+            {% if not admins %}
+            <div class="text-muted small mb-3">Không còn admin nào có thể cấp thêm quyền.</div>
+            {% endif %}
+            {% for permission in permissions %}
+                <form action="/chuyen-di/{{ trip[0] }}/quyen/{{ permission[0] }}/xoa" method="POST" class="d-inline-block me-2 mb-2">
+                    <button class="btn btn-sm btn-outline-secondary">{{ permission[2] }} ×</button>
+                </form>
+            {% endfor %}
+            {% if not permissions %}
+            <div class="text-muted small">Chưa cấp quyền cho admin khác.</div>
+            {% endif %}
+        </div>
+    </section>
+    {% endif %}
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function updateSplitStatus(row) {
+    const splitInputs = row.querySelectorAll('.split-input');
+    const totalInput = row.querySelector('.total-input');
+    const status = row.querySelector('.split-status');
+    if (!totalInput || !status) return;
+    let sum = 0;
+    splitInputs.forEach(input => sum += Number(input.value || 0));
+    const total = Number(totalInput.value || 0);
+    const ok = sum === total;
+    status.textContent = ok ? 'Đủ: ' + sum.toLocaleString('vi-VN') : 'Lệch: ' + (sum - total).toLocaleString('vi-VN');
+    status.className = 'small split-status ' + (ok ? 'text-success' : 'text-danger');
+}
+document.querySelectorAll('.expense-table tbody tr').forEach(row => {
+    row.addEventListener('input', () => updateSplitStatus(row));
+    updateSplitStatus(row);
+});
+
+function copyMemberEmails(button) {
+    const textarea = document.getElementById('memberEmailList');
+    textarea.select();
+    textarea.setSelectionRange(0, textarea.value.length);
+    navigator.clipboard.writeText(textarea.value).then(function() {
+        const oldText = button.textContent;
+        button.textContent = 'Đã copy';
+        window.setTimeout(function() {
+            button.textContent = oldText;
+        }, 1400);
+    }).catch(function() {
+        document.execCommand('copy');
+    });
+}
+</script>
+{% endblock %}

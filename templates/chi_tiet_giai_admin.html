@@ -1,0 +1,1542 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ giai.ten_giai_dau }} – Admin</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f0f2f5; }
+
+        /* ── CARD & HEADER ──────────────────────────────── */
+        .card { border: none; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.09); }
+        .card-hdr { color: #fff; font-weight: 700; padding: 10px 16px; border-radius: 9px 9px 0 0; display: flex; align-items: center; justify-content: space-between; }
+        .card-hdr.blue   { background: #0d6efd; }
+        .card-hdr.green  { background: #198754; }
+        .card-hdr.dark   { background: #212529; }
+        .card-hdr.warn   { background: #ffc107; color: #212529; }
+        .card-hdr.red    { background: linear-gradient(90deg,#dc3545,#b02a37); }
+
+        /* ── LỊCH THI ĐẤU ───────────────────────────────── */
+        .tran-card { border-left: 4px solid #0d6efd; transition: box-shadow .15s; }
+        .tran-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+        .tran-card.da-xong { border-left-color: #198754; background: #f0fff4; }
+        .tran-card.knockout { border-left-color: #dc3545; background: #fff5f5; }
+        .vong-header { background: linear-gradient(90deg,#0d6efd22,transparent); border-left: 4px solid #0d6efd; }
+        .score-input { width: 58px; text-align: center; font-weight: 700; font-size: 1.05rem; }
+        .vs-badge { font-size: .72rem; background: #6c757d; color: #fff; padding: 2px 7px; border-radius: 4px; }
+        .team-name { font-weight: 700; font-size: .82rem; line-height: 1.3; word-break: break-word; }
+        .team-name span { display: block; }
+        .team-name span:first-child { color: #0d6efd; }
+        .team-name span:last-child  { color: #198754; }
+        .match-grid { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; }
+        .score-section { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+        .tran-card { cursor: pointer; }
+        .tran-card.saving { opacity: .72; }
+        .match-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+        .match-meta .badge { font-size: .68rem; letter-spacing: 0; }
+        .group-board { border: 1px solid #19875455; border-radius: 8px; overflow: hidden; background: #fff; }
+        .group-board-title { background: #d1f2dc; color: #0f5132; font-weight: 800; text-align: center; padding: 6px 8px; border-bottom: 1px solid #19875455; }
+        .group-team-row { padding: 6px 10px; border-bottom: 1px solid #e9ecef; font-size: .86rem; font-weight: 600; }
+        .group-team-row:last-child { border-bottom: 0; }
+        .score-pill { font-size: .92rem; min-width: 76px; }
+        .live-score-input { max-width: 110px; text-align: center; font-size: 2rem; font-weight: 800; }
+        .live-score-input::-webkit-outer-spin-button,
+        .live-score-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        .live-score-input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+        .score-step-btn { width: 42px; height: 42px; font-size: 1.3rem; font-weight: 800; line-height: 1; }
+        .server-order-btn { min-width: 54px; }
+        #scoreTeamA, #scoreTeamB { white-space: pre-line; }
+        .match-status { font-size: .68rem; letter-spacing: 0; }
+        .score-side { border: 2px solid transparent; border-radius: 8px; padding: 8px 4px; cursor: pointer; }
+        .score-side.serving-team { border-color: #ffc107; background: #fff8dc; }
+
+        /* ── BXH ──────────────────────────────────────────── */
+        .rank-1 { background: #fff8dc; }
+        .rank-2 { background: #f5f5f5; }
+        .rank-3 { background: #fff0e6; }
+        .hieu-so-pos { color: #198754; font-weight: 700; }
+        .hieu-so-neg { color: #dc3545; font-weight: 700; }
+
+        /* ── MISC ─────────────────────────────────────────── */
+        .progress { height: 8px; }
+        .left-stack { display: flex; flex-direction: column; gap: 1.5rem; }
+        .insufficient-row { background: #fff3cd; }
+        .sufficient-row { background: #d4edda; }
+        .fee-table { min-width: 680px; }
+        @media (max-width: 576px) {
+            .container-fluid { padding-left: .75rem !important; padding-right: .75rem !important; }
+            .card { border-radius: 8px; }
+            .card-body { padding: .75rem !important; }
+            .card-hdr { align-items: flex-start; gap: .5rem; flex-wrap: wrap; padding: 9px 12px; }
+            .left-stack { gap: 1rem; }
+            .table { font-size: .82rem; }
+            .score-step-btn { width: 38px; height: 38px; }
+            .live-score-input { max-width: 72px; font-size: 1.7rem; padding-left: .25rem; padding-right: .25rem; }
+            .score-side { padding: 6px 2px; }
+            #playerMultiSelect { min-height: 140px; }
+        }
+    </style>
+    {% include '_pwa_head.html' %}
+</head>
+<body>
+
+<nav class="navbar navbar-dark bg-dark mb-0 py-2">
+    <div class="container-fluid">
+        <span class="navbar-brand mb-0 h1 fs-6">🏸 {{ giai.ten_giai_dau }}</span>
+        <div class="d-flex gap-2">
+            <a href="/giai-dau" class="btn btn-sm btn-outline-light">⬅️ Giải đấu</a>
+            <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">🚪 Đăng xuất</a>
+        </div>
+    </div>
+</nav>
+
+<!-- ── HEADER GIẢI ───────────────────────────────────────── -->
+<div class="container-fluid px-4 mt-3">
+
+    {% if canh_bao %}
+    <div class="alert alert-warning alert-dismissible fade show py-2">
+        {{ canh_bao }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <div class="bg-white p-3 rounded shadow-sm mb-3 border-start border-success border-5">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+            <div>
+                <h5 class="text-success fw-bold mb-1">🏆 {{ giai.ten_giai_dau }}</h5>
+                <div class="small text-muted">
+                    📍 {{ giai.dia_diem or 'Chưa xác định' }} &nbsp;|&nbsp;
+                    ⏰ {{ giai.thoi_gian_bat_dau.strftime('%d/%m/%Y %H:%M') if giai.thoi_gian_bat_dau else 'Chưa xác định' }} &nbsp;|&nbsp;
+                    🏟️ {{ giai.so_luong_san }} sân &nbsp;|&nbsp;
+                    🎮 {% if giai.loai_dau == 'doi' %}👥 Thi Đôi{% else %}👤 Thi Đơn{% endif %}
+                </div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <!-- Nút Get Email -->
+                <button type="button" class="btn btn-info btn-sm text-white fw-bold"
+                        data-bs-toggle="modal" data-bs-target="#modalGetEmail">
+                    📧 Get Email
+                </button>
+                <!-- Nút Content Mẫu -->
+                <button type="button" class="btn btn-success btn-sm fw-bold"
+                        data-bs-toggle="modal" data-bs-target="#modalContent">
+                    ✉️ Content Mẫu
+                </button>
+                <a href="/sua-giai-dau/{{ giai.id }}" class="btn btn-warning btn-sm fw-bold">✏️ Sửa giải</a>
+            </div>
+        </div>
+    </div>
+
+    {% if is_owner %}
+    <div class="card mb-3">
+        <div class="card-hdr blue">Quyền admin xem giải</div>
+        <div class="card-body">
+            <form action="/giai-dau/{{ giai.id }}/phan-quyen/them" method="POST" class="d-flex gap-2 mb-3">
+                <select name="admin_id" class="form-select" required>
+                    <option value="">Chọn admin</option>
+                    {% for admin in admins %}
+                    <option value="{{ admin[0] }}">{{ admin[1] }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-primary">Thêm</button>
+            </form>
+            {% if not admins %}
+            <div class="text-muted small mb-3">Không còn admin nào có thể cấp thêm quyền.</div>
+            {% endif %}
+            {% if owner_admin %}
+            <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light">
+                <span>
+                    {{ owner_admin[1] }}
+                    <span class="badge bg-success ms-2">Người tạo / Chủ giải</span>
+                </span>
+                <span class="text-muted small">Luôn có quyền</span>
+            </div>
+            {% else %}
+            <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2 bg-light">
+                <span class="text-muted">Chưa xác định người tạo giải</span>
+                <span class="text-muted small">Dữ liệu cũ</span>
+            </div>
+            {% endif %}
+            {% if permissions %}
+            {% for permission in permissions %}
+            <div class="d-flex justify-content-between align-items-center border rounded p-2 mb-2">
+                <span>
+                    {{ permission[2] }}
+                    <span class="badge bg-primary ms-2">Được cấp thêm</span>
+                </span>
+                <a href="/giai-dau/{{ giai.id }}/phan-quyen/{{ permission[0] }}/xoa" class="btn btn-sm btn-outline-danger">Xóa</a>
+            </div>
+            {% endfor %}
+            {% else %}
+            <div class="text-muted small">Chưa cấp quyền cho admin khác.</div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ── MODAL: GET EMAIL ─────────────────────────────────── -->
+    <div class="modal fade" id="modalGetEmail" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title fw-bold">📧 Danh sách Email VĐV</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="small text-muted mb-2">Copy toàn bộ email bên dưới, paste vào ô Bcc/To trong Gmail/Outlook:</p>
+                    <textarea id="emailList" class="form-control font-monospace" rows="4" readonly>{% for reg in registrations %}{{ reg[4] }}{% if not loop.last %}; {% endif %}{% endfor %}</textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-info text-white fw-bold" onclick="copyText('emailList', this)">
+                        📋 Copy tất cả
+                    </button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── MODAL: CONTENT MẪU ──────────────────────────────── -->
+    <div class="modal fade" id="modalContent" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold">✉️ Content Mẫu Email</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted">TIÊU ĐỀ (Subject)</label>
+                        <div class="input-group">
+                            <input type="text" id="emailSubject" class="form-control"
+                                   value='Thư mời tham gia "{{ giai.ten_giai_dau }}"' readonly>
+                            <button class="btn btn-outline-success" onclick="copyText('emailSubject', this)">📋 Copy</button>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <label class="form-label fw-bold small text-muted">NỘI DUNG CHUNG</label>
+                        <div class="input-group">
+                            <textarea id="contentChung" class="form-control font-monospace" rows="9" readonly>Xin chào Quý Anh/Chị,
+
+Chào mừng Quý Anh/Chị đến với giải đấu "{{ giai.ten_giai_dau }}", sẽ được tổ chức tại địa chỉ {{ giai.dia_diem or 'chưa xác định' }} vào lúc {{ giai.thoi_gian_bat_dau.strftime('%H:%M ngày %d/%m/%Y') if giai.thoi_gian_bat_dau else 'chưa xác định' }}.
+
+Thông tin chi tiết giải đấu xem tại website:
+{{ base_url }}/giai-dau/{{ giai.id }}/vdv
+
+Ban tổ chức rất mong Quý Anh/Chị có mặt đầy đủ và đúng giờ để giải đấu được tổ chức thành công tốt đẹp.
+
+Xin trân trọng cảm ơn.
+BTC</textarea>
+                        </div>
+                        <button class="btn btn-sm btn-success mt-2" onclick="copyText('contentChung', this)">📋 Copy nội dung chung</button>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── HÀNG CHÍNH: 25%/25% trái  |  50% phải ─────────── -->
+    <div class="row g-3 mb-3">
+
+        <!-- CỘT TRÁI – chia 2 tầng (top: VĐV, bottom: Top Donate) -->
+        <div class="col-md-6">
+            <div class="left-stack">
+
+                <!-- ── TRÁI TRÊN: VĐV + THÊM VĐV ──────────────── -->
+                <div class="card">
+                    <div class="card-hdr blue">
+                        <span>👥 VẬN ĐỘNG VIÊN ({{ registrations|length }}/{{ giai.so_nguoi_du_kien }})</span>
+                    </div>
+                    <div class="card-body p-3">
+
+                        <!-- Thanh tiến trình -->
+                        {% set pct = (registrations|length / giai.so_nguoi_du_kien * 100) if giai.so_nguoi_du_kien else 0 %}
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <div class="flex-grow-1">
+                                <div class="progress">
+                                    <div class="progress-bar
+                                        {% if pct >= 100 %}bg-danger
+                                        {% elif pct >= 80 %}bg-warning
+                                        {% else %}bg-success{% endif %}"
+                                        style="width: {{ [pct, 100]|min }}%"></div>
+                                </div>
+                            </div>
+                            <span class="small text-muted">{{ registrations|length }}/{{ giai.so_nguoi_du_kien }}</span>
+                        </div>
+
+                        <!-- Bảng VĐV đã đăng ký -->
+                        {% if registrations %}
+                        <div class="table-responsive mb-2" style="max-height:200px;overflow-y:auto;">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light" style="position:sticky;top:0;">
+                                    <tr><th>Tên VĐV</th><th style="width:50px">Trình</th><th style="width:70px">Đóng phí</th><th style="width:40px"></th></tr>
+                                </thead>
+                                <tbody>
+                                {% for reg in registrations %}
+                                <tr class="{% if reg[5] and reg[5] >= giai.chi_phi_moi_nguoi %}sufficient-row{% else %}insufficient-row{% endif %}">
+                                    <td class="fw-semibold">{{ reg[2] }}</td>
+                                    <td><span class="badge bg-secondary">{{ reg[3] }}</span></td>
+                                    <td class="small text-muted">{{ "{:,.0f}".format(reg[5] or 0) }}đ</td>
+                                    <td>
+                                        <a href="/dang-ky-giai/{{ reg[0] }}/xoa"
+                                           class="btn btn-sm btn-outline-danger py-0 px-1"
+                                           onclick="return confirm('Xóa {{ reg[2] }} khỏi giải?')" style="font-size:11px;">🗑</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning py-2 mb-2 small">⚠️ Chưa có VĐV nào đăng ký.</div>
+                        {% endif %}
+
+                        <!-- Form thêm VĐV (hoặc thông báo đủ chỗ) -->
+                        {% set registered_ids = registrations|map(attribute=1)|list %}
+                        {% if giai.so_nguoi_du_kien and registrations|length >= giai.so_nguoi_du_kien %}
+                            <div class="alert alert-danger py-2 mb-0 small">
+                                🚫 <strong>Đã đủ người!</strong> Giải đạt {{ registrations|length }}/{{ giai.so_nguoi_du_kien }} VĐV.
+                                <a href="/sua-giai-dau/{{ giai.id }}" class="alert-link">Tăng giới hạn?</a>
+                            </div>
+                        {% else %}
+                            <form id="tournamentPlayerAddForm" action="/giai-dau/{{ giai.id }}/dang-ky" method="POST" class="mt-2">
+                                {% set slots_left = (giai.so_nguoi_du_kien - registrations|length) if giai.so_nguoi_du_kien else 9999 %}
+                                <label class="form-label small fw-semibold mb-1" for="tournamentPlayerList">Chọn VĐV <span class="text-danger">*</span></label>
+                                <div id="tournamentPlayerList" class="border rounded p-2 bg-white" style="max-height: 260px; overflow-y: auto;" data-slots-left="{{ slots_left }}">
+                                    {% for vdv in giai.all_vdv %}
+                                        {% if vdv[0] not in registered_ids %}
+                                        <label class="d-flex align-items-start gap-2 border-bottom py-2 mb-0">
+                                            <input type="checkbox" class="form-check-input mt-1 tournament-player-checkbox" name="van_dong_vien_ids" value="{{ vdv[0] }}">
+                                            <span>
+                                                <span class="fw-semibold">{{ vdv[1] }}</span>
+                                                <span class="text-muted small d-block">{{ vdv[2] }}{% if vdv[3] %} - {{ vdv[3] }}{% endif %}</span>
+                                            </span>
+                                        </label>
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                                <div class="form-text d-flex justify-content-between gap-2">
+                                    <span>Còn {{ slots_left }} chỗ trống. Chọn một hoặc nhiều VĐV rồi lưu một lần.</span>
+                                    <span id="playerSelectHint" class="fw-semibold text-primary text-nowrap">Đã chọn 0 mục</span>
+                                </div>
+                                <div class="d-flex gap-2 mt-2">
+                                    <button type="submit" class="btn btn-success btn-sm text-nowrap">💾 Lưu đã chọn</button>
+                                </div>
+                            </form>
+                            {% if not giai.all_vdv or (giai.all_vdv|length == registered_ids|length) %}
+                            <div class="small text-muted mt-1">
+                                Hết VĐV trong danh sách. Hãy thêm VĐV ở trang quản lý vận động viên.
+                            </div>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- ── TRÁI DƯỚI: QUỸ GIẢI THƯỞNG ──────────────── -->
+                <div class="card">
+                    <div class="card-hdr warn">🏆 QUỸ GIẢI THƯỞNG: {{ "{:,.0f}".format(giai.quy_giai_thuong_moi) }}đ</div>
+                    <div class="card-body p-3">
+                        <div class="row text-center g-0">
+                            <div class="col-4 border-end">
+                                <div class="small text-danger fw-bold mb-1">🥇 NHẤT</div>
+                                <div class="fw-bold">{{ "{:,.0f}".format(giai.giai_1) }}đ</div>
+                            </div>
+                            <div class="col-4 border-end">
+                                <div class="small fw-bold mb-1" style="color:#b8860b">🥈 NHÌ</div>
+                                <div class="fw-bold">{{ "{:,.0f}".format(giai.giai_2) }}đ</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="small text-secondary fw-bold mb-1">🥉 BA</div>
+                                <div class="fw-bold">{{ "{:,.0f}".format(giai.giai_3) }}đ</div>
+                            </div>
+                        </div>
+                        <hr class="my-2">
+                        <!-- Top 3 donate -->
+                        {% if giai.top_3_donate %}
+                        <div class="small fw-bold text-muted mb-1">👑 TOP 3 ĐÓNG GÓP</div>
+                        {% for vip in giai.top_3_donate %}
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="small">{{ ["🥇","🥈","🥉"][loop.index0] }} {{ vip[0] }}</span>
+                            <span class="badge bg-success rounded-pill">{{ "{:,.0f}".format(vip[1]) }}đ</span>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-center text-muted small mb-0">Chưa có ai vượt mức lệ phí.</p>
+                        {% endif %}
+                        <hr class="my-2">
+                        <form id="prizeForm" action="/giai-dau/{{ giai.id }}/cap-nhat-giai-thuong" method="POST">
+                            <div class="small fw-bold text-muted mb-2">Nhập tiền thưởng</div>
+                            <div class="row g-2">
+                                <div class="col-4">
+                                    <label class="form-label small mb-1">Nhất</label>
+                                    <input type="number" name="tien_giai_1" class="form-control form-control-sm" min="0"
+                                           value="{{ giai.tien_giai_1|int if giai.tien_giai_1 is not none else '' }}"
+                                           placeholder="{{ giai.giai_1|int }}">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small mb-1">Nhì</label>
+                                    <input type="number" name="tien_giai_2" class="form-control form-control-sm" min="0"
+                                           value="{{ giai.tien_giai_2|int if giai.tien_giai_2 is not none else '' }}"
+                                           placeholder="{{ giai.giai_2|int }}">
+                                </div>
+                                <div class="col-4">
+                                    <label class="form-label small mb-1">Ba</label>
+                                    <input type="number" name="tien_giai_3" class="form-control form-control-sm" min="0"
+                                           value="{{ giai.tien_giai_3|int if giai.tien_giai_3 is not none else '' }}"
+                                           placeholder="{{ giai.giai_3|int }}">
+                                </div>
+                            </div>
+                            <div class="form-text">Để trống để tính theo tỷ lệ. Tổng nhập tay không vượt {{ "{:,.0f}".format(giai.quy_giai_thuong_thuc_te) }}đ.</div>
+                            <div class="d-grid gap-2 mt-2">
+                                <button type="submit" class="btn btn-warning btn-sm">Lưu tiền thưởng</button>
+                                <button type="button" id="resetPrizeDefaults" class="btn btn-outline-secondary btn-sm">
+                                    Đặt lại theo tỷ lệ mặc định
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div><!-- /left-stack -->
+        </div><!-- /col-md-6 left -->
+
+        <!-- CỘT PHẢI – 50% full height: BẢNG XẾP HẠNG -->
+        <div class="col-md-6">
+            <div class="card h-100">
+                <div class="card-hdr green">📊 BẢNG XẾP HẠNG</div>
+                <div id="rankingContainer" class="card-body p-2">
+                    {% if giai.the_thuc == 'bang' and giai.bang_xep_hang_theo_bang %}
+                    <div class="row g-2">
+                    {% for bang in giai.bang_xep_hang_theo_bang %}
+                        <div class="col-lg-6">
+                            <div class="border rounded overflow-hidden h-100">
+                                <div class="bg-success-subtle text-success fw-bold text-center py-2">Bảng {{ bang.ten_bang }}</div>
+                                <table class="table table-sm table-hover mb-0 text-center">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th style="width:36px">#</th>
+                                            <th class="text-start">Tên</th>
+                                            <th>Trận</th>
+                                            <th class="text-success">W</th>
+                                            <th class="text-danger">L</th>
+                                            <th>Điểm</th>
+                                            <th>Hiệu số</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for doi in bang.xep_hang %}
+                                    <tr class="{% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">
+                                        <td>{% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}</td>
+                                        <td class="text-start fw-bold">{{ doi.ten }}</td>
+                                        <td>{{ doi.so_tran }}</td>
+                                        <td class="text-success fw-bold">{{ doi.thang }}</td>
+                                        <td class="text-danger">{{ doi.thua }}</td>
+                                        <td><span class="badge bg-primary rounded-pill">{{ doi.diem }}</span></td>
+                                        <td class="{{ 'hieu-so-pos' if doi.hieu_so > 0 else 'hieu-so-neg' if doi.hieu_so < 0 else '' }}">{{ "+" if doi.hieu_so > 0 else "" }}{{ doi.hieu_so }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    {% endfor %}
+                    </div>
+                    {% elif giai.bang_xep_hang %}
+                    <table class="table table-sm table-hover mb-0 text-center">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width:36px">#</th>
+                                <th class="text-start">Tên</th>
+                                <th>Trận</th>
+                                <th class="text-success">W</th>
+                                <th class="text-danger">L</th>
+                                <th>Điểm</th>
+                                <th>Hiệu số</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for doi in giai.bang_xep_hang %}
+                        <tr class="{% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">
+                            <td>
+                                {% if loop.index == 1 %}🥇
+                                {% elif loop.index == 2 %}🥈
+                                {% elif loop.index == 3 %}🥉
+                                {% else %}{{ loop.index }}{% endif %}
+                            </td>
+                            <td class="text-start fw-bold">{{ doi.ten }}</td>
+                            <td>{{ doi.so_tran }}</td>
+                            <td class="text-success fw-bold">{{ doi.thang }}</td>
+                            <td class="text-danger">{{ doi.thua }}</td>
+                            <td><span class="badge bg-primary rounded-pill">{{ doi.diem }}</span></td>
+                            <td class="{{ 'hieu-so-pos' if doi.hieu_so > 0 else 'hieu-so-neg' if doi.hieu_so < 0 else '' }}">
+                                {{ "+" if doi.hieu_so > 0 else "" }}{{ doi.hieu_so }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted py-5">
+                        <span class="fs-2">📭</span>
+                        <p class="mt-2 mb-0 small">Chưa có kết quả thi đấu</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /row chính -->
+
+    <!-- ── LỊCH THI ĐẤU ────────────────────────────────────── -->
+    <div class="card mb-3">
+        <div class="card-hdr dark">
+            <span>📅 LỊCH THI ĐẤU</span>
+            <div class="d-flex gap-2 flex-wrap">
+            {% set knockout_teams = giai.so_doi_vao_vong_trong if giai.so_doi_vao_vong_trong else 2 %}
+            {% set min_schedule_players = (knockout_teams * 2) if giai.the_thuc == 'bang' and giai.loai_dau == 'doi' else (knockout_teams if giai.the_thuc == 'bang' else 4) %}
+            {% if giai.loai_dau == 'doi' and registrations|length >= min_schedule_players %}
+            <button class="btn btn-sm btn-info text-white fw-bold" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#manualPairingForm">
+                👥 Ghép đội thủ công
+            </button>
+            {% endif %}
+            {% if giai.vong_dict %}
+            <form action="/giai-dau/{{ giai.id }}/chia-lich" method="POST" class="mb-0">
+                <button type="submit" class="btn btn-sm btn-warning fw-bold"
+                    onclick="return confirm('Tạo lịch mới sẽ XÓA toàn bộ tỷ số đã nhập. Tiếp tục?')">
+                    🎲 Tái Sinh Lịch
+                </button>
+            </form>
+            {% endif %}
+            </div>
+        </div>
+        <div class="card-body p-3">
+            {% if giai.loai_dau == 'doi' and registrations|length >= min_schedule_players %}
+            <div class="collapse mb-3" id="manualPairingForm">
+                <form action="/giai-dau/{{ giai.id }}/ghep-doi-thu-cong" method="POST"
+                      class="border rounded bg-light p-3"
+                      onsubmit="return confirm('Ghép đội thủ công sẽ XÓA toàn bộ lịch và tỷ số hiện tại. Tiếp tục?')">
+                    {% set pair_count = registrations|length // 2 %}
+                    <input type="hidden" name="pair_count" value="{{ pair_count }}">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <div>
+                            <div class="fw-bold text-primary">Ghép đội thủ công</div>
+                            <div class="small text-muted">Chọn 2 VĐV cho mỗi đội. VĐV lẻ có thể để trống và không vào lịch.</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary fw-bold">Tạo lịch từ đội đã ghép</button>
+                    </div>
+                    <div id="manualPairWarning" class="alert alert-warning py-2 small d-none mb-2">
+                        Một VĐV đang được chọn nhiều hơn một lần.
+                    </div>
+                    <div class="row g-2">
+                        {% for pair_no in range(1, pair_count + 1) %}
+                        <div class="col-lg-6">
+                            <div class="border rounded bg-white p-2 h-100">
+                                <div class="fw-semibold small text-muted mb-2">Đội {{ pair_no }}</div>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <select name="player_a_{{ pair_no }}" class="form-select form-select-sm manual-pair-select">
+                                            <option value="">VĐV 1</option>
+                                            {% for reg in registrations %}
+                                            <option value="{{ reg[1] }}">{{ reg[2] }} ({{ reg[3] or 'D' }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-6">
+                                        <select name="player_b_{{ pair_no }}" class="form-select form-select-sm manual-pair-select">
+                                            <option value="">VĐV 2</option>
+                                            {% for reg in registrations %}
+                                            <option value="{{ reg[1] }}">{{ reg[2] }} ({{ reg[3] or 'D' }})</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            {% if giai.vong_dict %}
+                {% if giai.the_thuc == 'bang' and giai.bang_dau_list %}
+                <div class="mb-4">
+                    <div class="vong-header rounded px-3 py-2 mb-3 fw-bold text-success">
+                        📋 DANH SÁCH BẢNG ĐẤU
+                    </div>
+                    <div class="row g-3">
+                    {% for bang in giai.bang_dau_list %}
+                        <div class="col-md-6 col-xl-3">
+                            <div class="group-board h-100">
+                                <div class="group-board-title">Bảng {{ bang.ten_bang }}</div>
+                                {% for doi in bang.doi_list %}
+                                <div class="group-team-row">{{ doi }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% for vong_so, tran_list in giai.vong_dict.items() %}
+                <div class="mb-4">
+                    <!-- Vòng header -->
+                    <div class="vong-header rounded px-3 py-2 mb-3 fw-bold text-primary">
+                        {% if vong_so == 100 %}🏆 TỨ KẾT{% elif vong_so == 101 %}🏆 BÁN KẾT{% elif vong_so == 102 %}🏆 CHUNG KẾT{% elif giai.the_thuc == 'bang' %}🔄 LƯỢT {{ vong_so }}{% else %}🔄 VÒNG {{ vong_so }}{% endif %} — {{ tran_list|length }} trận
+                        <small class="text-muted fw-normal ms-2">
+                            ({{ tran_list|selectattr('trang_thai','equalto','Đã xong')|list|length }} đã xong)
+                        </small>
+                    </div>
+
+                    <!-- Nhóm theo sân -->
+                    {% set san_list = tran_list|map(attribute='san')|unique|sort|list %}
+                    <div class="row g-3">
+                    {% for san in san_list %}
+                        {% set tran_san = tran_list|selectattr('san','equalto',san)|list %}
+                        <div class="col-md-{{ 12 // [san_list|length, 3]|min }}">
+                            <div class="border rounded p-2 h-100" style="border-color:#0d6efd44!important;">
+                                <div class="text-center fw-bold small text-primary mb-2">
+                                    🏟️ SÂN {{ san }}
+                                </div>
+
+                                {% for tran in tran_san %}
+                                <div class="tran-card rounded p-2 mb-2 {{ 'da-xong' if tran.trang_thai == 'Đã xong' else '' }}"
+                                     role="button"
+                                     tabindex="0"
+                                     data-match-id="{{ tran.id }}"
+                                     data-action-url="/tran-dau/{{ tran.id }}/cap-nhat-ty-so"
+                                     data-team-a="{{ tran.doi_a|e }}"
+                                     data-team-b="{{ tran.doi_b|e }}"
+                                     data-score-a="{{ tran.diem_a if tran.diem_a is not none else '' }}"
+                                     data-score-b="{{ tran.diem_b if tran.diem_b is not none else '' }}"
+                                     data-order="{{ tran.thu_tu_danh or 2 }}"
+                                     data-serving-team="{{ tran.doi_dang_giao or 'A' }}">
+                                    <div class="match-meta">
+                                        {% if tran.giai_doan == 'bang' %}
+                                            <span class="badge bg-success">Lượt {{ vong_so }}</span>
+                                            <span class="badge bg-info text-dark">Bảng {{ tran.bang }}</span>
+                                        {% elif tran.giai_doan == 'tu_ket' %}
+                                            <span class="badge bg-danger">Tứ kết</span>
+                                        {% elif tran.giai_doan == 'ban_ket' %}
+                                            <span class="badge bg-danger">Bán kết</span>
+                                        {% elif tran.giai_doan == 'chung_ket' %}
+                                            <span class="badge bg-danger">Chung kết</span>
+                                        {% else %}
+                                            <span class="badge bg-primary">Vòng {{ vong_so }}</span>
+                                        {% endif %}
+                                        <span class="badge bg-secondary">Sân {{ tran.san }}</span>
+                                    </div>
+                                    <div class="match-grid">
+                                        <!-- Đội A (xuống dòng nếu có dấu +) -->
+                                        <div class="team-name">
+                                            {% for p in tran.doi_a.split(' + ') %}<span>{{ p }}</span>{% endfor %}
+                                        </div>
+                                        <!-- Tỷ số -->
+                                        <div class="score-section">
+                                            <span class="badge {{ 'bg-success' if tran.trang_thai == 'Đã xong' else 'bg-primary' }} px-2 py-1 score-pill" data-match-score="{{ tran.id }}">
+                                                {{ tran.diem_a if tran.diem_a is not none else 0 }} – {{ tran.diem_b if tran.diem_b is not none else 0 }} - {{ tran.thu_tu_danh or 2 }}
+                                            </span>
+                                            <span class="badge {{ 'bg-success' if tran.trang_thai == 'Đã xong' else 'bg-secondary' }} match-status" data-match-status="{{ tran.id }}">
+                                                {{ 'Đã xong' if tran.trang_thai == 'Đã xong' else 'Đang đánh' }}
+                                            </span>
+                                        </div>
+                                        <!-- Đội B -->
+                                        <div class="team-name text-end">
+                                            {% for p in tran.doi_b.split(' + ') %}<span>{{ p }}</span>{% endfor %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+
+                            </div>
+                        </div>
+                    {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+
+            {% else %}
+                <div class="text-center py-4">
+                    {% if registrations|length >= min_schedule_players %}
+                        <p class="text-muted mb-3">Chưa có lịch thi đấu. Bấm bên dưới để tự động sinh lịch.</p>
+                        <form action="/giai-dau/{{ giai.id }}/chia-lich" method="POST">
+                            <button type="submit" class="btn btn-primary fw-bold px-4">
+                                ⚡ TỰ ĐỘNG SINH LỊCH
+                            </button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-warning d-inline-block">
+                            ⚠️ Cần ít nhất <strong>{{ min_schedule_players }} VĐV</strong> để tạo lịch (hiện có {{ registrations|length }})
+                        </div>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- ── DANH SÁCH ĐÓNG PHÍ ────────────────────────────── -->
+    <div class="card mb-5">
+        <div class="card-hdr blue">
+            <span>💰 DANH SÁCH ĐÓNG PHÍ</span>
+            <button class="btn btn-sm btn-warning fw-bold" type="button"
+                    data-bs-toggle="collapse" data-bs-target="#formCapNhat">
+                ✏️ Cập nhật phí
+            </button>
+        </div>
+        <div class="card-body p-3">
+            <!-- Tổng kết tài chính -->
+            <div class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <div class="rounded p-3 text-center border border-primary bg-primary bg-opacity-10">
+                        <div class="small text-muted mb-1">💵 Tổng thu</div>
+                        <div class="fw-bold fs-5 text-primary">{{ "{:,.0f}".format(giai.tong_tien_thuc_thu) }}đ</div>
+                        <div class="small text-muted">{{ giai.so_luong_nguoi }} người</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="rounded p-3 text-center border border-success bg-success bg-opacity-10">
+                        <div class="small text-muted mb-1">💎 Tổng donate</div>
+                        <div class="fw-bold fs-5 text-success">+{{ "{:,.0f}".format(giai.tong_tien_donate) }}đ</div>
+                        <div class="small text-muted">Vượt mức {{ "{:,.0f}".format(giai.chi_phi_moi_nguoi) }}đ/người</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="rounded p-3 text-center border border-warning bg-warning bg-opacity-10">
+                        <div class="small text-muted mb-1">🏆 Quỹ thưởng thực tế</div>
+                        <div class="fw-bold fs-5" style="color:#b8600a">{{ "{:,.0f}".format(giai.quy_giai_thuong_thuc_te) }}đ</div>
+                        <div class="small text-muted">= Thu – Sân – Nước – Khác</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form cập nhật phí (collapse) — 1 form duy nhất cho toàn bộ -->
+            <div class="collapse mb-3" id="formCapNhat">
+                <form id="formDongPhi"
+                      action="/giai-dau/{{ giai.id }}/cap-nhat-tien-hang-loat"
+                      method="POST">
+                    <div class="border rounded bg-light overflow-hidden">
+                        <div class="table-responsive">
+                        <table class="table table-sm mb-0 align-middle fee-table">
+                            <thead class="table-secondary">
+                                <tr>
+                                    <th style="width:40%">Vận động viên</th>
+                                    <th style="width:25%">Số tiền đã đóng</th>
+                                    <th style="width:25%">Trạng thái</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for reg in registrations %}
+                            <tr>
+                                <td class="fw-semibold">
+                                    {{ reg[2] }}
+                                    <span class="badge bg-secondary ms-1">{{ reg[3] }}</span>
+                                </td>
+                                <td>
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text">₫</span>
+                                        <input type="number"
+                                               name="tien_{{ reg[0] }}"
+                                               class="form-control"
+                                               value="{{ reg[5] or 0 }}"
+                                               min="0" step="1000">
+                                    </div>
+                                </td>
+                                <td>
+                                    <select name="trang_thai_{{ reg[0] }}"
+                                            class="form-select form-select-sm">
+                                        <option value="Đã đóng"
+                                            {% if reg[6] == 'Đã đóng' %}selected{% endif %}>
+                                            ✅ Đã đóng
+                                        </option>
+                                        <option value="Chưa đóng"
+                                            {% if reg[6] != 'Đã đóng' %}selected{% endif %}>
+                                            ❌ Chưa đóng
+                                        </option>
+                                    </select>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                        </div>
+                        <div class="p-3 text-end border-top bg-white">
+                            <button type="submit" class="btn btn-primary fw-bold px-4">
+                                💾 Lưu tất cả ({{ registrations|length }} VĐV)
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Bảng danh sách -->
+            {% if giai.nguoi_choi_list %}
+            <div class="table-responsive">
+            <table class="table table-hover mb-0 fee-table">
+                <thead class="table-dark"><tr>
+                    <th>Tên</th><th>Trình</th>
+                    <th>Tiền đóng</th><th>Trạng thái</th><th>Ghi chú</th>
+                </tr></thead>
+                <tbody>
+                {% for nc in giai.nguoi_choi_list %}
+                <tr>
+                    <td class="fw-semibold">{{ nc.ten }}</td>
+                    <td><span class="badge bg-secondary">{{ nc.trinh_do }}</span></td>
+                    <td>{{ "{:,.0f}".format(nc.tien_dong) }}đ</td>
+                    <td>
+                        {% if nc.trang_thai_dong_tien == 'Đã đóng' %}
+                            <span class="badge bg-success">✅ Đã đóng</span>
+                        {% else %}
+                            <span class="badge bg-danger">❌ Chưa đóng</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if nc.chenh_lech > 0 %}
+                            <span class="badge bg-success">+{{ "{:,.0f}".format(nc.chenh_lech) }}đ donate</span>
+                        {% elif nc.chenh_lech == 0 %}
+                            <span class="badge bg-info text-dark">✅ Đủ phí</span>
+                        {% else %}
+                            <span class="badge bg-danger">Thiếu {{ "{:,.0f}".format(nc.chenh_lech|abs) }}đ</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center small">Chưa có dữ liệu đóng phí.</p>
+            {% endif %}
+        </div>
+    </div>
+
+</div><!-- /container-fluid -->
+
+<div class="modal fade" id="scoreModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <div>
+                    <h5 class="modal-title mb-0">Ghi điểm trận đấu</h5>
+                    <small class="text-white-50">Tự lưu khi thay đổi điểm</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row g-3 align-items-center text-center">
+                    <div class="col-5 score-side" id="scoreSideA" data-serving-side="A">
+                        <div id="scoreTeamA" class="fw-bold text-primary small mb-2"></div>
+                        <div class="d-flex align-items-center justify-content-center gap-2">
+                            <button type="button" class="btn btn-outline-secondary score-step-btn" data-score-target="A" data-score-delta="-1">-</button>
+                            <input id="scoreInputA" type="number" class="form-control live-score-input"
+                                   min="0" max="99" inputmode="numeric" placeholder="0">
+                            <button type="button" class="btn btn-outline-primary score-step-btn" data-score-target="A" data-score-delta="1">+</button>
+                        </div>
+                    </div>
+                    <div class="col-2">
+                        <div class="fw-bold fs-4 text-muted">-</div>
+                    </div>
+                    <div class="col-5 score-side" id="scoreSideB" data-serving-side="B">
+                        <div id="scoreTeamB" class="fw-bold text-success small mb-2"></div>
+                        <div class="d-flex align-items-center justify-content-center gap-2">
+                            <button type="button" class="btn btn-outline-secondary score-step-btn" data-score-target="B" data-score-delta="-1">-</button>
+                            <input id="scoreInputB" type="number" class="form-control live-score-input"
+                                   min="0" max="99" inputmode="numeric" placeholder="0">
+                            <button type="button" class="btn btn-outline-success score-step-btn" data-score-target="B" data-score-delta="1">+</button>
+                        </div>
+                    </div>
+                </div>
+                <input type="radio" class="btn-check" name="servingTeam" id="servingTeamA" value="A" autocomplete="off">
+                <input type="radio" class="btn-check" name="servingTeam" id="servingTeamB" value="B" autocomplete="off">
+                <div class="d-flex align-items-center justify-content-center gap-2 mt-4">
+                    <span class="fw-semibold text-muted">Thứ tự đánh</span>
+                    <div class="btn-group" role="group" aria-label="Thứ tự đánh">
+                        <input type="radio" class="btn-check" name="scoreOrder" id="scoreOrder1" value="1" autocomplete="off">
+                        <label class="btn btn-outline-primary server-order-btn" for="scoreOrder1">1</label>
+                        <input type="radio" class="btn-check" name="scoreOrder" id="scoreOrder2" value="2" autocomplete="off">
+                        <label class="btn btn-outline-primary server-order-btn" for="scoreOrder2">2</label>
+                    </div>
+                </div>
+                <div class="text-center mt-3">
+                    <button type="button" id="enableAudioBtn" class="btn btn-outline-secondary btn-sm">
+                        Bật loa
+                    </button>
+                </div>
+                <div id="scoreSaveStatus" class="text-center small text-muted mt-3">Chưa thay đổi</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function copyText(id, btn) {
+    const el = document.getElementById(id);
+    const text = el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' ? el.value : el.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '✅ Đã copy!';
+        btn.classList.add('btn-secondary');
+        setTimeout(() => { btn.innerHTML = orig; btn.classList.remove('btn-secondary'); }, 2000);
+    });
+}
+
+const scoreModalEl = document.getElementById('scoreModal');
+const scoreModal = new bootstrap.Modal(scoreModalEl);
+const scoreInputA = document.getElementById('scoreInputA');
+const scoreInputB = document.getElementById('scoreInputB');
+const scoreOrder1 = document.getElementById('scoreOrder1');
+const scoreOrder2 = document.getElementById('scoreOrder2');
+const servingTeamA = document.getElementById('servingTeamA');
+const servingTeamB = document.getElementById('servingTeamB');
+const scoreSideA = document.getElementById('scoreSideA');
+const scoreSideB = document.getElementById('scoreSideB');
+const scoreSaveStatus = document.getElementById('scoreSaveStatus');
+const enableAudioBtn = document.getElementById('enableAudioBtn');
+const SCORE_TOUCH = {{ giai.diem_cham or 11 }};
+const SCORE_MAX = {{ giai.diem_toi_da or 15 }};
+let activeMatchCard = null;
+let saveScoreTimer = null;
+let speakScoreTimer = null;
+let previousScoreState = { a: 0, b: 0, order: '2', servingTeam: 'A' };
+let vietnameseVoice = null;
+let liveScorePollBusy = false;
+let isSavingScore = false;
+let pendingSaveAfterCurrent = false;
+let lastSaveRequestId = 0;
+let lastQueuedScoreKey = '';
+let lastSavedScoreKey = '';
+const LIVE_SCORE_URL = '/giai-dau/{{ giai.id }}/live-scores';
+const LIVE_SCORE_POLL_MS = 2000;
+const SCORE_SAVE_DELAY_MS = 220;
+const SCORE_SPEAK_DELAY_MS = 120;
+
+function normalizeScoreValue(value) {
+    const trimmed = String(value ?? '').trim();
+    return trimmed === '' ? '' : Math.max(0, Math.min(99, Number.parseInt(trimmed, 10) || 0));
+}
+
+function scoreValueForSave(value) {
+    const normalized = normalizeScoreValue(value);
+    return normalized === '' ? 0 : normalized;
+}
+
+function maxAllowedScore(opponentScore) {
+    const opponent = Number.parseInt(opponentScore, 10) || 0;
+    if (opponent >= SCORE_TOUCH - 1) {
+        return Math.min(opponent + 2, SCORE_MAX);
+    }
+    return Math.min(SCORE_TOUCH, SCORE_MAX);
+}
+
+function applyScoreLimit(changedInput) {
+    const isInputA = changedInput === scoreInputA;
+    const opponentInput = isInputA ? scoreInputB : scoreInputA;
+    const current = normalizeScoreValue(changedInput.value);
+    const opponent = normalizeScoreValue(opponentInput.value);
+    const allowed = maxAllowedScore(opponent);
+
+    changedInput.max = allowed;
+    if (current !== '' && current > allowed) {
+        changedInput.value = allowed;
+        setSaveStatus(`Điểm tối đa hiện tại là ${allowed}`, 'text-warning');
+    }
+}
+
+function updateServingHighlight() {
+    const serving = document.querySelector('input[name="servingTeam"]:checked')?.value || 'A';
+    scoreSideA.classList.toggle('serving-team', serving === 'A');
+    scoreSideB.classList.toggle('serving-team', serving === 'B');
+    document.querySelectorAll('[data-score-target]').forEach((btn) => {
+        btn.disabled = btn.dataset.scoreTarget !== serving;
+    });
+}
+
+function selectServingTeam(side, resetOrder = true) {
+    const current = document.querySelector('input[name="servingTeam"]:checked')?.value || 'A';
+    const order = document.querySelector('input[name="scoreOrder"]:checked')?.value || '2';
+    if (side !== current && order !== '2') {
+        setSaveStatus('Chỉ đổi đội giao khi đang ở tay 2', 'text-warning');
+        updateServingHighlight();
+        speakCurrentScore();
+        return;
+    }
+    (side === 'B' ? servingTeamB : servingTeamA).checked = true;
+    if (resetOrder && side !== current) {
+        scoreOrder1.checked = true;
+    }
+    updateServingHighlight();
+    scheduleScoreSave();
+}
+
+function stepScore(side, delta) {
+    const serving = document.querySelector('input[name="servingTeam"]:checked')?.value || 'A';
+    if (side !== serving) return;
+    const input = side === 'A' ? scoreInputA : scoreInputB;
+    const current = normalizeScoreValue(input.value) || 0;
+    input.value = Math.max(0, current + delta);
+    applyScoreLimit(input);
+    scheduleScoreSave();
+}
+
+function getCurrentScorePayload() {
+    return {
+        diem_a: scoreValueForSave(scoreInputA.value),
+        diem_b: scoreValueForSave(scoreInputB.value),
+        thu_tu_danh: document.querySelector('input[name="scoreOrder"]:checked')?.value || '2',
+        doi_dang_giao: document.querySelector('input[name="servingTeam"]:checked')?.value || 'A'
+    };
+}
+
+function getScoreKey(payload) {
+    return [
+        payload.diem_a,
+        payload.diem_b,
+        payload.thu_tu_danh,
+        payload.doi_dang_giao
+    ].join('|');
+}
+
+function formatLiveScore(diemA, diemB, order) {
+    return `${diemA || 0} – ${diemB || 0} - ${order || 2}`;
+}
+
+function setSaveStatus(text, className = 'text-muted') {
+    scoreSaveStatus.className = `text-center small mt-3 ${className}`;
+    scoreSaveStatus.textContent = text;
+}
+
+function applyMatchUpdate(card, match, options = {}) {
+    if (!card || !match) return;
+
+    const matchId = String(match.tran_id ?? match.id ?? card.dataset.matchId);
+    const scoreBadge = document.querySelector(`[data-match-score="${matchId}"]`);
+    const statusBadge = document.querySelector(`[data-match-status="${matchId}"]`);
+    const diemA = match.diem_a ?? '';
+    const diemB = match.diem_b ?? '';
+    const thuTuDanh = String(match.thu_tu_danh || '2');
+    const doiDangGiao = match.doi_dang_giao || 'A';
+    const daXong = match.trang_thai === 'Đã xong';
+
+    card.dataset.scoreA = diemA;
+    card.dataset.scoreB = diemB;
+    card.dataset.order = thuTuDanh;
+    card.dataset.servingTeam = doiDangGiao;
+    card.classList.toggle('da-xong', daXong);
+
+    if (scoreBadge) {
+        scoreBadge.textContent = formatLiveScore(diemA, diemB, thuTuDanh);
+        scoreBadge.className = `badge ${daXong ? 'bg-success' : 'bg-primary'} px-2 py-1 score-pill`;
+    }
+    if (statusBadge) {
+        statusBadge.textContent = daXong ? 'Đã xong' : 'Đang đánh';
+        statusBadge.className = `badge ${daXong ? 'bg-success' : 'bg-secondary'} match-status`;
+    }
+
+    if (options.updateModal && activeMatchCard === card) {
+        scoreInputA.value = diemA;
+        scoreInputB.value = diemB;
+        (thuTuDanh === '1' ? scoreOrder1 : scoreOrder2).checked = true;
+        (doiDangGiao === 'B' ? servingTeamB : servingTeamA).checked = true;
+        previousScoreState = {
+            a: normalizeScoreValue(diemA) || 0,
+            b: normalizeScoreValue(diemB) || 0,
+            order: thuTuDanh,
+            servingTeam: doiDangGiao
+        };
+        updateServingHighlight();
+    }
+}
+
+function applyActiveScoreOptimistic() {
+    if (!activeMatchCard) return;
+    const payload = getCurrentScorePayload();
+    const diff = Math.abs(payload.diem_a - payload.diem_b);
+    const high = Math.max(payload.diem_a, payload.diem_b);
+    const finished = high >= SCORE_MAX || (high >= SCORE_TOUCH && diff >= 2 && payload.diem_a !== payload.diem_b);
+    applyMatchUpdate(activeMatchCard, {
+        tran_id: activeMatchCard.dataset.matchId,
+        diem_a: payload.diem_a,
+        diem_b: payload.diem_b,
+        thu_tu_danh: payload.thu_tu_danh,
+        doi_dang_giao: payload.doi_dang_giao,
+        trang_thai: finished ? 'Đã xong' : 'Đang đánh'
+    }, { updateModal: false });
+}
+
+function escapeHtml(value) {
+    const div = document.createElement('div');
+    div.textContent = value ?? '';
+    return div.innerHTML;
+}
+
+function formatSignedNumber(value) {
+    const number = Number.parseInt(value, 10) || 0;
+    return `${number > 0 ? '+' : ''}${number}`;
+}
+
+function renderRanking(ranking) {
+    const container = document.getElementById('rankingContainer');
+    if (!container || !Array.isArray(ranking)) return;
+
+    if (!ranking.length) {
+        container.innerHTML = `
+            <div class="d-flex flex-column align-items-center justify-content-center h-100 text-muted py-5">
+                <span class="fs-2">📭</span>
+                <p class="mt-2 mb-0 small">Chưa có kết quả thi đấu</p>
+            </div>
+        `;
+        return;
+    }
+
+    const renderRows = (items) => items.map((doi, index) => {
+        const rank = index + 1;
+        const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+        const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
+        const hieuSo = Number.parseInt(doi.hieu_so, 10) || 0;
+        const hieuSoClass = hieuSo > 0 ? 'hieu-so-pos' : hieuSo < 0 ? 'hieu-so-neg' : '';
+        return `
+            <tr class="${rankClass}">
+                <td>${rankLabel}</td>
+                <td class="text-start fw-bold">${escapeHtml(doi.ten)}</td>
+                <td>${doi.so_tran || 0}</td>
+                <td class="text-success fw-bold">${doi.thang || 0}</td>
+                <td class="text-danger">${doi.thua || 0}</td>
+                <td><span class="badge bg-primary rounded-pill">${doi.diem || 0}</span></td>
+                <td class="${hieuSoClass}">${formatSignedNumber(hieuSo)}</td>
+            </tr>
+        `;
+    }).join('');
+
+    const renderTable = (rows) => `
+        <table class="table table-sm table-hover mb-0 text-center">
+            <thead class="table-dark">
+                <tr>
+                    <th style="width:36px">#</th>
+                    <th class="text-start">Tên</th>
+                    <th>Trận</th>
+                    <th class="text-success">W</th>
+                    <th class="text-danger">L</th>
+                    <th>Điểm</th>
+                    <th>Hiệu số</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>
+    `;
+
+    if (ranking[0] && Array.isArray(ranking[0].xep_hang)) {
+        container.innerHTML = `
+            <div class="row g-2">
+                ${ranking.map((bang) => `
+                    <div class="col-lg-6">
+                        <div class="border rounded overflow-hidden h-100">
+                            <div class="bg-success-subtle text-success fw-bold text-center py-2">Bảng ${escapeHtml(bang.ten_bang)}</div>
+                            ${renderTable(renderRows(bang.xep_hang || []))}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = renderTable(renderRows(ranking));
+}
+
+function openScoreModal(card) {
+    activeMatchCard = card;
+    document.getElementById('scoreTeamA').textContent = card.dataset.teamA.replaceAll(' + ', '\n');
+    document.getElementById('scoreTeamB').textContent = card.dataset.teamB.replaceAll(' + ', '\n');
+    scoreInputA.value = card.dataset.scoreA || '';
+    scoreInputB.value = card.dataset.scoreB || '';
+    scoreInputA.max = maxAllowedScore(scoreInputB.value);
+    scoreInputB.max = maxAllowedScore(scoreInputA.value);
+    (card.dataset.order === '1' ? scoreOrder1 : scoreOrder2).checked = true;
+    ((card.dataset.servingTeam || 'A') === 'B' ? servingTeamB : servingTeamA).checked = true;
+    previousScoreState = {
+        a: normalizeScoreValue(scoreInputA.value) || 0,
+        b: normalizeScoreValue(scoreInputB.value) || 0,
+        order: card.dataset.order || '2',
+        servingTeam: card.dataset.servingTeam || 'A'
+    };
+    const initialPayload = getCurrentScorePayload();
+    lastQueuedScoreKey = getScoreKey(initialPayload);
+    lastSavedScoreKey = lastQueuedScoreKey;
+    updateServingHighlight();
+    setSaveStatus('Chưa thay đổi');
+    scoreModal.show();
+    setTimeout(() => scoreInputA.focus(), 150);
+}
+
+function scheduleScoreSave() {
+    if (!activeMatchCard) return;
+    scoreInputA.max = maxAllowedScore(scoreInputB.value);
+    scoreInputB.max = maxAllowedScore(scoreInputA.value);
+    applyActiveScoreOptimistic();
+    const payload = getCurrentScorePayload();
+    lastQueuedScoreKey = getScoreKey(payload);
+    if (lastQueuedScoreKey === lastSavedScoreKey && !isSavingScore) {
+        setSaveStatus('Đã tự lưu', 'text-success');
+        scheduleSpeakCurrentScore();
+        return;
+    }
+    window.clearTimeout(saveScoreTimer);
+    setSaveStatus('Đang chờ tự lưu...', 'text-primary');
+    scheduleSpeakCurrentScore();
+    saveScoreTimer = window.setTimeout(saveActiveScore, SCORE_SAVE_DELAY_MS);
+}
+
+function readVietnameseNumber(value) {
+    const number = Number.parseInt(value, 10) || 0;
+    const units = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+    if (number < 10) return units[number];
+    if (number === 10) return 'mười';
+    if (number < 20) {
+        if (number === 15) return 'mười lăm';
+        return `mười ${units[number % 10]}`;
+    }
+    if (number < 100) {
+        const tens = Math.floor(number / 10);
+        const unit = number % 10;
+        if (unit === 0) return `${units[tens]} mươi`;
+        if (unit === 1) return `${units[tens]} mươi mốt`;
+        if (unit === 5) return `${units[tens]} mươi lăm`;
+        return `${units[tens]} mươi ${units[unit]}`;
+    }
+    return String(number);
+}
+
+function speakCurrentScore() {
+    if (!activeMatchCard) return;
+
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(getCurrentScoreSpeechText());
+    utterance.lang = 'vi-VN';
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+    if (vietnameseVoice) {
+        utterance.voice = vietnameseVoice;
+    }
+    window.speechSynthesis.speak(utterance);
+}
+
+function scheduleSpeakCurrentScore() {
+    window.clearTimeout(speakScoreTimer);
+    speakScoreTimer = window.setTimeout(speakCurrentScore, SCORE_SPEAK_DELAY_MS);
+}
+
+function getCurrentScoreSpeechText() {
+    const diemA = normalizeScoreValue(scoreInputA.value) || 0;
+    const diemB = normalizeScoreValue(scoreInputB.value) || 0;
+    const thuTuDanh = document.querySelector('input[name="scoreOrder"]:checked')?.value || '2';
+    const doiDangGiao = document.querySelector('input[name="servingTeam"]:checked')?.value || 'A';
+    const scoreText = doiDangGiao === 'B'
+        ? `${readVietnameseNumber(diemB)} ${readVietnameseNumber(diemA)} ${readVietnameseNumber(thuTuDanh)}`
+        : `${readVietnameseNumber(diemA)} ${readVietnameseNumber(diemB)} ${readVietnameseNumber(thuTuDanh)}`;
+    const winnerName = getWinnerName(diemA, diemB);
+    return winnerName ? `${scoreText}. Chúc mừng đội ${winnerName} chiến thắng` : scoreText;
+}
+
+function formatTeamNameForSpeech(name) {
+    return String(name || '').replace(/\s*\+\s*/g, ' và ');
+}
+
+function getWinnerName(diemA, diemB) {
+    const diff = Math.abs(diemA - diemB);
+    const high = Math.max(diemA, diemB);
+    const finished = high >= SCORE_MAX || (high >= SCORE_TOUCH && diff >= 2);
+    if (!finished || diemA === diemB || !activeMatchCard) {
+        return null;
+    }
+    const winnerName = diemA > diemB ? activeMatchCard.dataset.teamA : activeMatchCard.dataset.teamB;
+    return formatTeamNameForSpeech(winnerName);
+}
+
+function loadVietnameseVoice() {
+    if (!('speechSynthesis' in window)) return;
+    const voices = window.speechSynthesis.getVoices();
+    vietnameseVoice = voices.find((voice) => voice.lang && voice.lang.toLowerCase().startsWith('vi'))
+        || voices.find((voice) => /vietnam|vietnamese|tiếng việt|viet/i.test(voice.name))
+        || null;
+}
+
+async function saveActiveScore() {
+    if (!activeMatchCard) return;
+    saveScoreTimer = null;
+    if (isSavingScore) {
+        pendingSaveAfterCurrent = true;
+        return;
+    }
+
+    const payload = getCurrentScorePayload();
+    const requestScoreKey = getScoreKey(payload);
+    if (requestScoreKey === lastSavedScoreKey) {
+        setSaveStatus('Đã tự lưu', 'text-success');
+        return;
+    }
+    const requestId = ++lastSaveRequestId;
+
+    activeMatchCard.classList.add('saving');
+    isSavingScore = true;
+    setSaveStatus('Đang lưu...', 'text-primary');
+
+    try {
+        const response = await fetch(activeMatchCard.dataset.actionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'fetch'
+            },
+            body: JSON.stringify(payload)
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) {
+            throw new Error(result.error || 'Không lưu được điểm');
+        }
+        if (result.reload_required) {
+            window.location.reload();
+            return;
+        }
+        if (requestId !== lastSaveRequestId || requestScoreKey !== lastQueuedScoreKey) {
+            return;
+        }
+
+        applyMatchUpdate(activeMatchCard, result, { updateModal: true });
+        renderRanking(result.ranking);
+        lastSavedScoreKey = getScoreKey({
+            diem_a: scoreValueForSave(result.diem_a),
+            diem_b: scoreValueForSave(result.diem_b),
+            thu_tu_danh: String(result.thu_tu_danh || '2'),
+            doi_dang_giao: result.doi_dang_giao || 'A'
+        });
+        previousScoreState = {
+            a: normalizeScoreValue(activeMatchCard.dataset.scoreA) || 0,
+            b: normalizeScoreValue(activeMatchCard.dataset.scoreB) || 0,
+            order: String(result.thu_tu_danh || '2'),
+            servingTeam: activeMatchCard.dataset.servingTeam
+        };
+        setSaveStatus('Đã tự lưu', 'text-success');
+    } catch (error) {
+        setSaveStatus(error.message, 'text-danger');
+    } finally {
+        activeMatchCard.classList.remove('saving');
+        isSavingScore = false;
+        if (pendingSaveAfterCurrent || lastQueuedScoreKey !== lastSavedScoreKey) {
+            pendingSaveAfterCurrent = false;
+            window.clearTimeout(saveScoreTimer);
+            saveScoreTimer = window.setTimeout(saveActiveScore, SCORE_SAVE_DELAY_MS);
+        }
+    }
+}
+
+document.querySelectorAll('.tran-card[data-match-id]').forEach((card) => {
+    card.addEventListener('click', () => openScoreModal(card));
+    card.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            openScoreModal(card);
+        }
+    });
+});
+
+[scoreInputA, scoreInputB].forEach((input) => {
+    input.addEventListener('click', (event) => event.stopPropagation());
+    input.addEventListener('focus', (event) => event.stopPropagation());
+    input.addEventListener('input', () => {
+        const serving = document.querySelector('input[name="servingTeam"]:checked')?.value || 'A';
+        if ((input === scoreInputA ? 'A' : 'B') !== serving) {
+            input.value = input === scoreInputA ? previousScoreState.a : previousScoreState.b;
+            return;
+        }
+        applyScoreLimit(input);
+        scheduleScoreSave();
+    });
+    input.addEventListener('change', () => {
+        const serving = document.querySelector('input[name="servingTeam"]:checked')?.value || 'A';
+        if ((input === scoreInputA ? 'A' : 'B') !== serving) {
+            input.value = input === scoreInputA ? previousScoreState.a : previousScoreState.b;
+            return;
+        }
+        applyScoreLimit(input);
+        if (getScoreKey(getCurrentScorePayload()) !== lastQueuedScoreKey) {
+            scheduleScoreSave();
+        }
+    });
+});
+
+[scoreOrder1, scoreOrder2].forEach((input) => {
+    input.addEventListener('input', scheduleScoreSave);
+    input.addEventListener('change', scheduleScoreSave);
+});
+
+[servingTeamA, servingTeamB].forEach((input) => {
+    input.addEventListener('change', () => selectServingTeam(input.value, true));
+});
+
+[scoreSideA, scoreSideB].forEach((sideEl) => {
+    sideEl.addEventListener('click', () => selectServingTeam(sideEl.dataset.servingSide, true));
+});
+
+document.querySelectorAll('[data-score-target]').forEach((btn) => {
+    btn.addEventListener('click', (event) => {
+        event.stopPropagation();
+        stepScore(btn.dataset.scoreTarget, Number.parseInt(btn.dataset.scoreDelta, 10) || 0);
+    });
+});
+
+async function pollLiveScores() {
+    if (liveScorePollBusy || document.hidden) return;
+    liveScorePollBusy = true;
+    try {
+        const response = await fetch(LIVE_SCORE_URL, {
+            headers: { 'X-Requested-With': 'fetch' },
+            cache: 'no-store'
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success || !Array.isArray(result.matches)) {
+            return;
+        }
+
+        renderRanking(result.ranking);
+        result.matches.forEach((match) => {
+            const card = document.querySelector(`.tran-card[data-match-id="${match.tran_id}"]`);
+            if (!card) return;
+
+            const isActiveCard = activeMatchCard === card;
+            const hasPendingLocalSave = isActiveCard && (isSavingScore || saveScoreTimer);
+            if (hasPendingLocalSave) {
+                return;
+            }
+            applyMatchUpdate(card, match, {
+                updateModal: isActiveCard && scoreModalEl.classList.contains('show')
+            });
+        });
+    } catch (error) {
+        // Keep polling quiet; the next tick will retry.
+    } finally {
+        liveScorePollBusy = false;
+    }
+}
+
+window.setInterval(pollLiveScores, LIVE_SCORE_POLL_MS);
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+        pollLiveScores();
+    }
+});
+pollLiveScores();
+
+if (enableAudioBtn) {
+    enableAudioBtn.addEventListener('click', () => {
+        speakCurrentScore();
+    });
+}
+
+loadVietnameseVoice();
+if ('speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = loadVietnameseVoice;
+}
+
+const tournamentPlayerAddForm = document.getElementById('tournamentPlayerAddForm');
+const tournamentPlayerList = document.getElementById('tournamentPlayerList');
+const tournamentPlayerCheckboxes = Array.from(document.querySelectorAll('.tournament-player-checkbox'));
+const playerSelectHint = document.getElementById('playerSelectHint');
+const resetPrizeDefaultsBtn = document.getElementById('resetPrizeDefaults');
+const prizeForm = document.getElementById('prizeForm');
+const manualPairSelects = Array.from(document.querySelectorAll('.manual-pair-select'));
+const manualPairWarning = document.getElementById('manualPairWarning');
+function setPlayerSelectHint(text, type = 'primary') {
+    if (!playerSelectHint) {
+        return;
+    }
+    playerSelectHint.textContent = text;
+    playerSelectHint.classList.remove('text-primary', 'text-danger', 'text-muted');
+    playerSelectHint.classList.add(`text-${type}`);
+}
+function updatePlayerSelectHint() {
+    if (!playerSelectHint) {
+        return;
+    }
+    const maxSelected = Number.parseInt(tournamentPlayerList?.dataset.slotsLeft || '0', 10) || 0;
+    const selected = tournamentPlayerCheckboxes.filter(checkbox => checkbox.checked);
+    tournamentPlayerCheckboxes
+        .filter(checkbox => !checkbox.checked)
+        .forEach(checkbox => { checkbox.disabled = maxSelected > 0 && selected.length >= maxSelected; });
+    setPlayerSelectHint(`Đã chọn ${selected.length} mục`, 'primary');
+}
+if (tournamentPlayerCheckboxes.length) {
+    tournamentPlayerCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updatePlayerSelectHint);
+    });
+    updatePlayerSelectHint();
+}
+if (tournamentPlayerAddForm) {
+    tournamentPlayerAddForm.addEventListener('submit', event => {
+        if (!tournamentPlayerCheckboxes.some(checkbox => checkbox.checked)) {
+            event.preventDefault();
+            setPlayerSelectHint('Chưa chọn VĐV nào', 'danger');
+        }
+    });
+}
+
+if (resetPrizeDefaultsBtn && prizeForm) {
+    resetPrizeDefaultsBtn.addEventListener('click', () => {
+        resetPrizeDefaultsBtn.disabled = true;
+        resetPrizeDefaultsBtn.textContent = 'Đang đặt lại...';
+        prizeForm.querySelectorAll('button').forEach((button) => {
+            button.disabled = true;
+        });
+        ['tien_giai_1', 'tien_giai_2', 'tien_giai_3'].forEach((fieldName) => {
+            const input = prizeForm.querySelector(`[name="${fieldName}"]`);
+            if (input) {
+                input.value = '';
+            }
+        });
+        prizeForm.submit();
+    });
+}
+
+function refreshManualPairOptions() {
+    const selectedValues = manualPairSelects
+        .map((select) => select.value)
+        .filter((value) => value);
+    const duplicateValues = selectedValues.filter((value, index) => selectedValues.indexOf(value) !== index);
+    const duplicateSet = new Set(duplicateValues);
+
+    manualPairSelects.forEach((select) => {
+        Array.from(select.options).forEach((option) => {
+            if (!option.value) {
+                option.disabled = false;
+                return;
+            }
+            option.disabled = option.value !== select.value && selectedValues.includes(option.value);
+        });
+        select.classList.toggle('is-invalid', duplicateSet.has(select.value));
+    });
+
+    if (manualPairWarning) {
+        manualPairWarning.classList.toggle('d-none', duplicateSet.size === 0);
+    }
+}
+
+if (manualPairSelects.length) {
+    manualPairSelects.forEach((select) => {
+        select.addEventListener('change', refreshManualPairOptions);
+    });
+    refreshManualPairOptions();
+}
+</script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>
+
+

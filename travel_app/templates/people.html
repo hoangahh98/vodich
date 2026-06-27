@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-shell">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+        <div>
+            <h1 class="h3 text-success fw-bold mb-1">👥 Quản lý thành viên</h1>
+            <div class="text-muted">Lưu danh sách thành viên để chọn nhanh khi tạo chuyến đi.</div>
+        </div>
+    </div>
+
+    <section class="card mb-4">
+        <div class="card-hdr green">Thêm thành viên</div>
+        <div class="card-body">
+            <form action="/thanh-vien/them" method="POST" class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">Tên thành viên</label>
+                    <input class="form-control" name="name" required>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label fw-semibold">Email người xem</label>
+                    <input class="form-control" name="email" type="email">
+                </div>
+                <div class="col-md-2 d-grid">
+                    <button class="btn btn-success fw-bold" data-loading-text="Đang thêm...">Thêm</button>
+                </div>
+            </form>
+        </div>
+    </section>
+
+    <div class="d-flex justify-content-end mb-3">
+        <input type="text" id="searchInput" class="form-control" placeholder="🔍 Tìm tên / email..." style="max-width: 360px;">
+    </div>
+
+    <section class="card">
+        <div class="card-hdr blue">Danh sách thành viên</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="peopleTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 48px;">#</th>
+                            <th>Tên</th>
+                            <th>Email người xem</th>
+                            <th style="width: 150px;" class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for person in people %}
+                    <tr>
+                        <td class="text-muted small">{{ loop.index }}</td>
+                        <td class="fw-semibold">{{ person[1] }}</td>
+                        <td class="text-muted">{{ person[2] or 'Chưa có' }}</td>
+                        <td class="text-center text-nowrap">
+                            <button type="button" class="btn btn-sm btn-warning py-0" data-bs-toggle="modal" data-bs-target="#editPersonModal{{ person[0] }}" data-feedback="off">✏️</button>
+                            <form action="/thanh-vien/{{ person[0] }}/xoa" method="POST" class="d-inline" onsubmit="return confirm('Xóa thành viên này khỏi danh bạ? Thành viên đã có trong chuyến đi cũ vẫn được giữ lại trong chuyến đi đó.')">
+                                <button class="btn btn-sm btn-danger py-0">🗑️</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if not people %}
+            <div class="alert alert-info m-3">Chưa có thành viên nào.</div>
+            {% endif %}
+        </div>
+    </section>
+</div>
+
+{% for person in people %}
+<div class="modal fade" id="editPersonModal{{ person[0] }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="/thanh-vien/{{ person[0] }}/sua" method="POST">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title fw-bold">Sửa thành viên</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tên thành viên</label>
+                        <input class="form-control" name="name" value="{{ person[1] }}" required>
+                    </div>
+                    <div>
+                        <label class="form-label fw-semibold">Email người xem</label>
+                        <input class="form-control" name="email" type="email" value="{{ person[2] }}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-feedback="off">Hủy</button>
+                    <button class="btn btn-warning fw-bold" data-loading-text="Đang lưu...">Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}
+{% block scripts %}
+<script>
+document.getElementById('searchInput').addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#peopleTable tbody tr').forEach(row => {
+        row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+});
+</script>
+{% endblock %}

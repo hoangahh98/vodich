@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lý Đội Bóng</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">QUẢN LÝ ĐỘI BÓNG</span>
+            <div>
+                <a href="/" class="btn btn-sm btn-outline-light me-2">Trang chủ</a>
+                <a href="/van-dong-vien?return_to=/doi-bong" class="btn btn-sm btn-outline-info me-2">Vận động viên</a>
+                <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">Đăng xuất</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% if errors %}
+        <div class="alert alert-danger">
+            {% for error in errors %}<div>{{ error }}</div>{% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <form action="/doi-bong/them" method="POST" class="row g-2 align-items-end">
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold">Tên đội bóng</label>
+                        <input type="text" class="form-control" name="ten_doi" value="{{ form_data.ten_doi if form_data else '' }}" required>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="form-label fw-semibold">Ghi chú</label>
+                        <input type="text" class="form-control" name="mo_ta" value="{{ form_data.mo_ta if form_data else '' }}">
+                    </div>
+                    <div class="col-md-2 d-grid">
+                        <button type="submit" class="btn btn-success fw-bold">Thêm đội</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row">
+        {% for doi in doi_bong_list %}
+            <div class="col-md-4 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold text-success">{{ doi[1] }}</h5>
+                        <p class="card-text text-muted mb-2">{{ doi[2] or 'Chưa có ghi chú' }}</p>
+                        <p class="small text-muted">Thành viên: {{ doi[3] }}</p>
+                        <div class="d-grid gap-2">
+                            <a href="/doi-bong/{{ doi[0] }}" class="btn btn-primary btn-sm">Xem chi tiết</a>
+                            <a href="/doi-bong/{{ doi[0] }}/sua" class="btn btn-warning btn-sm">Sửa đội</a>
+                            <a href="/doi-bong/{{ doi[0] }}/xoa" class="btn btn-danger btn-sm" onclick="return confirm('Xóa đội bóng này?')">Xóa đội</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+
+        {% if not doi_bong_list %}
+        <div class="alert alert-info">Chưa có đội bóng nào.</div>
+        {% endif %}
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>

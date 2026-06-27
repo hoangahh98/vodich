@@ -1,0 +1,84 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VĐV Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark bg-dark mb-4">
+        <div class="container-fluid">
+            <span class="navbar-brand mb-0 h1">🏸 GIẢI ĐẤU CỦA TÔI</span>
+            <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">🚪 Đăng xuất</a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <a href="/doc-diem-giao-luu" class="btn btn-primary btn-lg fw-bold">
+                    🔊 ĐỌC ĐIỂM GIAO LƯU
+                </a>
+            </div>
+        </div>
+
+        <div class="row">
+        {% for giai in vdv_giai %}
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">{{ giai.ten_giai_dau }}</h5>
+                        <p class="card-text">
+                            📍 {{ giai.dia_diem }}<br>
+                            👥 {{ giai.so_luong_nguoi }} người<br>
+                            💰 Lệ phí: {{ "{:,.0f}".format(giai.chi_phi_moi_nguoi) }}đ
+                        </p>
+                        <a href="/giai-dau/{{ giai.id }}/vdv" class="btn btn-primary">👁️ Xem Chi Tiết</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+
+        {% if not vdv_giai %}
+        <div class="alert alert-info">
+            📭 Bạn chưa đăng ký giải nào. Liên hệ BTC để đăng ký.
+        </div>
+        {% endif %}
+
+        <div class="mt-4 mb-3">
+            <h5 class="fw-bold">Đội bóng của tôi</h5>
+        </div>
+        <div class="row">
+        {% for doi in vdv_doi_bong %}
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold text-success">{{ doi[1] }}</h5>
+                        <p class="card-text">
+                            {{ doi[2] or 'Chưa có ghi chú' }}<br>
+                            <span class="badge bg-secondary">{{ 'Vãng lai' if doi[3] == 'vang_lai' else 'Cố định' }}</span>
+                        </p>
+                        <a href="/doi-bong/{{ doi[0] }}/vdv" class="btn btn-success">👁️ Xem Đội</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+
+        {% if not vdv_doi_bong %}
+        <div class="alert alert-info">
+            Bạn chưa thuộc đội bóng nào.
+        </div>
+        {% endif %}
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>
+
+

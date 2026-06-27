@@ -1,0 +1,52 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Sửa Thông Tin Người Chơi</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <div class="container mt-5" style="max-width: 500px;">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark fw-bold">📝 Sửa Thông Tin Thành Viên</div>
+            <div class="card-body">
+                <form action="/giai-dau/{{ giai_id }}/sua-nguoi-choi/{{ nguoi_choi[0] }}" method="POST">
+                    <div class="mb-3">
+                        <label class="form-label">Tên người chơi / Đội <span class="text-danger">*</span></label>
+                        <input type="text" name="ten_nguoi_choi" class="form-control" value="{{ nguoi_choi[2] }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Trình độ:</label>
+                        <select name="trinh_do" class="form-select">
+                            <option value="A" {% if nguoi_choi[3] == 'A' %}selected{% endif %}>Trình A</option>
+                            <option value="B" {% if nguoi_choi[3] == 'B' %}selected{% endif %}>Trình B</option>
+                            <option value="C" {% if nguoi_choi[3] == 'C' %}selected{% endif %}>Trình C</option>
+                            <option value="D" {% if nguoi_choi[3] == 'D' %}selected{% endif %}>Trình D</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Số tiền nộp (VND):</label>
+                        <input type="number" name="so_tien_da_dong" class="form-control" value="{{ nguoi_choi[4] }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email:</label>
+                        <input type="email" name="email" class="form-control" value="{{ nguoi_choi[6] if nguoi_choi|length > 6 else '' }}">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Ghi chú:</label>
+                        <textarea name="ghi_chu" class="form-control" rows="2">{{ nguoi_choi[5] }}</textarea>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="/giai-dau/{{ giai_id }}" class="btn btn-secondary">Hủy</a>
+                        <button type="submit" class="btn btn-warning">Cập Nhật</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>
+
