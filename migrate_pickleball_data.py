@@ -11,21 +11,41 @@ from schema import ensure_all_schema
 
 
 TABLES = [
-    "users",
-    "van_dong_vien",
-    "giai_dau",
-    "dang_ky_giai",
-    "tran_dau",
-    "giai_dau_admin_quyen",
-    "doi_bong",
-    "doi_bong_thanh_vien",
-    "doi_bong_quy_thang",
-    "doi_bong_khoan_chi",
-    "doi_bong_admin_quyen",
-    "doi_bong_dong_phi",
-    "app_logs",
-    "user_actions",
+    ("users", "users"),
+    ("van_dong_vien", "user_clients"),
+    ("giai_dau", "giai_dau"),
+    ("dang_ky_giai", "dang_ky_giai"),
+    ("tran_dau", "tran_dau"),
+    ("giai_dau_admin_quyen", "giai_dau_admin_quyen"),
+    ("doi_bong", "doi_bong"),
+    ("doi_bong_thanh_vien", "doi_bong_thanh_vien"),
+    ("doi_bong_quy_thang", "doi_bong_quy_thang"),
+    ("doi_bong_khoan_chi", "doi_bong_khoan_chi"),
+    ("doi_bong_admin_quyen", "doi_bong_admin_quyen"),
+    ("doi_bong_dong_phi", "doi_bong_dong_phi"),
+    ("app_logs", "app_logs"),
+    ("user_actions", "user_actions"),
 ]
+
+COLUMN_MAPS = {
+    ("van_dong_vien", "user_clients"): {
+        "ten_vdv": "display_name",
+        "trinh_do": "skill_level",
+        "ghi_chu": "notes",
+    },
+    ("dang_ky_giai", "dang_ky_giai"): {
+        "van_dong_vien_id": "user_client_id",
+        "ghi_chu": "notes",
+    },
+    ("doi_bong_thanh_vien", "doi_bong_thanh_vien"): {
+        "van_dong_vien_id": "user_client_id",
+        "trinh_do": "skill_level",
+        "ghi_chu": "notes",
+    },
+    ("doi_bong_quy_thang", "doi_bong_quy_thang"): {"ghi_chu": "notes"},
+    ("doi_bong_khoan_chi", "doi_bong_khoan_chi"): {"ghi_chu": "notes"},
+    ("doi_bong_dong_phi", "doi_bong_dong_phi"): {"ghi_chu": "notes"},
+}
 
 
 def _connect(database_url):
@@ -62,19 +82,24 @@ def _columns(conn, table):
         return [row[0] for row in cursor.fetchall()]
 
 
-def _copy_table(source, target, table):
-    source_columns = _columns(source, table)
-    target_columns = _columns(target, table)
-    columns = [column for column in source_columns if column in target_columns]
-    if not columns:
-        print(f"skip {table}: no common columns")
+def _copy_table(source, target, source_table, target_table):
+    source_columns = _columns(source, source_table)
+    target_columns = _columns(target, target_table)
+    column_map = COLUMN_MAPS.get((source_table, target_table), {})
+    pairs = [
+        (source_column, column_map.get(source_column, source_column))
+        for source_column in source_columns
+        if column_map.get(source_column, source_column) in target_columns
+    ]
+    if not pairs:
+        print(f"skip {source_table} -> {target_table}: no common columns")
         return
 
     with source.cursor() as source_cursor, target.cursor() as target_cursor:
         source_cursor.execute(
             sql.SQL("SELECT {} FROM {} ORDER BY id").format(
-                sql.SQL(", ").join(map(sql.Identifier, columns)),
-                sql.Identifier(table),
+                sql.SQL(", ").join(sql.Identifier(source_column) for source_column, _ in pairs),
+                sql.Identifier(source_table),
             )
         )
         rows = [
@@ -85,12 +110,12 @@ def _copy_table(source, target, table):
             execute_values(
                 target_cursor,
                 sql.SQL("INSERT INTO {} ({}) VALUES %s").format(
-                    sql.Identifier(table),
-                    sql.SQL(", ").join(map(sql.Identifier, columns)),
+                    sql.Identifier(target_table),
+                    sql.SQL(", ").join(sql.Identifier(target_column) for _, target_column in pairs),
                 ).as_string(target),
                 rows,
             )
-        print(f"copied {table}: {len(rows)} rows")
+        print(f"copied {source_table} -> {target_table}: {len(rows)} rows")
 
 
 def _reset_sequence(conn, table):
@@ -122,13 +147,13 @@ def main():
         with target.cursor() as cursor:
             cursor.execute(
                 "TRUNCATE TABLE {} RESTART IDENTITY CASCADE;".format(
-                    ", ".join(f'"{table}"' for table in reversed(TABLES))
+                    ", ".join(f'"{target_table}"' for _, target_table in reversed(TABLES))
                 )
             )
-        for table in TABLES:
-            _copy_table(source, target, table)
-        for table in TABLES:
-            _reset_sequence(target, table)
+        for source_table, target_table in TABLES:
+            _copy_table(source, target, source_table, target_table)
+        for _, target_table in TABLES:
+            _reset_sequence(target, target_table)
         target.commit()
     return 0
 

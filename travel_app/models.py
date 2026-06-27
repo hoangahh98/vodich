@@ -25,7 +25,7 @@ class UserModel:
     def get_admins():
         with db_cursor() as cursor:
             cursor.execute(
-                "SELECT id, email, display_name FROM travel_users WHERE role = 'admin' ORDER BY email ASC;"
+                "SELECT id, email, email AS display_name FROM users WHERE role = 'admin' ORDER BY email ASC;"
             )
             return cursor.fetchall()
 
@@ -35,7 +35,7 @@ class UserModel:
             cursor.execute(
                 """
                 SELECT u.id, u.email, u.display_name
-                FROM travel_users u
+                FROM users u
                 WHERE u.role = 'admin'
                   AND lower(u.email) <> lower(%s)
                   AND (%s IS NULL OR u.id <> %s)
@@ -55,7 +55,7 @@ class UserModel:
     def get_admin(admin_id):
         with db_cursor() as cursor:
             cursor.execute(
-                "SELECT id, email, display_name FROM travel_users WHERE id = %s AND role = 'admin';",
+                "SELECT id, email, email AS display_name FROM users WHERE id = %s AND role = 'admin';",
                 (admin_id,),
             )
             return cursor.fetchone()
@@ -70,10 +70,10 @@ class UserModel:
         with db_cursor(commit=True) as cursor:
             cursor.execute(
                 """
-                INSERT INTO travel_users (email, password_hash, role, display_name)
-                VALUES (%s, %s, 'admin', %s);
+                INSERT INTO users (email, password, role)
+                VALUES (%s, %s, 'admin');
                 """,
-                (email, AuthService.hash_password(password), display_name or "Admin"),
+                (email, AuthService.hash_password(password)),
             )
 
     @staticmethod
@@ -83,20 +83,20 @@ class UserModel:
             if password:
                 cursor.execute(
                     """
-                    UPDATE travel_users
-                    SET email = %s, display_name = %s, password_hash = %s
+                    UPDATE users
+                    SET email = %s, password = %s
                     WHERE id = %s AND role = 'admin';
                     """,
-                    (email, display_name or "Admin", AuthService.hash_password(password), admin_id),
+                    (email, AuthService.hash_password(password), admin_id),
                 )
             else:
                 cursor.execute(
                     """
-                    UPDATE travel_users
-                    SET email = %s, display_name = %s
+                    UPDATE users
+                    SET email = %s
                     WHERE id = %s AND role = 'admin';
                     """,
-                    (email, display_name or "Admin", admin_id),
+                    (email, admin_id),
                 )
 
     @staticmethod
@@ -104,7 +104,7 @@ class UserModel:
         with db_cursor(commit=True) as cursor:
             cursor.execute("UPDATE trips SET owner_admin_id = %s WHERE owner_admin_id = %s;", (fallback_admin_id, admin_id))
             cursor.execute("DELETE FROM trip_admin_permissions WHERE admin_id = %s;", (admin_id,))
-            cursor.execute("DELETE FROM travel_users WHERE id = %s AND role = 'admin';", (admin_id,))
+            cursor.execute("DELETE FROM users WHERE id = %s AND role = 'admin';", (admin_id,))
 
     @staticmethod
     def create_viewer_for_member(member_id, email, password):
@@ -115,35 +115,36 @@ class UserModel:
             cursor.execute("SELECT name FROM trip_members WHERE id = %s;", (member_id,))
             member = cursor.fetchone()
             if not member:
-                raise ValueError("Không tìm thấy thành viên")
+                raise ValueError("KhÃ´ng tÃ¬m tháº¥y thÃ nh viÃªn")
+            cursor.execute("SELECT id FROM user_clients WHERE lower(email) = lower(%s) LIMIT 1;", (email,))
+            existing_vdv = cursor.fetchone()
+            if existing_vdv:
+                client_id = existing_vdv[0]
+                cursor.execute("UPDATE user_clients SET display_name = %s WHERE id = %s;", (member[0], client_id))
+            else:
+                cursor.execute(
+                    """
+                    INSERT INTO user_clients (display_name, skill_level, email, notes)
+                    VALUES (%s, 'C', %s, '')
+                    RETURNING id;
+                    """,
+                    (member[0], email),
+                )
+                client_id = cursor.fetchone()[0]
             cursor.execute(
-                """
-                INSERT INTO travel_users (email, password_hash, role, display_name)
-                VALUES (%s, %s, 'viewer', %s)
-                ON CONFLICT (email) DO UPDATE SET
-                    password_hash = EXCLUDED.password_hash,
-                    role = 'viewer',
-                    display_name = EXCLUDED.display_name,
-                    active = TRUE
-                RETURNING id;
-                """,
-                (email, AuthService.hash_password(password), member[0]),
-            )
-            user_id = cursor.fetchone()[0]
-            cursor.execute(
-                "UPDATE trip_members SET user_id = %s, email = %s WHERE id = %s;",
-                (user_id, email, member_id),
+                "UPDATE trip_members SET client_id = %s, email = %s WHERE id = %s;",
+                (client_id, email, member_id),
             )
             cursor.execute(
                 """
                 UPDATE travel_people p
-                SET user_id = %s, email = %s, updated_at = CURRENT_TIMESTAMP
+                SET client_id = %s, email = %s, updated_at = CURRENT_TIMESTAMP
                 FROM trip_members tm
                 WHERE tm.person_id = p.id AND tm.id = %s;
                 """,
-                (user_id, email, member_id),
+                (client_id, email, member_id),
             )
-            return user_id
+            return client_id
 
 
 class PeopleModel:
@@ -152,7 +153,7 @@ class PeopleModel:
         with db_cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, name, email, user_id, owner_admin_id
+                SELECT id, name, email, client_id, owner_admin_id
                 FROM travel_people
                 WHERE active = TRUE
                 ORDER BY name ASC, id ASC;
@@ -184,7 +185,7 @@ class PeopleModel:
         with db_cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, name, email, user_id, owner_admin_id
+                SELECT id, name, email, client_id, owner_admin_id
                 FROM travel_people
                 WHERE id = %s AND active = TRUE;
                 """,
@@ -194,45 +195,76 @@ class PeopleModel:
 
     @staticmethod
     def create(name, email, owner_admin_id):
+        email = (email or "").strip().lower()
         with db_cursor(commit=True) as cursor:
+            cursor.execute("SELECT id FROM user_clients WHERE lower(email) = lower(%s) LIMIT 1;", (email,))
+            existing_vdv = cursor.fetchone() if email else None
+            if existing_vdv:
+                client_id = existing_vdv[0]
+                cursor.execute("UPDATE user_clients SET display_name = %s WHERE id = %s;", (name, client_id))
+            elif email:
+                cursor.execute(
+                    """
+                    INSERT INTO user_clients (display_name, skill_level, email, notes)
+                    VALUES (%s, 'C', %s, '')
+                    RETURNING id;
+                    """,
+                    (name, email),
+                )
+                client_id = cursor.fetchone()[0]
+            else:
+                client_id = None
             cursor.execute(
                 """
-                INSERT INTO travel_people (name, email, owner_admin_id, user_id)
-                VALUES (
-                    %s,
-                    %s,
-                    %s,
-                    (SELECT id FROM travel_users WHERE lower(email) = lower(%s) AND role = 'viewer' LIMIT 1)
-                )
+                INSERT INTO travel_people (name, email, owner_admin_id, client_id)
+                VALUES (%s, %s, %s, %s)
                 RETURNING id;
                 """,
-                (name, (email or "").strip().lower(), owner_admin_id, (email or "").strip().lower()),
+                (name, email, owner_admin_id, client_id),
             )
             return cursor.fetchone()[0]
 
     @staticmethod
     def update(person_id, name, email):
+        email = (email or "").strip().lower()
         with db_cursor(commit=True) as cursor:
+            cursor.execute("SELECT id FROM user_clients WHERE lower(email) = lower(%s) LIMIT 1;", (email,))
+            existing_vdv = cursor.fetchone() if email else None
+            if existing_vdv:
+                client_id = existing_vdv[0]
+                cursor.execute("UPDATE user_clients SET display_name = %s WHERE id = %s;", (name, client_id))
+            elif email:
+                cursor.execute(
+                    """
+                    INSERT INTO user_clients (display_name, skill_level, email, notes)
+                    VALUES (%s, 'C', %s, '')
+                    RETURNING id;
+                    """,
+                    (name, email),
+                )
+                client_id = cursor.fetchone()[0]
+            else:
+                client_id = None
             cursor.execute(
                 """
                 UPDATE travel_people
                 SET name = %s,
                     email = %s,
-                    user_id = (SELECT id FROM travel_users WHERE lower(email) = lower(%s) AND role = 'viewer' LIMIT 1),
+                    client_id = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s;
                 """,
-                (name, (email or "").strip().lower(), (email or "").strip().lower(), person_id),
+                (name, email, client_id, person_id),
             )
             cursor.execute(
                 """
                 UPDATE trip_members
                 SET name = %s,
                     email = %s,
-                    user_id = (SELECT id FROM travel_users WHERE lower(email) = lower(%s) AND role = 'viewer' LIMIT 1)
+                    client_id = %s
                 WHERE person_id = %s AND active = TRUE;
                 """,
-                (name, (email or "").strip().lower(), (email or "").strip().lower(), person_id),
+                (name, email, client_id, person_id),
             )
 
     @staticmethod
@@ -271,7 +303,7 @@ class TripModel:
             return cursor.fetchall()
 
     @staticmethod
-    def all_for_viewer(user_id, email=None):
+    def all_for_viewer(client_id, email=None):
         with db_cursor() as cursor:
             cursor.execute(
                 """
@@ -279,10 +311,10 @@ class TripModel:
                 FROM trips t
                 INNER JOIN trip_members tm ON t.id = tm.trip_id
                 WHERE tm.active = TRUE
-                  AND (tm.user_id = %s OR (%s IS NOT NULL AND lower(tm.email) = lower(%s)))
+                  AND (tm.client_id = %s OR (%s IS NOT NULL AND lower(tm.email) = lower(%s)))
                 ORDER BY t.id DESC;
                 """,
-                (user_id, email, email),
+                (client_id, email, email),
             )
             return cursor.fetchall()
 
@@ -304,7 +336,7 @@ class TripModel:
             return cursor.fetchone()
 
     @staticmethod
-    def get_for_viewer(trip_id, user_id, email=None):
+    def get_for_viewer(trip_id, client_id, email=None):
         with db_cursor() as cursor:
             cursor.execute(
                 """
@@ -313,9 +345,9 @@ class TripModel:
                 INNER JOIN trip_members tm ON t.id = tm.trip_id
                 WHERE t.id = %s
                   AND tm.active = TRUE
-                  AND (tm.user_id = %s OR (%s IS NOT NULL AND lower(tm.email) = lower(%s)));
+                  AND (tm.client_id = %s OR (%s IS NOT NULL AND lower(tm.email) = lower(%s)));
                 """,
-                (trip_id, user_id, email, email),
+                (trip_id, client_id, email, email),
             )
             return cursor.fetchone()
 
@@ -340,7 +372,7 @@ class TripModel:
                 """
                 SELECT p.id, p.admin_id, u.email
                 FROM trip_admin_permissions p
-                INNER JOIN travel_users u ON p.admin_id = u.id
+                INNER JOIN users u ON p.admin_id = u.id
                 WHERE p.trip_id = %s
                   AND lower(u.email) <> lower(%s)
                 ORDER BY u.email ASC;
@@ -358,7 +390,7 @@ class TripModel:
                 """
                 INSERT INTO trip_admin_permissions (trip_id, admin_id)
                 SELECT %s, u.id
-                FROM travel_users u
+                FROM users u
                 WHERE u.id = %s
                   AND u.role = 'admin'
                   AND lower(u.email) <> lower(%s)
@@ -379,7 +411,7 @@ class FinanceModel:
         with db_cursor() as cursor:
             cursor.execute(
                 """
-                SELECT tm.id, tm.name, tm.email, tm.user_id, COALESCE(tc.amount, 0), COALESCE(tc.note, '')
+                SELECT tm.id, tm.name, tm.email, tm.client_id, COALESCE(tc.amount, 0), COALESCE(tc.note, '')
                 FROM trip_members tm
                 LEFT JOIN trip_collections tc ON tm.id = tc.member_id AND tc.trip_id = tm.trip_id
                 WHERE tm.trip_id = %s AND tm.active = TRUE
@@ -395,7 +427,7 @@ class FinanceModel:
             if admin_id:
                 cursor.execute(
                     """
-                    SELECT tm.id, tm.name, tm.email, tm.user_id, t.id, t.name,
+                    SELECT tm.id, tm.name, tm.email, tm.client_id, t.id, t.name,
                            COALESCE(tc.amount, 0), tm.active
                     FROM trip_members tm
                     INNER JOIN trips t ON tm.trip_id = t.id
@@ -410,7 +442,7 @@ class FinanceModel:
             else:
                 cursor.execute(
                     """
-                    SELECT tm.id, tm.name, tm.email, tm.user_id, t.id, t.name,
+                    SELECT tm.id, tm.name, tm.email, tm.client_id, t.id, t.name,
                            COALESCE(tc.amount, 0), tm.active
                     FROM trip_members tm
                     INNER JOIN trips t ON tm.trip_id = t.id
@@ -427,7 +459,7 @@ class FinanceModel:
             if admin_id:
                 cursor.execute(
                     """
-                    SELECT tm.id, tm.trip_id, tm.name, tm.email, tm.user_id, t.name
+                    SELECT tm.id, tm.trip_id, tm.name, tm.email, tm.client_id, t.name
                     FROM trip_members tm
                     INNER JOIN trips t ON tm.trip_id = t.id
                     LEFT JOIN trip_admin_permissions p ON t.id = p.trip_id AND p.admin_id = %s
@@ -439,7 +471,7 @@ class FinanceModel:
             else:
                 cursor.execute(
                     """
-                    SELECT tm.id, tm.trip_id, tm.name, tm.email, tm.user_id, t.name
+                    SELECT tm.id, tm.trip_id, tm.name, tm.email, tm.client_id, t.name
                     FROM trip_members tm
                     INNER JOIN trips t ON tm.trip_id = t.id
                     WHERE tm.id = %s AND tm.active = TRUE;
@@ -467,7 +499,7 @@ class FinanceModel:
         with db_cursor(commit=True) as cursor:
             cursor.execute(
                 """
-                SELECT id, name, email, user_id
+                SELECT id, name, email, client_id
                 FROM travel_people
                 WHERE id = %s AND active = TRUE;
                 """,
@@ -475,10 +507,10 @@ class FinanceModel:
             )
             person = cursor.fetchone()
             if not person:
-                raise ValueError("Không tìm thấy thành viên")
+                raise ValueError("KhÃ´ng tÃ¬m tháº¥y thÃ nh viÃªn")
             cursor.execute(
                 """
-                INSERT INTO trip_members (trip_id, person_id, user_id, name, email)
+                INSERT INTO trip_members (trip_id, person_id, client_id, name, email)
                 VALUES (%s, %s, %s, %s, %s)
                 RETURNING id;
                 """,
@@ -509,10 +541,10 @@ class FinanceModel:
             )
             cursor.execute(
                 """
-                UPDATE travel_users u
+                UPDATE user_clients v
                 SET display_name = %s
                 FROM trip_members tm
-                WHERE tm.user_id = u.id AND tm.id = %s;
+                WHERE tm.client_id = v.id AND tm.id = %s;
                 """,
                 (name, member_id),
             )
@@ -595,9 +627,9 @@ class FinanceModel:
     def add_expense(trip_id, spent_date, title, amount, note, member_ids):
         amount = money(amount)
         if amount < 0:
-            raise ValueError("Số tiền chi không hợp lệ")
+            raise ValueError("Sá»‘ tiá»n chi khÃ´ng há»£p lá»‡")
         if not member_ids:
-            raise ValueError("Cần có thành viên để chia tiền")
+            raise ValueError("Cáº§n cÃ³ thÃ nh viÃªn Ä‘á»ƒ chia tiá»n")
         base = amount // len(member_ids)
         remainder = int(amount - (base * len(member_ids)))
         splits = []
@@ -624,7 +656,7 @@ class FinanceModel:
         amount = money(amount)
         total_split = sum(money(item["amount"]) for item in split_updates)
         if total_split != amount:
-            raise ValueError(f"Tổng tiền chia ({total_split:,.0f}) phải bằng tiền khoản chi ({amount:,.0f})")
+            raise ValueError(f"Tá»•ng tiá»n chia ({total_split:,.0f}) pháº£i báº±ng tiá»n khoáº£n chi ({amount:,.0f})")
         with db_cursor(commit=True) as cursor:
             cursor.execute(
                 """

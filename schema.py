@@ -48,6 +48,46 @@ ADD COLUMN IF NOT EXISTS cf_ray VARCHAR(100);
 
 
 APP_SCHEMA_SQL = """
+DO $$
+BEGIN
+    IF to_regclass('public.user_clients') IS NULL AND to_regclass('public.van_dong_vien') IS NOT NULL THEN
+        ALTER TABLE van_dong_vien RENAME TO user_clients;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_clients' AND column_name = 'ten_vdv') THEN
+        ALTER TABLE user_clients RENAME COLUMN ten_vdv TO display_name;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_clients' AND column_name = 'trinh_do') THEN
+        ALTER TABLE user_clients RENAME COLUMN trinh_do TO skill_level;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_clients' AND column_name = 'ghi_chu') THEN
+        ALTER TABLE user_clients RENAME COLUMN ghi_chu TO notes;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'dang_ky_giai' AND column_name = 'van_dong_vien_id') THEN
+        ALTER TABLE dang_ky_giai RENAME COLUMN van_dong_vien_id TO user_client_id;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'doi_bong_thanh_vien' AND column_name = 'van_dong_vien_id') THEN
+        ALTER TABLE doi_bong_thanh_vien RENAME COLUMN van_dong_vien_id TO user_client_id;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'dang_ky_giai' AND column_name = 'ghi_chu') THEN
+        ALTER TABLE dang_ky_giai RENAME COLUMN ghi_chu TO notes;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'doi_bong_thanh_vien' AND column_name = 'trinh_do') THEN
+        ALTER TABLE doi_bong_thanh_vien RENAME COLUMN trinh_do TO skill_level;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'doi_bong_thanh_vien' AND column_name = 'ghi_chu') THEN
+        ALTER TABLE doi_bong_thanh_vien RENAME COLUMN ghi_chu TO notes;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'doi_bong_quy_thang' AND column_name = 'ghi_chu') THEN
+        ALTER TABLE doi_bong_quy_thang RENAME COLUMN ghi_chu TO notes;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'doi_bong_khoan_chi' AND column_name = 'ghi_chu') THEN
+        ALTER TABLE doi_bong_khoan_chi RENAME COLUMN ghi_chu TO notes;
+    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'doi_bong_dong_phi' AND column_name = 'ghi_chu') THEN
+        ALTER TABLE doi_bong_dong_phi RENAME COLUMN ghi_chu TO notes;
+    END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
@@ -56,12 +96,12 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS van_dong_vien (
+CREATE TABLE IF NOT EXISTS user_clients (
     id SERIAL PRIMARY KEY,
-    ten_vdv VARCHAR(255) NOT NULL,
-    trinh_do VARCHAR(10) DEFAULT 'C',
+    display_name VARCHAR(255) NOT NULL,
+    skill_level VARCHAR(10) DEFAULT 'C',
     email VARCHAR(255) NOT NULL DEFAULT '',
-    ghi_chu TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -87,13 +127,13 @@ CREATE TABLE IF NOT EXISTS giai_dau (
 
 CREATE TABLE IF NOT EXISTS dang_ky_giai (
     id SERIAL PRIMARY KEY,
-    van_dong_vien_id INTEGER NOT NULL REFERENCES van_dong_vien(id) ON DELETE CASCADE,
+    user_client_id INTEGER NOT NULL REFERENCES user_clients(id) ON DELETE CASCADE,
     giai_dau_id INTEGER NOT NULL REFERENCES giai_dau(id) ON DELETE CASCADE,
     so_tien_da_dong NUMERIC(12, 2) DEFAULT 0,
     trang_thai_dong_tien VARCHAR(50) DEFAULT 'Chưa đóng',
-    ghi_chu TEXT DEFAULT '',
+    notes TEXT DEFAULT '',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (van_dong_vien_id, giai_dau_id)
+    UNIQUE (user_client_id, giai_dau_id)
 );
 
 CREATE TABLE IF NOT EXISTS tran_dau (
@@ -162,11 +202,11 @@ ADD COLUMN IF NOT EXISTS bang_dau VARCHAR(20);
 
 DROP TABLE IF EXISTS tran_dau_edit_lock;
 
-CREATE INDEX IF NOT EXISTS idx_van_dong_vien_lower_email
-ON van_dong_vien (lower(email));
+CREATE INDEX IF NOT EXISTS idx_user_clients_lower_email
+ON user_clients (lower(email));
 
-CREATE INDEX IF NOT EXISTS idx_van_dong_vien_ten
-ON van_dong_vien (ten_vdv);
+CREATE INDEX IF NOT EXISTS idx_user_clients_ten
+ON user_clients (display_name);
 
 CREATE INDEX IF NOT EXISTS idx_users_role_email
 ON users (role, lower(email));
@@ -184,10 +224,10 @@ CREATE INDEX IF NOT EXISTS idx_dang_ky_giai_giai
 ON dang_ky_giai (giai_dau_id);
 
 CREATE INDEX IF NOT EXISTS idx_dang_ky_giai_vdv
-ON dang_ky_giai (van_dong_vien_id);
+ON dang_ky_giai (user_client_id);
 
 CREATE INDEX IF NOT EXISTS idx_dang_ky_giai_giai_vdv
-ON dang_ky_giai (giai_dau_id, van_dong_vien_id);
+ON dang_ky_giai (giai_dau_id, user_client_id);
 
 CREATE INDEX IF NOT EXISTS idx_tran_dau_giai_order
 ON tran_dau (giai_dau_id, vong_dau, san_so_may, id);
@@ -223,18 +263,18 @@ WHERE owner_admin_id IS NULL;
 CREATE TABLE IF NOT EXISTS doi_bong_thanh_vien (
     id SERIAL PRIMARY KEY,
     doi_bong_id INTEGER NOT NULL REFERENCES doi_bong(id) ON DELETE CASCADE,
-    van_dong_vien_id INTEGER REFERENCES van_dong_vien(id) ON DELETE CASCADE,
+    user_client_id INTEGER REFERENCES user_clients(id) ON DELETE CASCADE,
     ten_thanh_vien VARCHAR(255) NOT NULL,
-    trinh_do VARCHAR(10) DEFAULT 'C',
+    skill_level VARCHAR(10) DEFAULT 'C',
     loai_thanh_vien VARCHAR(20) DEFAULT 'co_dinh',
-    ghi_chu TEXT,
+    notes TEXT,
     active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 ALTER TABLE doi_bong_thanh_vien
-ADD COLUMN IF NOT EXISTS van_dong_vien_id INTEGER REFERENCES van_dong_vien(id) ON DELETE CASCADE;
+ADD COLUMN IF NOT EXISTS user_client_id INTEGER REFERENCES user_clients(id) ON DELETE CASCADE;
 
 CREATE TABLE IF NOT EXISTS doi_bong_quy_thang (
     id SERIAL PRIMARY KEY,
@@ -245,7 +285,7 @@ CREATE TABLE IF NOT EXISTS doi_bong_quy_thang (
     chi_phi_nuoc_noi NUMERIC(12, 2) DEFAULT 0,
     chi_phi_khac NUMERIC(12, 2) DEFAULT 0,
     tien_san_con_lai_thang_truoc NUMERIC(12, 2) DEFAULT 0,
-    ghi_chu TEXT,
+    notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (doi_bong_id, thang)
@@ -261,7 +301,7 @@ CREATE TABLE IF NOT EXISTS doi_bong_khoan_chi (
     ngay_chi DATE NOT NULL,
     noi_dung VARCHAR(255) NOT NULL,
     so_tien NUMERIC(12, 2) DEFAULT 0,
-    ghi_chu TEXT,
+    notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -280,7 +320,7 @@ CREATE TABLE IF NOT EXISTS doi_bong_dong_phi (
     thang DATE NOT NULL,
     so_tien_da_dong NUMERIC(12, 2) DEFAULT 0,
     trang_thai_dong_tien VARCHAR(50) DEFAULT 'Chưa đóng',
-    ghi_chu TEXT,
+    notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (thanh_vien_id, thang)
@@ -293,11 +333,11 @@ CREATE INDEX IF NOT EXISTS idx_doi_bong_thanh_vien_doi
 ON doi_bong_thanh_vien (doi_bong_id, active, ten_thanh_vien);
 
 CREATE INDEX IF NOT EXISTS idx_doi_bong_thanh_vien_doi_vdv_active
-ON doi_bong_thanh_vien (doi_bong_id, van_dong_vien_id, active);
+ON doi_bong_thanh_vien (doi_bong_id, user_client_id, active);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_doi_bong_thanh_vien_doi_vdv
-ON doi_bong_thanh_vien (doi_bong_id, van_dong_vien_id)
-WHERE active = TRUE AND van_dong_vien_id IS NOT NULL;
+ON doi_bong_thanh_vien (doi_bong_id, user_client_id)
+WHERE active = TRUE AND user_client_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_doi_bong_quy_thang
 ON doi_bong_quy_thang (doi_bong_id, thang);

@@ -1,14 +1,14 @@
-﻿from db import db_cursor
+from db import db_cursor
 from config import SUPER_ADMIN_EMAIL, normalize_admin_user
 
-class VanDongVienModel:
+class UserClientModel:
     """Váº­n Ä‘á»™ng viÃªn (Players)"""
 
     @staticmethod
     def get_all():
         """Get all VÄV"""
         with db_cursor() as cursor:
-            cursor.execute("SELECT id, ten_vdv, trinh_do, email, ghi_chu FROM van_dong_vien ORDER BY ten_vdv ASC;")
+            cursor.execute("SELECT id, display_name, skill_level, email, notes FROM user_clients ORDER BY display_name ASC;")
             return cursor.fetchall()
 
     @staticmethod
@@ -16,15 +16,15 @@ class VanDongVienModel:
         """Get players not yet registered for a tournament."""
         with db_cursor() as cursor:
             cursor.execute("""
-                SELECT v.id, v.ten_vdv, v.trinh_do, v.email, v.ghi_chu
-                FROM van_dong_vien v
+                SELECT v.id, v.display_name, v.skill_level, v.email, v.notes
+                FROM user_clients v
                 WHERE NOT EXISTS (
                     SELECT 1
                     FROM dang_ky_giai dkg
                     WHERE dkg.giai_dau_id = %s
-                      AND dkg.van_dong_vien_id = v.id
+                      AND dkg.user_client_id = v.id
                 )
-                ORDER BY v.ten_vdv ASC;
+                ORDER BY v.display_name ASC;
             """, (giai_id,))
             return cursor.fetchall()
 
@@ -33,16 +33,16 @@ class VanDongVienModel:
         """Get players not currently active in a team."""
         with db_cursor() as cursor:
             cursor.execute("""
-                SELECT v.id, v.ten_vdv, v.trinh_do, v.email, v.ghi_chu
-                FROM van_dong_vien v
+                SELECT v.id, v.display_name, v.skill_level, v.email, v.notes
+                FROM user_clients v
                 WHERE NOT EXISTS (
                     SELECT 1
                     FROM doi_bong_thanh_vien tv
                     WHERE tv.doi_bong_id = %s
-                      AND tv.van_dong_vien_id = v.id
+                      AND tv.user_client_id = v.id
                       AND tv.active = TRUE
                 )
-                ORDER BY v.ten_vdv ASC;
+                ORDER BY v.display_name ASC;
             """, (doi_bong_id,))
             return cursor.fetchall()
 
@@ -50,14 +50,14 @@ class VanDongVienModel:
     def get_by_id(vdv_id):
         """Get VÄV by ID"""
         with db_cursor() as cursor:
-            cursor.execute("SELECT * FROM van_dong_vien WHERE id = %s;", (vdv_id,))
+            cursor.execute("SELECT * FROM user_clients WHERE id = %s;", (vdv_id,))
             return cursor.fetchone()
 
     @staticmethod
     def get_by_email(email):
         """Get VÄV by email"""
         with db_cursor() as cursor:
-            cursor.execute("SELECT id, ten_vdv, email, trinh_do FROM van_dong_vien WHERE lower(email) = lower(%s);", (email,))
+            cursor.execute("SELECT id, display_name, email, skill_level FROM user_clients WHERE lower(email) = lower(%s);", (email,))
             return cursor.fetchone()
 
     @staticmethod
@@ -66,39 +66,39 @@ class VanDongVienModel:
         with db_cursor() as cursor:
             if exclude_id:
                 cursor.execute(
-                    "SELECT 1 FROM van_dong_vien WHERE lower(email) = lower(%s) AND id <> %s LIMIT 1;",
+                    "SELECT 1 FROM user_clients WHERE lower(email) = lower(%s) AND id <> %s LIMIT 1;",
                     (email, exclude_id),
                 )
             else:
-                cursor.execute("SELECT 1 FROM van_dong_vien WHERE lower(email) = lower(%s) LIMIT 1;", (email,))
+                cursor.execute("SELECT 1 FROM user_clients WHERE lower(email) = lower(%s) LIMIT 1;", (email,))
             return cursor.fetchone() is not None
 
     @staticmethod
-    def create(ten_vdv, trinh_do, email, ghi_chu=''):
+    def create(display_name, skill_level, email, notes=''):
         """Create new VÄV"""
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
-                INSERT INTO van_dong_vien (ten_vdv, trinh_do, email, ghi_chu)
+                INSERT INTO user_clients (display_name, skill_level, email, notes)
                 VALUES (%s, %s, %s, %s)
                 RETURNING id;
-            """, (ten_vdv, trinh_do, email, ghi_chu))
+            """, (display_name, skill_level, email, notes))
             return cursor.fetchone()[0]
 
     @staticmethod
-    def update(vdv_id, ten_vdv, trinh_do, email, ghi_chu=''):
+    def update(vdv_id, display_name, skill_level, email, notes=''):
         """Update VÄV"""
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
-                UPDATE van_dong_vien
-                SET ten_vdv=%s, trinh_do=%s, email=%s, ghi_chu=%s
+                UPDATE user_clients
+                SET display_name=%s, skill_level=%s, email=%s, notes=%s
                 WHERE id=%s;
-            """, (ten_vdv, trinh_do, email, ghi_chu, vdv_id))
+            """, (display_name, skill_level, email, notes, vdv_id))
 
     @staticmethod
     def delete(vdv_id):
         """Delete VÄV"""
         with db_cursor(commit=True) as cursor:
-            cursor.execute("DELETE FROM van_dong_vien WHERE id = %s;", (vdv_id,))
+            cursor.execute("DELETE FROM user_clients WHERE id = %s;", (vdv_id,))
 
 class AdminUserModel:
     @staticmethod
@@ -311,12 +311,12 @@ class DangKyGiaiModel:
         """Get all registrations for tournament"""
         with db_cursor() as cursor:
             cursor.execute("""
-                SELECT dkg.id, dkg.van_dong_vien_id, vdv.ten_vdv, vdv.trinh_do, vdv.email,
-                       dkg.so_tien_da_dong, dkg.trang_thai_dong_tien, dkg.ghi_chu
+                SELECT dkg.id, dkg.user_client_id, vdv.display_name, vdv.skill_level, vdv.email,
+                       dkg.so_tien_da_dong, dkg.trang_thai_dong_tien, dkg.notes
                 FROM dang_ky_giai dkg
-                INNER JOIN van_dong_vien vdv ON dkg.van_dong_vien_id = vdv.id
+                INNER JOIN user_clients vdv ON dkg.user_client_id = vdv.id
                 WHERE dkg.giai_dau_id = %s
-                ORDER BY vdv.ten_vdv ASC;
+                ORDER BY vdv.display_name ASC;
             """, (giai_id,))
             return cursor.fetchall()
 
@@ -332,7 +332,7 @@ class DangKyGiaiModel:
                        dkg.so_tien_da_dong, dkg.trang_thai_dong_tien
                 FROM dang_ky_giai dkg
                 INNER JOIN giai_dau g ON dkg.giai_dau_id = g.id
-                WHERE dkg.van_dong_vien_id = %s
+                WHERE dkg.user_client_id = %s
                 ORDER BY g.id DESC;
             """, (vdv_id,))
             return cursor.fetchall()
@@ -345,7 +345,7 @@ class DangKyGiaiModel:
             cursor.execute("""
                 SELECT 1
                 FROM dang_ky_giai
-                WHERE giai_dau_id = %s AND van_dong_vien_id = %s
+                WHERE giai_dau_id = %s AND user_client_id = %s
                 LIMIT 1;
             """, (giai_id, vdv_id))
             return cursor.fetchone() is not None
@@ -359,12 +359,12 @@ class DangKyGiaiModel:
 
         with db_cursor() as cursor:
             cursor.execute("""
-                SELECT dkg.giai_dau_id, dkg.id, dkg.van_dong_vien_id, vdv.ten_vdv, vdv.trinh_do, vdv.email,
-                       dkg.so_tien_da_dong, dkg.trang_thai_dong_tien, dkg.ghi_chu
+                SELECT dkg.giai_dau_id, dkg.id, dkg.user_client_id, vdv.display_name, vdv.skill_level, vdv.email,
+                       dkg.so_tien_da_dong, dkg.trang_thai_dong_tien, dkg.notes
                 FROM dang_ky_giai dkg
-                INNER JOIN van_dong_vien vdv ON dkg.van_dong_vien_id = vdv.id
+                INNER JOIN user_clients vdv ON dkg.user_client_id = vdv.id
                 WHERE dkg.giai_dau_id = ANY(%s)
-                ORDER BY dkg.giai_dau_id DESC, vdv.ten_vdv ASC;
+                ORDER BY dkg.giai_dau_id DESC, vdv.display_name ASC;
             """, (ids,))
             grouped = {giai_id: [] for giai_id in ids}
             for row in cursor.fetchall():
@@ -372,23 +372,23 @@ class DangKyGiaiModel:
             return grouped
 
     @staticmethod
-    def register(van_dong_vien_id, giai_dau_id):
+    def register(user_client_id, giai_dau_id):
         """Register VÄV for tournament"""
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
-                INSERT INTO dang_ky_giai (van_dong_vien_id, giai_dau_id)
+                INSERT INTO dang_ky_giai (user_client_id, giai_dau_id)
                 VALUES (%s, %s);
-            """, (van_dong_vien_id, giai_dau_id))
+            """, (user_client_id, giai_dau_id))
 
     @staticmethod
-    def register_many(van_dong_vien_ids, giai_dau_id):
+    def register_many(user_client_ids, giai_dau_id):
         """Register many players for one tournament using one transaction."""
-        rows = [(vdv_id, giai_dau_id) for vdv_id in van_dong_vien_ids]
+        rows = [(vdv_id, giai_dau_id) for vdv_id in user_client_ids]
         if not rows:
             return 0
         with db_cursor(commit=True) as cursor:
             cursor.executemany("""
-                INSERT INTO dang_ky_giai (van_dong_vien_id, giai_dau_id)
+                INSERT INTO dang_ky_giai (user_client_id, giai_dau_id)
                 VALUES (%s, %s);
             """, rows)
         return len(rows)
@@ -477,7 +477,7 @@ class DoiBongModel:
                 SELECT d.id, d.ten_doi, d.mo_ta, d.owner_admin_id
                 FROM doi_bong d
                 INNER JOIN doi_bong_thanh_vien tv ON d.id = tv.doi_bong_id
-                WHERE d.id = %s AND tv.van_dong_vien_id = %s AND tv.active = TRUE;
+                WHERE d.id = %s AND tv.user_client_id = %s AND tv.active = TRUE;
             """, (doi_bong_id, vdv_id))
             return cursor.fetchone()
 
@@ -488,7 +488,7 @@ class DoiBongModel:
                 SELECT d.id, d.ten_doi, d.mo_ta, tv.loai_thanh_vien
                 FROM doi_bong d
                 INNER JOIN doi_bong_thanh_vien tv ON d.id = tv.doi_bong_id
-                WHERE tv.van_dong_vien_id = %s AND tv.active = TRUE
+                WHERE tv.user_client_id = %s AND tv.active = TRUE
                 ORDER BY d.ten_doi ASC;
             """, (vdv_id,))
             return cursor.fetchall()
@@ -522,46 +522,46 @@ class DoiBongModel:
         thang = DoiBongModel.normalize_month(thang)
         with db_cursor() as cursor:
             cursor.execute("""
-                SELECT tv.id, tv.van_dong_vien_id, COALESCE(vdv.ten_vdv, tv.ten_thanh_vien),
-                       COALESCE(vdv.trinh_do, tv.trinh_do), vdv.email,
-                       tv.loai_thanh_vien, tv.ghi_chu,
+                SELECT tv.id, tv.user_client_id, COALESCE(vdv.display_name, tv.ten_thanh_vien),
+                       COALESCE(vdv.skill_level, tv.skill_level), vdv.email,
+                       tv.loai_thanh_vien, tv.notes,
                        COALESCE(dp.so_tien_da_dong, 0), COALESCE(dp.trang_thai_dong_tien, 'ChÆ°a Ä‘Ã³ng'),
-                       COALESCE(dp.ghi_chu, ''), dp.id
+                       COALESCE(dp.notes, ''), dp.id
                 FROM doi_bong_thanh_vien tv
-                LEFT JOIN van_dong_vien vdv ON tv.van_dong_vien_id = vdv.id
+                LEFT JOIN user_clients vdv ON tv.user_client_id = vdv.id
                 LEFT JOIN doi_bong_dong_phi dp ON tv.id = dp.thanh_vien_id AND dp.thang = %s
                 WHERE tv.doi_bong_id = %s AND tv.active = TRUE
-                ORDER BY COALESCE(vdv.ten_vdv, tv.ten_thanh_vien) ASC;
+                ORDER BY COALESCE(vdv.display_name, tv.ten_thanh_vien) ASC;
             """, (thang, doi_bong_id))
             return cursor.fetchall()
 
     @staticmethod
-    def add_member(doi_bong_id, van_dong_vien_id, loai_thanh_vien, ghi_chu=""):
+    def add_member(doi_bong_id, user_client_id, loai_thanh_vien, notes=""):
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
-                SELECT ten_vdv, trinh_do FROM van_dong_vien WHERE id = %s;
-            """, (van_dong_vien_id,))
+                SELECT display_name, skill_level FROM user_clients WHERE id = %s;
+            """, (user_client_id,))
             vdv = cursor.fetchone()
             if not vdv:
                 raise ValueError("KhÃ´ng tÃ¬m tháº¥y váº­n Ä‘á»™ng viÃªn.")
             cursor.execute("""
                 INSERT INTO doi_bong_thanh_vien
-                    (doi_bong_id, van_dong_vien_id, ten_thanh_vien, trinh_do, loai_thanh_vien, ghi_chu)
+                    (doi_bong_id, user_client_id, ten_thanh_vien, skill_level, loai_thanh_vien, notes)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT DO NOTHING
                 RETURNING id;
-            """, (doi_bong_id, van_dong_vien_id, vdv[0], vdv[1], loai_thanh_vien, ghi_chu))
+            """, (doi_bong_id, user_client_id, vdv[0], vdv[1], loai_thanh_vien, notes))
             row = cursor.fetchone()
             return row[0] if row else None
 
     @staticmethod
-    def update_member(doi_bong_id, thanh_vien_id, loai_thanh_vien, ghi_chu=""):
+    def update_member(doi_bong_id, thanh_vien_id, loai_thanh_vien, notes=""):
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
                 UPDATE doi_bong_thanh_vien
-                SET loai_thanh_vien=%s, ghi_chu=%s, updated_at=CURRENT_TIMESTAMP
+                SET loai_thanh_vien=%s, notes=%s, updated_at=CURRENT_TIMESTAMP
                 WHERE doi_bong_id=%s AND id=%s;
-            """, (loai_thanh_vien, ghi_chu, doi_bong_id, thanh_vien_id))
+            """, (loai_thanh_vien, notes, doi_bong_id, thanh_vien_id))
 
     @staticmethod
     def delete_member(doi_bong_id, thanh_vien_id):
@@ -579,7 +579,7 @@ class DoiBongModel:
             cursor.execute("""
                 SELECT doi_bong_id, thang, COALESCE(muc_phi_thang, 0),
                        COALESCE(chi_phi_san_bai, 0),
-                       COALESCE(tien_san_con_lai_thang_truoc, 0), COALESCE(ghi_chu, '')
+                       COALESCE(tien_san_con_lai_thang_truoc, 0), COALESCE(notes, '')
                 FROM doi_bong_quy_thang
                 WHERE doi_bong_id = %s AND thang = %s;
             """, (doi_bong_id, thang))
@@ -589,41 +589,41 @@ class DoiBongModel:
         return (doi_bong_id, thang, 0, 0, 0, "")
 
     @staticmethod
-    def upsert_month_config(doi_bong_id, thang, muc_phi_thang, chi_phi_san_bai, tien_san_con_lai_thang_truoc, ghi_chu=""):
+    def upsert_month_config(doi_bong_id, thang, muc_phi_thang, chi_phi_san_bai, tien_san_con_lai_thang_truoc, notes=""):
         thang = DoiBongModel.normalize_month(thang)
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
                 INSERT INTO doi_bong_quy_thang
-                    (doi_bong_id, thang, muc_phi_thang, chi_phi_san_bai, tien_san_con_lai_thang_truoc, ghi_chu)
+                    (doi_bong_id, thang, muc_phi_thang, chi_phi_san_bai, tien_san_con_lai_thang_truoc, notes)
                 VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (doi_bong_id, thang)
                 DO UPDATE SET
                     muc_phi_thang=EXCLUDED.muc_phi_thang,
                     chi_phi_san_bai=EXCLUDED.chi_phi_san_bai,
                     tien_san_con_lai_thang_truoc=EXCLUDED.tien_san_con_lai_thang_truoc,
-                    ghi_chu=EXCLUDED.ghi_chu,
+                    notes=EXCLUDED.notes,
                     updated_at=CURRENT_TIMESTAMP;
-            """, (doi_bong_id, thang, muc_phi_thang, chi_phi_san_bai, tien_san_con_lai_thang_truoc, ghi_chu))
+            """, (doi_bong_id, thang, muc_phi_thang, chi_phi_san_bai, tien_san_con_lai_thang_truoc, notes))
 
     @staticmethod
     def update_payments(thang, updates):
         thang = DoiBongModel.normalize_month(thang)
         rows = [
-            (thanh_vien_id, thang, so_tien, trang_thai, ghi_chu)
-            for thanh_vien_id, so_tien, trang_thai, ghi_chu in updates
+            (thanh_vien_id, thang, so_tien, trang_thai, notes)
+            for thanh_vien_id, so_tien, trang_thai, notes in updates
         ]
         if not rows:
             return 0
         with db_cursor(commit=True) as cursor:
             cursor.executemany("""
                 INSERT INTO doi_bong_dong_phi
-                    (thanh_vien_id, thang, so_tien_da_dong, trang_thai_dong_tien, ghi_chu)
+                    (thanh_vien_id, thang, so_tien_da_dong, trang_thai_dong_tien, notes)
                 VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (thanh_vien_id, thang)
                 DO UPDATE SET
                     so_tien_da_dong=EXCLUDED.so_tien_da_dong,
                     trang_thai_dong_tien=EXCLUDED.trang_thai_dong_tien,
-                    ghi_chu=EXCLUDED.ghi_chu,
+                    notes=EXCLUDED.notes,
                     updated_at=CURRENT_TIMESTAMP;
             """, rows)
         return len(rows)
@@ -650,7 +650,7 @@ class DoiBongModel:
         thang = DoiBongModel.normalize_month(thang)
         with db_cursor() as cursor:
             cursor.execute("""
-                SELECT id, ngay_chi, noi_dung, COALESCE(so_tien, 0), COALESCE(ghi_chu, '')
+                SELECT id, ngay_chi, noi_dung, COALESCE(so_tien, 0), COALESCE(notes, '')
                 FROM doi_bong_khoan_chi
                 WHERE doi_bong_id = %s AND thang = %s
                 ORDER BY ngay_chi DESC, id DESC;
@@ -658,13 +658,13 @@ class DoiBongModel:
             return cursor.fetchall()
 
     @staticmethod
-    def add_expense(doi_bong_id, thang, ngay_chi, noi_dung, so_tien, ghi_chu=""):
+    def add_expense(doi_bong_id, thang, ngay_chi, noi_dung, so_tien, notes=""):
         thang = DoiBongModel.normalize_month(thang)
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
-                INSERT INTO doi_bong_khoan_chi (doi_bong_id, thang, ngay_chi, noi_dung, so_tien, ghi_chu)
+                INSERT INTO doi_bong_khoan_chi (doi_bong_id, thang, ngay_chi, noi_dung, so_tien, notes)
                 VALUES (%s, %s, %s, %s, %s, %s);
-            """, (doi_bong_id, thang, ngay_chi, noi_dung, so_tien, ghi_chu))
+            """, (doi_bong_id, thang, ngay_chi, noi_dung, so_tien, notes))
 
     @staticmethod
     def delete_expense(doi_bong_id, expense_id):
@@ -813,3 +813,6 @@ class MatchModel:
                 bang[doi_b]["diem"] += 1
                 bang[doi_a]["thua"] += 1
         return sorted(bang.values(), key=lambda x: (-x["diem"], -x["hieu_so"]))
+
+
+VanDongVienModel = UserClientModel

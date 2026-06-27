@@ -1,7 +1,7 @@
 import hashlib
 from functools import wraps
 
-from flask import redirect, session, url_for
+from flask import redirect, session
 
 from .config import normalize_admin_user
 from .db import db_cursor
@@ -66,7 +66,7 @@ def login_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         if "user" not in session:
-            return redirect(url_for("login"))
+            return redirect("/login")
         return fn(*args, **kwargs)
     return wrapper
 
@@ -75,6 +75,6 @@ def admin_required(fn):
     @wraps(fn)
     def wrapper(*args, **kwargs):
         if "user" not in session or session["user"].get("role") != "admin":
-            return redirect(url_for("login"))
+            return redirect("/login")
         return fn(*args, **kwargs)
     return wrapper

@@ -10,7 +10,6 @@ from .schema import init_schema
 
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
-app.config["SESSION_COOKIE_NAME"] = "travel_session"
 
 with app.app_context():
     init_schema()
@@ -30,7 +29,7 @@ def vnd(value):
 @login_required
 def index():
     user = session["user"]
-    if user["role"] == "viewer":
+    if user["role"] != "admin":
         return redirect(url_for("viewer_dashboard"))
     return redirect(url_for("trips"))
 
@@ -43,23 +42,12 @@ def module_home():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    if request.method == "POST":
-        user, error = AuthService.login(
-            request.form.get("email", ""),
-            request.form.get("password", ""),
-            request.form.get("role", "viewer"),
-        )
-        if error:
-            return render_template("login.html", error=error)
-        session["user"] = user
-        return redirect(url_for("index"))
-    return render_template("login.html")
+    return redirect("/login")
 
 
 @app.route("/dang-xuat")
 def logout():
-    session.clear()
-    return redirect(url_for("login"))
+    return redirect("/dang-xuat")
 
 
 @app.route("/chuyen-di")
@@ -122,9 +110,7 @@ def delete_person(person_id):
 @app.route("/admin-settings")
 @admin_required
 def admin_settings():
-    if not is_super_admin(session["user"]):
-        return "Chỉ admin gốc được quản lý admin", 403
-    return render_template("admin_settings.html", admins=UserModel.get_admins(), super_admin_email=SUPER_ADMIN_EMAIL)
+    return redirect("/admin-settings")
 
 
 @app.route("/admin-settings/them", methods=["POST"])
@@ -394,7 +380,7 @@ def remove_permission(trip_id, permission_id):
 @app.route("/nguoi-xem")
 @login_required
 def viewer_dashboard():
-    if session["user"]["role"] != "viewer":
+    if session["user"]["role"] == "admin":
         return redirect(url_for("trips"))
     user = session["user"]
     return render_template("viewer_dashboard.html", trips=TripModel.all_for_viewer(user["id"], user.get("email")))
@@ -404,7 +390,7 @@ def viewer_dashboard():
 @login_required
 def viewer_trip(trip_id):
     user = session["user"]
-    if user["role"] != "viewer":
+    if user["role"] == "admin":
         return redirect(url_for("trips"))
     trip = TripModel.get_for_viewer(trip_id, user["id"], user.get("email"))
     if not trip:

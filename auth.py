@@ -42,7 +42,8 @@ class AuthService:
         if not AuthService.verify_password(password, user[2]):
             return None, "Máº­t kháº©u sai"
 
-        return {"id": user[0], "email": normalize_admin_user(user[1]), "role": "admin"}, None
+        email = normalize_admin_user(user[1])
+        return {"id": user[0], "email": email, "role": "admin", "display_name": email}, None
 
     @staticmethod
     def register_admin(email, password):

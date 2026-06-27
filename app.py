@@ -35,13 +35,14 @@ from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.dispatcher import DispatcherMiddleware
 
 from schema import ensure_all_schema
-from travel_app import app as travel_app
 
 app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 
 with app.app_context():
     ensure_all_schema()
+
+from travel_app import app as travel_app
 
 
 @app.context_processor

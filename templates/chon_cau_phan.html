@@ -3,12 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pickleball Manager</title>
+    <title>Vô địch Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         body {
             min-height: 100vh;
             background: #eef2f7;
+        }
+        .app-navbar {
+            background: linear-gradient(90deg, #0f172a, #14532d);
+            box-shadow: 0 10px 28px rgba(15, 23, 42, .14);
         }
         .home-shell {
             max-width: 1080px;
@@ -61,22 +65,22 @@
     {% include '_pwa_head.html' %}
 </head>
 <body>
-    <nav class="navbar navbar-dark bg-dark">
-        <div class="container-fluid">
-            <span class="navbar-brand mb-0 h1">PICKLEBALL MANAGER</span>
-            <div>
+    <nav class="navbar navbar-dark app-navbar py-2">
+        <div class="container-fluid px-4">
+            <span class="navbar-brand fw-bold text-white">Vô địch Tool</span>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
                 {% if session.user.email|lower == super_admin_email %}
-                <a href="/admin-settings" class="btn btn-sm btn-outline-warning me-2">Tài khoản admin</a>
+                <a href="/admin-settings" class="btn btn-sm btn-outline-warning me-2">TÃ i khoáº£n admin</a>
                 {% endif %}
-                <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">Đăng xuất</a>
+                <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">ÄÄƒng xuáº¥t</a>
             </div>
         </div>
     </nav>
 
     <main class="container home-shell py-4 py-md-5">
         <div class="mb-4">
-            <h1 class="home-title fw-bold mb-2">Trang chủ</h1>
-            <p class="text-muted mb-0">Chọn khu vực quản lý để tiếp tục vận hành giải đấu hoặc đội bóng.</p>
+            <h1 class="home-title fw-bold mb-2">Vô địch Tool</h1>
+            <p class="text-muted mb-0">Chá»n khu vá»±c quáº£n lÃ½ Ä‘á»ƒ tiáº¿p tá»¥c váº­n hÃ nh giáº£i Ä‘áº¥u hoáº·c Ä‘á»™i bÃ³ng.</p>
         </div>
 
         <div class="row g-4">
@@ -85,19 +89,19 @@
                     <section class="module-card h-100">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-start gap-3 mb-4">
-                                <div class="module-icon bg-primary bg-opacity-10 text-primary">🏆</div>
+                                <div class="module-icon bg-primary bg-opacity-10 text-primary">ðŸ†</div>
                                 <div>
-                                    <h2 class="h4 fw-bold mb-2">Quản lý giải đấu</h2>
-                                    <p class="text-muted mb-0">Tạo giải, đăng ký VĐV, chia lịch, ghi điểm và theo dõi đóng phí.</p>
+                                    <h2 class="h4 fw-bold mb-2">Quáº£n lÃ½ giáº£i Ä‘áº¥u</h2>
+                                    <p class="text-muted mb-0">Táº¡o giáº£i, Ä‘Äƒng kÃ½ VÄV, chia lá»‹ch, ghi Ä‘iá»ƒm vÃ  theo dÃµi Ä‘Ã³ng phÃ­.</p>
                                 </div>
                             </div>
                             <div class="metric-strip pt-3 d-flex justify-content-between text-muted small">
-                                <span>Lịch thi đấu</span>
-                                <span>Bảng xếp hạng</span>
-                                <span>Quỹ thưởng</span>
+                                <span>Lá»‹ch thi Ä‘áº¥u</span>
+                                <span>Báº£ng xáº¿p háº¡ng</span>
+                                <span>Quá»¹ thÆ°á»Ÿng</span>
                             </div>
                             <div class="module-loading pt-3">
-                                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Đang xử lý...
+                                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Äang xá»­ lÃ½...
                             </div>
                         </div>
                     </section>
@@ -108,19 +112,19 @@
                     <section class="module-card h-100">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-start gap-3 mb-4">
-                                <div class="module-icon bg-success bg-opacity-10 text-success">👥</div>
+                                <div class="module-icon bg-success bg-opacity-10 text-success">ðŸ‘¥</div>
                                 <div>
-                                    <h2 class="h4 fw-bold mb-2">Quản lý đội bóng</h2>
-                                    <p class="text-muted mb-0">Quản lý đội, thành viên, quỹ tháng, khoản chi và quyền xem.</p>
+                                    <h2 class="h4 fw-bold mb-2">Quáº£n lÃ½ Ä‘á»™i bÃ³ng</h2>
+                                    <p class="text-muted mb-0">Quáº£n lÃ½ Ä‘á»™i, thÃ nh viÃªn, quá»¹ thÃ¡ng, khoáº£n chi vÃ  quyá»n xem.</p>
                                 </div>
                             </div>
                             <div class="metric-strip pt-3 d-flex justify-content-between text-muted small">
-                                <span>Thành viên</span>
-                                <span>Đóng phí</span>
-                                <span>Khoản chi</span>
+                                <span>ThÃ nh viÃªn</span>
+                                <span>ÄÃ³ng phÃ­</span>
+                                <span>Khoáº£n chi</span>
                             </div>
                             <div class="module-loading pt-3">
-                                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Đang xử lý...
+                                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Äang xá»­ lÃ½...
                             </div>
                         </div>
                     </section>
@@ -131,19 +135,19 @@
                     <section class="module-card h-100">
                         <div class="card-body p-4">
                             <div class="d-flex align-items-start gap-3 mb-4">
-                                <div class="module-icon bg-warning bg-opacity-10 text-warning">💰</div>
+                                <div class="module-icon bg-warning bg-opacity-10 text-warning">ðŸ’°</div>
                                 <div>
-                                    <h2 class="h4 fw-bold mb-2">Quản lý thu chi</h2>
-                                    <p class="text-muted mb-0">Theo dõi chuyến đi, thành viên, khoản thu, khoản chi và chia tiền du lịch.</p>
+                                    <h2 class="h4 fw-bold mb-2">Quản lý du lịch</h2>
+                                    <p class="text-muted mb-0">Theo dÃµi chuyáº¿n Ä‘i, thÃ nh viÃªn, khoáº£n thu, khoáº£n chi vÃ  chia tiá»n du lá»‹ch.</p>
                                 </div>
                             </div>
                             <div class="metric-strip pt-3 d-flex justify-content-between text-muted small">
-                                <span>Chuyến đi</span>
-                                <span>Thu tiền</span>
-                                <span>Chia chi phí</span>
+                                <span>Chuyáº¿n Ä‘i</span>
+                                <span>Thu tiá»n</span>
+                                <span>Chia chi phÃ­</span>
                             </div>
                             <div class="module-loading pt-3">
-                                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Đang xử lý...
+                                <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Äang xá»­ lÃ½...
                             </div>
                         </div>
                     </section>

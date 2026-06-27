@@ -19,6 +19,7 @@
             <a class="navbar-brand fw-bold text-white" href="{{ url_for('index') }}">🏖️ Thu chi du lịch</a>
             <div class="d-flex gap-2 align-items-center flex-wrap">
                 {% if session.get('user') %}
+                    <a class="btn btn-sm btn-outline-light" href="/">Trang chủ</a>
                     {% if session.user.role == 'admin' %}
                         {% if request.path.startswith('/chuyen-di/') or request.path == '/admin-settings' or request.path == '/thanh-vien' %}
                             <a class="btn btn-sm btn-outline-light" href="{{ url_for('trips') }}">Trang chủ</a>
