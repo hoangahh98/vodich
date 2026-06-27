@@ -1,11 +1,13 @@
 from datetime import date
 from secrets import token_urlsafe
+from time import time
 from urllib.parse import quote_plus
 
+import requests
 from flask import Flask, flash, redirect, render_template, request, send_from_directory, session, url_for
 
 from .auth import AuthService, admin_required, login_required
-from .config import APP_NAME, FLASK_SECRET_KEY, SUPER_ADMIN_EMAIL, normalize_admin_user
+from .config import APP_NAME, FLASK_SECRET_KEY, GOOGLE_PLACES_API_KEY, GOOGLE_PLACES_TIMEOUT, SUPER_ADMIN_EMAIL, normalize_admin_user
 from .models import FinanceModel, PeopleModel, TripModel, UserModel, admin_scope_id, build_summary, is_super_admin, money
 from .schema import init_schema
 
@@ -14,6 +16,77 @@ app.secret_key = FLASK_SECRET_KEY
 
 EXPENSE_CATEGORIES = ("Khách sạn", "Ẩm thực", "Vui chơi", "Thể thao", "Khám phá", "Khác")
 HOTEL_CATEGORY = "Khách sạn"
+GOOGLE_TEXT_SEARCH_URL = "https://maps.googleapis.com/maps/api/place/textsearch/json"
+GOOGLE_PLACE_DETAILS_URL = "https://maps.googleapis.com/maps/api/place/details/json"
+SUGGESTION_CACHE_TTL_SECONDS = 60 * 30
+_suggestion_cache = {}
+
+
+def _cached_suggestions(cache_key):
+    cached = _suggestion_cache.get(cache_key)
+    if cached and cached["expires_at"] > time():
+        return cached["value"]
+    return None
+
+
+def _store_suggestions(cache_key, value):
+    _suggestion_cache[cache_key] = {
+        "expires_at": time() + SUGGESTION_CACHE_TTL_SECONDS,
+        "value": value,
+    }
+
+
+def _google_place_details(place_id):
+    response = requests.get(
+        GOOGLE_PLACE_DETAILS_URL,
+        params={
+            "place_id": place_id,
+            "fields": "name,formatted_address,formatted_phone_number,international_phone_number,opening_hours,url,rating,user_ratings_total,website",
+            "language": "vi",
+            "key": GOOGLE_PLACES_API_KEY,
+        },
+        timeout=GOOGLE_PLACES_TIMEOUT,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("status") not in ("OK", "ZERO_RESULTS"):
+        return {}
+    return payload.get("result") or {}
+
+
+def _google_place_search(query):
+    response = requests.get(
+        GOOGLE_TEXT_SEARCH_URL,
+        params={
+            "query": query,
+            "language": "vi",
+            "region": "vn",
+            "key": GOOGLE_PLACES_API_KEY,
+        },
+        timeout=GOOGLE_PLACES_TIMEOUT,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if payload.get("status") not in ("OK", "ZERO_RESULTS"):
+        raise ValueError(payload.get("error_message") or payload.get("status") or "Google Places error")
+    places = []
+    for result in (payload.get("results") or [])[:3]:
+        details = _google_place_details(result.get("place_id")) if result.get("place_id") else {}
+        opening_hours = details.get("opening_hours") or {}
+        places.append(
+            {
+                "name": details.get("name") or result.get("name") or "Chưa có tên",
+                "address": details.get("formatted_address") or result.get("formatted_address") or "Chưa có địa chỉ",
+                "phone": details.get("formatted_phone_number") or details.get("international_phone_number") or "Chưa có số điện thoại",
+                "open_now": opening_hours.get("open_now"),
+                "hours": (opening_hours.get("weekday_text") or [])[:3],
+                "rating": details.get("rating") or result.get("rating"),
+                "reviews": details.get("user_ratings_total") or result.get("user_ratings_total"),
+                "maps_url": details.get("url") or f"https://www.google.com/maps/search/?api=1&query={quote_plus(result.get('name') or query)}",
+                "website": details.get("website"),
+            }
+        )
+    return places
 
 
 def build_hotel_suggestions(expenses):
@@ -30,24 +103,38 @@ def build_hotel_suggestions(expenses):
 
     hotel = hotel_expense[4].strip()
     groups = [
-        ("Quán ăn ngon", "Nhà hàng, quán ăn được đánh giá tốt quanh khách sạn", f"quán ăn ngon gần {hotel}"),
-        ("Cà phê đẹp", "Quán cà phê đẹp, phù hợp ngồi nghỉ hoặc chụp ảnh", f"cà phê đẹp gần {hotel}"),
-        ("Vui chơi", "Địa điểm vui chơi gần nơi ở", f"địa điểm vui chơi gần {hotel}"),
-        ("Khám phá", "Điểm tham quan, check-in, đi dạo quanh khu vực", f"địa điểm khám phá gần {hotel}"),
-        ("Thể thao", "Hoạt động thể thao, giải trí vận động gần khách sạn", f"thể thao giải trí gần {hotel}"),
+        ("Quán ăn ngon", "Top 3 nhà hàng/quán ăn quanh khách sạn", f"quán ăn ngon gần {hotel}"),
+        ("Cà phê đẹp", "Top 3 quán cà phê quanh khách sạn", f"cà phê đẹp gần {hotel}"),
+        ("Vui chơi", "Top 3 địa điểm vui chơi gần nơi ở", f"địa điểm vui chơi gần {hotel}"),
+        ("Khám phá", "Top 3 điểm tham quan, check-in, đi dạo quanh khu vực", f"địa điểm khám phá gần {hotel}"),
+        ("Thể thao", "Top 3 hoạt động thể thao, giải trí vận động gần khách sạn", f"thể thao giải trí gần {hotel}"),
     ]
+    cache_key = hotel.lower()
+    cached = _cached_suggestions(cache_key)
+    if cached is not None:
+        return hotel, cached
+
     suggestions = []
     for title, description, query in groups:
         encoded_query = quote_plus(query)
-        suggestions.append(
-            {
-                "title": title,
-                "description": description,
-                "query": query,
-                "maps_url": f"https://www.google.com/maps/search/{encoded_query}",
-                "search_url": f"https://www.google.com/search?q={quote_plus(query + ' đánh giá địa chỉ giờ mở cửa')}",
-            }
-        )
+        item = {
+            "title": title,
+            "description": description,
+            "query": query,
+            "maps_url": f"https://www.google.com/maps/search/{encoded_query}",
+            "search_url": f"https://www.google.com/search?q={quote_plus(query + ' đánh giá địa chỉ giờ mở cửa')}",
+            "places": [],
+            "error": None,
+        }
+        if not GOOGLE_PLACES_API_KEY:
+            item["error"] = "Chưa cấu hình GOOGLE_PLACES_API_KEY nên chưa lấy được tên quán, địa chỉ, điện thoại và giờ mở cửa tự động."
+        else:
+            try:
+                item["places"] = _google_place_search(query)
+            except (requests.RequestException, ValueError) as exc:
+                item["error"] = f"Chưa lấy được dữ liệu địa điểm: {exc}"
+        suggestions.append(item)
+    _store_suggestions(cache_key, suggestions)
     return hotel, suggestions
 
 with app.app_context():

@@ -63,6 +63,8 @@ for key in ("user", "password", "host", "port"):
 FLASK_SECRET_KEY = os.environ.get("FLASK_SECRET_KEY") or os.environ.get("SECRET_KEY") or "dev-change-me"
 DB_POOL_MIN = max(1, _env_int("DB_POOL_MIN", 1))
 DB_POOL_MAX = max(DB_POOL_MIN, _env_int("DB_POOL_MAX", 5))
+GOOGLE_PLACES_API_KEY = os.environ.get("GOOGLE_PLACES_API_KEY", "").strip()
+GOOGLE_PLACES_TIMEOUT = max(1, _env_int("GOOGLE_PLACES_TIMEOUT", 4))
 
 
 def normalize_admin_user(value):

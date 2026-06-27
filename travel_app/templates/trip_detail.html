@@ -251,22 +251,67 @@
             <div class="list-group list-group-flush border rounded overflow-hidden">
                 {% for item in hotel_suggestions %}
                 <div class="list-group-item">
-                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap">
+                    <div class="d-flex justify-content-between align-items-start gap-3 flex-wrap mb-2">
                         <div>
                             <div class="fw-semibold">{{ item.title }}</div>
                             <div class="small text-muted">{{ item.description }}</div>
-                            <div class="small mt-1">{{ item.query }}</div>
                         </div>
                         <div class="d-flex flex-wrap gap-2 small">
-                            <a href="{{ item.maps_url }}" target="_blank" rel="noopener">Bản đồ</a>
-                            <a href="{{ item.search_url }}" target="_blank" rel="noopener">Đánh giá</a>
+                            <a href="{{ item.maps_url }}" target="_blank" rel="noopener">Tìm thêm</a>
                         </div>
                     </div>
+                    {% if item.places %}
+                    <div class="row g-2">
+                        {% for place in item.places %}
+                        <div class="col-lg-4">
+                            <div class="border rounded p-2 h-100">
+                                <div class="fw-semibold">{{ loop.index }}. {{ place.name }}</div>
+                                <div class="small text-muted mt-1">{{ place.address }}</div>
+                                <div class="small mt-2">
+                                    <span class="fw-semibold">SĐT:</span> {{ place.phone }}
+                                </div>
+                                <div class="small">
+                                    <span class="fw-semibold">Giờ:</span>
+                                    {% if place.open_now is sameas true %}
+                                        <span class="text-success">Đang mở</span>
+                                    {% elif place.open_now is sameas false %}
+                                        <span class="text-danger">Đang đóng</span>
+                                    {% else %}
+                                        Chưa có dữ liệu
+                                    {% endif %}
+                                </div>
+                                {% if place.hours %}
+                                <div class="small text-muted mt-1">
+                                    {% for hour in place.hours %}
+                                        <div>{{ hour }}</div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                {% if place.rating %}
+                                <div class="small mt-2">
+                                    <span class="fw-semibold">Đánh giá:</span> {{ place.rating }}{% if place.reviews %}/5 ({{ place.reviews }} lượt){% endif %}
+                                </div>
+                                {% endif %}
+                                <div class="d-flex flex-wrap gap-2 small mt-2">
+                                    <a href="{{ place.maps_url }}" target="_blank" rel="noopener">Bản đồ</a>
+                                    {% if place.website %}
+                                    <a href="{{ place.website }}" target="_blank" rel="noopener">Website</a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% elif item.error %}
+                    <div class="alert alert-warning py-2 mb-0 small">{{ item.error }}</div>
+                    {% else %}
+                    <div class="text-muted small">Chưa tìm thấy địa điểm phù hợp.</div>
+                    {% endif %}
                 </div>
                 {% endfor %}
             </div>
             <div class="small text-muted mt-3">
-                Gợi ý tự hiện sau khi thêm khoản chi Khách sạn có ghi chú tên khách sạn/địa chỉ. Để tự fill địa chỉ, giờ mở cửa và điểm đánh giá thật vào từng dòng, cần cấu hình thêm API địa điểm/tìm kiếm trên Render.
+                Gợi ý tự hiện sau khi thêm khoản chi Khách sạn có ghi chú tên khách sạn/địa chỉ. Dữ liệu tên địa điểm, địa chỉ, số điện thoại và giờ mở cửa lấy từ Google Places khi đã cấu hình API key.
             </div>
             {% else %}
             <div class="alert alert-info mb-0">
