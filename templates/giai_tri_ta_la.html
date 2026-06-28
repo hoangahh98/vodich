@@ -13,11 +13,6 @@
         <div class="container-fluid px-4">
             <div class="d-flex gap-2 align-items-center flex-wrap ms-auto">
                 <a class="btn btn-sm btn-outline-light" href="/giai-tri">Giải trí</a>
-                <a class="btn btn-sm btn-outline-light" href="/giai-tri/ghi-diem">Ghi điểm</a>
-                <a class="btn btn-sm btn-light text-primary fw-bold" href="/giai-tri/ta-la">Tá lả</a>
-                {% if user.role == 'admin' %}
-                    <a class="btn btn-sm btn-outline-light" href="/van-dong-vien?return_to=/giai-tri/ta-la">Người chơi</a>
-                {% endif %}
                 <span class="navbar-text d-none d-md-inline">{{ user.display_name or user.email }} · {{ 'Admin' if user.role == 'admin' else 'Client' }}</span>
                 <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">Đăng xuất</a>
             </div>
