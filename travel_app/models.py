@@ -409,6 +409,23 @@ class DestinationSuggestionModel:
             return cursor.fetchone() is not None
 
     @staticmethod
+    def deactivate_non_vietnam_osm_suggestions():
+        with db_cursor(commit=True) as cursor:
+            cursor.execute(
+                """
+                UPDATE travel_suggestions
+                SET active = FALSE,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE active = TRUE
+                  AND source_url LIKE 'https://www.openstreetmap.org/%'
+                  AND COALESCE(address, '') NOT ILIKE '%Việt Nam%'
+                  AND COALESCE(address, '') NOT ILIKE '%Vietnam%'
+                  AND COALESCE(address, '') NOT ILIKE '%Viet Nam%';
+                """
+            )
+            return cursor.rowcount
+
+    @staticmethod
     def upsert_suggestion(destination_id, category, name, address="", phone="", opening_hours="", description="", map_url="", source_url=""):
         if not DestinationSuggestionModel.destination(destination_id):
             raise ValueError("Địa danh không hợp lệ")

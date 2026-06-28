@@ -1,4 +1,5 @@
 from datetime import date
+from functools import lru_cache
 from secrets import token_urlsafe
 from time import sleep
 from urllib.parse import quote_plus
@@ -18,6 +19,21 @@ EXPENSE_CATEGORIES = ("Khách sạn", "Ẩm thực", "Vui chơi", "Thể thao", 
 SUGGESTIONS_PER_CATEGORY_LIMIT = 10
 OSM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
 OSM_USER_AGENT = "duhy-travel-suggestions/1.0"
+OSM_DESTINATION_HINTS = {
+    "Hạ Long": "Hạ Long, Quảng Ninh, Việt Nam",
+    "Đà Nẵng": "Đà Nẵng, Việt Nam",
+    "Cát Bà": "Cát Bà, Hải Phòng, Việt Nam",
+    "Phú Quốc": "Phú Quốc, Kiên Giang, Việt Nam",
+    "Hội An": "Hội An, Quảng Nam, Việt Nam",
+    "Đà Lạt": "Đà Lạt, Lâm Đồng, Việt Nam",
+    "Nha Trang": "Nha Trang, Khánh Hòa, Việt Nam",
+    "Sa Pa": "Sa Pa, Lào Cai, Việt Nam",
+    "Huế": "Huế, Việt Nam",
+    "Ninh Bình": "Ninh Bình, Việt Nam",
+    "Hà Giang": "Hà Giang, Việt Nam",
+    "Quy Nhơn": "Quy Nhơn, Bình Định, Việt Nam",
+    "Cần Thơ": "Cần Thơ, Việt Nam",
+}
 OSM_CATEGORY_TERMS = {
     "Quán ăn ngon": ["restaurant", "seafood restaurant", "food", "local food"],
     "Cà phê đẹp": ["cafe", "coffee shop", "tea house"],
@@ -26,6 +42,47 @@ OSM_CATEGORY_TERMS = {
     "Thể thao": ["sports centre", "stadium", "gym", "swimming pool", "sports"],
     "Khác": ["travel attraction", "attraction", "landmark"],
 }
+
+
+def _osm_destination_query(destination_name):
+    return OSM_DESTINATION_HINTS.get(destination_name, f"{destination_name}, Việt Nam")
+
+
+def _osm_country_is_vietnam(result):
+    address = result.get("address") or {}
+    country_code = (address.get("country_code") or "").lower()
+    display_name = (result.get("display_name") or "").lower()
+    return country_code == "vn" or "việt nam" in display_name or "vietnam" in display_name
+
+
+def _osm_viewbox_from_bounds(bounds):
+    if not bounds or len(bounds) != 4:
+        return None
+    south, north, west, east = bounds
+    return f"{west},{north},{east},{south}"
+
+
+@lru_cache(maxsize=128)
+def _get_osm_destination_viewbox(destination_name):
+    response = requests.get(
+        OSM_SEARCH_URL,
+        params={
+            "format": "jsonv2",
+            "q": _osm_destination_query(destination_name),
+            "limit": 1,
+            "addressdetails": 1,
+            "accept-language": "vi",
+            "countrycodes": "vn",
+        },
+        headers={"User-Agent": OSM_USER_AGENT},
+        timeout=15,
+    )
+    response.raise_for_status()
+    for result in response.json():
+        if not _osm_country_is_vietnam(result):
+            continue
+        return _osm_viewbox_from_bounds(result.get("boundingbox"))
+    return None
 
 
 def _osm_source_url(result):
@@ -56,7 +113,7 @@ def _normalize_osm_result(result):
         "address": display_name,
         "phone": phone,
         "opening_hours": opening_hours,
-        "description": "Tự lấy từ OpenStreetMap. Vui lòng kiểm tra lại trước khi dùng.",
+        "description": "Dữ liệu cộng đồng từ OpenStreetMap, có thể thiếu hoặc cũ. Nên kiểm tra lại trước khi dùng.",
         "map_url": source_url or f"https://www.openstreetmap.org/search?query={quote_plus(display_name or name)}",
         "source_url": source_url,
     }
@@ -66,23 +123,31 @@ def _search_osm_suggestions(destination_name, category):
     places = []
     seen = set()
     terms = OSM_CATEGORY_TERMS.get(category, [category])
+    viewbox = _get_osm_destination_viewbox(destination_name)
     for index, term in enumerate(terms):
+        params = {
+            "format": "jsonv2",
+            "q": f"{term}, {_osm_destination_query(destination_name)}",
+            "limit": SUGGESTIONS_PER_CATEGORY_LIMIT,
+            "addressdetails": 1,
+            "extratags": 1,
+            "namedetails": 1,
+            "accept-language": "vi",
+            "countrycodes": "vn",
+        }
+        if viewbox:
+            params["viewbox"] = viewbox
+            params["bounded"] = 1
         response = requests.get(
             OSM_SEARCH_URL,
-            params={
-                "format": "jsonv2",
-                "q": f"{term} in {destination_name}, Vietnam",
-                "limit": SUGGESTIONS_PER_CATEGORY_LIMIT,
-                "addressdetails": 1,
-                "extratags": 1,
-                "namedetails": 1,
-                "accept-language": "vi",
-            },
+            params=params,
             headers={"User-Agent": OSM_USER_AGENT},
             timeout=15,
         )
         response.raise_for_status()
         for result in response.json():
+            if not _osm_country_is_vietnam(result):
+                continue
             place = _normalize_osm_result(result)
             if not place:
                 continue
@@ -219,6 +284,7 @@ def refresh_suggestions():
     inserted = 0
     updated = 0
     skipped_new = 0
+    removed_invalid = DestinationSuggestionModel.deactivate_non_vietnam_osm_suggestions()
     errors = []
     for destination_id, destination_name in destinations:
         for category in DestinationSuggestionModel.categories():
@@ -253,6 +319,8 @@ def refresh_suggestions():
                     updated += 1
 
     message = f"Đã lấy thêm gợi ý từ OSM: thêm {inserted}, cập nhật {updated}."
+    if removed_invalid:
+        message += f" Đã ẩn {removed_invalid} gợi ý OSM không thuộc Việt Nam."
     if skipped_new:
         message += f" Bỏ qua {skipped_new} gợi ý mới vì nhóm đã đủ {SUGGESTIONS_PER_CATEGORY_LIMIT} bản ghi."
     if errors:
