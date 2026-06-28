@@ -1,11 +1,6 @@
 from datetime import date
-from functools import lru_cache
 from secrets import token_urlsafe
-from time import monotonic, sleep
-from urllib.parse import quote_plus
-import unicodedata
 
-import requests
 from flask import Flask, flash, redirect, render_template, request, send_from_directory, session, url_for
 
 from .auth import AuthService, admin_required, login_required
@@ -17,188 +12,10 @@ app = Flask(__name__)
 app.secret_key = FLASK_SECRET_KEY
 
 EXPENSE_CATEGORIES = ("Khách sạn", "Ẩm thực", "Vui chơi", "Thể thao", "Khám phá", "Khác")
-SUGGESTIONS_PER_CATEGORY_LIMIT = 10
-SUGGESTION_REFRESH_SECONDS_LIMIT = 20
-OSM_TERMS_PER_CATEGORY_REFRESH = 2
-OSM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
-OSM_USER_AGENT = "duhy-travel-suggestions/1.0"
-OSM_DESTINATION_HINTS = {
-    "Hạ Long": "Hạ Long, Quảng Ninh, Việt Nam",
-    "Đà Nẵng": "Đà Nẵng, Việt Nam",
-    "Cát Bà": "Cát Bà, Hải Phòng, Việt Nam",
-    "Phú Quốc": "Phú Quốc, Kiên Giang, Việt Nam",
-    "Hội An": "Hội An, Quảng Nam, Việt Nam",
-    "Đà Lạt": "Đà Lạt, Lâm Đồng, Việt Nam",
-    "Nha Trang": "Nha Trang, Khánh Hòa, Việt Nam",
-    "Sa Pa": "Sa Pa, Lào Cai, Việt Nam",
-    "Huế": "Huế, Việt Nam",
-    "Ninh Bình": "Ninh Bình, Việt Nam",
-    "Hà Giang": "Hà Giang, Việt Nam",
-    "Quy Nhơn": "Quy Nhơn, Bình Định, Việt Nam",
-    "Cần Thơ": "Cần Thơ, Việt Nam",
-}
-OSM_DESTINATION_KEYWORDS = {
-    "Hạ Long": ["Hạ Long", "Ha Long", "Quảng Ninh", "Quang Ninh"],
-    "Đà Nẵng": ["Đà Nẵng", "Da Nang"],
-    "Cát Bà": ["Cát Bà", "Cat Ba", "Hải Phòng", "Hai Phong"],
-    "Phú Quốc": ["Phú Quốc", "Phu Quoc", "Kiên Giang", "Kien Giang"],
-    "Hội An": ["Hội An", "Hoi An", "Quảng Nam", "Quang Nam"],
-    "Đà Lạt": ["Đà Lạt", "Da Lat", "Lâm Đồng", "Lam Dong"],
-    "Nha Trang": ["Nha Trang", "Khánh Hòa", "Khanh Hoa"],
-    "Sa Pa": ["Sa Pa", "Sapa", "Lào Cai", "Lao Cai"],
-    "Huế": ["Huế", "Hue", "Thừa Thiên Huế", "Thua Thien Hue"],
-    "Ninh Bình": ["Ninh Bình", "Ninh Binh"],
-    "Hà Giang": ["Hà Giang", "Ha Giang"],
-    "Quy Nhơn": ["Quy Nhơn", "Quy Nhon", "Bình Định", "Binh Dinh"],
-    "Cần Thơ": ["Cần Thơ", "Can Tho"],
-}
-OSM_CATEGORY_TERMS = {
-    "Quán ăn ngon": ["restaurant", "seafood restaurant", "food", "local food"],
-    "Cà phê đẹp": ["cafe", "coffee shop", "tea house"],
-    "Vui chơi": ["amusement park", "theme park", "water park", "playground", "entertainment"],
-    "Khám phá": ["tourist attraction", "viewpoint", "museum", "temple", "beach", "park"],
-    "Thể thao": ["sports centre", "stadium", "gym", "swimming pool", "sports"],
-    "Khác": ["travel attraction", "attraction", "landmark"],
-}
-
-
-def _ascii_fold(value):
-    normalized = unicodedata.normalize("NFKD", value or "")
-    return "".join(char for char in normalized if not unicodedata.combining(char)).lower()
-
-
-def _osm_destination_query(destination_name):
-    return OSM_DESTINATION_HINTS.get(destination_name, f"{destination_name}, Việt Nam")
-
-
-def _destination_keywords(destination_name):
-    return OSM_DESTINATION_KEYWORDS.get(destination_name, [destination_name])
-
-
-def _osm_result_matches_destination(destination_name, result):
-    haystack = _ascii_fold(result.get("display_name") or "")
-    return any(_ascii_fold(keyword) in haystack for keyword in _destination_keywords(destination_name))
-
-
-def _osm_country_is_vietnam(result):
-    address = result.get("address") or {}
-    country_code = (address.get("country_code") or "").lower()
-    display_name = (result.get("display_name") or "").lower()
-    return country_code == "vn" or "việt nam" in display_name or "vietnam" in display_name
-
-
-def _osm_viewbox_from_bounds(bounds):
-    if not bounds or len(bounds) != 4:
-        return None
-    south, north, west, east = bounds
-    return f"{west},{north},{east},{south}"
-
-
-@lru_cache(maxsize=128)
-def _get_osm_destination_viewbox(destination_name):
-    response = requests.get(
-        OSM_SEARCH_URL,
-        params={
-            "format": "jsonv2",
-            "q": _osm_destination_query(destination_name),
-            "limit": 1,
-            "addressdetails": 1,
-            "accept-language": "vi",
-            "countrycodes": "vn",
-        },
-        headers={"User-Agent": OSM_USER_AGENT},
-        timeout=15,
-    )
-    response.raise_for_status()
-    for result in response.json():
-        if not _osm_country_is_vietnam(result):
-            continue
-        return _osm_viewbox_from_bounds(result.get("boundingbox"))
-    return None
-
-
-def _osm_source_url(result):
-    osm_type = (result.get("osm_type") or "").lower()
-    osm_id = result.get("osm_id")
-    if osm_type in {"node", "way", "relation"} and osm_id:
-        return f"https://www.openstreetmap.org/{osm_type}/{osm_id}"
-    return ""
 
 
 def _limit_text(value, limit):
     return (value or "").strip()[:limit]
-
-
-def _normalize_osm_result(result):
-    extratags = result.get("extratags") or {}
-    namedetails = result.get("namedetails") or {}
-    display_name = result.get("display_name") or ""
-    name = (
-        result.get("name")
-        or namedetails.get("name:vi")
-        or namedetails.get("name")
-        or display_name.split(",", 1)[0].strip()
-    )
-    if not name:
-        return None
-    phone = extratags.get("phone") or extratags.get("contact:phone") or ""
-    opening_hours = extratags.get("opening_hours") or ""
-    source_url = _osm_source_url(result)
-    return {
-        "name": _limit_text(name, 255),
-        "address": display_name,
-        "phone": _limit_text(phone, 80),
-        "opening_hours": opening_hours,
-        "description": "Dữ liệu cộng đồng từ OpenStreetMap, có thể thiếu hoặc cũ. Nên kiểm tra lại trước khi dùng.",
-        "map_url": source_url or f"https://www.openstreetmap.org/search?query={quote_plus(display_name or name)}",
-        "source_url": source_url,
-    }
-
-
-def _search_osm_suggestions(destination_name, category, max_terms=OSM_TERMS_PER_CATEGORY_REFRESH):
-    places = []
-    seen = set()
-    terms = OSM_CATEGORY_TERMS.get(category, [category])[:max_terms]
-    viewbox = _get_osm_destination_viewbox(destination_name)
-    for index, term in enumerate(terms):
-        params = {
-            "format": "jsonv2",
-            "q": f"{term}, {_osm_destination_query(destination_name)}",
-            "limit": SUGGESTIONS_PER_CATEGORY_LIMIT,
-            "addressdetails": 1,
-            "extratags": 1,
-            "namedetails": 1,
-            "accept-language": "vi",
-            "countrycodes": "vn",
-        }
-        if viewbox:
-            params["viewbox"] = viewbox
-            params["bounded"] = 1
-        response = requests.get(
-            OSM_SEARCH_URL,
-            params=params,
-            headers={"User-Agent": OSM_USER_AGENT},
-            timeout=15,
-        )
-        response.raise_for_status()
-        for result in response.json():
-            if not _osm_country_is_vietnam(result):
-                continue
-            if not _osm_result_matches_destination(destination_name, result):
-                continue
-            place = _normalize_osm_result(result)
-            if not place:
-                continue
-            dedupe_key = place["name"].strip().lower()
-            if dedupe_key in seen:
-                continue
-            seen.add(dedupe_key)
-            places.append(place)
-            if len(places) >= SUGGESTIONS_PER_CATEGORY_LIMIT:
-                return places
-        if index < len(terms) - 1:
-            sleep(1.1)
-    return places
 
 with app.app_context():
     init_schema()
@@ -308,87 +125,6 @@ def add_suggestion():
         flash("Đã thêm gợi ý.", "success")
     except Exception as exc:
         flash(f"Không thêm được gợi ý: {exc}", "danger")
-    return redirect(url_for("suggestions"))
-
-
-@app.route("/goi-y/lay-them", methods=["POST"])
-@admin_required
-def refresh_suggestions():
-    destinations = DestinationSuggestionModel.destinations_used_by_trips(admin_scope_id(session["user"]))
-    if not destinations:
-        flash("Chưa có chuyến đi nào chọn địa danh để lấy thêm gợi ý.", "warning")
-        return redirect(url_for("suggestions"))
-
-    inserted = 0
-    updated = 0
-    skipped_new = 0
-    skipped_full = 0
-    timed_out = False
-    started_at = monotonic()
-    errors = []
-    try:
-        removed_osm = DestinationSuggestionModel.deactivate_osm_suggestions()
-    except Exception as exc:
-        removed_osm = 0
-        errors.append(f"Dọn dữ liệu OSM cũ: {exc}")
-    suggestion_counts = DestinationSuggestionModel.suggestion_counts_for_destinations([destination[0] for destination in destinations])
-    for destination_id, destination_name in destinations:
-        for category in DestinationSuggestionModel.categories():
-            if monotonic() - started_at > SUGGESTION_REFRESH_SECONDS_LIMIT:
-                timed_out = True
-                break
-            current_count = suggestion_counts.get((destination_id, category), 0)
-            remaining = max(0, SUGGESTIONS_PER_CATEGORY_LIMIT - current_count)
-            if remaining <= 0:
-                skipped_full += 1
-                continue
-            try:
-                places = _search_osm_suggestions(destination_name, category)
-                sleep(1.1)
-            except Exception as exc:
-                errors.append(f"{destination_name} / {category}: {exc}")
-                continue
-            for place in places:
-                if remaining <= 0:
-                    skipped_new += 1
-                    continue
-                try:
-                    was_inserted = DestinationSuggestionModel.upsert_suggestion(
-                        destination_id,
-                        category,
-                        place["name"],
-                        place["address"],
-                        place["phone"],
-                        place["opening_hours"],
-                        place["description"],
-                        place["map_url"],
-                        place["source_url"],
-                    )
-                except Exception as exc:
-                    errors.append(f"{destination_name} / {category} / {place['name']}: {exc}")
-                    continue
-                if was_inserted:
-                    inserted += 1
-                    remaining -= 1
-                else:
-                    updated += 1
-        if timed_out:
-            break
-
-    message = f"Đã lấy thêm gợi ý từ OSM: thêm {inserted}, cập nhật {updated}."
-    if removed_osm:
-        message += f" Đã ẩn {removed_osm} gợi ý OSM cũ."
-    if skipped_full:
-        message += f" Bỏ qua {skipped_full} nhóm đã đủ {SUGGESTIONS_PER_CATEGORY_LIMIT} bản ghi."
-    if skipped_new:
-        message += f" Bỏ qua {skipped_new} gợi ý mới vì nhóm đã đủ {SUGGESTIONS_PER_CATEGORY_LIMIT} bản ghi."
-    if timed_out:
-        message += " Đã tạm dừng sớm để tránh quá tải, bấm lại để lấy tiếp."
-    if errors:
-        flash(message, "warning")
-        flash("Một số nhóm chưa lấy được: " + "; ".join(errors[:3]), "danger")
-    else:
-        flash(message, "success")
     return redirect(url_for("suggestions"))
 
 
@@ -662,7 +398,8 @@ def update_collections(trip_id):
 @app.route("/chuyen-di/<int:trip_id>/chi", methods=["POST"])
 @admin_required
 def add_expense(trip_id):
-    if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
+    trip = TripModel.get_for_admin(trip_id, admin_scope_id(session["user"]))
+    if not trip:
         return "Không có quyền", 403
     members = FinanceModel.members(trip_id)
     title = request.form.get("title", "").strip()
@@ -672,6 +409,9 @@ def add_expense(trip_id):
     note = (request.form.get("note") or "").strip()
     split_mode = request.form.get("split_mode") or "shared"
     private_member_id = request.form.get("private_member_id")
+    save_expense_suggestion = request.form.get("save_expense_suggestion") == "1"
+    expense_suggestion_category = request.form.get("expense_suggestion_category") or ""
+    expense_suggestion_note = (request.form.get("expense_suggestion_note") or "").strip()
     private_splits = [
         {"member_id": member[0], "amount": request.form.get(f"private_split_{member[0]}")}
         for member in members
@@ -692,6 +432,27 @@ def add_expense(trip_id):
             flash("Đã thêm khoản chi riêng cho các thành viên có nhập số tiền.", "success")
         else:
             flash("Đã thêm khoản chi chung và chia đều cho mọi người.", "success")
+        if save_expense_suggestion:
+            destination_id = trip[4] if len(trip) > 4 else None
+            if not destination_id:
+                flash("Chưa lưu gợi ý vì chuyến đi chưa chọn địa danh.", "warning")
+            elif expense_suggestion_category not in DestinationSuggestionModel.categories():
+                flash("Chưa lưu gợi ý vì loại gợi ý không hợp lệ.", "warning")
+            elif not note:
+                flash("Chưa lưu gợi ý vì ghi chú khoản chi đang trống. Hãy nhập tên địa điểm vào ghi chú.", "warning")
+            else:
+                DestinationSuggestionModel.upsert_suggestion(
+                    destination_id,
+                    expense_suggestion_category,
+                    _limit_text(note, 255),
+                    "",
+                    "",
+                    "",
+                    _limit_text(expense_suggestion_note, 1000),
+                    "",
+                    "",
+                )
+                flash("Đã lưu vào gợi ý theo địa danh.", "success")
     except ValueError as exc:
         flash(str(exc), "danger")
     return redirect(url_for("trip_detail", trip_id=trip_id))

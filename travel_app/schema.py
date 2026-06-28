@@ -218,6 +218,19 @@ def init_schema():
         cursor.execute("ALTER TABLE trip_members ADD COLUMN IF NOT EXISTS person_id INTEGER REFERENCES travel_people(id) ON DELETE SET NULL;")
         cursor.execute("ALTER TABLE trips ADD COLUMN IF NOT EXISTS destination_id INTEGER REFERENCES travel_destinations(id) ON DELETE SET NULL;")
         cursor.execute("ALTER TABLE travel_suggestions ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;")
+        cursor.execute(
+            """
+            UPDATE travel_suggestions
+            SET active = FALSE,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE active = TRUE
+              AND (
+                  source_url LIKE %s
+                  OR map_url LIKE %s
+              );
+            """,
+            ("https://www.openstreetmap.org/%", "https://www.openstreetmap.org/%"),
+        )
         cursor.execute("ALTER TABLE trip_expenses ADD COLUMN IF NOT EXISTS split_mode VARCHAR(20) NOT NULL DEFAULT 'shared';")
         cursor.execute("ALTER TABLE trip_expenses ADD COLUMN IF NOT EXISTS private_member_id INTEGER REFERENCES trip_members(id) ON DELETE SET NULL;")
         cursor.execute(

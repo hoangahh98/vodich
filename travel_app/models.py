@@ -276,7 +276,7 @@ class PeopleModel:
 class DestinationSuggestionModel:
     @staticmethod
     def categories():
-        return ("Quán ăn ngon", "Cà phê đẹp", "Vui chơi", "Khám phá", "Thể thao", "Khác")
+        return ("Quán ăn ngon", "Cà phê đẹp", "Khách sạn tốt", "Vui chơi", "Khám phá", "Thể thao", "Khác")
 
     @staticmethod
     def destinations():
@@ -378,41 +378,6 @@ class DestinationSuggestionModel:
         for row in DestinationSuggestionModel.suggestions(destination_id=destination_id):
             grouped.setdefault(row[3], []).append(row)
         return grouped
-
-    @staticmethod
-    def suggestion_counts_for_destinations(destination_ids):
-        if not destination_ids:
-            return {}
-        with db_cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT destination_id, category, COUNT(1)
-                FROM travel_suggestions
-                WHERE active = TRUE
-                  AND destination_id = ANY(%s)
-                GROUP BY destination_id, category;
-                """,
-                (list(destination_ids),),
-            )
-            return {(row[0], row[1]): row[2] for row in cursor.fetchall()}
-
-    @staticmethod
-    def deactivate_osm_suggestions():
-        with db_cursor(commit=True) as cursor:
-            cursor.execute(
-                """
-                UPDATE travel_suggestions
-                SET active = FALSE,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE active = TRUE
-                  AND (
-                      source_url LIKE %s
-                      OR map_url LIKE %s
-                  );
-                """,
-                ("https://www.openstreetmap.org/%", "https://www.openstreetmap.org/%"),
-            )
-            return cursor.rowcount
 
     @staticmethod
     def upsert_suggestion(destination_id, category, name, address="", phone="", opening_hours="", description="", map_url="", source_url=""):

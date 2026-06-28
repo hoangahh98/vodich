@@ -250,6 +250,29 @@
                         <div class="col-12">
                             <input class="form-control" name="note" id="expenseNote" placeholder="Ghi chú khoản chi">
                         </div>
+                        <div class="col-12">
+                            <label class="form-check">
+                                <input class="form-check-input" type="checkbox" name="save_expense_suggestion" value="1" id="saveExpenseSuggestion">
+                                <span class="form-check-label fw-semibold">Lưu làm gợi ý</span>
+                            </label>
+                            <div class="small text-muted">Tick nếu đây là nơi đáng lưu lại cho chuyến sau hoặc nhóm khác tham khảo.</div>
+                        </div>
+                        <div class="col-12 d-none" id="expenseSuggestionField">
+                            <div class="row g-2">
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-semibold">Loại gợi ý</label>
+                                    <select class="form-select" name="expense_suggestion_category" id="expenseSuggestionCategory">
+                                        {% for category in suggestion_categories %}
+                                        <option value="{{ category }}" {% if category == 'Quán ăn ngon' %}selected{% endif %}>{{ category }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-8">
+                                    <label class="form-label small fw-semibold">Điểm mạnh / điểm yếu / kinh nghiệm</label>
+                                    <textarea class="form-control" name="expense_suggestion_note" id="expenseSuggestionNote" rows="2" placeholder="Ví dụ: view đẹp, phục vụ tốt, nên đặt trước, giá hơi cao cuối tuần..."></textarea>
+                                </div>
+                            </div>
+                        </div>
                     </form>
                     <div class="small text-muted">Khoản chung nhập một số tiền tổng và chia đều. Khoản riêng nhập tiền cho từng thành viên cần tính.</div>
                 </div>
@@ -317,7 +340,7 @@
     <section class="card mb-3" id="travelSuggestionCard">
         <div class="card-hdr blue">
             <span>Gợi ý theo địa danh</span>
-            <span class="small fw-normal">Ăn uống, cà phê, vui chơi, khám phá</span>
+            <span class="small fw-normal">Ăn uống, cà phê, khách sạn, vui chơi, khám phá</span>
         </div>
         <div class="card-body">
             {% if destination %}
@@ -452,6 +475,9 @@ const sharedAmountInput = document.getElementById('sharedAmountInput');
 const privateSplitField = document.getElementById('privateSplitField');
 const privateSplitInputs = document.querySelectorAll('.private-split-input');
 const privateSplitTotal = document.getElementById('privateSplitTotal');
+const saveExpenseSuggestion = document.getElementById('saveExpenseSuggestion');
+const expenseSuggestionField = document.getElementById('expenseSuggestionField');
+const expenseSuggestionCategory = document.getElementById('expenseSuggestionCategory');
 
 function updateExpenseNotePlaceholder() {
     if (!expenseCategory || !expenseNote) return;
@@ -462,9 +488,25 @@ function updateExpenseNotePlaceholder() {
     }
 }
 
+function updateExpenseSuggestionCategory() {
+    if (!expenseCategory || !expenseSuggestionCategory) return;
+    const mapping = {
+        'Khách sạn': 'Khách sạn tốt',
+        'Ẩm thực': 'Quán ăn ngon',
+        'Vui chơi': 'Vui chơi',
+        'Thể thao': 'Thể thao',
+        'Khám phá': 'Khám phá'
+    };
+    if (mapping[expenseCategory.value]) {
+        expenseSuggestionCategory.value = mapping[expenseCategory.value];
+    }
+}
+
 if (expenseCategory) {
     expenseCategory.addEventListener('change', updateExpenseNotePlaceholder);
+    expenseCategory.addEventListener('change', updateExpenseSuggestionCategory);
     updateExpenseNotePlaceholder();
+    updateExpenseSuggestionCategory();
 }
 
 function updatePrivateMemberField() {
@@ -492,6 +534,16 @@ if (expenseSplitMode) {
     expenseSplitMode.addEventListener('change', updatePrivateMemberField);
     privateSplitInputs.forEach(input => input.addEventListener('input', updatePrivateSplitTotal));
     updatePrivateMemberField();
+}
+
+function updateExpenseSuggestionField() {
+    if (!saveExpenseSuggestion || !expenseSuggestionField) return;
+    expenseSuggestionField.classList.toggle('d-none', !saveExpenseSuggestion.checked);
+}
+
+if (saveExpenseSuggestion) {
+    saveExpenseSuggestion.addEventListener('change', updateExpenseSuggestionField);
+    updateExpenseSuggestionField();
 }
 </script>
 {% endblock %}
