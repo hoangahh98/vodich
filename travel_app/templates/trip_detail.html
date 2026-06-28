@@ -420,7 +420,7 @@ const expenseNote = document.getElementById('expenseNote');
 function updateExpenseNotePlaceholder() {
     if (!expenseCategory || !expenseNote) return;
     if (expenseCategory.value === 'Khách sạn') {
-        expenseNote.placeholder = 'Ghi rõ tên khách sạn và địa chỉ để nhận gợi ý';
+        expenseNote.placeholder = 'Tên khách sạn / địa chỉ / ghi chú khoản chi';
     } else {
         expenseNote.placeholder = 'Ghi chú khoản chi';
     }

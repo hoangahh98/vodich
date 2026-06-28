@@ -216,13 +216,33 @@ def init_schema():
         cursor.execute("ALTER TABLE trip_members ADD COLUMN IF NOT EXISTS person_id INTEGER REFERENCES travel_people(id) ON DELETE SET NULL;")
         cursor.execute("ALTER TABLE trips ADD COLUMN IF NOT EXISTS destination_id INTEGER REFERENCES travel_destinations(id) ON DELETE SET NULL;")
         cursor.execute("ALTER TABLE travel_suggestions ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0;")
+        cursor.execute(
+            """
+            UPDATE trips
+            SET destination_id = NULL
+            WHERE destination_id IN (
+                SELECT id
+                FROM travel_destinations
+                WHERE char_length(name) = 1
+            );
+            """
+        )
+        cursor.execute(
+            """
+            DELETE FROM travel_destinations
+            WHERE char_length(name) = 1
+              AND NOT EXISTS (
+                  SELECT 1 FROM travel_suggestions s WHERE s.destination_id = travel_destinations.id
+              );
+            """
+        )
         cursor.executemany(
             """
             INSERT INTO travel_destinations (name)
             VALUES (%s)
             ON CONFLICT (name) DO UPDATE SET active = TRUE, updated_at = CURRENT_TIMESTAMP;
             """,
-            [(item[0],) for item in sorted({row[0] for row in DESTINATION_SUGGESTION_SEED})],
+            [(name,) for name in sorted({row[0] for row in DESTINATION_SUGGESTION_SEED})],
         )
         cursor.executemany(
             """
