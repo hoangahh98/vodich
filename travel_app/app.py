@@ -19,12 +19,12 @@ SUGGESTIONS_PER_CATEGORY_LIMIT = 10
 OSM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
 OSM_USER_AGENT = "duhy-travel-suggestions/1.0"
 OSM_CATEGORY_TERMS = {
-    "Quán ăn ngon": "restaurant",
-    "Cà phê đẹp": "cafe",
-    "Vui chơi": "amusement attraction",
-    "Khám phá": "tourist attraction",
-    "Thể thao": "sports",
-    "Khác": "travel attraction",
+    "Quán ăn ngon": ["restaurant", "seafood restaurant", "food", "local food"],
+    "Cà phê đẹp": ["cafe", "coffee shop", "tea house"],
+    "Vui chơi": ["amusement park", "theme park", "water park", "playground", "entertainment"],
+    "Khám phá": ["tourist attraction", "viewpoint", "museum", "temple", "beach", "park"],
+    "Thể thao": ["sports centre", "stadium", "gym", "swimming pool", "sports"],
+    "Khác": ["travel attraction", "attraction", "landmark"],
 }
 
 
@@ -63,32 +63,38 @@ def _normalize_osm_result(result):
 
 
 def _search_osm_suggestions(destination_name, category):
-    response = requests.get(
-        OSM_SEARCH_URL,
-        params={
-            "format": "jsonv2",
-            "q": f"{OSM_CATEGORY_TERMS[category]} in {destination_name}, Vietnam",
-            "limit": SUGGESTIONS_PER_CATEGORY_LIMIT,
-            "addressdetails": 1,
-            "extratags": 1,
-            "namedetails": 1,
-            "accept-language": "vi",
-        },
-        headers={"User-Agent": OSM_USER_AGENT},
-        timeout=15,
-    )
-    response.raise_for_status()
     places = []
     seen = set()
-    for result in response.json():
-        place = _normalize_osm_result(result)
-        if not place:
-            continue
-        dedupe_key = place["name"].strip().lower()
-        if dedupe_key in seen:
-            continue
-        seen.add(dedupe_key)
-        places.append(place)
+    terms = OSM_CATEGORY_TERMS.get(category, [category])
+    for index, term in enumerate(terms):
+        response = requests.get(
+            OSM_SEARCH_URL,
+            params={
+                "format": "jsonv2",
+                "q": f"{term} in {destination_name}, Vietnam",
+                "limit": SUGGESTIONS_PER_CATEGORY_LIMIT,
+                "addressdetails": 1,
+                "extratags": 1,
+                "namedetails": 1,
+                "accept-language": "vi",
+            },
+            headers={"User-Agent": OSM_USER_AGENT},
+            timeout=15,
+        )
+        response.raise_for_status()
+        for result in response.json():
+            place = _normalize_osm_result(result)
+            if not place:
+                continue
+            dedupe_key = place["name"].strip().lower()
+            if dedupe_key in seen:
+                continue
+            seen.add(dedupe_key)
+            places.append(place)
+            if len(places) >= SUGGESTIONS_PER_CATEGORY_LIMIT:
+                return places
+        if index < len(terms) - 1:
+            sleep(1.1)
     return places
 
 with app.app_context():

@@ -81,10 +81,10 @@
     <section class="card mb-3">
         <div class="card-hdr dark">Bộ lọc</div>
         <div class="card-body">
-            <form method="GET" class="row g-2 align-items-end">
+            <form method="GET" class="row g-2 align-items-end" id="suggestionFilterForm">
                 <div class="col-md-5">
                     <label class="form-label small fw-semibold">Địa danh</label>
-                    <select class="form-select" name="destination_id">
+                    <select class="form-select" name="destination_id" onchange="this.form.submit()">
                         <option value="">Tất cả địa danh</option>
                         {% for destination in destinations %}
                         <option value="{{ destination[0] }}" {% if selected_destination_id == destination[0] %}selected{% endif %}>{{ destination[1] }} ({{ destination[2] }})</option>
@@ -93,15 +93,12 @@
                 </div>
                 <div class="col-md-4">
                     <label class="form-label small fw-semibold">Loại</label>
-                    <select class="form-select" name="category">
+                    <select class="form-select" name="category" onchange="this.form.submit()">
                         <option value="">Tất cả loại</option>
                         {% for category in categories %}
                         <option value="{{ category }}" {% if selected_category == category %}selected{% endif %}>{{ category }}</option>
                         {% endfor %}
                     </select>
-                </div>
-                <div class="col-md-3 d-grid">
-                    <button class="btn btn-outline-primary" data-loading-text="Đang lọc...">Lọc</button>
                 </div>
             </form>
         </div>

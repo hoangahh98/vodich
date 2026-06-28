@@ -291,12 +291,9 @@
         </div>
         <div class="card-body">
             {% if destination %}
-            <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap mb-3">
-                <div>
-                    <div class="small text-muted">Địa danh đã chọn</div>
-                    <div class="fw-semibold">{{ destination[1] }}</div>
-                </div>
-                <a class="btn btn-sm btn-outline-primary" href="{{ url_for('suggestions', destination_id=destination[0]) }}">Quản lý gợi ý</a>
+            <div class="mb-3">
+                <div class="small text-muted">Địa danh đã chọn</div>
+                <div class="fw-semibold">{{ destination[1] }}</div>
             </div>
             {% if destination_suggestions %}
                 {% for category in suggestion_categories %}
@@ -305,7 +302,7 @@
                     <div class="mb-3">
                         <div class="fw-bold text-success mb-2">{{ category }}</div>
                         <div class="row g-2">
-                            {% for item in items[:6] %}
+                            {% for item in items[:10] %}
                             <div class="col-md-6 col-xl-4">
                                 <div class="border rounded p-2 h-100 bg-light">
                                     <div class="fw-semibold">{{ item[4] }}</div>

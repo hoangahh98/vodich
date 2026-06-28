@@ -20,13 +20,13 @@
                 {% if session.get('user') %}
                     <a class="btn btn-sm btn-outline-light" href="/">Trang chủ</a>
                     {% if session.user.role == 'admin' %}
-                        {% if request.path.startswith('/chuyen-di/') or request.path == '/thanh-vien' %}
+                        {% if request.path.startswith('/chuyen-di/') or request.path == '/thanh-vien' or request.path.startswith('/goi-y') %}
                             <a class="btn btn-sm btn-outline-light" href="{{ url_for('trips') }}">Chuyến đi</a>
                         {% endif %}
                         {% if request.path != '/thanh-vien' %}
                             <a class="btn btn-sm btn-outline-light" href="{{ url_for('people_list') }}">Thành viên</a>
                         {% endif %}
-                        {% if request.path != '/goi-y' %}
+                        {% if not request.path.startswith('/goi-y') %}
                             <a class="btn btn-sm btn-outline-light" href="{{ url_for('suggestions') }}">Gợi ý</a>
                         {% endif %}
                     {% else %}
