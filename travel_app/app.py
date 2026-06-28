@@ -327,10 +327,9 @@ def refresh_suggestions():
     started_at = monotonic()
     errors = []
     try:
-        removed_invalid = DestinationSuggestionModel.deactivate_non_vietnam_osm_suggestions()
-        removed_invalid += DestinationSuggestionModel.deactivate_mismatched_osm_suggestions(OSM_DESTINATION_KEYWORDS)
+        removed_osm = DestinationSuggestionModel.deactivate_osm_suggestions()
     except Exception as exc:
-        removed_invalid = 0
+        removed_osm = 0
         errors.append(f"Dọn dữ liệu OSM cũ: {exc}")
     for destination_id, destination_name in destinations:
         for category in DestinationSuggestionModel.categories():
@@ -377,8 +376,8 @@ def refresh_suggestions():
             break
 
     message = f"Đã lấy thêm gợi ý từ OSM: thêm {inserted}, cập nhật {updated}."
-    if removed_invalid:
-        message += f" Đã ẩn {removed_invalid} gợi ý OSM không thuộc Việt Nam."
+    if removed_osm:
+        message += f" Đã ẩn {removed_osm} gợi ý OSM cũ."
     if skipped_full:
         message += f" Bỏ qua {skipped_full} nhóm đã đủ {SUGGESTIONS_PER_CATEGORY_LIMIT} bản ghi."
     if skipped_new:
