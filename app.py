@@ -233,6 +233,105 @@ def giai_tri_ghi_diem():
     return render_template('giai_tri_ghi_diem.html', user=user, games=games)
 
 
+@app.route('/giai-tri/nguoi-choi')
+@admin_required
+def giai_tri_nguoi_choi():
+    user = session.get('user', {})
+    players = VanDongVienModel.get_all()
+    DBLogger.log_request('GET', '/giai-tri/nguoi-choi', user.get('email'))
+    return render_template('giai_tri_nguoi_choi.html', user=user, players=players)
+
+
+@app.route('/giai-tri/nguoi-choi/them', methods=['POST'])
+@admin_required
+def them_nguoi_choi_giai_tri():
+    user = session.get('user', {})
+    name = (request.form.get('name') or '').strip()
+    email = (request.form.get('email') or '').strip().lower()
+    if not name:
+        flash('Tên người chơi không được để trống.', 'warning')
+        return redirect(url_for('giai_tri_nguoi_choi'))
+    if email and VanDongVienModel.email_exists(email):
+        flash('Email này đã tồn tại trong danh sách client.', 'warning')
+        return redirect(url_for('giai_tri_nguoi_choi'))
+    try:
+        player_id = VanDongVienModel.create(name, 'C', email, '')
+        DBLogger.log_user_action(
+            user_email=user.get('email'),
+            user_role=user.get('role'),
+            action='CREATE_ENTERTAINMENT_PLAYER',
+            route='/giai-tri/nguoi-choi/them',
+            method='POST',
+            status_code=302,
+            details={'player_id': player_id, 'name': name, 'email': email},
+        )
+        flash('Đã thêm người chơi.', 'success')
+    except Exception as e:
+        DBLogger.log_error(f"Error creating entertainment player: {str(e)}", user.get('email'), '/giai-tri/nguoi-choi/them', context=traceback.format_exc())
+        flash('Không thêm được người chơi.', 'danger')
+    return redirect(url_for('giai_tri_nguoi_choi'))
+
+
+@app.route('/giai-tri/nguoi-choi/<int:player_id>/sua', methods=['POST'])
+@admin_required
+def sua_nguoi_choi_giai_tri(player_id):
+    user = session.get('user', {})
+    name = (request.form.get('name') or '').strip()
+    email = (request.form.get('email') or '').strip().lower()
+    player = VanDongVienModel.get_by_id(player_id)
+    if not player:
+        flash('Không tìm thấy người chơi.', 'warning')
+        return redirect(url_for('giai_tri_nguoi_choi'))
+    if not name:
+        flash('Tên người chơi không được để trống.', 'warning')
+        return redirect(url_for('giai_tri_nguoi_choi'))
+    if email and VanDongVienModel.email_exists(email, exclude_id=player_id):
+        flash('Email này đã tồn tại trong danh sách client.', 'warning')
+        return redirect(url_for('giai_tri_nguoi_choi'))
+    try:
+        VanDongVienModel.update(player_id, name, player[2] or 'C', email, player[4] or '')
+        DBLogger.log_user_action(
+            user_email=user.get('email'),
+            user_role=user.get('role'),
+            action='UPDATE_ENTERTAINMENT_PLAYER',
+            route=f'/giai-tri/nguoi-choi/{player_id}/sua',
+            method='POST',
+            status_code=302,
+            details={'player_id': player_id, 'name': name, 'email': email},
+        )
+        flash('Đã lưu người chơi.', 'success')
+    except Exception as e:
+        DBLogger.log_error(f"Error updating entertainment player: {str(e)}", user.get('email'), f'/giai-tri/nguoi-choi/{player_id}/sua', context=traceback.format_exc())
+        flash('Không lưu được người chơi.', 'danger')
+    return redirect(url_for('giai_tri_nguoi_choi'))
+
+
+@app.route('/giai-tri/nguoi-choi/<int:player_id>/xoa', methods=['POST'])
+@admin_required
+def xoa_nguoi_choi_giai_tri(player_id):
+    user = session.get('user', {})
+    player = VanDongVienModel.get_by_id(player_id)
+    if not player:
+        flash('Không tìm thấy người chơi.', 'warning')
+        return redirect(url_for('giai_tri_nguoi_choi'))
+    try:
+        VanDongVienModel.delete(player_id)
+        DBLogger.log_user_action(
+            user_email=user.get('email'),
+            user_role=user.get('role'),
+            action='DELETE_ENTERTAINMENT_PLAYER',
+            route=f'/giai-tri/nguoi-choi/{player_id}/xoa',
+            method='POST',
+            status_code=302,
+            details={'player_id': player_id, 'name': player[1]},
+        )
+        flash('Đã xóa người chơi.', 'success')
+    except Exception as e:
+        DBLogger.log_error(f"Error deleting entertainment player: {str(e)}", user.get('email'), f'/giai-tri/nguoi-choi/{player_id}/xoa', context=traceback.format_exc())
+        flash('Không xóa được người chơi.', 'danger')
+    return redirect(url_for('giai_tri_nguoi_choi'))
+
+
 @app.route('/giai-tri/ghi-diem/tao', methods=['POST'])
 @login_required
 def tao_van_ghi_diem():

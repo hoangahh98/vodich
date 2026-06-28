@@ -11,6 +11,13 @@
         .rank-card.positive { border-left-color: #198754; }
         .rank-card.negative { border-left-color: #dc3545; }
         .score-input { max-width: 120px; }
+        .client-check-list {
+            max-height: 260px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            background: #fff;
+        }
         @media (max-width: 576px) {
             .score-row { align-items: stretch !important; }
             .score-input { max-width: none; }
@@ -24,7 +31,7 @@
             <div class="d-flex gap-2 align-items-center flex-wrap ms-auto">
                 <a class="btn btn-sm btn-outline-light" href="/giai-tri/ghi-diem">Ghi điểm</a>
                 {% if user.role == 'admin' %}
-                    <a class="btn btn-sm btn-outline-light" href="/van-dong-vien?return_to=/giai-tri/ghi-diem/{{ game[0] }}">Người chơi</a>
+                    <a class="btn btn-sm btn-outline-light" href="/giai-tri/nguoi-choi">Người chơi</a>
                 {% endif %}
                 <span class="badge {{ 'bg-success' if game[2] == 'active' else 'bg-secondary' }}">{{ 'Đang chơi' if game[2] == 'active' else 'Đã kết thúc' }}</span>
                 <span class="navbar-text d-none d-md-inline">{{ user.display_name or user.email }} · {{ 'Admin' if user.role == 'admin' else 'Client' }}</span>
@@ -53,22 +60,31 @@
         {% endif %}
 
         <div class="row g-4">
-            <div class="col-lg-4">
+            <div class="col-lg-4 order-2 order-lg-1">
                 <section class="card shadow-sm border-0 mb-4">
                     <div class="card-body">
                         <h2 class="h5 fw-bold mb-3">Người chơi</h2>
                         {% if game[2] == 'active' %}
                             {% if available_clients %}
                             <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/nguoi-choi" class="mb-3">
-                                <label class="form-label fw-semibold" for="client_ids">Chọn người chơi từ danh sách client</label>
-                                <select class="form-select mb-2" id="client_ids" name="client_ids" multiple size="6" required>
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <label class="form-label fw-semibold mb-0">Chọn người chơi từ danh sách client</label>
+                                    <span class="badge bg-primary" id="selectedClientCount">0 mục</span>
+                                </div>
+                                <div class="client-check-list mb-2">
                                     {% for client in available_clients %}
-                                        <option value="{{ client[0] }}">{{ client[1] }}{% if client[3] %} · {{ client[3] }}{% endif %}</option>
+                                        <label class="form-check d-flex gap-2 align-items-start px-3 py-2 border-bottom mb-0" for="client_{{ client[0] }}">
+                                            <input class="form-check-input client-checkbox mt-1" type="checkbox" id="client_{{ client[0] }}" name="client_ids" value="{{ client[0] }}">
+                                            <span>
+                                                <span class="fw-semibold d-block">{{ client[1] }}</span>
+                                                {% if client[3] %}<span class="text-muted small">{{ client[3] }}</span>{% endif %}
+                                            </span>
+                                        </label>
                                     {% endfor %}
-                                </select>
+                                </div>
                                 <div class="d-flex justify-content-between align-items-center gap-2">
                                     <span class="text-muted small">Có thể chọn nhiều người rồi lưu một lần.</span>
-                                    <button class="btn btn-primary" type="submit">Thêm</button>
+                                    <button class="btn btn-primary" type="submit" data-loading-text="Đang thêm...">Thêm</button>
                                 </div>
                             </form>
                             {% else %}
@@ -91,13 +107,34 @@
                     <div class="card-body">
                         <h2 class="h5 fw-bold mb-3">Xúc xắc chọn lượt</h2>
                         <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/chon-nguoi-danh-truoc">
-                            <button class="btn btn-outline-danger w-100" type="submit">🎲 Chọn người đánh trước</button>
+                            <button class="btn btn-outline-danger w-100" type="submit" data-loading-text="Đang chọn...">🎲 Chọn người đánh trước</button>
                         </form>
                     </div>
                 </section>
             </div>
 
-            <div class="col-lg-8">
+            <div class="col-lg-8 order-1 order-lg-2">
+                {% if game[2] == 'active' and players %}
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <h2 class="h5 fw-bold mb-3">Ghi điểm trận mới</h2>
+                        <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/tran" id="scoreRoundForm">
+                            {% for player in players %}
+                                <div class="score-row d-flex justify-content-between align-items-center gap-3 mb-2">
+                                    <label class="fw-semibold" for="score_{{ player[0] }}">{{ player[1] }}</label>
+                                    <input class="form-control score-input round-score-input" id="score_{{ player[0] }}" name="score_{{ player[0] }}" type="number" step="1" value="0">
+                                </div>
+                            {% endfor %}
+                            <div class="alert alert-info py-2 mb-3" id="scoreTotalHint">Tổng điểm: <strong id="scoreTotalValue">0</strong></div>
+                            <div class="alert alert-danger py-2 mb-3 d-none" id="scoreTotalError">Tổng điểm của trận phải bằng 0 trước khi lưu.</div>
+                            <label class="form-label fw-semibold mt-2" for="note">Ghi chú trận</label>
+                            <input class="form-control mb-3" id="note" name="note" placeholder="Ví dụ: ván ù, ăn chốt, móm...">
+                            <button class="btn btn-success" type="submit" data-loading-text="Đang lưu...">Lưu điểm trận</button>
+                        </form>
+                    </div>
+                </section>
+                {% endif %}
+
                 <section class="card shadow-sm border-0 mb-4">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
@@ -107,7 +144,7 @@
                             </div>
                             {% if game[2] == 'active' and players %}
                             <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/ket-thuc">
-                                <button class="btn btn-warning" type="submit">Kết thúc ván</button>
+                                <button class="btn btn-warning" type="submit" data-loading-text="Đang kết thúc...">Kết thúc ván</button>
                             </form>
                             {% endif %}
                         </div>
@@ -139,26 +176,6 @@
                         {% endif %}
                     </div>
                 </section>
-
-                {% if game[2] == 'active' and players %}
-                <section class="card shadow-sm border-0 mb-4">
-                    <div class="card-body">
-                        <h2 class="h5 fw-bold mb-3">Ghi điểm trận mới</h2>
-                        <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/tran" id="scoreRoundForm">
-                            {% for player in players %}
-                                <div class="score-row d-flex justify-content-between align-items-center gap-3 mb-2">
-                                    <label class="fw-semibold" for="score_{{ player[0] }}">{{ player[1] }}</label>
-                                    <input class="form-control score-input round-score-input" id="score_{{ player[0] }}" name="score_{{ player[0] }}" type="number" step="1" value="0">
-                                </div>
-                            {% endfor %}
-                            <div class="alert alert-info py-2 mb-3" id="scoreTotalHint">Tổng điểm: <strong id="scoreTotalValue">0</strong></div>
-                            <label class="form-label fw-semibold mt-2" for="note">Ghi chú trận</label>
-                            <input class="form-control mb-3" id="note" name="note" placeholder="Ví dụ: ván ù, ăn chốt, móm...">
-                            <button class="btn btn-success" type="submit">Lưu điểm trận</button>
-                        </form>
-                    </div>
-                </section>
-                {% endif %}
 
                 <section class="card shadow-sm border-0">
                     <div class="card-body">
@@ -200,6 +217,9 @@
     const scoreInputs = document.querySelectorAll('.round-score-input');
     const scoreTotalValue = document.getElementById('scoreTotalValue');
     const scoreTotalHint = document.getElementById('scoreTotalHint');
+    const scoreTotalError = document.getElementById('scoreTotalError');
+    const clientCheckboxes = document.querySelectorAll('.client-checkbox');
+    const selectedClientCount = document.getElementById('selectedClientCount');
 
     function updateScoreTotal() {
         let total = 0;
@@ -213,9 +233,25 @@
             scoreTotalHint.classList.toggle('alert-info', total === 0);
             scoreTotalHint.classList.toggle('alert-danger', total !== 0);
         }
+        if (scoreTotalError) {
+            scoreTotalError.classList.toggle('d-none', total === 0);
+        }
         return total;
     }
 
+    function updateSelectedClientCount() {
+        if (!selectedClientCount) {
+            return;
+        }
+        const total = Array.from(clientCheckboxes).filter(function(input) {
+            return input.checked;
+        }).length;
+        selectedClientCount.textContent = total + ' mục';
+    }
+
+    clientCheckboxes.forEach(function(input) {
+        input.addEventListener('change', updateSelectedClientCount);
+    });
     scoreInputs.forEach(function(input) {
         input.addEventListener('input', updateScoreTotal);
     });
@@ -223,10 +259,14 @@
         scoreRoundForm.addEventListener('submit', function(event) {
             if (updateScoreTotal() !== 0) {
                 event.preventDefault();
-                alert('Tổng điểm của trận phải bằng 0 trước khi lưu.');
+                event.stopImmediatePropagation();
+                if (scoreTotalError) {
+                    scoreTotalError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
             }
-        });
+        }, true);
     }
+    updateSelectedClientCount();
     updateScoreTotal();
     </script>
 {% include '_pwa_register.html' %}
