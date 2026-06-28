@@ -672,6 +672,10 @@ def add_expense(trip_id):
     note = (request.form.get("note") or "").strip()
     split_mode = request.form.get("split_mode") or "shared"
     private_member_id = request.form.get("private_member_id")
+    private_splits = [
+        {"member_id": member[0], "amount": request.form.get(f"private_split_{member[0]}")}
+        for member in members
+    ]
     try:
         FinanceModel.add_expense(
             trip_id,
@@ -682,9 +686,10 @@ def add_expense(trip_id):
             [member[0] for member in members],
             split_mode,
             private_member_id,
+            private_splits,
         )
         if split_mode == "private":
-            flash("Đã thêm khoản chi riêng cho thành viên đã chọn.", "success")
+            flash("Đã thêm khoản chi riêng cho các thành viên có nhập số tiền.", "success")
         else:
             flash("Đã thêm khoản chi chung và chia đều cho mọi người.", "success")
     except ValueError as exc:

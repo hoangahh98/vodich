@@ -865,14 +865,25 @@ class FinanceModel:
             expenses = cursor.fetchall()
             for expense_id, amount, split_mode, private_member_id in expenses:
                 amount = money(amount)
-                if split_mode == "private" and private_member_id in member_ids:
-                    splits = [(expense_id, private_member_id, amount)]
-                else:
-                    if split_mode == "private":
+                if split_mode == "private":
+                    cursor.execute(
+                        """
+                        SELECT member_id, amount
+                        FROM trip_expense_splits
+                        WHERE expense_id = %s AND member_id = ANY(%s);
+                        """,
+                        (expense_id, member_ids),
+                    )
+                    private_splits = [(expense_id, row[0], money(row[1])) for row in cursor.fetchall()]
+                    if sum(split[2] for split in private_splits) == amount and private_splits:
+                        splits = private_splits
+                    else:
                         cursor.execute(
                             "UPDATE trip_expenses SET split_mode = 'shared', private_member_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = %s;",
                             (expense_id,),
                         )
+                        split_mode = "shared"
+                if split_mode != "private":
                     base = amount // len(member_ids)
                     remainder = int(amount - (base * len(member_ids)))
                     splits = []
@@ -929,22 +940,28 @@ class FinanceModel:
         return [{"row": expense, "splits": splits.get(expense[0], {})} for expense in expenses]
 
     @staticmethod
-    def add_expense(trip_id, spent_date, title, amount, note, member_ids, split_mode="shared", private_member_id=None):
-        amount = money(amount)
-        if amount < 0:
-            raise ValueError("Số tiền chi không hợp lệ")
+    def add_expense(trip_id, spent_date, title, amount, note, member_ids, split_mode="shared", private_member_id=None, private_splits=None):
         if not member_ids:
             raise ValueError("Cần có thành viên để chia tiền")
         split_mode = "private" if split_mode == "private" else "shared"
         if split_mode == "private":
-            try:
-                private_member_id = int(private_member_id)
-            except (TypeError, ValueError):
-                private_member_id = None
-            if private_member_id not in member_ids:
-                raise ValueError("Cần chọn thành viên mua riêng hợp lệ")
-            splits = [(private_member_id, amount)]
+            splits = []
+            for item in private_splits or []:
+                try:
+                    member_id = int(item["member_id"])
+                except (TypeError, ValueError):
+                    continue
+                split_amount = money(item["amount"])
+                if member_id in member_ids and split_amount > 0:
+                    splits.append((member_id, split_amount))
+            if not splits:
+                raise ValueError("Cần nhập ít nhất một thành viên mua riêng và số tiền lớn hơn 0")
+            amount = sum(split_amount for _, split_amount in splits)
+            private_member_id = splits[0][0] if len(splits) == 1 else None
         else:
+            amount = money(amount)
+            if amount < 0:
+                raise ValueError("Số tiền chi không hợp lệ")
             private_member_id = None
             base = amount // len(member_ids)
             remainder = int(amount - (base * len(member_ids)))
@@ -978,9 +995,14 @@ class FinanceModel:
         if total_split != amount:
             raise ValueError(f"Tổng tiền chia ({total_split:,.0f}) phải bằng tiền khoản chi ({amount:,.0f})")
         positive_splits = [item for item in normalized_splits if item["amount"] > 0]
-        split_mode = "private" if len(positive_splits) == 1 and positive_splits[0]["amount"] == amount else "shared"
-        private_member_id = positive_splits[0]["member_id"] if split_mode == "private" else None
         with db_cursor(commit=True) as cursor:
+            cursor.execute("SELECT split_mode FROM trip_expenses WHERE id = %s;", (expense_id,))
+            current = cursor.fetchone()
+            current_split_mode = current[0] if current else "shared"
+            split_mode = "shared"
+            if positive_splits and (current_split_mode == "private" or (len(positive_splits) == 1 and positive_splits[0]["amount"] == amount)):
+                split_mode = "private"
+            private_member_id = positive_splits[0]["member_id"] if split_mode == "private" and len(positive_splits) == 1 else None
             cursor.execute(
                 """
                 UPDATE trip_expenses

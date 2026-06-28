@@ -218,33 +218,40 @@
                             </select>
                         </div>
                         <div class="col-md-3">
-                            <label class="form-label small fw-semibold">Số tiền</label>
-                            <input class="form-control" type="number" min="0" step="1" name="amount" required>
-                        </div>
-                        <div class="col-md-3">
                             <label class="form-label small fw-semibold">Loại khoản chi</label>
                             <select class="form-select" name="split_mode" id="expenseSplitMode">
                                 <option value="shared">Chung</option>
                                 <option value="private">Riêng</option>
                             </select>
                         </div>
-                        <div class="col-md-4" id="privateMemberField">
-                            <label class="form-label small fw-semibold">Thành viên mua riêng</label>
-                            <select class="form-select" name="private_member_id" id="privateMemberSelect">
-                                <option value="">Chọn thành viên</option>
-                                {% for member in members %}
-                                <option value="{{ member[0] }}">{{ member[1] }}</option>
-                                {% endfor %}
-                            </select>
+                        <div class="col-md-3" id="sharedAmountField">
+                            <label class="form-label small fw-semibold">Số tiền tổng</label>
+                            <input class="form-control" type="number" min="0" step="1" name="amount" id="sharedAmountInput" required>
                         </div>
                         <div class="col-md-2 d-grid">
                             <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button>
+                        </div>
+                        <div class="col-12" id="privateSplitField">
+                            <div class="border rounded p-2 bg-light">
+                                <div class="d-flex justify-content-between gap-2 flex-wrap mb-2">
+                                    <span class="small fw-semibold">Thành viên mua riêng</span>
+                                    <span class="small text-muted">Tổng riêng: <strong id="privateSplitTotal">0</strong>đ</span>
+                                </div>
+                                <div class="row g-2">
+                                    {% for member in members %}
+                                    <div class="col-md-6">
+                                        <label class="form-label small mb-1">{{ member[1] }}</label>
+                                        <input class="form-control private-split-input" type="number" min="0" step="1" name="private_split_{{ member[0] }}" placeholder="0">
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
                         </div>
                         <div class="col-12">
                             <input class="form-control" name="note" id="expenseNote" placeholder="Ghi chú khoản chi">
                         </div>
                     </form>
-                    <div class="small text-muted">Khoản chung sẽ chia đều cho tất cả thành viên. Khoản riêng chỉ tính cho thành viên được chọn.</div>
+                    <div class="small text-muted">Khoản chung nhập một số tiền tổng và chia đều. Khoản riêng nhập tiền cho từng thành viên cần tính.</div>
                 </div>
             </div>
         </div>
@@ -440,8 +447,11 @@ function copyMemberEmails(button) {
 const expenseCategory = document.getElementById('expenseCategory');
 const expenseNote = document.getElementById('expenseNote');
 const expenseSplitMode = document.getElementById('expenseSplitMode');
-const privateMemberField = document.getElementById('privateMemberField');
-const privateMemberSelect = document.getElementById('privateMemberSelect');
+const sharedAmountField = document.getElementById('sharedAmountField');
+const sharedAmountInput = document.getElementById('sharedAmountInput');
+const privateSplitField = document.getElementById('privateSplitField');
+const privateSplitInputs = document.querySelectorAll('.private-split-input');
+const privateSplitTotal = document.getElementById('privateSplitTotal');
 
 function updateExpenseNotePlaceholder() {
     if (!expenseCategory || !expenseNote) return;
@@ -458,18 +468,29 @@ if (expenseCategory) {
 }
 
 function updatePrivateMemberField() {
-    if (!expenseSplitMode || !privateMemberField || !privateMemberSelect) return;
+    if (!expenseSplitMode || !sharedAmountField || !sharedAmountInput || !privateSplitField) return;
     const isPrivate = expenseSplitMode.value === 'private';
-    privateMemberField.classList.toggle('d-none', !isPrivate);
-    privateMemberSelect.required = isPrivate;
-    privateMemberSelect.disabled = !isPrivate;
-    if (!isPrivate) {
-        privateMemberSelect.value = '';
-    }
+    sharedAmountField.classList.toggle('d-none', isPrivate);
+    sharedAmountInput.required = !isPrivate;
+    sharedAmountInput.disabled = isPrivate;
+    privateSplitField.classList.toggle('d-none', !isPrivate);
+    privateSplitInputs.forEach(input => {
+        input.disabled = !isPrivate;
+        if (!isPrivate) input.value = '';
+    });
+    updatePrivateSplitTotal();
+}
+
+function updatePrivateSplitTotal() {
+    if (!privateSplitTotal) return;
+    let sum = 0;
+    privateSplitInputs.forEach(input => sum += Number(input.value || 0));
+    privateSplitTotal.textContent = sum.toLocaleString('vi-VN');
 }
 
 if (expenseSplitMode) {
     expenseSplitMode.addEventListener('change', updatePrivateMemberField);
+    privateSplitInputs.forEach(input => input.addEventListener('input', updatePrivateSplitTotal));
     updatePrivateMemberField();
 }
 </script>
