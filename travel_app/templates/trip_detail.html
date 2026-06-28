@@ -226,12 +226,12 @@
                         </div>
                         <div class="col-md-3" id="sharedAmountField">
                             <label class="form-label small fw-semibold">Số tiền tổng</label>
-                            <input class="form-control" type="number" min="0" step="1" name="amount" id="sharedAmountInput" required>
+                            <input class="form-control" type="number" min="0" step="1" name="amount" id="sharedAmountInput">
                         </div>
                         <div class="col-md-2 d-grid">
                             <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button>
                         </div>
-                        <div class="col-12" id="privateSplitField">
+                        <div class="col-12 d-none" id="privateSplitField">
                             <div class="border rounded p-2 bg-light">
                                 <div class="d-flex justify-content-between gap-2 flex-wrap mb-2">
                                     <span class="small fw-semibold">Thành viên mua riêng</span>
@@ -241,7 +241,7 @@
                                     {% for member in members %}
                                     <div class="col-md-6">
                                         <label class="form-label small mb-1">{{ member[1] }}</label>
-                                        <input class="form-control private-split-input" type="number" min="0" step="1" name="private_split_{{ member[0] }}" placeholder="0">
+                                        <input class="form-control private-split-input" type="number" min="0" step="1" name="private_split_{{ member[0] }}" placeholder="0" disabled>
                                     </div>
                                     {% endfor %}
                                 </div>

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'du-hy-v1';
+const CACHE_NAME = 'du-hy-v2';
 const APP_SHELL = [
   '/',
   '/static/style.css',

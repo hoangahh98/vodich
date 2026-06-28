@@ -960,8 +960,8 @@ class FinanceModel:
             private_member_id = splits[0][0] if len(splits) == 1 else None
         else:
             amount = money(amount)
-            if amount < 0:
-                raise ValueError("Số tiền chi không hợp lệ")
+            if amount <= 0:
+                raise ValueError("Cần nhập số tiền tổng lớn hơn 0")
             private_member_id = None
             base = amount // len(member_ids)
             remainder = int(amount - (base * len(member_ids)))
