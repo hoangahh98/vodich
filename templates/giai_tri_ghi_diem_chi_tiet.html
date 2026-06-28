@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ game[1] }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         .rank-card { border-left: 5px solid #0d6efd; }
         .rank-card.positive { border-left-color: #198754; }
@@ -18,10 +19,19 @@
     {% include '_pwa_head.html' %}
 </head>
 <body class="bg-light">
-    <nav class="navbar navbar-dark bg-dark mb-4">
-        <div class="container-fluid">
-            <a class="navbar-brand fw-bold" href="/giai-tri/ghi-diem">← {{ game[1] }}</a>
-            <span class="badge {{ 'bg-success' if game[2] == 'active' else 'bg-secondary' }}">{{ 'Đang chơi' if game[2] == 'active' else 'Đã kết thúc' }}</span>
+    <nav class="navbar navbar-dark app-navbar mb-4 py-2">
+        <div class="container-fluid px-4">
+            <div class="d-flex gap-2 align-items-center flex-wrap ms-auto">
+                <a class="btn btn-sm btn-outline-light" href="/giai-tri">Giải trí</a>
+                <a class="btn btn-sm btn-outline-light" href="/giai-tri/ghi-diem">Ghi điểm</a>
+                <a class="btn btn-sm btn-outline-light" href="/giai-tri/ta-la">Tá lả</a>
+                {% if user.role == 'admin' %}
+                    <a class="btn btn-sm btn-outline-light" href="/van-dong-vien?return_to=/giai-tri/ghi-diem/{{ game[0] }}">Người chơi</a>
+                {% endif %}
+                <span class="badge {{ 'bg-success' if game[2] == 'active' else 'bg-secondary' }}">{{ 'Đang chơi' if game[2] == 'active' else 'Đã kết thúc' }}</span>
+                <span class="navbar-text d-none d-md-inline">{{ user.display_name or user.email }} · {{ 'Admin' if user.role == 'admin' else 'Client' }}</span>
+                <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">Đăng xuất</a>
+            </div>
         </div>
     </nav>
 
@@ -50,10 +60,22 @@
                     <div class="card-body">
                         <h2 class="h5 fw-bold mb-3">Người chơi</h2>
                         {% if game[2] == 'active' %}
-                        <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/nguoi-choi" class="d-flex gap-2 mb-3">
-                            <input class="form-control" name="name" placeholder="Tên người chơi" required>
-                            <button class="btn btn-primary" type="submit">Thêm</button>
-                        </form>
+                            {% if available_clients %}
+                            <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/nguoi-choi" class="mb-3">
+                                <label class="form-label fw-semibold" for="client_ids">Chọn người chơi từ danh sách client</label>
+                                <select class="form-select mb-2" id="client_ids" name="client_ids" multiple size="6" required>
+                                    {% for client in available_clients %}
+                                        <option value="{{ client[0] }}">{{ client[1] }}{% if client[2] %} · {{ client[2] }}{% endif %}{% if client[3] %} · {{ client[3] }}{% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                                <div class="d-flex justify-content-between align-items-center gap-2">
+                                    <span class="text-muted small">Có thể chọn nhiều người rồi lưu một lần.</span>
+                                    <button class="btn btn-primary" type="submit">Thêm</button>
+                                </div>
+                            </form>
+                            {% else %}
+                                <div class="alert alert-info">Không còn client nào để thêm vào ván này.</div>
+                            {% endif %}
                         {% endif %}
                         {% if players %}
                             <ul class="list-group list-group-flush">

@@ -897,16 +897,41 @@ class EntertainmentCardGameModel:
             return cursor.fetchall()
 
     @staticmethod
-    def add_player(game_id, name):
-        player_name = (name or "").strip()
-        if not player_name:
-            raise ValueError("Tên người chơi không được để trống.")
+    def get_available_clients(game_id):
+        with db_cursor() as cursor:
+            cursor.execute("""
+                SELECT c.id, c.display_name, c.skill_level, c.email
+                FROM user_clients c
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM entertainment_card_players p
+                    WHERE p.game_id = %s
+                      AND p.user_client_id = c.id
+                      AND p.active = TRUE
+                )
+                ORDER BY c.display_name ASC;
+            """, (game_id,))
+            return cursor.fetchall()
+
+    @staticmethod
+    def add_player_from_client(game_id, user_client_id):
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
-                INSERT INTO entertainment_card_players (game_id, name)
-                VALUES (%s, %s)
+                SELECT display_name
+                FROM user_clients
+                WHERE id = %s;
+            """, (user_client_id,))
+            client = cursor.fetchone()
+            if not client:
+                raise ValueError("Không tìm thấy người chơi trong danh sách client.")
+
+            cursor.execute("""
+                INSERT INTO entertainment_card_players (game_id, name, user_client_id)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (game_id, user_client_id) WHERE active = TRUE AND user_client_id IS NOT NULL
+                DO UPDATE SET name = EXCLUDED.name
                 RETURNING id;
-            """, (game_id, player_name))
+            """, (game_id, client[0], user_client_id))
             return cursor.fetchone()[0]
 
     @staticmethod

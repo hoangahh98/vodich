@@ -270,6 +270,7 @@ def chi_tiet_van_ghi_diem(game_id):
     if not game:
         return "Không tìm thấy ván ghi điểm", 404
     players = EntertainmentCardGameModel.get_players(game_id)
+    available_clients = EntertainmentCardGameModel.get_available_clients(game_id)
     scoreboard = EntertainmentCardGameModel.get_scoreboard(game_id)
     rounds = EntertainmentCardGameModel.get_rounds(game_id)
     final_view = request.args.get('ket_thuc') == '1'
@@ -278,6 +279,7 @@ def chi_tiet_van_ghi_diem(game_id):
         user=user,
         game=game,
         players=players,
+        available_clients=available_clients,
         scoreboard=scoreboard,
         rounds=rounds,
         final_view=final_view,
@@ -295,7 +297,14 @@ def them_nguoi_choi_ghi_diem(game_id):
         flash('Ván đã kết thúc, không thêm người chơi mới được.', 'warning')
         return redirect(url_for('chi_tiet_van_ghi_diem', game_id=game_id))
     try:
-        player_id = EntertainmentCardGameModel.add_player(game_id, request.form.get('name'))
+        client_ids = [item for item in request.form.getlist('client_ids') if item]
+        if not client_ids:
+            flash('Chọn ít nhất một người chơi trong danh sách client.', 'warning')
+            return redirect(url_for('chi_tiet_van_ghi_diem', game_id=game_id))
+
+        added_player_ids = []
+        for client_id in client_ids:
+            added_player_ids.append(EntertainmentCardGameModel.add_player_from_client(game_id, int(client_id)))
         DBLogger.log_user_action(
             user_email=user.get('email'),
             user_role=user.get('role'),
@@ -303,9 +312,9 @@ def them_nguoi_choi_ghi_diem(game_id):
             route=f'/giai-tri/ghi-diem/{game_id}/nguoi-choi',
             method='POST',
             status_code=302,
-            details={'game_id': game_id, 'player_id': player_id},
+            details={'game_id': game_id, 'client_ids': client_ids, 'player_ids': added_player_ids},
         )
-        flash('Đã thêm người chơi.', 'success')
+        flash(f'Đã thêm {len(added_player_ids)} người chơi.', 'success')
     except ValueError as e:
         flash(str(e), 'warning')
     except Exception as e:
@@ -520,9 +529,9 @@ def api_user_actions(email):
 
 def _safe_vdv_return_to(default='/'):
     return_to = (request.values.get('return_to') or default).strip()
-    if return_to in ('/', '/giai-dau', '/doi-bong'):
+    if return_to in ('/', '/giai-dau', '/doi-bong', '/giai-tri'):
         return return_to
-    if return_to.startswith('/giai-dau/') or return_to.startswith('/doi-bong/'):
+    if return_to.startswith('/giai-dau/') or return_to.startswith('/doi-bong/') or return_to.startswith('/giai-tri/'):
         return return_to
     return default
 
@@ -533,6 +542,8 @@ def _vdv_return_context():
         return_label = 'Giải đấu'
     elif return_to.startswith('/doi-bong'):
         return_label = 'Quản lý đội bóng'
+    elif return_to.startswith('/giai-tri'):
+        return_label = 'Giải trí'
     else:
         return_label = 'Trang chủ'
     return {

@@ -410,6 +410,10 @@ ON entertainment_card_games (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_entertainment_card_players_game
 ON entertainment_card_players (game_id, active, name);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_entertainment_card_players_game_client
+ON entertainment_card_players (game_id, user_client_id)
+WHERE active = TRUE AND user_client_id IS NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_entertainment_card_rounds_game
 ON entertainment_card_rounds (game_id, round_no DESC);
 
