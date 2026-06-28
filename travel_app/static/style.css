@@ -163,6 +163,22 @@ body {
     overflow-wrap: anywhere;
 }
 
+.suggestions-table {
+    min-width: 1040px;
+    table-layout: fixed;
+}
+
+.suggestions-col-destination { width: 20%; }
+.suggestions-col-category { width: 13%; }
+.suggestions-col-place { width: 27%; }
+.suggestions-col-info { width: 29%; }
+.suggestions-col-actions { width: 11%; }
+
+.suggestions-table th,
+.suggestions-table td {
+    overflow-wrap: anywhere;
+}
+
 @media (max-width: 768px) {
     .summary-grid {
         grid-template-columns: 1fr;
