@@ -1079,8 +1079,12 @@ def build_summary(members, expenses, treasurer_member_id=None):
         member_id = member[0]
         remaining_share = max(member_spent.get(member_id, Decimal("0")) - effective_collected.get(member_id, Decimal("0")), Decimal("0"))
         paid_total = member_paid_total.get(member_id, Decimal("0"))
-        member_advanced[member_id] = max(paid_total - remaining_share, Decimal("0"))
-        member_debt[member_id] = max(remaining_share - paid_total, Decimal("0"))
+        if treasurer_member_id and member_id == treasurer_member_id:
+            member_advanced[member_id] = max(paid_total - member_spent.get(member_id, Decimal("0")), Decimal("0"))
+            member_debt[member_id] = Decimal("0")
+        else:
+            member_advanced[member_id] = max(paid_total - remaining_share, Decimal("0"))
+            member_debt[member_id] = max(remaining_share - paid_total, Decimal("0"))
         member_collected[member_id] = min(
             member_spent.get(member_id, Decimal("0")),
             effective_collected.get(member_id, Decimal("0")) + paid_total,
