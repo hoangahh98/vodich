@@ -438,6 +438,7 @@ def chi_tiet_ban_to_lieng(game_id):
     if not game:
         return "Không tìm thấy bàn tố liêng", 404
     participants = EntertainmentLiengGameModel.get_participants(game_id)
+    scoreboard = sorted(participants, key=lambda player: (-int(player[9] or 0), str(player[1] or "").lower()))
     available_clients = EntertainmentLiengGameModel.get_available_clients(game_id)
     actions = EntertainmentLiengGameModel.get_actions(game_id)
     my_participant_id = EntertainmentLiengGameModel.participant_for_user(game_id, user)
@@ -452,6 +453,7 @@ def chi_tiet_ban_to_lieng(game_id):
         user=user,
         game=game,
         participants=participants,
+        scoreboard=scoreboard,
         available_clients=available_clients,
         actions=actions,
         my_participant_id=my_participant_id,

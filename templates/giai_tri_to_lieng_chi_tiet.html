@@ -56,6 +56,21 @@
             overflow-wrap: anywhere;
             line-height: 1.2;
         }
+        .lieng-current-bet {
+            border-top: 1px solid #eef2f7;
+            margin-top: .45rem;
+            padding-top: .45rem;
+        }
+        .ranking-row {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) 86px;
+            gap: .75rem;
+            align-items: center;
+        }
+        .ranking-name {
+            overflow-wrap: anywhere;
+            line-height: 1.2;
+        }
         .turn-row { outline: 3px solid rgba(25, 135, 84, .25); }
         .client-check-list { max-height: 240px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; }
         .client-check-row { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: .5rem; align-items: start; }
@@ -178,7 +193,13 @@
 
                 <section class="card shadow-sm border-0 mb-4">
                     <div class="card-body">
-                        <h2 class="h5 fw-bold mb-3">Bàn chơi & BXH</h2>
+                        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                            <div>
+                                <h2 class="h5 fw-bold mb-1">Bàn chơi hiện tại</h2>
+                                <div class="text-muted small">Chỉ hiển thị tiền đang nằm trong ván này: pot và cược từng ghế.</div>
+                            </div>
+                            <span class="badge text-bg-success">Pot {{ game[5] }}</span>
+                        </div>
                         {% if participants %}
                             <div class="table-layout" style="--seat-count: {{ participants|length }};">
                                 <div class="lieng-table">
@@ -194,8 +215,36 @@
                                         {% if my_participant_id == p[0] %}<span class="badge bg-primary">Bạn</span>{% endif %}
                                     </div>
                                     <div class="fw-semibold small seat-name">{{ p[1] }}</div>
-                                    <div class="text-muted small">{% if p[7] %}Đã bỏ{% else %}Đang chơi{% endif %} · Cược {{ p[8] }}</div>
-                                    <div class="fw-bold {{ 'text-success' if p[9] > 0 else ('text-danger' if p[9] < 0 else 'text-muted') }}">{{ p[9] }}</div>
+                                    <div class="text-muted small">{% if p[7] %}Đã bỏ{% else %}Đang trong ván{% endif %}</div>
+                                    <div class="lieng-current-bet">
+                                        <div class="text-muted small">Cược ván này</div>
+                                        <div class="fw-bold text-success">{{ p[8] }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info mb-0">Chưa có người chơi nào.</div>
+                        {% endif %}
+                    </div>
+                </section>
+
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <h2 class="h5 fw-bold mb-1">Bảng xếp hạng</h2>
+                        <div class="text-muted small mb-3">Tổng điểm lũy kế sau các ván. Phần này tách riêng với pot/cược đang chơi.</div>
+                        {% if scoreboard %}
+                            <div class="list-group list-group-flush">
+                            {% for p in scoreboard %}
+                                <div class="list-group-item px-0">
+                                    <div class="ranking-row">
+                                        <span class="badge {{ 'text-bg-warning' if loop.index == 1 else 'text-bg-light' }}">#{{ loop.index }}</span>
+                                        <div class="ranking-name">
+                                            <div class="fw-semibold">{{ p[1] }}</div>
+                                            <div class="text-muted small">Ghế {{ p[5] or '-' }}{% if my_participant_id == p[0] %} · Bạn{% endif %}</div>
+                                        </div>
+                                        <div class="text-end fw-bold fs-5 {{ 'text-success' if p[9] > 0 else ('text-danger' if p[9] < 0 else 'text-muted') }}">{{ p[9] }}</div>
+                                    </div>
                                 </div>
                             {% endfor %}
                             </div>
