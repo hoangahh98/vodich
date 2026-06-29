@@ -1073,18 +1073,17 @@ def build_summary(members, expenses, treasurer_member_id=None):
             collected = member_spent.get(member_id, Decimal("0"))
         effective_collected[member_id] = collected
     total_collected = sum(effective_collected.values(), Decimal("0"))
-    gross_credit = {
-        member_id: max(member_paid_total.get(member_id, Decimal("0")) - member_spent.get(member_id, Decimal("0")), Decimal("0"))
-        for member_id in member_spent
-    }
+    member_debt = {}
     for member in members:
         member_id = member[0]
-        member_advanced[member_id] = gross_credit.get(member_id, Decimal("0"))
+        remaining_share = max(member_spent.get(member_id, Decimal("0")) - effective_collected.get(member_id, Decimal("0")), Decimal("0"))
+        paid_total = member_paid_total.get(member_id, Decimal("0"))
+        member_advanced[member_id] = max(paid_total - remaining_share, Decimal("0"))
+        member_debt[member_id] = max(remaining_share - paid_total, Decimal("0"))
     balances = {}
     for member in members:
         member_id = member[0]
-        debt = max(member_spent.get(member_id, Decimal("0")) - member_paid_total.get(member_id, Decimal("0")) - effective_collected.get(member_id, Decimal("0")), Decimal("0"))
-        balances[member_id] = member_advanced.get(member_id, Decimal("0")) - debt
+        balances[member_id] = member_advanced.get(member_id, Decimal("0")) - member_debt.get(member_id, Decimal("0"))
     total_advanced = sum(member_advanced.values(), Decimal("0"))
     debtors = [
         {"member_id": member_id, "name": member_names.get(member_id, ""), "amount": -balance}
@@ -1123,6 +1122,7 @@ def build_summary(members, expenses, treasurer_member_id=None):
         "average_spent": total_spent / len(members) if members else Decimal("0"),
         "member_spent": member_spent,
         "member_advanced": member_advanced,
+        "member_debt": member_debt,
         "member_paid_total": member_paid_total,
         "effective_collected": effective_collected,
         "actual_collected": actual_collected,
