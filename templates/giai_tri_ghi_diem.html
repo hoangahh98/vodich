@@ -67,7 +67,7 @@
                                                     {{ 'Đang chơi' if game[2] == 'active' else 'Đã kết thúc' }}
                                                 </span>
                                                 {% if user.role == 'admin' or (user.role == 'vdv' and game[10] == user.id) %}
-                                                <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/xoa" onsubmit="return confirm({{ ('Xóa ván ' ~ game[1] ~ '? Toàn bộ người chơi và lịch sử điểm của ván này cũng sẽ bị xóa.')|tojson }});">
+                                                <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/xoa" data-confirm="{{ ('Xóa ván ' ~ game[1] ~ '? Toàn bộ người chơi và lịch sử điểm của ván này cũng sẽ bị xóa.')|e }}">
                                                     <button class="btn btn-sm btn-outline-danger" type="submit" data-loading-text="Đang xóa...">Xóa</button>
                                                 </form>
                                                 {% endif %}

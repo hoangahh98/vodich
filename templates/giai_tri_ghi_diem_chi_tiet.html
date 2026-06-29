@@ -120,7 +120,7 @@
                                     <li class="list-group-item px-0 d-flex justify-content-between align-items-center gap-2">
                                         <span class="fw-semibold text-break">{{ player[1] }}</span>
                                         {% if game[2] == 'active' %}
-                                        <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/nguoi-choi/{{ player[0] }}/roi-van" onsubmit="return confirm({{ ('Bỏ ' ~ player[1] ~ ' khỏi các trận mới? Điểm đã ghi của người này vẫn được giữ trong lịch sử.')|tojson }});">
+                                        <form method="post" action="/giai-tri/ghi-diem/{{ game[0] }}/nguoi-choi/{{ player[0] }}/roi-van" data-confirm="{{ ('Bỏ ' ~ player[1] ~ ' khỏi các trận mới? Điểm đã ghi của người này vẫn được giữ trong lịch sử.')|e }}">
                                             <button class="btn btn-sm btn-outline-danger" type="submit" data-loading-text="Đang bỏ...">Rời ván</button>
                                         </form>
                                         {% endif %}

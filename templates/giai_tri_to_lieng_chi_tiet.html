@@ -225,7 +225,7 @@
                         {% if game[2] == 'ended' %}
                             <div class="alert alert-info mb-0">Bàn đã kết thúc.</div>
                         {% elif my_participant_id %}
-                            <form method="post" action="/giai-tri/to-lieng/{{ game[0] }}/thoat-ban" class="mb-2" onsubmit="return confirm('Thoát khỏi bàn này?');">
+                            <form method="post" action="/giai-tri/to-lieng/{{ game[0] }}/thoat-ban" class="mb-2" data-confirm="Thoát khỏi bàn này?">
                                 <button class="btn btn-outline-danger w-100" data-loading-text="Đang thoát...">Thoát bàn</button>
                             </form>
                         {% else %}

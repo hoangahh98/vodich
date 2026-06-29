@@ -82,7 +82,7 @@
                             <td class="text-muted">{{ player[3] or 'Chưa có' }}</td>
                             <td class="text-center text-nowrap">
                                 <button type="button" class="btn btn-sm btn-warning py-0" data-bs-toggle="modal" data-bs-target="#editPlayerModal{{ player[0] }}" data-feedback="off">Sửa</button>
-                                <form action="/giai-tri/nguoi-choi/{{ player[0] }}/xoa" method="POST" class="d-inline" onsubmit="return confirm({{ ('Xóa người chơi ' ~ player[1] ~ '? Người này cũng sẽ bị xóa khỏi danh sách client chung.')|tojson }});">
+                                <form action="/giai-tri/nguoi-choi/{{ player[0] }}/xoa" method="POST" class="d-inline" data-confirm="{{ ('Xóa người chơi ' ~ player[1] ~ '? Người này cũng sẽ bị xóa khỏi danh sách client chung.')|e }}">
                                     <button class="btn btn-sm btn-danger py-0" data-loading-text="Đang xóa...">Xóa</button>
                                 </form>
                             </td>

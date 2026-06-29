@@ -63,7 +63,7 @@
                                         <div class="d-flex gap-2 align-items-center">
                                             <span class="badge {{ 'bg-success' if game[2] == 'betting' else ('bg-warning text-dark' if game[2] == 'settling' else ('bg-dark' if game[2] == 'ended' else 'bg-secondary')) }}">{{ 'Đang cược' if game[2] == 'betting' else ('Chờ chương chốt' if game[2] == 'settling' else ('Đã kết thúc' if game[2] == 'ended' else 'Chờ ván')) }}</span>
                                             {% if user.role == 'admin' %}
-                                            <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/xoa" onsubmit="return confirm({{ ('Xóa bàn ' ~ game[1] ~ '?')|tojson }});">
+                                            <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/xoa" data-confirm="{{ ('Xóa bàn ' ~ game[1] ~ '?')|e }}">
                                                 <button class="btn btn-sm btn-outline-danger" data-loading-text="Đang xóa...">Xóa</button>
                                             </form>
                                             {% endif %}
