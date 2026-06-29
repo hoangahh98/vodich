@@ -68,24 +68,26 @@
         <div class="col-lg-9">
             <div class="card h-100">
                 <div class="card-hdr blue">
-                    <span>Thành viên trong chuyến đi</span>
-                    <div class="ms-auto d-flex flex-column align-items-end gap-1">
-                        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-                            <span>{{ members|length }} người</span>
-                            <button type="button" class="btn btn-sm btn-light text-primary fw-bold" data-bs-toggle="modal" data-bs-target="#memberEmailModal" data-feedback="off">
+                    <div>
+                        <div>Thành viên trong chuyến đi</div>
+                        <div class="small fw-normal opacity-75">{{ members|length }} người</div>
+                    </div>
+                    <div class="member-actions">
+                        <div class="member-action-row">
+                            <button type="button" class="btn btn-sm btn-light text-primary fw-bold member-action-btn" data-bs-toggle="modal" data-bs-target="#memberEmailModal" data-feedback="off">
                                 📧 Get Email
                             </button>
-                            <button type="button" class="btn btn-sm btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#paymentSuggestionModal" data-feedback="off">
+                            <button type="button" class="btn btn-sm btn-warning fw-bold member-action-btn" data-bs-toggle="modal" data-bs-target="#paymentSuggestionModal" data-feedback="off">
                                 Gợi ý trả tiền
                             </button>
                         </div>
                         {% if members %}
-                        <div class="d-flex align-items-center gap-2 flex-wrap justify-content-end">
-                            <button class="btn btn-sm btn-warning fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#formCapNhatTienThu">
+                        <div class="member-action-row">
+                            <button class="btn btn-sm btn-warning fw-bold member-action-btn" type="button" data-bs-toggle="collapse" data-bs-target="#formCapNhatTienThu">
                                 ✏️ Cập nhật tiền thu
                             </button>
-                            <form action="{{ url_for('mark_collections_paid_enough', trip_id=trip[0]) }}" method="POST" class="d-inline" onsubmit="return confirm('Cập nhật tiền thu đủ cho tất cả thành viên theo phần chi hiện tại?')">
-                                <button class="btn btn-sm btn-light text-primary fw-bold" data-loading-text="Đang cập nhật...">Đã đóng đủ</button>
+                            <form action="{{ url_for('mark_collections_paid_enough', trip_id=trip[0]) }}" method="POST" onsubmit="return confirm('Cập nhật tiền thu đủ cho tất cả thành viên theo phần chi hiện tại?')">
+                                <button class="btn btn-sm btn-light text-primary fw-bold member-action-btn" data-loading-text="Đang cập nhật...">Đã đóng đủ</button>
                             </form>
                         </div>
                         {% endif %}

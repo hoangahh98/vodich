@@ -46,6 +46,25 @@ body {
 .card-hdr.dark { background: #e9f7ef; color: #146c43; }
 .card-hdr.warn { background: #ffc107; color: #212529; }
 
+.member-actions {
+    margin-left: auto;
+    display: grid;
+    gap: 6px;
+    justify-items: end;
+}
+
+.member-action-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(142px, 1fr));
+    gap: 8px;
+}
+
+.member-action-btn {
+    width: 100%;
+    min-height: 31px;
+    white-space: nowrap;
+}
+
 .login-panel {
     padding: 18px;
 }
@@ -278,5 +297,19 @@ body {
     .card-hdr {
         align-items: flex-start;
         padding: 9px 12px;
+    }
+
+    .member-actions {
+        width: 100%;
+        margin-left: 0;
+        justify-items: stretch;
+    }
+
+    .member-action-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .member-action-btn {
+        white-space: normal;
     }
 }
