@@ -7,11 +7,73 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
-        .player-row { display: grid; grid-template-columns: 42px minmax(0,1fr) 90px; gap: .75rem; align-items: center; }
+        .table-layout {
+            position: relative;
+            min-height: 430px;
+            border-radius: 8px;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+        .lieng-table {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: min(44vw, 260px);
+            max-width: 260px;
+            aspect-ratio: 1;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: radial-gradient(circle, #198754 0%, #0f6b43 68%, #0b4f33 100%);
+            box-shadow: inset 0 0 0 10px rgba(255,255,255,.16), 0 16px 34px rgba(15,23,42,.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-align: center;
+        }
+        .seat-card {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 150px;
+            min-height: 94px;
+            margin-left: -75px;
+            margin-top: -47px;
+            transform:
+                rotate(calc(360deg / var(--seat-count) * var(--seat-index)))
+                translateY(-174px)
+                rotate(calc(-360deg / var(--seat-count) * var(--seat-index)));
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 8px 22px rgba(15,23,42,.12);
+        }
+        .seat-card.turn-row {
+            border-color: #198754;
+            box-shadow: 0 0 0 4px rgba(25,135,84,.2), 0 8px 22px rgba(15,23,42,.16);
+        }
+        .seat-name {
+            overflow-wrap: anywhere;
+            line-height: 1.2;
+        }
         .turn-row { outline: 3px solid rgba(25, 135, 84, .25); }
         .client-check-list { max-height: 240px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; }
         .client-check-row { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: .5rem; align-items: start; }
         .client-checkbox { width: 1.15rem; height: 1.15rem; min-width: 1.15rem; margin: .15rem 0 0 0; }
+        @media (max-width: 576px) {
+            .table-layout { min-height: 500px; }
+            .lieng-table { width: 180px; }
+            .seat-card {
+                width: 128px;
+                min-height: 88px;
+                margin-left: -64px;
+                margin-top: -44px;
+                transform:
+                    rotate(calc(360deg / var(--seat-count) * var(--seat-index)))
+                    translateY(-178px)
+                    rotate(calc(-360deg / var(--seat-count) * var(--seat-index)));
+            }
+        }
     </style>
     {% include '_pwa_head.html' %}
 </head>
@@ -116,17 +178,24 @@
 
                 <section class="card shadow-sm border-0 mb-4">
                     <div class="card-body">
-                        <h2 class="h5 fw-bold mb-3">Người chơi & BXH</h2>
+                        <h2 class="h5 fw-bold mb-3">Bàn chơi & BXH</h2>
                         {% if participants %}
-                            <div class="vstack gap-2">
-                            {% for p in participants %}
-                                <div class="player-row p-2 rounded border {% if p[0] == game[7] %}turn-row bg-success bg-opacity-10{% else %}bg-white{% endif %}">
-                                    <div class="text-center fw-bold">{{ p[5] or '-' }}</div>
-                                    <div class="min-w-0">
-                                        <div class="fw-semibold text-break">{{ p[1] }}{% if my_participant_id == p[0] %} <span class="badge bg-primary">Bạn</span>{% endif %}</div>
-                                        <div class="text-muted small">{% if p[7] %}Đã bỏ{% else %}Đang chơi{% endif %} · Đã cược ván này: {{ p[8] }}</div>
+                            <div class="table-layout" style="--seat-count: {{ participants|length }};">
+                                <div class="lieng-table">
+                                    <div>
+                                        <div class="small opacity-75">Pot</div>
+                                        <div class="fs-3 fw-bold">{{ game[5] }}</div>
                                     </div>
-                                    <div class="text-end fw-bold {{ 'text-success' if p[9] > 0 else ('text-danger' if p[9] < 0 else 'text-muted') }}">{{ p[9] }}</div>
+                                </div>
+                            {% for p in participants %}
+                                <div class="seat-card p-2 {% if p[0] == game[7] %}turn-row{% endif %}" style="--seat-index: {{ loop.index0 }};">
+                                    <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
+                                        <span class="badge text-bg-light">Ghế {{ p[5] or loop.index }}</span>
+                                        {% if my_participant_id == p[0] %}<span class="badge bg-primary">Bạn</span>{% endif %}
+                                    </div>
+                                    <div class="fw-semibold small seat-name">{{ p[1] }}</div>
+                                    <div class="text-muted small">{% if p[7] %}Đã bỏ{% else %}Đang chơi{% endif %} · Cược {{ p[8] }}</div>
+                                    <div class="fw-bold {{ 'text-success' if p[9] > 0 else ('text-danger' if p[9] < 0 else 'text-muted') }}">{{ p[9] }}</div>
                                 </div>
                             {% endfor %}
                             </div>
@@ -159,23 +228,81 @@
     </main>
 
     <script>
+    const STATE_URL = '/giai-tri/to-lieng/{{ game[0] }}/state';
+    const POLL_MS = 1500;
     const isMyTurn = {{ 'true' if my_participant_id and my_participant_id == game[7] and game[2] == 'playing' else 'false' }};
+    let statePollBusy = false;
+    let initialStateSignature = JSON.stringify({
+        status: {{ game[2]|tojson }},
+        pot: {{ game[5]|tojson }},
+        round_no: {{ game[6]|tojson }},
+        current_turn_participant_id: {{ game[7]|tojson }},
+        my_participant_id: {{ my_participant_id|tojson }},
+        participants: [
+            {% for p in participants %}
+            {id: {{ p[0]|tojson }}, folded: {{ p[7]|tojson }}, current_bet: {{ p[8]|tojson }}, score: {{ p[9]|tojson }}}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    });
+
     if (isMyTurn && navigator.vibrate) {
         navigator.vibrate(180);
     }
     const countdown = document.getElementById('turnCountdown');
-    if (countdown) {
-        let left = {{ turn_seconds }};
-        const tick = window.setInterval(function() {
-            left -= 1;
-            countdown.textContent = Math.max(0, left);
-            if (left <= 0) {
-                window.clearInterval(tick);
+
+    function stateSignature(state) {
+        return JSON.stringify({
+            status: state.status,
+            pot: state.pot,
+            round_no: state.round_no,
+            current_turn_participant_id: state.current_turn_participant_id,
+            my_participant_id: state.my_participant_id,
+            participants: (state.participants || []).map(function(player) {
+                return {
+                    id: player.id,
+                    folded: player.folded,
+                    current_bet: player.current_bet,
+                    score: player.score
+                };
+            })
+        });
+    }
+
+    async function pollLiengState() {
+        if (statePollBusy || document.hidden) {
+            return;
+        }
+        statePollBusy = true;
+        try {
+            const response = await fetch(STATE_URL, { headers: { 'X-Requested-With': 'fetch' } });
+            const state = await response.json();
+            if (!state.success) {
+                return;
+            }
+            if (countdown && typeof state.turn_left === 'number') {
+                countdown.textContent = Math.max(0, state.turn_left);
+            }
+            const nextSignature = stateSignature(state);
+            if (nextSignature !== initialStateSignature) {
+                if (state.is_my_turn && !isMyTurn && navigator.vibrate) {
+                    navigator.vibrate([180, 80, 180]);
+                }
                 window.location.reload();
             }
-        }, 1000);
-        window.setTimeout(function() { window.location.reload(); }, 15000);
+        } catch (error) {
+            // Retry silently on next poll.
+        } finally {
+            statePollBusy = false;
+        }
     }
+
+    window.setInterval(pollLiengState, POLL_MS);
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            pollLiengState();
+        }
+    });
+    pollLiengState();
     </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% include '_pwa_register.html' %}

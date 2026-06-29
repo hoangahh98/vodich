@@ -23,7 +23,7 @@ from db import db_cursor
 from logging_service import DBLogger, DBLogViewer
 import traceback
 import time
-from datetime import date
+from datetime import date, datetime
 from validators import (
     normalize_tournament_form,
     normalize_vdv_form,
@@ -451,6 +451,60 @@ def chi_tiet_ban_to_lieng(game_id):
         my_participant_id=my_participant_id,
         turn_seconds=EntertainmentLiengGameModel.TURN_SECONDS,
     )
+
+
+def _lieng_state_payload(game_id, user):
+    EntertainmentLiengGameModel.apply_timeout_if_needed(game_id)
+    game = EntertainmentLiengGameModel.get_game(game_id)
+    if not game:
+        return None
+    participants = EntertainmentLiengGameModel.get_participants(game_id)
+    actions = EntertainmentLiengGameModel.get_actions(game_id, limit=1)
+    my_participant_id = EntertainmentLiengGameModel.participant_for_user(game_id, user)
+    latest_action_id = actions[0][0] if actions else 0
+    turn_left = EntertainmentLiengGameModel.TURN_SECONDS
+    if game[2] == 'playing' and game[8]:
+        try:
+            turn_left = max(0, EntertainmentLiengGameModel.TURN_SECONDS - int((datetime.now(game[8].tzinfo) - game[8]).total_seconds()))
+        except Exception:
+            turn_left = EntertainmentLiengGameModel.TURN_SECONDS
+    return {
+        'success': True,
+        'game_id': game_id,
+        'status': game[2],
+        'pot': game[5],
+        'round_no': game[6],
+        'current_turn_participant_id': game[7],
+        'my_participant_id': my_participant_id,
+        'is_my_turn': bool(my_participant_id and my_participant_id == game[7] and game[2] == 'playing'),
+        'turn_left': turn_left,
+        'latest_action_id': latest_action_id,
+        'participants': [
+            {
+                'id': p[0],
+                'name': p[1],
+                'seat_no': p[5],
+                'folded': bool(p[7]),
+                'current_bet': p[8],
+                'score': p[9],
+            }
+            for p in participants
+        ],
+    }
+
+
+@app.route('/giai-tri/to-lieng/<int:game_id>/state')
+@login_required
+def state_ban_to_lieng(game_id):
+    user = session.get('user', {})
+    try:
+        payload = _lieng_state_payload(game_id, user)
+        if not payload:
+            return jsonify({'success': False, 'error': 'Không tìm thấy bàn tố liêng'}), 404
+        return jsonify(payload)
+    except Exception as e:
+        DBLogger.log_error(f"Error loading lieng state: {str(e)}", user.get('email'), f'/giai-tri/to-lieng/{game_id}/state', context=traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @app.route('/giai-tri/to-lieng/<int:game_id>/xoa', methods=['POST'])
