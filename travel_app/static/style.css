@@ -114,6 +114,7 @@ body {
 
 .expense-table-wrap {
     max-height: 75vh;
+    overflow: auto;
 }
 
 .expense-table {
@@ -135,6 +136,7 @@ body {
 
 .expense-table thead .sticky-col {
     background: #d1e7dd;
+    z-index: 4;
 }
 
 .expense-table .payer-col {
@@ -142,6 +144,9 @@ body {
 }
 
 .expense-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
     background: #d1e7dd !important;
     color: #0f5132 !important;
     border-color: #a3cfbb !important;
