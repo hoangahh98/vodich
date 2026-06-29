@@ -373,6 +373,28 @@
         navigator.vibrate(180);
     }
     const countdown = document.getElementById('turnCountdown');
+    let countdownDeadline = countdown ? Date.now() + (Number.parseInt(countdown.textContent, 10) || 0) * 1000 : null;
+
+    function syncCountdown(turnLeft) {
+        if (!countdown || typeof turnLeft !== 'number') {
+            return;
+        }
+        countdownDeadline = Date.now() + Math.max(0, turnLeft) * 1000;
+        renderCountdown();
+    }
+
+    function renderCountdown() {
+        if (!countdown || !countdownDeadline) {
+            return;
+        }
+        const left = Math.max(0, Math.ceil((countdownDeadline - Date.now()) / 1000));
+        countdown.textContent = left;
+    }
+
+    if (countdown) {
+        renderCountdown();
+        window.setInterval(renderCountdown, 250);
+    }
 
     function stateSignature(state) {
         return JSON.stringify({
@@ -420,9 +442,7 @@
             if (!state.success) {
                 return;
             }
-            if (countdown && typeof state.turn_left === 'number') {
-                countdown.textContent = Math.max(0, state.turn_left);
-            }
+            syncCountdown(state.turn_left);
             const nextSignature = stateSignature(state);
             if (nextSignature !== initialStateSignature) {
                 if (state.is_my_turn && !isMyTurn && navigator.vibrate) {
