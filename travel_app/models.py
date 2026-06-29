@@ -991,7 +991,7 @@ class FinanceModel:
             return expense_id
 
     @staticmethod
-    def update_expense_splits(expense_id, title, spent_date, amount, note, paid_by_member_id, split_updates):
+    def update_expense_splits(expense_id, title, spent_date, amount, note, paid_by_member_id, split_updates, force_shared=False):
         amount = money(amount)
         normalized_splits = [
             {"member_id": item["member_id"], "amount": money(item["amount"])}
@@ -1013,7 +1013,7 @@ class FinanceModel:
             current = cursor.fetchone()
             current_split_mode = current[0] if current else "shared"
             split_mode = "shared"
-            if positive_splits and (current_split_mode == "private" or (len(positive_splits) == 1 and positive_splits[0]["amount"] == amount)):
+            if not force_shared and positive_splits and (current_split_mode == "private" or (len(positive_splits) == 1 and positive_splits[0]["amount"] == amount)):
                 split_mode = "private"
             private_member_id = positive_splits[0]["member_id"] if split_mode == "private" and len(positive_splits) == 1 else None
             cursor.execute(

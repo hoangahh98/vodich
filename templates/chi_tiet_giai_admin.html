@@ -64,6 +64,17 @@
         .insufficient-row { background: #fff3cd; }
         .sufficient-row { background: #d4edda; }
         .fee-table { min-width: 680px; }
+        .frozen-table-wrap { max-height: 75vh; overflow: auto; }
+        .frozen-table thead th { position: sticky; top: 0; z-index: 3; }
+        .frozen-table .sticky-col { position: sticky; left: 0; z-index: 2; background: #fff; min-width: 170px; }
+        .frozen-table thead .sticky-col { z-index: 4; }
+        .frozen-table thead.table-dark .sticky-col,
+        .frozen-table .table-dark .sticky-col { background: #0d6efd !important; color: #fff !important; }
+        .frozen-table thead.table-light .sticky-col,
+        .frozen-table .table-light .sticky-col,
+        .frozen-table thead.table-secondary .sticky-col,
+        .frozen-table .table-secondary .sticky-col { background: #e7f5ff !important; }
+        .frozen-table .current-vdv-row .sticky-col { background: #cfe2ff !important; }
         @media (max-width: 576px) {
             .container-fluid { padding-left: .75rem !important; padding-right: .75rem !important; }
             .card { border-radius: 8px; }

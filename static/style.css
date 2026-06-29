@@ -88,3 +88,7 @@
 .frozen-table .table-secondary .sticky-col {
     background: #e7f5ff !important;
 }
+
+.frozen-table .current-vdv-row .sticky-col {
+    background-color: #cfe2ff !important;
+}

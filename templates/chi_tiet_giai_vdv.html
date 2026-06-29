@@ -45,6 +45,15 @@
         .rank-3 { background: #fff0e6; }
         .hieu-so-pos { color: #198754; font-weight: 700; }
         .hieu-so-neg { color: #dc3545; font-weight: 700; }
+        .frozen-table-wrap { max-height: 75vh; overflow: auto; }
+        .frozen-table { min-width: 680px; }
+        .frozen-table thead th { position: sticky; top: 0; z-index: 3; }
+        .frozen-table .sticky-col { position: sticky; left: 0; z-index: 2; background: #fff; min-width: 170px; }
+        .frozen-table thead .sticky-col { z-index: 4; }
+        .frozen-table thead.table-dark .sticky-col,
+        .frozen-table .table-dark .sticky-col { background: #0d6efd !important; color: #fff !important; }
+        .frozen-table .current-vdv-row .sticky-col { background: #cfe2ff !important; }
+        .frozen-table th, .frozen-table td { overflow-wrap: anywhere; }
     </style>
     {% include '_pwa_head.html' %}
 </head>
@@ -150,11 +159,12 @@
                         <div class="col-lg-6">
                             <div class="border rounded overflow-hidden h-100">
                                 <div class="bg-success-subtle text-success fw-bold text-center py-2">Bảng {{ bang.ten_bang }}</div>
-                                <table class="table table-sm table-hover mb-0 text-center">
+                                <div class="table-responsive frozen-table-wrap">
+                                <table class="table table-sm table-hover mb-0 text-center frozen-table">
                                     <thead class="table-dark">
                                         <tr>
                                             <th style="width:36px">#</th>
-                                            <th class="text-start">Tên</th>
+                                            <th class="text-start sticky-col">Tên</th>
                                             <th>Trận</th>
                                             <th class="text-success">W</th>
                                             <th class="text-danger">L</th>
@@ -167,7 +177,7 @@
                                     {% set is_current_team = current_vdv_name and current_vdv_name in doi.ten.split(' + ') %}
                                     <tr class="{{ 'current-vdv-row' if is_current_team else '' }} {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% endif %}">
                                         <td>{% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}{{ loop.index }}{% endif %}</td>
-                                        <td class="text-start fw-bold {{ 'current-vdv-name' if is_current_team else '' }}">{{ doi.ten }}</td>
+                                        <td class="text-start fw-bold sticky-col {{ 'current-vdv-name' if is_current_team else '' }}">{{ doi.ten }}</td>
                                         <td>{{ doi.so_tran }}</td>
                                         <td class="text-success fw-bold">{{ doi.thang }}</td>
                                         <td class="text-danger">{{ doi.thua }}</td>
@@ -177,16 +187,18 @@
                                     {% endfor %}
                                     </tbody>
                                 </table>
+                                </div>
                             </div>
                         </div>
                     {% endfor %}
                     </div>
                     {% elif giai.bang_xep_hang %}
-                    <table class="table table-sm table-hover mb-0 text-center">
+                    <div class="table-responsive frozen-table-wrap">
+                    <table class="table table-sm table-hover mb-0 text-center frozen-table">
                         <thead class="table-dark">
                             <tr>
                                 <th style="width:36px">#</th>
-                                <th class="text-start">Tên</th>
+                                <th class="text-start sticky-col">Tên</th>
                                 <th>Trận</th>
                                 <th class="text-success">W</th>
                                 <th class="text-danger">L</th>
@@ -204,7 +216,7 @@
                                 {% elif loop.index == 3 %}🥉
                                 {% else %}{{ loop.index }}{% endif %}
                             </td>
-                            <td class="text-start fw-bold {{ 'current-vdv-name' if is_current_team else '' }}">{{ doi.ten }}</td>
+                            <td class="text-start fw-bold sticky-col {{ 'current-vdv-name' if is_current_team else '' }}">{{ doi.ten }}</td>
                             <td>{{ doi.so_tran }}</td>
                             <td class="text-success fw-bold">{{ doi.thang }}</td>
                             <td class="text-danger">{{ doi.thua }}</td>
@@ -216,6 +228,7 @@
                         {% endfor %}
                         </tbody>
                     </table>
+                    </div>
                     {% else %}
                     <div class="d-flex align-items-center justify-content-center h-100 py-5 text-muted">
                         <span>📭 Chưa có kết quả thi đấu</span>
@@ -232,14 +245,15 @@
         <div class="card-hdr blue">👥 VẬN ĐỘNG VIÊN ({{ registrations|length }}/{{ giai.so_nguoi_du_kien }})</div>
         <div class="card-body p-2">
             {% if registrations %}
-            <table class="table table-sm table-hover mb-0">
+            <div class="table-responsive frozen-table-wrap">
+            <table class="table table-sm table-hover mb-0 frozen-table">
                 <thead class="table-dark">
-                    <tr><th>Tên</th><th style="width:55px">Trình</th><th>Email</th><th style="width:110px">Tiền đóng</th></tr>
+                    <tr><th class="sticky-col">Tên</th><th style="width:55px">Trình</th><th>Email</th><th style="width:110px">Tiền đóng</th></tr>
                 </thead>
                 <tbody>
                 {% for reg in registrations %}
                 <tr class="{{ 'current-vdv-row' if reg[1] == current_vdv_id else '' }}">
-                    <td class="fw-semibold {{ 'current-vdv-name' if reg[1] == current_vdv_id else '' }}">{{ reg[2] }}</td>
+                    <td class="fw-semibold sticky-col {{ 'current-vdv-name' if reg[1] == current_vdv_id else '' }}">{{ reg[2] }}</td>
                     <td><span class="badge bg-secondary">{{ reg[3] }}</span></td>
                     <td class="small text-muted">{{ reg[4] }}</td>
                     <td class="small">
@@ -253,6 +267,7 @@
                 {% endfor %}
                 </tbody>
             </table>
+            </div>
             {% else %}
             <div class="alert alert-warning mb-0 py-2 small">⚠️ Chưa có VĐV nào đăng ký.</div>
             {% endif %}
@@ -437,7 +452,7 @@ function renderRanking(ranking) {
         return `
             <tr class="${rankClass} ${isCurrentTeam ? 'current-vdv-row' : ''}">
                 <td>${rankLabel}</td>
-                <td class="text-start fw-bold ${isCurrentTeam ? 'current-vdv-name' : ''}">${escapeHtml(doi.ten)}</td>
+                <td class="text-start fw-bold sticky-col ${isCurrentTeam ? 'current-vdv-name' : ''}">${escapeHtml(doi.ten)}</td>
                 <td>${doi.so_tran || 0}</td>
                 <td class="text-success fw-bold">${doi.thang || 0}</td>
                 <td class="text-danger">${doi.thua || 0}</td>
@@ -448,11 +463,12 @@ function renderRanking(ranking) {
     }).join('');
 
     const renderTable = (rows) => `
-        <table class="table table-sm table-hover mb-0 text-center">
+        <div class="table-responsive frozen-table-wrap">
+        <table class="table table-sm table-hover mb-0 text-center frozen-table">
             <thead class="table-dark">
                 <tr>
                     <th style="width:36px">#</th>
-                    <th class="text-start">Tên</th>
+                    <th class="text-start sticky-col">Tên</th>
                     <th>Trận</th>
                     <th class="text-success">W</th>
                     <th class="text-danger">L</th>
@@ -462,6 +478,7 @@ function renderRanking(ranking) {
             </thead>
             <tbody>${rows}</tbody>
         </table>
+        </div>
     `;
 
     if (ranking[0] && Array.isArray(ranking[0].xep_hang)) {
@@ -516,5 +533,3 @@ pollLiveScores();
 {% include '_interaction_feedback.html' %}
 </body>
 </html>
-
-

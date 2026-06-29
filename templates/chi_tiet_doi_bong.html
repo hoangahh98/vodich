@@ -15,6 +15,15 @@
         .fee-table { min-width: 980px; }
         .sufficient-row { background: #d4edda; }
         .insufficient-row { background: #fff3cd; }
+        .frozen-table-wrap { max-height: 75vh; overflow: auto; }
+        .frozen-table thead th { position: sticky; top: 0; z-index: 3; }
+        .frozen-table .sticky-col { position: sticky; left: 0; z-index: 2; background: #fff; min-width: 170px; }
+        .frozen-table thead .sticky-col { z-index: 4; }
+        .frozen-table thead.table-light .sticky-col,
+        .frozen-table .table-light .sticky-col,
+        .frozen-table thead.table-secondary .sticky-col,
+        .frozen-table .table-secondary .sticky-col { background: #e7f5ff !important; }
+        .frozen-table .current-vdv-row .sticky-col { background: #cfe2ff !important; }
     </style>
     {% include '_pwa_head.html' %}
 </head>

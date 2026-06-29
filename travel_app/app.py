@@ -506,6 +506,9 @@ def update_expenses_bulk(trip_id):
         return "Không có quyền", 403
     members = FinanceModel.members(trip_id)
     member_ids = [member[0] for member in members]
+    if not member_ids:
+        flash("Cần có thành viên để cập nhật chi tiêu.", "danger")
+        return redirect(url_for("trip_detail", trip_id=trip_id))
     expenses = FinanceModel.expenses(trip_id)
     updates = []
     try:
@@ -521,8 +524,23 @@ def update_expenses_bulk(trip_id):
                 for member_id in member_ids
             ]
             total_split = sum(money(item["amount"]) for item in split_updates)
+            current_splits_unchanged = all(
+                money(item["amount"]) == money(expense["splits"].get(item["member_id"], 0))
+                for item in split_updates
+            )
             if total_split != amount:
-                raise ValueError(f"{title}: tổng tiền chia ({total_split:,.0f}) phải bằng tổng chi ({amount:,.0f})")
+                if current_splits_unchanged:
+                    base = amount // len(member_ids)
+                    remainder = int(amount - (base * len(member_ids)))
+                    split_updates = [
+                        {"member_id": member_id, "amount": base + (1 if index < remainder else 0)}
+                        for index, member_id in enumerate(member_ids)
+                    ]
+                    force_shared = True
+                else:
+                    raise ValueError(f"{title}: tổng tiền chia ({total_split:,.0f}) phải bằng tổng chi ({amount:,.0f})")
+            else:
+                force_shared = False
             try:
                 paid_by_member_id = int(request.form.get(f"paid_by_member_id_{expense_id}"))
             except (TypeError, ValueError):
@@ -537,6 +555,7 @@ def update_expenses_bulk(trip_id):
                 "note": request.form.get(f"note_{expense_id}", ""),
                 "paid_by_member_id": paid_by_member_id,
                 "splits": split_updates,
+                "force_shared": force_shared,
             })
         for item in updates:
             FinanceModel.update_expense_splits(
@@ -547,6 +566,7 @@ def update_expenses_bulk(trip_id):
                 item["note"],
                 item["paid_by_member_id"],
                 item["splits"],
+                item["force_shared"],
             )
         flash(f"Đã cập nhật {len(updates)} khoản chi.", "success")
     except ValueError as exc:
