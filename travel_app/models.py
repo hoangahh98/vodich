@@ -1049,6 +1049,7 @@ class FinanceModel:
 def build_summary(members, expenses):
     member_spent = {member[0]: Decimal("0") for member in members}
     member_advanced = {member[0]: Decimal("0") for member in members}
+    member_names = {member[0]: member[1] for member in members}
     total_collected = Decimal("0")
     for member in members:
         total_collected += money(member[4])
@@ -1063,14 +1064,44 @@ def build_summary(members, expenses):
     balances = {}
     for member in members:
         balances[member[0]] = money(member[4]) + member_advanced.get(member[0], Decimal("0")) - member_spent.get(member[0], Decimal("0"))
-    total_advanced = sum(member_advanced.values(), Decimal("0"))
+    total_advanced = max(total_spent - total_collected, Decimal("0"))
+    debtors = [
+        {"member_id": member_id, "name": member_names.get(member_id, ""), "amount": -balance}
+        for member_id, balance in balances.items()
+        if balance < 0
+    ]
+    creditors = [
+        {"member_id": member_id, "name": member_names.get(member_id, ""), "remaining": balance}
+        for member_id, balance in balances.items()
+        if balance > 0 and member_advanced.get(member_id, Decimal("0")) > 0
+    ]
+    payment_suggestions = []
+    creditor_index = 0
+    for debtor in debtors:
+        remaining_debt = debtor["amount"]
+        while remaining_debt > 0 and creditor_index < len(creditors):
+            creditor = creditors[creditor_index]
+            pay_amount = min(remaining_debt, creditor["remaining"])
+            if pay_amount > 0:
+                payment_suggestions.append({
+                    "from_member_id": debtor["member_id"],
+                    "from_name": debtor["name"],
+                    "to_member_id": creditor["member_id"],
+                    "to_name": creditor["name"],
+                    "amount": pay_amount,
+                })
+                remaining_debt -= pay_amount
+                creditor["remaining"] -= pay_amount
+            if creditor["remaining"] <= 0:
+                creditor_index += 1
     return {
         "total_collected": total_collected,
         "total_advanced": total_advanced,
         "total_spent": total_spent,
-        "balance": total_collected + total_advanced - total_spent,
+        "balance": total_collected - total_spent,
         "average_spent": total_spent / len(members) if members else Decimal("0"),
         "member_spent": member_spent,
         "member_advanced": member_advanced,
         "balances": balances,
+        "payment_suggestions": payment_suggestions,
     }

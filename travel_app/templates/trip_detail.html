@@ -7,40 +7,32 @@
                 <h1 class="h4 text-success fw-bold mb-1">🌴 {{ trip[1] }}</h1>
                 <div class="small text-muted">
                     {{ trip[2] or 'Chưa có ghi chú' }} &nbsp;|&nbsp;
-                    👥 {{ members|length }} thành viên &nbsp;|&nbsp;
-                    💰 Còn lại {{ summary.balance|vnd }}đ
+                    👥 {{ members|length }} thành viên
                 </div>
             </div>
         </div>
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card h-100"><div class="card-body text-center">
                 <div class="small text-muted">Tổng thu</div>
                 <div class="fw-bold fs-4 text-primary">{{ summary.total_collected|vnd }}đ</div>
                 <div class="small text-muted">{{ members|length }} người</div>
             </div></div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card h-100"><div class="card-body text-center">
                 <div class="small text-muted">Tổng ứng trước</div>
                 <div class="fw-bold fs-4 text-success">{{ summary.total_advanced|vnd }}đ</div>
-                <div class="small text-muted">Từ người trả tiền</div>
+                <div class="small text-muted">= Tổng chi - Tổng thu nếu còn thiếu</div>
             </div></div>
         </div>
-        <div class="col-md-3">
+        <div class="col-md-4">
             <div class="card h-100"><div class="card-body text-center">
                 <div class="small text-muted">Tổng chi</div>
                 <div class="fw-bold fs-4 text-danger">{{ summary.total_spent|vnd }}đ</div>
                 <div class="small text-muted">{{ expenses|length }} khoản chi</div>
-            </div></div>
-        </div>
-        <div class="col-md-3">
-            <div class="card h-100"><div class="card-body text-center">
-                <div class="small text-muted">Quỹ còn lại</div>
-                <div class="fw-bold fs-4 {{ 'text-success' if summary.balance >= 0 else 'text-danger' }}">{{ summary.balance|vnd }}đ</div>
-                <div class="small text-muted">= Tổng thu - Tổng chi</div>
             </div></div>
         </div>
     </div>
@@ -81,6 +73,9 @@
                         <span>{{ members|length }} người</span>
                         <button type="button" class="btn btn-sm btn-light text-primary fw-bold" data-bs-toggle="modal" data-bs-target="#memberEmailModal" data-feedback="off">
                             📧 Get Email
+                        </button>
+                        <button type="button" class="btn btn-sm btn-warning fw-bold" data-bs-toggle="modal" data-bs-target="#paymentSuggestionModal" data-feedback="off">
+                            Gợi ý trả tiền
                         </button>
                     </div>
                 </div>
@@ -185,6 +180,63 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-info text-white fw-bold" onclick="copyMemberEmails(this)" data-feedback="off">Copy tất cả</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-feedback="off">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="paymentSuggestionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title fw-bold">Gợi ý trả tiền cho người ứng trước</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <div class="border rounded p-2 h-100">
+                                <div class="small text-muted">Tổng thu</div>
+                                <div class="fw-bold text-primary">{{ summary.total_collected|vnd }}đ</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-2 h-100">
+                                <div class="small text-muted">Tổng chi</div>
+                                <div class="fw-bold text-danger">{{ summary.total_spent|vnd }}đ</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-2 h-100">
+                                <div class="small text-muted">Còn cần ứng</div>
+                                <div class="fw-bold text-success">{{ summary.total_advanced|vnd }}đ</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% if summary.payment_suggestions %}
+                    <div class="table-responsive">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead class="table-light"><tr><th>Người cần trả</th><th>Trả cho người ứng trước</th><th class="text-end">Số tiền</th></tr></thead>
+                            <tbody>
+                                {% for item in summary.payment_suggestions %}
+                                <tr>
+                                    <td class="fw-semibold">{{ item.from_name }}</td>
+                                    <td>{{ item.to_name }}</td>
+                                    <td class="text-end fw-bold">{{ item.amount|vnd }}đ</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-success mb-0">Hiện không có thành viên nào cần trả thêm cho người ứng trước.</div>
+                    {% endif %}
+                    <div class="small text-muted mt-3">
+                        Gợi ý này dựa trên tiền đã thu, phần chi của từng người và số tiền các thành viên đã trả hộ.
+                    </div>
+                </div>
+                <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" data-feedback="off">Đóng</button>
                 </div>
             </div>
