@@ -1074,13 +1074,21 @@ def build_summary(members, expenses, treasurer_member_id=None):
             collected = member_spent.get(member_id, Decimal("0"))
         effective_collected[member_id] = collected
     total_collected = sum(effective_collected.values(), Decimal("0"))
+    collected_from_other_members = sum(
+        amount
+        for member_id, amount in actual_collected.items()
+        if not treasurer_member_id or member_id != treasurer_member_id
+    )
     member_debt = {}
     for member in members:
         member_id = member[0]
         remaining_share = max(member_spent.get(member_id, Decimal("0")) - effective_collected.get(member_id, Decimal("0")), Decimal("0"))
         paid_total = member_paid_total.get(member_id, Decimal("0"))
         if treasurer_member_id and member_id == treasurer_member_id:
-            member_advanced[member_id] = max(paid_total - member_spent.get(member_id, Decimal("0")), Decimal("0"))
+            member_advanced[member_id] = max(
+                paid_total - member_spent.get(member_id, Decimal("0")) - collected_from_other_members,
+                Decimal("0"),
+            )
             member_debt[member_id] = Decimal("0")
         else:
             member_advanced[member_id] = max(paid_total - remaining_share, Decimal("0"))
