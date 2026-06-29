@@ -439,7 +439,6 @@ def chi_tiet_ban_to_lieng(game_id):
         return "Không tìm thấy bàn tố liêng", 404
     participants = EntertainmentLiengGameModel.get_participants(game_id)
     scoreboard = sorted(participants, key=lambda player: (-int(player[9] or 0), str(player[1] or "").lower()))
-    available_clients = EntertainmentLiengGameModel.get_available_clients(game_id)
     actions = EntertainmentLiengGameModel.get_actions(game_id)
     my_participant_id = EntertainmentLiengGameModel.participant_for_user(game_id, user)
     turn_left = EntertainmentLiengGameModel.TURN_SECONDS
@@ -448,15 +447,20 @@ def chi_tiet_ban_to_lieng(game_id):
             turn_left = max(0, EntertainmentLiengGameModel.TURN_SECONDS - int((datetime.now(game[8].tzinfo) - game[8]).total_seconds()))
         except Exception:
             turn_left = EntertainmentLiengGameModel.TURN_SECONDS
+    showdown_players = [player for player in participants if not player[7]]
+    can_claim_showdown_win = bool(game[2] == 'showdown' and my_participant_id and any(player[0] == my_participant_id for player in showdown_players))
+    required_bet = EntertainmentLiengGameModel.required_bet_for_turn(game_id, my_participant_id) or game[3]
     return render_template(
         'giai_tri_to_lieng_chi_tiet.html',
         user=user,
         game=game,
         participants=participants,
         scoreboard=scoreboard,
-        available_clients=available_clients,
+        showdown_players=showdown_players,
+        can_claim_showdown_win=can_claim_showdown_win,
         actions=actions,
         my_participant_id=my_participant_id,
+        required_bet=required_bet,
         turn_seconds=EntertainmentLiengGameModel.TURN_SECONDS,
         turn_left=turn_left,
     )
@@ -536,21 +540,30 @@ def xoa_ban_to_lieng(game_id):
 @login_required
 def them_toi_vao_to_lieng(game_id):
     user = session.get('user', {})
-    EntertainmentLiengGameModel.add_current_user(game_id, user)
-    flash('Đã thêm bạn vào bàn.', 'success')
+    try:
+        EntertainmentLiengGameModel.add_current_user(game_id, user)
+        flash('Đã thêm bạn vào bàn.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_to_lieng', game_id=game_id))
+
+
+@app.route('/giai-tri/to-lieng/<int:game_id>/thoat-ban', methods=['POST'])
+@login_required
+def thoat_ban_to_lieng(game_id):
+    user = session.get('user', {})
+    try:
+        display_name = EntertainmentLiengGameModel.leave_current_user(game_id, user)
+        flash(f'{display_name} đã thoát bàn.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
     return redirect(url_for('chi_tiet_ban_to_lieng', game_id=game_id))
 
 
 @app.route('/giai-tri/to-lieng/<int:game_id>/nguoi-choi', methods=['POST'])
 @login_required
 def them_nguoi_choi_to_lieng(game_id):
-    client_ids = [item for item in request.form.getlist('client_ids') if item]
-    if not client_ids:
-        flash('Chọn ít nhất một người chơi.', 'warning')
-        return redirect(url_for('chi_tiet_ban_to_lieng', game_id=game_id))
-    for client_id in client_ids:
-        EntertainmentLiengGameModel.add_client(game_id, int(client_id))
-    flash(f'Đã thêm {len(client_ids)} người chơi.', 'success')
+    flash('Bàn tố liêng chỉ cho từng người tự thêm mình vào bàn.', 'warning')
     return redirect(url_for('chi_tiet_ban_to_lieng', game_id=game_id))
 
 
@@ -589,6 +602,22 @@ def hanh_dong_to_lieng(game_id):
             request.form.get('amount'),
         )
         flash('Đã ghi hành động.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_to_lieng', game_id=game_id))
+
+
+@app.route('/giai-tri/to-lieng/<int:game_id>/toi-thang', methods=['POST'])
+@login_required
+def toi_thang_to_lieng(game_id):
+    user = session.get('user', {})
+    participant_id = EntertainmentLiengGameModel.participant_for_user(game_id, user)
+    if not participant_id:
+        flash('Bạn chưa có trong bàn này.', 'danger')
+        return redirect(url_for('chi_tiet_ban_to_lieng', game_id=game_id))
+    try:
+        winner_name, pot = EntertainmentLiengGameModel.declare_winner(game_id, participant_id)
+        flash(f'{winner_name} đã thắng pot {pot}.', 'success')
     except ValueError as e:
         flash(str(e), 'warning')
     return redirect(url_for('chi_tiet_ban_to_lieng', game_id=game_id))

@@ -1099,7 +1099,7 @@ class EntertainmentLiengGameModel:
                 LEFT JOIN user_clients client ON client.id = g.created_by_client_id
                 LEFT JOIN entertainment_lieng_participants p ON p.game_id = g.id AND p.active = TRUE
                 GROUP BY g.id, admin.display_name, client.display_name
-                ORDER BY CASE WHEN g.status IN ('setup', 'playing') THEN 0 ELSE 1 END, g.created_at DESC
+                ORDER BY CASE WHEN g.status IN ('setup', 'playing', 'showdown') THEN 0 ELSE 1 END, g.created_at DESC
                 LIMIT %s;
             """, (limit,))
             return cursor.fetchall()
@@ -1182,7 +1182,19 @@ class EntertainmentLiengGameModel:
     @staticmethod
     def add_current_user(game_id, user):
         with db_cursor(commit=True) as cursor:
+            cursor.execute("SELECT status FROM entertainment_lieng_games WHERE id = %s;", (game_id,))
+            game = cursor.fetchone()
+            if not game:
+                raise ValueError("Không tìm thấy bàn.")
+            if game[0] != 'setup':
+                raise ValueError("Bàn đang có ván chưa kết thúc, chưa thể thêm người chơi.")
             if user.get("role") == "admin":
+                cursor.execute("""
+                    SELECT id FROM entertainment_lieng_participants
+                    WHERE game_id = %s AND admin_id = %s AND active = TRUE LIMIT 1;
+                """, (game_id, user.get("id")))
+                if cursor.fetchone():
+                    raise ValueError("Bạn đã ở trong bàn.")
                 cursor.execute("""
                     INSERT INTO entertainment_lieng_participants (game_id, display_name, user_role, admin_id)
                     VALUES (%s, %s, 'admin', %s)
@@ -1192,6 +1204,12 @@ class EntertainmentLiengGameModel:
                 """, (game_id, user.get("display_name") or user.get("email") or "Admin", user.get("id")))
             else:
                 cursor.execute("""
+                    SELECT id FROM entertainment_lieng_participants
+                    WHERE game_id = %s AND user_client_id = %s AND active = TRUE LIMIT 1;
+                """, (game_id, user.get("id")))
+                if cursor.fetchone():
+                    raise ValueError("Bạn đã ở trong bàn.")
+                cursor.execute("""
                     INSERT INTO entertainment_lieng_participants (game_id, display_name, user_role, user_client_id)
                     VALUES (%s, %s, 'vdv', %s)
                     ON CONFLICT (game_id, user_client_id) WHERE user_client_id IS NOT NULL
@@ -1199,6 +1217,43 @@ class EntertainmentLiengGameModel:
                     RETURNING id;
                 """, (game_id, user.get("display_name") or user.get("ten") or user.get("email") or "Client", user.get("id")))
             return cursor.fetchone()[0]
+
+    @staticmethod
+    def leave_current_user(game_id, user):
+        with db_cursor(commit=True) as cursor:
+            cursor.execute("SELECT status FROM entertainment_lieng_games WHERE id = %s;", (game_id,))
+            game = cursor.fetchone()
+            if not game:
+                raise ValueError("Không tìm thấy bàn.")
+            if game[0] != 'setup':
+                raise ValueError("Chỉ có thể thoát bàn khi đang chờ ván.")
+            if user.get("role") == "admin":
+                cursor.execute("""
+                    SELECT id, display_name
+                    FROM entertainment_lieng_participants
+                    WHERE game_id = %s AND admin_id = %s AND active = TRUE LIMIT 1;
+                """, (game_id, user.get("id")))
+            else:
+                cursor.execute("""
+                    SELECT id, display_name
+                    FROM entertainment_lieng_participants
+                    WHERE game_id = %s AND user_client_id = %s AND active = TRUE LIMIT 1;
+                """, (game_id, user.get("id")))
+            participant = cursor.fetchone()
+            if not participant:
+                raise ValueError("Bạn chưa ở trong bàn này.")
+            participant_id, display_name = participant
+            cursor.execute("""
+                UPDATE entertainment_lieng_participants
+                SET active = FALSE, folded = FALSE, current_bet = 0, seat_no = NULL
+                WHERE id = %s;
+            """, (participant_id,))
+            cursor.execute("""
+                INSERT INTO entertainment_lieng_actions (game_id, participant_id, round_no, action_type, note)
+                SELECT id, %s, round_no, 'leave', %s
+                FROM entertainment_lieng_games WHERE id = %s;
+            """, (participant_id, f"{display_name} thoát bàn", game_id))
+            return display_name
 
     @staticmethod
     def shuffle_seats(game_id):
@@ -1242,6 +1297,43 @@ class EntertainmentLiengGameModel:
         return ids[(ids.index(current_id) + 1) % len(ids)]
 
     @staticmethod
+    def _required_bet_for_turn(cursor, game_id, participant_id, min_bet):
+        cursor.execute("""
+            SELECT id, current_bet
+            FROM entertainment_lieng_participants
+            WHERE game_id = %s AND active = TRUE AND folded = FALSE
+            ORDER BY COALESCE(seat_no, 9999), id;
+        """, (game_id,))
+        rows = cursor.fetchall()
+        if not rows:
+            return int(min_bet)
+        ids = [row[0] for row in rows]
+        if participant_id not in ids:
+            return int(min_bet)
+        current_index = ids.index(participant_id)
+        current_bet = int(rows[current_index][1] or 0)
+        previous_bet = int(rows[current_index - 1][1] or 0)
+        return max(int(min_bet), previous_bet - current_bet)
+
+    @staticmethod
+    def required_bet_for_turn(game_id, participant_id):
+        if not participant_id:
+            return None
+        with db_cursor() as cursor:
+            cursor.execute("""
+                SELECT status, min_bet, current_turn_participant_id
+                FROM entertainment_lieng_games
+                WHERE id = %s;
+            """, (game_id,))
+            game = cursor.fetchone()
+            if not game:
+                return None
+            status, min_bet, current_turn_id = game
+            if status != 'playing' or current_turn_id != participant_id:
+                return None
+            return EntertainmentLiengGameModel._required_bet_for_turn(cursor, game_id, participant_id, min_bet)
+
+    @staticmethod
     def _finish_if_one_left(cursor, game_id):
         cursor.execute("""
             SELECT id, display_name
@@ -1264,7 +1356,81 @@ class EntertainmentLiengGameModel:
             SET status = 'setup', pot = 0, current_turn_participant_id = NULL, turn_started_at = NULL
             WHERE id = %s;
         """, (game_id,))
+        cursor.execute("""
+            UPDATE entertainment_lieng_participants
+            SET current_bet = 0, folded = FALSE
+            WHERE game_id = %s AND active = TRUE;
+        """, (game_id,))
         return True
+
+    @staticmethod
+    def _move_to_showdown_if_balanced(cursor, game_id, participant_id, previous_bet):
+        cursor.execute("""
+            SELECT id, current_bet
+            FROM entertainment_lieng_participants
+            WHERE game_id = %s AND active = TRUE AND folded = FALSE
+            ORDER BY COALESCE(seat_no, 9999), id;
+        """, (game_id,))
+        rows = cursor.fetchall()
+        if len(rows) <= 1:
+            return False
+        current_bets = [int(row[1] or 0) for row in rows]
+        highest_bet = max(current_bets)
+        if any(bet != highest_bet for bet in current_bets):
+            return False
+        if int(previous_bet or 0) >= highest_bet:
+            return False
+        cursor.execute("""
+            UPDATE entertainment_lieng_games
+            SET status = 'showdown', current_turn_participant_id = NULL, turn_started_at = NULL
+            WHERE id = %s;
+        """, (game_id,))
+        cursor.execute("""
+            INSERT INTO entertainment_lieng_actions (game_id, participant_id, round_no, action_type, note)
+            SELECT id, %s, round_no, 'showdown', 'Đã cân điểm, chờ người thắng xác nhận'
+            FROM entertainment_lieng_games WHERE id = %s;
+        """, (participant_id, game_id))
+        return True
+
+    @staticmethod
+    def declare_winner(game_id, winner_id):
+        with db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                SELECT status, pot, round_no
+                FROM entertainment_lieng_games
+                WHERE id = %s;
+            """, (game_id,))
+            game = cursor.fetchone()
+            if not game:
+                raise ValueError("Không tìm thấy bàn.")
+            status, pot, round_no = game
+            if status != 'showdown':
+                raise ValueError("Chỉ xác nhận người thắng khi ván đã cân điểm.")
+            cursor.execute("""
+                SELECT display_name
+                FROM entertainment_lieng_participants
+                WHERE id = %s AND game_id = %s AND active = TRUE AND folded = FALSE;
+            """, (winner_id, game_id))
+            winner = cursor.fetchone()
+            if not winner:
+                raise ValueError("Người thắng không hợp lệ.")
+            winner_name = winner[0]
+            cursor.execute("UPDATE entertainment_lieng_participants SET score = score + %s WHERE id = %s;", (pot, winner_id))
+            cursor.execute("""
+                INSERT INTO entertainment_lieng_actions (game_id, participant_id, round_no, action_type, amount, note)
+                VALUES (%s, %s, %s, 'win', %s, %s);
+            """, (game_id, winner_id, round_no, pot, f"{winner_name} xác nhận thắng sau khi cân điểm"))
+            cursor.execute("""
+                UPDATE entertainment_lieng_games
+                SET status = 'setup', pot = 0, current_turn_participant_id = NULL, turn_started_at = NULL
+                WHERE id = %s;
+            """, (game_id,))
+            cursor.execute("""
+                UPDATE entertainment_lieng_participants
+                SET current_bet = 0, folded = FALSE
+                WHERE game_id = %s AND active = TRUE;
+            """, (game_id,))
+            return winner_name, pot
 
     @staticmethod
     def apply_timeout_if_needed(game_id):
@@ -1302,11 +1468,14 @@ class EntertainmentLiengGameModel:
     @staticmethod
     def start_round(game_id):
         with db_cursor(commit=True) as cursor:
-            cursor.execute("SELECT min_bet FROM entertainment_lieng_games WHERE id = %s;", (game_id,))
+            cursor.execute("SELECT status, min_bet FROM entertainment_lieng_games WHERE id = %s;", (game_id,))
             row = cursor.fetchone()
             if not row:
                 raise ValueError("Không tìm thấy bàn.")
-            min_bet = int(row[0])
+            status, min_bet = row
+            if status != 'setup':
+                raise ValueError("Bàn đang có ván chưa kết thúc.")
+            min_bet = int(min_bet)
             cursor.execute("""
                 SELECT id FROM entertainment_lieng_participants
                 WHERE game_id = %s AND active = TRUE
@@ -1353,10 +1522,13 @@ class EntertainmentLiengGameModel:
             if current_turn_id != participant_id:
                 raise ValueError("Chưa đến lượt của bạn.")
             if action_type == 'bet':
-                if amount < int(min_bet):
-                    raise ValueError("Điểm tố phải lớn hơn hoặc bằng min cược.")
+                required_bet = EntertainmentLiengGameModel._required_bet_for_turn(cursor, game_id, participant_id, min_bet)
+                if amount < required_bet:
+                    raise ValueError(f"Điểm tố lượt này phải từ {required_bet} trở lên để bằng người trước.")
                 if max_bet is not None and amount > int(max_bet):
                     raise ValueError("Điểm tố vượt max cược 1 vòng.")
+                cursor.execute("SELECT current_bet FROM entertainment_lieng_participants WHERE id = %s;", (participant_id,))
+                previous_bet = cursor.fetchone()[0]
                 cursor.execute("""
                     UPDATE entertainment_lieng_participants
                     SET current_bet = current_bet + %s, score = score - %s, last_action_at = CURRENT_TIMESTAMP
@@ -1381,6 +1553,8 @@ class EntertainmentLiengGameModel:
                 raise ValueError("Hành động không hợp lệ.")
 
             if not EntertainmentLiengGameModel._finish_if_one_left(cursor, game_id):
+                if action_type == 'bet' and EntertainmentLiengGameModel._move_to_showdown_if_balanced(cursor, game_id, participant_id, previous_bet):
+                    return
                 next_id = EntertainmentLiengGameModel._next_turn(cursor, game_id, participant_id)
                 cursor.execute("""
                     UPDATE entertainment_lieng_games

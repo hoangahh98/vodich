@@ -50,7 +50,9 @@
         }
         .seat-card.turn-row {
             border-color: #198754;
-            box-shadow: 0 0 0 4px rgba(25,135,84,.2), 0 8px 22px rgba(15,23,42,.16);
+            background: #ecfdf3;
+            border-width: 2px;
+            box-shadow: 0 0 0 5px rgba(25,135,84,.28), 0 0 22px rgba(25,135,84,.3), 0 10px 26px rgba(15,23,42,.18);
         }
         .seat-name {
             overflow-wrap: anywhere;
@@ -60,6 +62,23 @@
             border-top: 1px solid #eef2f7;
             margin-top: .45rem;
             padding-top: .45rem;
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 8px;
+            padding: .4rem .5rem;
+        }
+        .bet-value {
+            color: #15803d;
+            font-size: 1.25rem;
+            line-height: 1;
+        }
+        .turn-badge {
+            background: #198754;
+            color: #fff;
+            border-radius: 999px;
+            padding: .18rem .45rem;
+            font-size: .7rem;
+            font-weight: 700;
         }
         .ranking-row {
             display: grid;
@@ -79,15 +98,16 @@
             .table-layout { min-height: 500px; }
             .lieng-table { width: 180px; }
             .seat-card {
-                width: 128px;
-                min-height: 88px;
-                margin-left: -64px;
-                margin-top: -44px;
+                width: 136px;
+                min-height: 116px;
+                margin-left: -68px;
+                margin-top: -58px;
                 transform:
                     rotate(calc(360deg / var(--seat-count) * var(--seat-index)))
                     translateY(-178px)
                     rotate(calc(-360deg / var(--seat-count) * var(--seat-index)));
             }
+            .bet-value { font-size: 1.45rem; }
         }
     </style>
     {% include '_pwa_head.html' %}
@@ -98,7 +118,7 @@
             <div class="d-flex gap-2 align-items-center flex-wrap ms-auto">
                 <a class="btn btn-sm btn-outline-light" href="{{ '/' if user.role == 'admin' else '/vdv-dashboard' }}">Trang chủ</a>
                 <a class="btn btn-sm btn-outline-light" href="/giai-tri/to-lieng">Tố liêng</a>
-                <span class="badge {{ 'bg-success' if game[2] == 'playing' else 'bg-secondary' }}">{{ 'Đang chơi' if game[2] == 'playing' else 'Chờ ván' }}</span>
+                <span class="badge {{ 'bg-success' if game[2] == 'playing' else ('bg-warning text-dark' if game[2] == 'showdown' else 'bg-secondary') }}">{{ 'Đang chơi' if game[2] == 'playing' else ('Chờ xác nhận thắng' if game[2] == 'showdown' else 'Chờ ván') }}</span>
                 <span class="navbar-text d-none d-md-inline">{{ user.display_name or user.email }} · {{ 'Admin' if user.role == 'admin' else 'Client' }}</span>
                 <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">Đăng xuất</a>
             </div>
@@ -131,6 +151,10 @@
                         Đến lượt: <strong>{% for p in participants %}{% if p[0] == game[7] %}{{ p[1] }}{% endif %}{% endfor %}</strong>
                         · Còn <strong id="turnCountdown">{{ turn_left }}</strong>s
                     </div>
+                {% elif game[2] == 'showdown' %}
+                    <div class="alert alert-warning mt-3 mb-0">
+                        Đã cân điểm giữa {% for p in showdown_players %}<strong>{{ p[1] }}</strong>{% if not loop.last %}, {% endif %}{% endfor %}. Người thắng bấm <strong>Tôi thắng</strong> để nhận pot.
+                    </div>
                 {% endif %}
             </div>
         </section>
@@ -140,10 +164,16 @@
                 <section class="card shadow-sm border-0 mb-4">
                     <div class="card-body">
                         <h2 class="h5 fw-bold mb-3">Thao tác</h2>
-                        <form method="post" action="/giai-tri/to-lieng/{{ game[0] }}/them-toi" class="mb-2">
-                            <button class="btn btn-outline-primary w-100" data-loading-text="Đang thêm...">Thêm tôi vào bàn</button>
-                        </form>
-                        {% if game[2] != 'playing' %}
+                        {% if my_participant_id %}
+                            <form method="post" action="/giai-tri/to-lieng/{{ game[0] }}/thoat-ban" class="mb-2" onsubmit="return confirm('Thoát khỏi bàn này?');">
+                                <button class="btn btn-outline-danger w-100" data-loading-text="Đang thoát...">Thoát bàn</button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="/giai-tri/to-lieng/{{ game[0] }}/them-toi" class="mb-2">
+                                <button class="btn btn-outline-primary w-100" data-loading-text="Đang thêm...">Thêm tôi vào bàn</button>
+                            </form>
+                        {% endif %}
+                        {% if game[2] == 'setup' %}
                         <form method="post" action="/giai-tri/to-lieng/{{ game[0] }}/quay-vi-tri" class="mb-2">
                             <button class="btn btn-outline-success w-100" data-loading-text="Đang quay...">Quay ngẫu nhiên vị trí</button>
                         </form>
@@ -152,20 +182,6 @@
                         </form>
                         {% endif %}
 
-                        {% if available_clients and game[2] != 'playing' %}
-                        <form method="post" action="/giai-tri/to-lieng/{{ game[0] }}/nguoi-choi">
-                            <div class="fw-semibold mb-2">Thêm người chơi</div>
-                            <div class="client-check-list mb-2">
-                                {% for client in available_clients %}
-                                <label class="client-check-row px-3 py-2 border-bottom mb-0" for="lieng_client_{{ client[0] }}">
-                                    <input class="form-check-input client-checkbox" id="lieng_client_{{ client[0] }}" type="checkbox" name="client_ids" value="{{ client[0] }}">
-                                    <span><span class="fw-semibold d-block">{{ client[1] }}</span>{% if client[2] %}<span class="text-muted small">{{ client[2] }}</span>{% endif %}</span>
-                                </label>
-                                {% endfor %}
-                            </div>
-                            <button class="btn btn-primary w-100" data-loading-text="Đang thêm...">Thêm người đã chọn</button>
-                        </form>
-                        {% endif %}
                     </div>
                 </section>
             </div>
@@ -178,7 +194,8 @@
                         <form method="post" action="/giai-tri/to-lieng/{{ game[0] }}/hanh-dong" class="row g-2 align-items-end">
                             <div class="col-md-6">
                                 <label class="form-label fw-semibold">Điểm tố</label>
-                                <input class="form-control" name="amount" type="number" min="{{ game[3] }}" {% if game[4] %}max="{{ game[4] }}"{% endif %} value="{{ game[3] }}">
+                                <input class="form-control" name="amount" type="number" min="{{ required_bet }}" {% if game[4] %}max="{{ game[4] }}"{% endif %} value="{{ required_bet }}">
+                                <div class="form-text">Tối thiểu lượt này: {{ required_bet }}</div>
                             </div>
                             <div class="col-md-3 d-grid">
                                 <button class="btn btn-success" name="action_type" value="bet" data-loading-text="Đang tố...">Tố</button>
@@ -187,6 +204,24 @@
                                 <button class="btn btn-outline-danger" name="action_type" value="fold" data-loading-text="Đang bỏ...">Bỏ</button>
                             </div>
                         </form>
+                    </div>
+                </section>
+                {% endif %}
+
+                {% if game[2] == 'showdown' %}
+                <section class="card shadow-sm border-0 mb-4" id="showdownPanel">
+                    <div class="card-body">
+                        <h2 class="h5 fw-bold mb-2">Cân điểm</h2>
+                        <div class="alert alert-warning py-2">
+                            App không tự biết bài ai lớn hơn. Người thắng thực tế bấm nút bên dưới để nhận pot <strong>{{ game[5] }}</strong>.
+                        </div>
+                        {% if can_claim_showdown_win %}
+                            <form method="post" action="/giai-tri/to-lieng/{{ game[0] }}/toi-thang">
+                                <button class="btn btn-warning w-100 fw-bold" data-loading-text="Đang xác nhận...">Tôi thắng</button>
+                            </form>
+                        {% else %}
+                            <div class="text-muted small">Chỉ người còn trong ván cân điểm mới xác nhận thắng được.</div>
+                        {% endif %}
                     </div>
                 </section>
                 {% endif %}
@@ -212,13 +247,14 @@
                                 <div class="seat-card p-2 {% if p[0] == game[7] %}turn-row{% endif %}" style="--seat-index: {{ loop.index0 }};">
                                     <div class="d-flex justify-content-between align-items-start gap-1 mb-1">
                                         <span class="badge text-bg-light">Ghế {{ p[5] or loop.index }}</span>
+                                        {% if p[0] == game[7] %}<span class="turn-badge">Đến lượt</span>{% endif %}
                                         {% if my_participant_id == p[0] %}<span class="badge bg-primary">Bạn</span>{% endif %}
                                     </div>
                                     <div class="fw-semibold small seat-name">{{ p[1] }}</div>
                                     <div class="text-muted small">{% if p[7] %}Đã bỏ{% else %}Đang trong ván{% endif %}</div>
                                     <div class="lieng-current-bet">
-                                        <div class="text-muted small">Cược ván này</div>
-                                        <div class="fw-bold text-success">{{ p[8] }}</div>
+                                        <div class="text-muted small">Đã cược</div>
+                                        <div class="fw-bold bet-value">{{ p[8] }}</div>
                                     </div>
                                 </div>
                             {% endfor %}
