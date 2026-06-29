@@ -6,21 +6,23 @@
         <div class="text-muted small">{{ trip[2] or 'Chưa có ghi chú' }}</div>
     </div>
     <div class="row g-3 mb-3">
-        <div class="col-md-4"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng thu</div><div class="fw-bold fs-4 text-primary">{{ summary.total_collected|vnd }}đ</div></div></div></div>
-        <div class="col-md-4"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng chi</div><div class="fw-bold fs-4 text-danger">{{ summary.total_spent|vnd }}đ</div></div></div></div>
-        <div class="col-md-4"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Còn lại</div><div class="fw-bold fs-4 {{ 'text-success' if summary.balance >= 0 else 'text-danger' }}">{{ summary.balance|vnd }}đ</div></div></div></div>
+        <div class="col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng thu</div><div class="fw-bold fs-4 text-primary">{{ summary.total_collected|vnd }}đ</div></div></div></div>
+        <div class="col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng ứng trước</div><div class="fw-bold fs-4 text-success">{{ summary.total_advanced|vnd }}đ</div></div></div></div>
+        <div class="col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng chi</div><div class="fw-bold fs-4 text-danger">{{ summary.total_spent|vnd }}đ</div></div></div></div>
+        <div class="col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Còn lại</div><div class="fw-bold fs-4 {{ 'text-success' if summary.balance >= 0 else 'text-danger' }}">{{ summary.balance|vnd }}đ</div></div></div></div>
     </div>
     <section class="card mb-3">
         <div class="card-hdr blue">Tổng hợp thành viên</div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table align-middle mb-0">
-                    <thead class="table-light"><tr><th>Tên</th><th>Đã thu</th><th>Phần chi</th><th>Chênh lệch</th></tr></thead>
+                    <thead class="table-light"><tr><th>Tên</th><th>Đã thu</th><th>Ứng trước</th><th>Phần chi</th><th>Chênh lệch</th></tr></thead>
                     <tbody>
                         {% for member in members %}
                         <tr class="{% if member[0] == viewer_member_id %}table-primary{% endif %}">
                             <td class="fw-semibold">{{ member[1] }}</td>
                             <td>{{ member[4]|vnd }}đ</td>
+                            <td class="text-success fw-semibold">{{ summary.member_advanced[member[0]]|vnd }}đ</td>
                             <td>{{ summary.member_spent[member[0]]|vnd }}đ</td>
                             <td class="{% if summary.balances[member[0]] < 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">{{ summary.balances[member[0]]|vnd }}đ</td>
                         </tr>
@@ -38,6 +40,7 @@
                     <thead class="table-light">
                         <tr>
                             <th class="sticky-col">Khoản chi</th>
+                            <th>Người trả</th>
                             {% for member in members %}<th>{{ member[1] }}</th>{% endfor %}
                             <th>Tổng</th>
                         </tr>
@@ -46,6 +49,7 @@
                         {% for expense in expenses %}
                         <tr>
                             <td class="sticky-col fw-semibold">{{ expense.row[2] }}<div class="small text-muted">{{ expense.row[1].strftime('%d/%m/%Y') if expense.row[1].strftime is defined else expense.row[1] }}</div></td>
+                            <td>{{ expense.row[8] or '-' }}</td>
                             {% for member in members %}
                                 <td class="{% if member[0] == viewer_member_id %}table-primary fw-semibold{% endif %}">{{ expense.splits.get(member[0], 0)|vnd }}đ</td>
                             {% endfor %}

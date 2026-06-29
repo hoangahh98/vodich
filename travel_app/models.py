@@ -560,7 +560,7 @@ class TripModel:
             if admin_id:
                 cursor.execute(
                     """
-                    SELECT t.id, t.name, t.description, t.owner_admin_id, t.destination_id, d.name
+                    SELECT t.id, t.name, t.description, t.owner_admin_id, t.destination_id, d.name, t.treasurer_member_id
                     FROM trips t
                     LEFT JOIN trip_admin_permissions p ON t.id = p.trip_id AND p.admin_id = %s
                     LEFT JOIN travel_destinations d ON t.destination_id = d.id
@@ -571,7 +571,7 @@ class TripModel:
             else:
                 cursor.execute(
                     """
-                    SELECT t.id, t.name, t.description, t.owner_admin_id, t.destination_id, d.name
+                    SELECT t.id, t.name, t.description, t.owner_admin_id, t.destination_id, d.name, t.treasurer_member_id
                     FROM trips t
                     LEFT JOIN travel_destinations d ON t.destination_id = d.id
                     WHERE t.id = %s;
@@ -619,6 +619,36 @@ class TripModel:
                 """,
                 (name, description, destination_id or None, trip_id),
             )
+
+    @staticmethod
+    def update_treasurer(trip_id, member_id):
+        try:
+            member_id = int(member_id) if member_id else None
+        except (TypeError, ValueError):
+            member_id = None
+        with db_cursor(commit=True) as cursor:
+            if member_id:
+                cursor.execute(
+                    """
+                    UPDATE trips
+                    SET treasurer_member_id = %s,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE id = %s
+                      AND EXISTS (
+                          SELECT 1
+                          FROM trip_members tm
+                          WHERE tm.id = %s
+                            AND tm.trip_id = trips.id
+                            AND tm.active = TRUE
+                      );
+                    """,
+                    (member_id, trip_id, member_id),
+                )
+            else:
+                cursor.execute(
+                    "UPDATE trips SET treasurer_member_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = %s;",
+                    (trip_id,),
+                )
 
     @staticmethod
     def delete(trip_id):
@@ -787,6 +817,10 @@ class FinanceModel:
     def delete_member(trip_id, member_id):
         with db_cursor(commit=True) as cursor:
             cursor.execute("UPDATE trip_members SET active = FALSE WHERE trip_id = %s AND id = %s;", (trip_id, member_id))
+            cursor.execute(
+                "UPDATE trips SET treasurer_member_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = %s AND treasurer_member_id = %s;",
+                (trip_id, member_id),
+            )
 
     @staticmethod
     def update_member(member_id, name, email):
@@ -878,8 +912,10 @@ class FinanceModel:
         with db_cursor() as cursor:
             cursor.execute(
                 """
-                SELECT e.id, e.spent_date, e.title, e.amount, e.note, e.split_mode, e.private_member_id
+                SELECT e.id, e.spent_date, e.title, e.amount, e.note, e.split_mode, e.private_member_id,
+                       e.paid_by_member_id, payer.name AS paid_by_name
                 FROM trip_expenses e
+                LEFT JOIN trip_members payer ON payer.id = e.paid_by_member_id
                 WHERE e.trip_id = %s
                 ORDER BY e.spent_date ASC, e.id ASC;
                 """,
@@ -903,9 +939,15 @@ class FinanceModel:
         return [{"row": expense, "splits": splits.get(expense[0], {})} for expense in expenses]
 
     @staticmethod
-    def add_expense(trip_id, spent_date, title, amount, note, member_ids, split_mode="shared", private_member_id=None, private_splits=None):
+    def add_expense(trip_id, spent_date, title, amount, note, member_ids, split_mode="shared", private_member_id=None, private_splits=None, paid_by_member_id=None):
         if not member_ids:
             raise ValueError("Cần có thành viên để chia tiền")
+        try:
+            paid_by_member_id = int(paid_by_member_id)
+        except (TypeError, ValueError):
+            paid_by_member_id = None
+        if paid_by_member_id not in member_ids:
+            raise ValueError("Cần chọn người trả tiền hợp lệ")
         split_mode = "private" if split_mode == "private" else "shared"
         if split_mode == "private":
             splits = []
@@ -934,11 +976,11 @@ class FinanceModel:
         with db_cursor(commit=True) as cursor:
             cursor.execute(
                 """
-                INSERT INTO trip_expenses (trip_id, spent_date, title, amount, note, split_mode, private_member_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                INSERT INTO trip_expenses (trip_id, spent_date, title, amount, note, split_mode, private_member_id, paid_by_member_id)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 RETURNING id;
                 """,
-                (trip_id, spent_date, title, amount, note, split_mode, private_member_id),
+                (trip_id, spent_date, title, amount, note, split_mode, private_member_id, paid_by_member_id),
             )
             expense_id = cursor.fetchone()[0]
             cursor.executemany(
@@ -948,7 +990,7 @@ class FinanceModel:
             return expense_id
 
     @staticmethod
-    def update_expense_splits(expense_id, title, spent_date, amount, note, split_updates):
+    def update_expense_splits(expense_id, title, spent_date, amount, note, paid_by_member_id, split_updates):
         amount = money(amount)
         normalized_splits = [
             {"member_id": item["member_id"], "amount": money(item["amount"])}
@@ -957,6 +999,13 @@ class FinanceModel:
         total_split = sum(item["amount"] for item in normalized_splits)
         if total_split != amount:
             raise ValueError(f"Tổng tiền chia ({total_split:,.0f}) phải bằng tiền khoản chi ({amount:,.0f})")
+        member_ids = [item["member_id"] for item in normalized_splits]
+        try:
+            paid_by_member_id = int(paid_by_member_id)
+        except (TypeError, ValueError):
+            paid_by_member_id = None
+        if paid_by_member_id not in member_ids:
+            raise ValueError("Cần chọn người trả tiền hợp lệ")
         positive_splits = [item for item in normalized_splits if item["amount"] > 0]
         with db_cursor(commit=True) as cursor:
             cursor.execute("SELECT split_mode FROM trip_expenses WHERE id = %s;", (expense_id,))
@@ -975,10 +1024,11 @@ class FinanceModel:
                     note = %s,
                     split_mode = %s,
                     private_member_id = %s,
+                    paid_by_member_id = %s,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = %s;
                 """,
-                (title, spent_date, amount, note, split_mode, private_member_id, expense_id),
+                (title, spent_date, amount, note, split_mode, private_member_id, paid_by_member_id, expense_id),
             )
             cursor.executemany(
                 """
@@ -997,22 +1047,29 @@ class FinanceModel:
 
 def build_summary(members, expenses):
     member_spent = {member[0]: Decimal("0") for member in members}
+    member_advanced = {member[0]: Decimal("0") for member in members}
     total_collected = Decimal("0")
     for member in members:
         total_collected += money(member[4])
     total_spent = Decimal("0")
     for expense in expenses:
         total_spent += money(expense["row"][3])
+        paid_by_member_id = expense["row"][7] if len(expense["row"]) > 7 else None
+        if paid_by_member_id in member_advanced:
+            member_advanced[paid_by_member_id] += money(expense["row"][3])
         for member_id, amount in expense["splits"].items():
             member_spent[member_id] = member_spent.get(member_id, Decimal("0")) + money(amount)
     balances = {}
     for member in members:
-        balances[member[0]] = money(member[4]) - member_spent.get(member[0], Decimal("0"))
+        balances[member[0]] = money(member[4]) + member_advanced.get(member[0], Decimal("0")) - member_spent.get(member[0], Decimal("0"))
+    total_advanced = sum(member_advanced.values(), Decimal("0"))
     return {
         "total_collected": total_collected,
+        "total_advanced": total_advanced,
         "total_spent": total_spent,
-        "balance": total_collected - total_spent,
+        "balance": total_collected + total_advanced - total_spent,
         "average_spent": total_spent / len(members) if members else Decimal("0"),
         "member_spent": member_spent,
+        "member_advanced": member_advanced,
         "balances": balances,
     }

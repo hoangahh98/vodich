@@ -24,6 +24,13 @@
         </div>
         <div class="col-md-3">
             <div class="card h-100"><div class="card-body text-center">
+                <div class="small text-muted">Tổng ứng trước</div>
+                <div class="fw-bold fs-4 text-success">{{ summary.total_advanced|vnd }}đ</div>
+                <div class="small text-muted">Từ người trả tiền</div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card h-100"><div class="card-body text-center">
                 <div class="small text-muted">Tổng chi</div>
                 <div class="fw-bold fs-4 text-danger">{{ summary.total_spent|vnd }}đ</div>
                 <div class="small text-muted">{{ expenses|length }} khoản chi</div>
@@ -85,15 +92,34 @@
                     </div>
                 </div>
                 <div class="card-body p-0">
+                    {% if members %}
+                    <form action="{{ url_for('update_treasurer', trip_id=trip[0]) }}" method="POST" class="p-3 border-bottom bg-light">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-8">
+                                <label class="form-label small fw-semibold">Thủ quỹ mặc định khi thêm khoản chi</label>
+                                <select class="form-select" name="treasurer_member_id">
+                                    <option value="">Chưa chọn thủ quỹ</option>
+                                    {% for member in members %}
+                                    <option value="{{ member[0] }}" {% if trip[6] == member[0] %}selected{% endif %}>{{ member[1] }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 d-grid">
+                                <button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu thủ quỹ</button>
+                            </div>
+                        </div>
+                    </form>
+                    {% endif %}
                     <div class="table-responsive">
                         <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light"><tr><th>Tên</th><th>Email xem</th><th>Đã thu</th><th>Phần chi</th><th>Chênh lệch</th><th></th></tr></thead>
+                            <thead class="table-light"><tr><th>Tên</th><th>Email xem</th><th>Đã thu</th><th>Ứng trước</th><th>Phần chi</th><th>Chênh lệch</th><th></th></tr></thead>
                             <tbody>
                                 {% for member in members %}
                                 <tr class="{% if summary.balances[member[0]] >= 0 %}sufficient-row{% else %}insufficient-row{% endif %}">
                                     <td class="fw-semibold">{{ member[1] }}</td>
                                     <td class="small text-muted">{{ member[2] or 'Chưa có' }}</td>
                                     <td>{{ member[4]|vnd }}đ</td>
+                                    <td class="text-success fw-semibold">{{ summary.member_advanced[member[0]]|vnd }}đ</td>
                                     <td>{{ summary.member_spent[member[0]]|vnd }}đ</td>
                                     <td class="{% if summary.balances[member[0]] < 0 %}text-danger{% else %}text-success{% endif %} fw-bold">{{ summary.balances[member[0]]|vnd }}đ</td>
                                     <td class="text-end text-nowrap">
@@ -105,7 +131,7 @@
                                 </tr>
                                 {% endfor %}
                                 {% if not members %}
-                                <tr><td colspan="6" class="text-muted">Chưa có thành viên nào.</td></tr>
+                                <tr><td colspan="7" class="text-muted">Chưa có thành viên nào.</td></tr>
                                 {% endif %}
                             </tbody>
                         </table>
@@ -228,6 +254,15 @@
                             <label class="form-label small fw-semibold">Số tiền tổng</label>
                             <input class="form-control" type="number" min="0" step="1" name="amount" id="sharedAmountInput">
                         </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-semibold">Người trả tiền</label>
+                            <select class="form-select" name="paid_by_member_id" required>
+                                <option value="">Chọn người trả</option>
+                                {% for member in members %}
+                                <option value="{{ member[0] }}" {% if trip[6] == member[0] %}selected{% endif %}>{{ member[1] }}{% if trip[6] == member[0] %} - thủ quỹ{% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
                         <div class="col-md-2 d-grid">
                             <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button>
                         </div>
@@ -287,6 +322,7 @@
                     <thead class="table-success">
                         <tr>
                             <th class="sticky-col">Chi tiêu</th>
+                            <th>Người trả</th>
                             {% for member in members %}<th>{{ member[1] }}</th>{% endfor %}
                             <th>Tổng chi</th>
                             <th>{{ summary.total_spent|vnd }}đ</th>
@@ -313,6 +349,15 @@
                                 <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm mb-1" type="date" name="spent_date" value="{{ row[1] }}">
                                 <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm" name="note" value="{{ row[4] }}" placeholder="Ghi chú">
                             </td>
+                            <td>
+                                <select form="expense-form-{{ row[0] }}" class="form-select form-select-sm" name="paid_by_member_id" required>
+                                    <option value="">Chọn người trả</option>
+                                    {% for member in members %}
+                                    <option value="{{ member[0] }}" {% if row[7] == member[0] %}selected{% endif %}>{{ member[1] }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if row[8] %}<div class="small text-muted mt-1">Ứng: {{ row[8] }}</div>{% endif %}
+                            </td>
                             {% for member in members %}
                                 <td><input form="expense-form-{{ row[0] }}" class="form-control form-control-sm split-input" type="number" min="0" step="1" name="split_{{ row[0] }}_{{ member[0] }}" value="{{ expense.splits.get(member[0], 0)|int }}"></td>
                             {% endfor %}
@@ -329,7 +374,7 @@
                         </tr>
                         {% endfor %}
                         {% if not expenses %}
-                        <tr><td colspan="{{ members|length + 3 }}" class="text-muted">Chưa có khoản chi nào.</td></tr>
+                        <tr><td colspan="{{ members|length + 4 }}" class="text-muted">Chưa có khoản chi nào.</td></tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -444,7 +489,7 @@ function updateSplitStatus(row) {
     splitInputs.forEach(input => sum += Number(input.value || 0));
     const total = Number(totalInput.value || 0);
     const ok = sum === total;
-    status.textContent = ok ? 'Đủ: ' + sum.toLocaleString('vi-VN') : 'Lệch: ' + (sum - total).toLocaleString('vi-VN');
+    status.textContent = ok ? 'Đủ: ' + sum.toLocaleString('en-US') + 'đ' : 'Lệch: ' + (sum - total).toLocaleString('en-US') + 'đ';
     status.className = 'small split-status ' + (ok ? 'text-success' : 'text-danger');
 }
 document.querySelectorAll('.expense-table tbody tr').forEach(row => {
@@ -527,7 +572,7 @@ function updatePrivateSplitTotal() {
     if (!privateSplitTotal) return;
     let sum = 0;
     privateSplitInputs.forEach(input => sum += Number(input.value || 0));
-    privateSplitTotal.textContent = sum.toLocaleString('vi-VN');
+    privateSplitTotal.textContent = sum.toLocaleString('en-US');
 }
 
 if (expenseSplitMode) {

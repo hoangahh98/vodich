@@ -28,7 +28,7 @@ def inject_template_globals():
 
 @app.template_filter("vnd")
 def vnd(value):
-    return f"{money(value):,.0f}".replace(",", ".")
+    return f"{money(value):,.0f}"
 
 
 @app.route("/")
@@ -358,6 +358,16 @@ def delete_member(trip_id, member_id):
     return redirect(url_for("trip_detail", trip_id=trip_id))
 
 
+@app.route("/chuyen-di/<int:trip_id>/thu-quy", methods=["POST"])
+@admin_required
+def update_treasurer(trip_id):
+    if not TripModel.get_for_admin(trip_id, admin_scope_id(session["user"])):
+        return "Không có quyền", 403
+    TripModel.update_treasurer(trip_id, request.form.get("treasurer_member_id"))
+    flash("Đã cập nhật thủ quỹ chuyến đi.", "success")
+    return redirect(url_for("trip_detail", trip_id=trip_id))
+
+
 @app.route("/chuyen-di/<int:trip_id>/thanh-vien/<int:member_id>/sua", methods=["POST"])
 @admin_required
 def update_member(trip_id, member_id):
@@ -427,6 +437,7 @@ def add_expense(trip_id):
             split_mode,
             private_member_id,
             private_splits,
+            request.form.get("paid_by_member_id") or (trip[6] if len(trip) > 6 else None),
         )
         if split_mode == "private":
             flash("Đã thêm khoản chi riêng cho các thành viên có nhập số tiền.", "success")
@@ -479,6 +490,7 @@ def update_expense(trip_id, expense_id):
             request.form.get("spent_date") or date.today().isoformat(),
             request.form.get("amount"),
             request.form.get("note", ""),
+            request.form.get("paid_by_member_id"),
             split_updates,
         )
         flash("Đã cập nhật khoản chi.", "success")
