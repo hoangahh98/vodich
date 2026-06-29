@@ -137,6 +137,10 @@ body {
     background: #d1e7dd;
 }
 
+.expense-table .payer-col {
+    min-width: 210px;
+}
+
 .expense-table thead th {
     background: #d1e7dd !important;
     color: #0f5132 !important;

@@ -43,17 +43,10 @@
                 <div class="small text-muted">= Tổng thu - Tổng chi</div>
             </div></div>
         </div>
-        <div class="col-md-3">
-            <div class="card h-100"><div class="card-body text-center">
-                <div class="small text-muted">Bình quân đã chi</div>
-                <div class="fw-bold fs-4 text-secondary">{{ summary.average_spent|vnd }}đ</div>
-                <div class="small text-muted">Tính theo số người hiện có</div>
-            </div></div>
-        </div>
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-lg-4">
+        <div class="col-lg-3">
             <div class="card h-100">
                 <div class="card-hdr green">Thêm thành viên</div>
                 <div class="card-body">
@@ -80,7 +73,7 @@
                 </div>
             </div>
         </div>
-        <div class="col-lg-8">
+        <div class="col-lg-9">
             <div class="card h-100">
                 <div class="card-hdr blue">
                     <span>Thành viên trong chuyến đi</span>
@@ -322,7 +315,7 @@
                     <thead class="table-success">
                         <tr>
                             <th class="sticky-col">Chi tiêu</th>
-                            <th>Người trả</th>
+                            <th class="payer-col">Người trả</th>
                             {% for member in members %}<th>{{ member[1] }}</th>{% endfor %}
                             <th>Tổng chi</th>
                             <th>{{ summary.total_spent|vnd }}đ</th>
@@ -349,7 +342,7 @@
                                 <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm mb-1" type="date" name="spent_date" value="{{ row[1] }}">
                                 <input form="expense-form-{{ row[0] }}" class="form-control form-control-sm" name="note" value="{{ row[4] }}" placeholder="Ghi chú">
                             </td>
-                            <td>
+                            <td class="payer-col">
                                 <select form="expense-form-{{ row[0] }}" class="form-select form-select-sm" name="paid_by_member_id" required>
                                     <option value="">Chọn người trả</option>
                                     {% for member in members %}
