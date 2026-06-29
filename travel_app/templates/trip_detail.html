@@ -17,7 +17,7 @@
         <div class="col-md-4">
             <div class="card h-100"><div class="card-body text-center">
                 <div class="small text-muted">Tổng thu</div>
-                <div class="fw-bold fs-4 text-primary">{{ summary.total_collected|vnd }}đ</div>
+                <div class="fw-bold fs-4 text-primary">{{ summary.total_collected_display|vnd }}đ</div>
                 <div class="small text-muted">{{ members|length }} người</div>
             </div></div>
         </div>
@@ -110,7 +110,7 @@
                                         {% if trip[6] == member[0] %}<span class="badge bg-info text-dark ms-1">Thủ quỹ</span>{% endif %}
                                     </td>
                                     <td class="small text-muted">{{ member[2] or 'Chưa có' }}</td>
-                                    <td>{{ summary.effective_collected[member[0]]|vnd }}đ</td>
+                                    <td>{{ summary.member_collected[member[0]]|vnd }}đ</td>
                                     <td class="fw-semibold">{{ summary.member_paid_total[member[0]]|vnd }}đ</td>
                                     <td class="text-success fw-semibold">{{ summary.member_advanced[member[0]]|vnd }}đ</td>
                                     <td class="{% if summary.member_debt[member[0]] > 0 %}text-danger{% else %}text-success{% endif %} fw-bold">{{ summary.member_debt[member[0]]|vnd }}đ</td>
@@ -202,7 +202,7 @@
                         <div class="col-md-4">
                             <div class="border rounded p-2 h-100">
                                 <div class="small text-muted">Tổng thu</div>
-                                <div class="fw-bold text-primary">{{ summary.total_collected|vnd }}đ</div>
+                                <div class="fw-bold text-primary">{{ summary.total_collected_display|vnd }}đ</div>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -283,6 +283,9 @@
                                                         {% if trip[6] == member[0] %}
                                                         <input type="hidden" name="collection_{{ member[0] }}" value="{{ summary.member_spent[member[0]]|vnd }}">
                                                         <input class="form-control money-input bg-light" inputmode="decimal" value="{{ summary.member_spent[member[0]]|vnd }}" disabled>
+                                                        {% elif summary.member_paid_total[member[0]] >= summary.average_spent and summary.average_spent > 0 %}
+                                                        <input type="hidden" name="collection_{{ member[0] }}" value="{{ member[4]|vnd }}">
+                                                        <input class="form-control money-input bg-light" inputmode="decimal" value="{{ summary.member_collected[member[0]]|vnd }}" disabled>
                                                         {% else %}
                                                         <input class="form-control money-input" name="collection_{{ member[0] }}" inputmode="decimal" value="{{ member[4]|vnd }}">
                                                         {% endif %}
@@ -290,6 +293,8 @@
                                                     </div>
                                                     {% if trip[6] == member[0] %}
                                                     <div class="form-text small">Tự tính theo phần cần đóng của thủ quỹ.</div>
+                                                    {% elif summary.member_paid_total[member[0]] >= summary.average_spent and summary.average_spent > 0 %}
+                                                    <div class="form-text small">Đã trả chi tiêu đủ phần phải đóng.</div>
                                                     {% endif %}
                                                 </td>
                                                 <td><input class="form-control form-control-sm" name="collection_note_{{ member[0] }}" value="{{ member[5] }}"></td>
@@ -314,7 +319,7 @@
                                         {{ member[1] }}
                                         {% if trip[6] == member[0] %}<span class="badge bg-info text-dark ms-1">Thủ quỹ</span>{% endif %}
                                     </td>
-                                    <td>{{ summary.effective_collected[member[0]]|vnd }}đ</td>
+                                    <td>{{ summary.member_collected[member[0]]|vnd }}đ</td>
                                     <td>{{ member[5] }}</td>
                                 </tr>
                                 {% endfor %}

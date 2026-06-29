@@ -24,7 +24,7 @@
                         <div class="col-md-4">
                             <div class="border rounded p-2 h-100">
                                 <div class="small text-muted">Tổng thu</div>
-                                <div class="fw-bold text-primary">{{ summary.total_collected|vnd }}đ</div>
+                                <div class="fw-bold text-primary">{{ summary.total_collected_display|vnd }}đ</div>
                             </div>
                         </div>
                         <div class="col-md-4">
@@ -69,7 +69,7 @@
         </div>
     </div>
     <div class="row g-3 mb-3">
-        <div class="col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng thu</div><div class="fw-bold fs-4 text-primary">{{ summary.total_collected|vnd }}đ</div></div></div></div>
+        <div class="col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng thu</div><div class="fw-bold fs-4 text-primary">{{ summary.total_collected_display|vnd }}đ</div></div></div></div>
         <div class="col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng ứng trước</div><div class="fw-bold fs-4 text-success">{{ summary.total_advanced|vnd }}đ</div><div class="small text-muted">Tổng tiền thành viên đã trả hộ</div></div></div></div>
         <div class="col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Tổng chi</div><div class="fw-bold fs-4 text-danger">{{ summary.total_spent|vnd }}đ</div></div></div></div>
         <div class="col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Còn lại</div><div class="fw-bold fs-4 {{ 'text-success' if summary.balance >= 0 else 'text-danger' }}">{{ summary.balance|vnd }}đ</div></div></div></div>
@@ -90,7 +90,7 @@
                                 {{ member[1] }}
                                 {% if trip[5] == member[0] %}<span class="badge bg-info text-dark ms-1">Thủ quỹ</span>{% endif %}
                             </td>
-                            <td>{{ summary.effective_collected[member[0]]|vnd }}đ</td>
+                            <td>{{ summary.member_collected[member[0]]|vnd }}đ</td>
                             <td class="fw-semibold">{{ summary.member_paid_total[member[0]]|vnd }}đ</td>
                             <td class="text-success fw-semibold">{{ summary.member_advanced[member[0]]|vnd }}đ</td>
                             <td class="{% if summary.member_debt[member[0]] > 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">{{ summary.member_debt[member[0]]|vnd }}đ</td>

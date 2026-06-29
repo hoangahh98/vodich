@@ -1059,6 +1059,7 @@ def build_summary(members, expenses, treasurer_member_id=None):
         for member_id, amount in expense["splits"].items():
             member_spent[member_id] = member_spent.get(member_id, Decimal("0")) + money(amount)
     member_advanced = {}
+    member_collected = {}
     paid_enough_targets = {}
     for member in members:
         member_id = member[0]
@@ -1080,6 +1081,10 @@ def build_summary(members, expenses, treasurer_member_id=None):
         paid_total = member_paid_total.get(member_id, Decimal("0"))
         member_advanced[member_id] = max(paid_total - remaining_share, Decimal("0"))
         member_debt[member_id] = max(remaining_share - paid_total, Decimal("0"))
+        member_collected[member_id] = min(
+            member_spent.get(member_id, Decimal("0")),
+            effective_collected.get(member_id, Decimal("0")) + paid_total,
+        )
     balances = {}
     for member in members:
         member_id = member[0]
@@ -1114,13 +1119,16 @@ def build_summary(members, expenses, treasurer_member_id=None):
                 creditor["remaining"] -= pay_amount
             if creditor["remaining"] <= 0:
                 creditor_index += 1
+    total_collected_display = sum(member_collected.values(), Decimal("0"))
     return {
         "total_collected": total_collected,
+        "total_collected_display": total_collected_display,
         "total_advanced": total_advanced,
         "total_spent": total_spent,
-        "balance": total_collected - total_spent,
+        "balance": total_collected_display - total_spent,
         "average_spent": total_spent / len(members) if members else Decimal("0"),
         "member_spent": member_spent,
+        "member_collected": member_collected,
         "member_advanced": member_advanced,
         "member_debt": member_debt,
         "member_paid_total": member_paid_total,
