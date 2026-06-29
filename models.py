@@ -1174,7 +1174,8 @@ class EntertainmentLiengGameModel:
                 INSERT INTO entertainment_lieng_participants (game_id, display_name, user_role, user_client_id)
                 VALUES (%s, %s, 'vdv', %s)
                 ON CONFLICT (game_id, user_client_id) WHERE user_client_id IS NOT NULL
-                DO UPDATE SET active = TRUE, display_name = EXCLUDED.display_name
+                DO UPDATE SET active = TRUE, display_name = EXCLUDED.display_name,
+                              folded = FALSE, current_bet = 0, seat_no = NULL
                 RETURNING id;
             """, (game_id, client[0], user_client_id))
             return cursor.fetchone()[0]
@@ -1226,7 +1227,8 @@ class EntertainmentLiengGameModel:
                     INSERT INTO entertainment_lieng_participants (game_id, display_name, user_role, admin_id)
                     VALUES (%s, %s, 'admin', %s)
                     ON CONFLICT (game_id, admin_id) WHERE admin_id IS NOT NULL
-                    DO UPDATE SET active = TRUE, display_name = EXCLUDED.display_name
+                    DO UPDATE SET active = TRUE, display_name = EXCLUDED.display_name,
+                                  folded = FALSE, current_bet = 0, seat_no = NULL
                     RETURNING id;
                 """, (game_id, user.get("display_name") or user.get("email") or "Admin", user.get("id")))
             else:
@@ -1246,7 +1248,8 @@ class EntertainmentLiengGameModel:
                     INSERT INTO entertainment_lieng_participants (game_id, display_name, user_role, user_client_id)
                     VALUES (%s, %s, 'vdv', %s)
                     ON CONFLICT (game_id, user_client_id) WHERE user_client_id IS NOT NULL
-                    DO UPDATE SET active = TRUE, display_name = EXCLUDED.display_name
+                    DO UPDATE SET active = TRUE, display_name = EXCLUDED.display_name,
+                                  folded = FALSE, current_bet = 0, seat_no = NULL
                     RETURNING id;
                 """, (game_id, user.get("display_name") or user.get("ten") or user.get("email") or "Client", user.get("id")))
             return cursor.fetchone()[0]
@@ -1469,26 +1472,27 @@ class EntertainmentLiengGameModel:
     def apply_timeout_if_needed(game_id):
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
-                SELECT current_turn_participant_id
-                FROM entertainment_lieng_games
-                WHERE id = %s AND status = 'playing'
-                  AND current_turn_participant_id IS NOT NULL
-                  AND turn_started_at < NOW() - INTERVAL '60 seconds';
+                SELECT g.current_turn_participant_id, p.display_name
+                FROM entertainment_lieng_games g
+                JOIN entertainment_lieng_participants p ON p.id = g.current_turn_participant_id
+                WHERE g.id = %s AND g.status = 'playing'
+                  AND g.current_turn_participant_id IS NOT NULL
+                  AND g.turn_started_at < NOW() - INTERVAL '60 seconds';
             """, (game_id,))
             row = cursor.fetchone()
             if not row:
                 return False
-            participant_id = row[0]
+            participant_id, display_name = row
             cursor.execute("""
                 UPDATE entertainment_lieng_participants
-                SET folded = TRUE, last_action_at = CURRENT_TIMESTAMP
+                SET active = FALSE, folded = TRUE, seat_no = NULL, last_action_at = CURRENT_TIMESTAMP
                 WHERE id = %s;
             """, (participant_id,))
             cursor.execute("""
                 INSERT INTO entertainment_lieng_actions (game_id, participant_id, round_no, action_type, note)
-                SELECT id, %s, round_no, 'timeout_fold', 'Quá 60 giây, tự bỏ'
+                SELECT id, %s, round_no, 'timeout_leave', %s
                 FROM entertainment_lieng_games WHERE id = %s;
-            """, (participant_id, game_id))
+            """, (participant_id, f"{display_name} quá 60 giây, tự bỏ và rời bàn", game_id))
             if not EntertainmentLiengGameModel._finish_if_one_left(cursor, game_id):
                 next_id = EntertainmentLiengGameModel._next_turn(cursor, game_id, participant_id)
                 cursor.execute("""
