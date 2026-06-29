@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ game[1] }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        .table-layout {
+            position: relative;
+            min-height: 380px;
+            border-radius: 8px;
+            background: #f8fafc;
+            overflow: hidden;
+        }
+        .ba-cay-table {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: min(34vw, 210px);
+            max-width: 210px;
+            aspect-ratio: 1;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            background: radial-gradient(circle, #0d6efd 0%, #0b5ed7 70%, #073d8f 100%);
+            box-shadow: inset 0 0 0 8px rgba(255,255,255,.16), 0 14px 30px rgba(15,23,42,.16);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            text-align: center;
+        }
+        .seat-card {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 128px;
+            min-height: 92px;
+            margin-left: -64px;
+            margin-top: -46px;
+            transform:
+                rotate(calc(360deg / var(--seat-count) * var(--seat-index)))
+                translateY(-144px)
+                rotate(calc(-360deg / var(--seat-count) * var(--seat-index)));
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 7px 18px rgba(15,23,42,.12);
+        }
+        .seat-card.banker-row {
+            border-color: #ffc107;
+            background: #fff8dc;
+            border-width: 2px;
+            box-shadow: 0 0 0 5px rgba(255,193,7,.24), 0 10px 26px rgba(15,23,42,.18);
+        }
+        .seat-name {
+            overflow-wrap: anywhere;
+            line-height: 1.12;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        .bet-box {
+            margin-top: .35rem;
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: .3rem .45rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .35rem;
+        }
+        .bet-value {
+            color: #0d6efd;
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+        .ranking-row {
+            display: grid;
+            grid-template-columns: 44px minmax(0, 1fr) 86px;
+            gap: .75rem;
+            align-items: center;
+        }
+        .seat-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: .25rem;
+            align-items: center;
+        }
+        .seat-meta .badge { font-size: .66rem; line-height: 1; }
+        @media (max-width: 576px) {
+            .table-layout {
+                min-height: 0;
+                padding: 12px;
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+                overflow: visible;
+            }
+            .ba-cay-table {
+                position: static;
+                transform: none;
+                grid-column: 1 / -1;
+                justify-self: center;
+                width: 132px;
+                max-width: 132px;
+                margin-bottom: 2px;
+            }
+            .seat-card {
+                position: static;
+                width: auto;
+                min-height: 96px;
+                margin: 0;
+                transform: none;
+                box-shadow: 0 5px 14px rgba(15,23,42,.1);
+            }
+            .seat-name { font-size: .88rem; }
+            .bet-value { font-size: 1.55rem; }
+        }
+    </style>
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark app-navbar mb-4 py-2">
+        <div class="container-fluid px-4">
+            <div class="d-flex gap-2 align-items-center flex-wrap ms-auto">
+                <a class="btn btn-sm btn-outline-light" href="{{ '/' if user.role == 'admin' else '/vdv-dashboard' }}">Trang chủ</a>
+                <a class="btn btn-sm btn-outline-light" href="/giai-tri/ba-cay">3 cây</a>
+                <span class="badge {{ 'bg-success' if game[2] == 'betting' else ('bg-warning text-dark' if game[2] == 'settling' else ('bg-dark' if game[2] == 'ended' else 'bg-secondary')) }}">{{ 'Đang cược' if game[2] == 'betting' else ('Chờ chương chốt' if game[2] == 'settling' else ('Đã kết thúc' if game[2] == 'ended' else 'Chờ ván')) }}</span>
+                <span class="navbar-text d-none d-md-inline">{{ user.display_name or user.email }} · {{ 'Admin' if user.role == 'admin' else 'Client' }}</span>
+                <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">Đăng xuất</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container pb-5">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% if final_view %}
+        <section class="alert alert-primary shadow-sm">
+            <h1 class="h4 fw-bold">Bảng xếp hạng cuối bàn</h1>
+            <p class="mb-0">Chúc mừng người điểm dương và chia buồn với người điểm âm.</p>
+        </section>
+        {% endif %}
+
+        <section class="card shadow-sm border-0 mb-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between flex-wrap gap-3">
+                    <div>
+                        <h1 class="h4 fw-bold mb-1">{{ game[1] }}</h1>
+                        <div class="text-muted small">Min {{ game[3] }}{% if game[4] %} · Max {{ game[4] }}{% else %} · Không giới hạn max{% endif %} · Ván {{ game[5] }}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="text-muted small">Chương</div>
+                        <div class="fs-5 fw-bold text-warning">{% for p in participants %}{% if p[0] == game[6] %}{{ p[1] }}{% endif %}{% endfor %}</div>
+                    </div>
+                </div>
+                {% if game[2] == 'betting' %}
+                    <div class="alert alert-success mt-3 mb-0">
+                        Đang đặt cược · Còn <strong id="betCountdown">{{ bet_left }}</strong>s. Ai chưa cược sau 10 giây sẽ bị rời bàn.
+                    </div>
+                {% elif game[2] == 'settling' %}
+                    <div class="alert alert-warning mt-3 mb-0">Chờ chương chọn người thắng/thua để chốt ván.</div>
+                {% elif game[2] == 'setup' %}
+                    <div class="alert alert-info mt-3 mb-0">Ván đã kết thúc hoặc chưa bắt đầu. Bấm <strong>Bắt đầu ván</strong> để chơi ván mới.</div>
+                {% endif %}
+            </div>
+        </section>
+
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <h2 class="h5 fw-bold mb-3">Thao tác</h2>
+                        {% if game[2] == 'ended' %}
+                            <div class="alert alert-info mb-0">Bàn đã kết thúc.</div>
+                        {% elif my_participant_id %}
+                            <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/thoat-ban" class="mb-2" onsubmit="return confirm('Thoát khỏi bàn này?');">
+                                <button class="btn btn-outline-danger w-100" data-loading-text="Đang thoát...">Thoát bàn</button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/them-toi" class="mb-2">
+                                <button class="btn btn-outline-primary w-100" data-loading-text="Đang thêm...">Thêm tôi vào bàn</button>
+                            </form>
+                        {% endif %}
+                        {% if game[2] == 'setup' %}
+                        <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/quay-vi-tri" class="mb-2">
+                            <button class="btn btn-outline-success w-100" data-loading-text="Đang quay...">Quay vị trí</button>
+                        </form>
+                        <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/quay-chuong" class="mb-2">
+                            <button class="btn btn-outline-warning w-100" data-loading-text="Đang quay...">Quay ngẫu nhiên chương</button>
+                        </form>
+                        {% if my_participant_id and my_participant_id == game[6] %}
+                        <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/chon-chuong" class="mb-2">
+                            <label class="form-label fw-semibold small">Chọn người làm chương</label>
+                            <select class="form-select mb-2" name="banker_participant_id">
+                                {% for p in participants %}
+                                <option value="{{ p[0] }}" {% if p[0] == game[6] %}selected{% endif %}>{{ p[1] }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-warning w-100" data-loading-text="Đang lưu...">Chọn chương</button>
+                        </form>
+                        {% endif %}
+                        <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/bat-dau" class="mb-3">
+                            <button class="btn btn-success w-100" data-loading-text="Đang bắt đầu...">Bắt đầu ván</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </section>
+
+                {% if game[2] == 'betting' and my_participant_id and my_participant_id != game[6] %}
+                <section class="card shadow-sm border-0 mb-4" id="betPanel">
+                    <div class="card-body">
+                        <h2 class="h5 fw-bold mb-3">Đặt cược</h2>
+                        <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/dat-cuoc">
+                            <label class="form-label fw-semibold">Điểm cược</label>
+                            <input class="form-control mb-2" name="amount" type="number" min="{{ game[3] }}" {% if game[4] %}max="{{ game[4] }}"{% endif %} value="{{ game[3] }}">
+                            <div class="form-text mb-3">Cược trong {{ bet_seconds }} giây. Hết giờ chưa cược sẽ bị rời bàn.</div>
+                            <button class="btn btn-primary w-100" data-loading-text="Đang đặt...">Đặt cược</button>
+                        </form>
+                    </div>
+                </section>
+                {% endif %}
+
+                {% if game[2] == 'settling' and my_participant_id == game[6] %}
+                <section class="card shadow-sm border-0 mb-4" id="settlePanel">
+                    <div class="card-body">
+                        <h2 class="h5 fw-bold mb-3">Chốt thắng thua</h2>
+                        {% if bettors %}
+                        <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/chot-van">
+                            <div class="vstack gap-2 mb-3">
+                                {% for p in bettors %}
+                                <div class="border rounded p-2 bg-light">
+                                    <div class="fw-semibold">{{ p[1] }}</div>
+                                    <div class="small text-muted mb-2">Cược {{ p[7] }}</div>
+                                    <div class="btn-group w-100" role="group">
+                                        <input class="btn-check" type="radio" name="result_{{ p[0] }}" value="win" id="win{{ p[0] }}" required>
+                                        <label class="btn btn-outline-success" for="win{{ p[0] }}">Thắng</label>
+                                        <input class="btn-check" type="radio" name="result_{{ p[0] }}" value="lose" id="lose{{ p[0] }}" required>
+                                        <label class="btn btn-outline-danger" for="lose{{ p[0] }}">Thua</label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            <button class="btn btn-warning w-100 fw-bold" data-loading-text="Đang chốt...">Chốt ván</button>
+                        </form>
+                        {% else %}
+                        <div class="alert alert-info mb-0">Không có người cược cần chốt.</div>
+                        {% endif %}
+                    </div>
+                </section>
+                {% endif %}
+            </div>
+
+            <div class="col-lg-8">
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <h2 class="h5 fw-bold mb-3">Bàn chơi hiện tại</h2>
+                        {% if participants %}
+                            <div class="table-layout" style="--seat-count: {{ participants|length }};">
+                                <div class="ba-cay-table">
+                                    <div>
+                                        <div class="small opacity-75">3 cây</div>
+                                        <div class="fs-5 fw-bold">Ván {{ game[5] }}</div>
+                                    </div>
+                                </div>
+                            {% for p in participants %}
+                                <div class="seat-card p-2 {% if p[0] == game[6] %}banker-row{% endif %}" style="--seat-index: {{ loop.index0 }};">
+                                    <div class="seat-meta mb-1">
+                                        <span class="badge text-bg-light">Ghế {{ p[5] or loop.index }}</span>
+                                        {% if p[0] == game[6] %}<span class="badge bg-warning text-dark">Chương</span>{% endif %}
+                                        {% if my_participant_id == p[0] %}<span class="badge bg-primary">Bạn</span>{% endif %}
+                                        {% if game[2] == 'betting' and p[0] != game[6] and p[8] %}<span class="badge bg-success">Đã cược</span>{% endif %}
+                                    </div>
+                                    <div class="fw-semibold small seat-name">{{ p[1] }}</div>
+                                    <div class="bet-box">
+                                        <div class="text-muted small">Cược</div>
+                                        <div class="fw-bold bet-value">{{ p[7] }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info mb-0">Chưa có người chơi nào.</div>
+                        {% endif %}
+                    </div>
+                </section>
+
+                <section class="card shadow-sm border-0 mb-4">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start gap-3 mb-3">
+                            <div>
+                                <h2 class="h5 fw-bold mb-1">Bảng xếp hạng</h2>
+                                <div class="text-muted small">Điểm cộng/trừ sau từng ván 3 cây.</div>
+                            </div>
+                            {% if game[2] in ('setup', 'settling') and participants %}
+                            <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/ket-thuc" onsubmit="return confirm('Kết thúc bàn 3 cây này?');">
+                                <button class="btn btn-warning" data-loading-text="Đang kết thúc...">Kết thúc bàn</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        {% if scoreboard %}
+                            <div class="list-group list-group-flush">
+                            {% for p in scoreboard %}
+                                <div class="list-group-item px-0">
+                                    <div class="ranking-row">
+                                        <span class="badge {{ 'text-bg-warning' if loop.index == 1 else 'text-bg-light' }}">#{{ loop.index }}</span>
+                                        <div>
+                                            <div class="fw-semibold">{{ p[1] }}</div>
+                                            <div class="text-muted small">Ghế {{ p[4] or '-' }}{% if my_participant_id == p[0] %} · Bạn{% endif %}{% if not p[3] %} · Đã rời bàn{% endif %}</div>
+                                            {% if final_view %}
+                                                <div class="small {{ 'text-success' if p[2] > 0 else ('text-danger' if p[2] < 0 else 'text-muted') }}">
+                                                    {{ 'Chúc mừng, điểm đang dương.' if p[2] > 0 else ('Chia buồn, điểm đang âm.' if p[2] < 0 else 'Hòa vốn.') }}
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-end fw-bold fs-5 {{ 'text-success' if p[2] > 0 else ('text-danger' if p[2] < 0 else 'text-muted') }}">{{ p[2] }}</div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info mb-0">Chưa có người chơi nào.</div>
+                        {% endif %}
+                    </div>
+                </section>
+
+                <section class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h2 class="h5 fw-bold mb-3">Lịch sử</h2>
+                        {% if actions %}
+                            <div class="list-group">
+                            {% for action in actions %}
+                                <div class="list-group-item">
+                                    <span class="fw-semibold">{{ action[6] or 'Hệ thống' }}</span>
+                                    {% if action[7] %}<span class="text-muted"> → {{ action[7] }}</span>{% endif %}
+                                    <span class="text-muted small"> · ván {{ action[1] }} · {{ action[2] }}{% if action[3] %} {{ action[3] }}{% endif %}</span>
+                                    {% if action[4] %}<div class="text-muted small">{{ action[4] }}</div>{% endif %}
+                                </div>
+                            {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info mb-0">Chưa có lịch sử.</div>
+                        {% endif %}
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script>
+    const STATE_URL = '/giai-tri/ba-cay/{{ game[0] }}/state';
+    const POLL_MS = 1500;
+    const shouldVibrateBet = {{ 'true' if my_participant_id and game[2] == 'betting' and my_participant_id != game[6] else 'false' }};
+    let statePollBusy = false;
+    let statePollTimer = null;
+    let initialStateSignature = JSON.stringify({
+        status: {{ game[2]|tojson }},
+        round_no: {{ game[5]|tojson }},
+        banker_participant_id: {{ game[6]|tojson }},
+        my_participant_id: {{ my_participant_id|tojson }},
+        participants: [
+            {% for p in participants %}
+            {id: {{ p[0]|tojson }}, current_bet: {{ p[7]|tojson }}, bet_submitted: {{ p[8]|tojson }}, score: {{ p[9]|tojson }}}{% if not loop.last %},{% endif %}
+            {% endfor %}
+        ]
+    });
+
+    if (shouldVibrateBet && navigator.vibrate) {
+        navigator.vibrate(180);
+    }
+
+    const countdown = document.getElementById('betCountdown');
+    let countdownDeadline = countdown ? Date.now() + (Number.parseInt(countdown.textContent, 10) || 0) * 1000 : null;
+
+    function syncCountdown(betLeft) {
+        if (!countdown || typeof betLeft !== 'number') {
+            return;
+        }
+        countdownDeadline = Date.now() + Math.max(0, betLeft) * 1000;
+        renderCountdown();
+    }
+
+    function renderCountdown() {
+        if (!countdown || !countdownDeadline) {
+            return;
+        }
+        const left = Math.max(0, Math.ceil((countdownDeadline - Date.now()) / 1000));
+        countdown.textContent = left;
+    }
+
+    if (countdown) {
+        renderCountdown();
+        window.setInterval(renderCountdown, 250);
+    }
+
+    function stateSignature(state) {
+        return JSON.stringify({
+            status: state.status,
+            round_no: state.round_no,
+            banker_participant_id: state.banker_participant_id,
+            my_participant_id: state.my_participant_id,
+            participants: (state.participants || []).map(function(player) {
+                return {
+                    id: player.id,
+                    current_bet: player.current_bet,
+                    bet_submitted: player.bet_submitted,
+                    score: player.score
+                };
+            })
+        });
+    }
+
+    function scheduleBaCayPoll(delay) {
+        window.clearTimeout(statePollTimer);
+        statePollTimer = window.setTimeout(pollBaCayState, delay);
+    }
+
+    async function pollBaCayState() {
+        if (statePollBusy) {
+            scheduleBaCayPoll(POLL_MS);
+            return;
+        }
+        statePollBusy = true;
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(function() {
+            controller.abort();
+        }, 5000);
+        try {
+            const response = await fetch(STATE_URL + '?_=' + Date.now(), {
+                cache: 'no-store',
+                signal: controller.signal,
+                headers: {
+                    'X-Requested-With': 'fetch',
+                    'Cache-Control': 'no-cache'
+                }
+            });
+            const state = await response.json();
+            if (!state.success) {
+                return;
+            }
+            syncCountdown(state.bet_left);
+            const nextSignature = stateSignature(state);
+            if (nextSignature !== initialStateSignature) {
+                if (state.is_my_bet_turn && !shouldVibrateBet && navigator.vibrate) {
+                    navigator.vibrate([180, 80, 180]);
+                }
+                window.location.reload();
+            }
+        } catch (error) {
+            // Retry silently on next poll.
+        } finally {
+            window.clearTimeout(timeoutId);
+            statePollBusy = false;
+            scheduleBaCayPoll(document.hidden ? 3000 : POLL_MS);
+        }
+    }
+
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            scheduleBaCayPoll(0);
+        }
+    });
+    window.addEventListener('focus', function() {
+        scheduleBaCayPoll(0);
+    });
+    window.addEventListener('pageshow', function() {
+        scheduleBaCayPoll(0);
+    });
+    scheduleBaCayPoll(0);
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>

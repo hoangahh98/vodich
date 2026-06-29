@@ -6,7 +6,7 @@ All logs stored in app_logs table
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, g, send_from_directory, make_response, flash
 import os
 import random
-from models import VanDongVienModel, AdminUserModel, TournamentModel, DangKyGiaiModel, DoiBongModel, MatchModel, EntertainmentCardGameModel, EntertainmentLiengGameModel
+from models import VanDongVienModel, AdminUserModel, TournamentModel, DangKyGiaiModel, DoiBongModel, MatchModel, EntertainmentCardGameModel, EntertainmentLiengGameModel, EntertainmentBaCayGameModel
 from services import FinanceService
 from knockout_logic import MatchSchedulerService
 from auth import AuthService, login_required, admin_required
@@ -412,7 +412,7 @@ def giai_tri_to_lieng():
 def tao_ban_to_lieng():
     user = session.get('user', {})
     try:
-        active_table = EntertainmentLiengGameModel.active_table_for_user(user)
+        active_table = EntertainmentLiengGameModel.active_table_for_user(user) or EntertainmentBaCayGameModel.active_table_for_user(user)
         if active_table:
             raise ValueError(f"Bạn đang ở bàn {active_table[1]}. Hãy thoát bàn đó trước khi tạo bàn khác.")
         game_id = EntertainmentLiengGameModel.create_game(
@@ -561,6 +561,9 @@ def ket_thuc_ban_to_lieng(game_id):
 def them_toi_vao_to_lieng(game_id):
     user = session.get('user', {})
     try:
+        active_ba_cay = EntertainmentBaCayGameModel.active_table_for_user(user)
+        if active_ba_cay:
+            raise ValueError(f"Bạn đang ở bàn {active_ba_cay[1]}. Hãy thoát bàn đó trước khi vào bàn khác.")
         EntertainmentLiengGameModel.add_current_user(game_id, user)
         flash('Đã thêm bạn vào bàn.', 'success')
     except ValueError as e:
@@ -641,6 +644,273 @@ def toi_thang_to_lieng(game_id):
     except ValueError as e:
         flash(str(e), 'warning')
     return redirect(url_for('chi_tiet_ban_to_lieng', game_id=game_id))
+
+
+@app.route('/giai-tri/ba-cay')
+@login_required
+def giai_tri_ba_cay():
+    user = session.get('user', {})
+    DBLogger.log_request('GET', '/giai-tri/ba-cay', user.get('email'))
+    games = EntertainmentBaCayGameModel.get_games()
+    return render_template('giai_tri_ba_cay.html', user=user, games=games)
+
+
+@app.route('/giai-tri/ba-cay/tao', methods=['POST'])
+@login_required
+def tao_ban_ba_cay():
+    user = session.get('user', {})
+    try:
+        active_table = EntertainmentBaCayGameModel.active_table_for_user(user) or EntertainmentLiengGameModel.active_table_for_user(user)
+        if active_table:
+            raise ValueError(f"Bạn đang ở bàn {active_table[1]}. Hãy thoát bàn đó trước khi tạo bàn khác.")
+        game_id = EntertainmentBaCayGameModel.create_game(
+            request.form.get('name'),
+            request.form.get('min_bet'),
+            request.form.get('max_bet'),
+            owner_admin_id=user.get('id') if user.get('role') == 'admin' else None,
+            created_by_role=user.get('role'),
+            created_by_client_id=user.get('id') if user.get('role') == 'vdv' else None,
+        )
+        EntertainmentBaCayGameModel.add_current_user(game_id, user)
+        flash('Đã tạo bàn 3 cây.', 'success')
+        return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+    except Exception as e:
+        DBLogger.log_error(f"Error creating ba cay game: {str(e)}", user.get('email'), '/giai-tri/ba-cay/tao', context=traceback.format_exc())
+        flash(str(e) if isinstance(e, ValueError) else 'Không tạo được bàn 3 cây.', 'danger')
+        return redirect(url_for('giai_tri_ba_cay'))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>')
+@login_required
+def chi_tiet_ban_ba_cay(game_id):
+    user = session.get('user', {})
+    EntertainmentBaCayGameModel.apply_timeout_if_needed(game_id)
+    game = EntertainmentBaCayGameModel.get_game(game_id)
+    if not game:
+        return "Không tìm thấy bàn 3 cây", 404
+    participants = EntertainmentBaCayGameModel.get_participants(game_id)
+    scoreboard = EntertainmentBaCayGameModel.get_scoreboard(game_id)
+    actions = EntertainmentBaCayGameModel.get_actions(game_id)
+    my_participant_id = EntertainmentBaCayGameModel.participant_for_user(game_id, user)
+    bet_left = EntertainmentBaCayGameModel.BET_SECONDS
+    if game[2] == 'betting' and game[7]:
+        try:
+            bet_left = max(0, int((game[7] - datetime.now(game[7].tzinfo)).total_seconds()))
+        except Exception:
+            bet_left = EntertainmentBaCayGameModel.BET_SECONDS
+    final_view = request.args.get('ket_thuc') == '1' or game[2] == 'ended'
+    bettors = [p for p in participants if p[0] != game[6] and p[8] and p[7] > 0]
+    return render_template(
+        'giai_tri_ba_cay_chi_tiet.html',
+        user=user,
+        game=game,
+        participants=participants,
+        scoreboard=scoreboard,
+        actions=actions,
+        my_participant_id=my_participant_id,
+        bet_left=bet_left,
+        bet_seconds=EntertainmentBaCayGameModel.BET_SECONDS,
+        final_view=final_view,
+        bettors=bettors,
+    )
+
+
+def _ba_cay_state_payload(game_id, user):
+    EntertainmentBaCayGameModel.apply_timeout_if_needed(game_id)
+    game = EntertainmentBaCayGameModel.get_game(game_id)
+    if not game:
+        return None
+    participants = EntertainmentBaCayGameModel.get_participants(game_id)
+    actions = EntertainmentBaCayGameModel.get_actions(game_id, limit=1)
+    my_participant_id = EntertainmentBaCayGameModel.participant_for_user(game_id, user)
+    latest_action_id = actions[0][0] if actions else 0
+    bet_left = EntertainmentBaCayGameModel.BET_SECONDS
+    if game[2] == 'betting' and game[7]:
+        try:
+            bet_left = max(0, int((game[7] - datetime.now(game[7].tzinfo)).total_seconds()))
+        except Exception:
+            bet_left = EntertainmentBaCayGameModel.BET_SECONDS
+    return {
+        'success': True,
+        'game_id': game_id,
+        'status': game[2],
+        'round_no': game[5],
+        'banker_participant_id': game[6],
+        'my_participant_id': my_participant_id,
+        'is_my_bet_turn': bool(my_participant_id and game[2] == 'betting' and my_participant_id != game[6]),
+        'bet_left': bet_left,
+        'latest_action_id': latest_action_id,
+        'participants': [
+            {
+                'id': p[0],
+                'name': p[1],
+                'seat_no': p[5],
+                'active': bool(p[6]),
+                'current_bet': p[7],
+                'bet_submitted': bool(p[8]),
+                'score': p[9],
+            }
+            for p in participants
+        ],
+    }
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/state')
+@login_required
+def state_ban_ba_cay(game_id):
+    user = session.get('user', {})
+    try:
+        payload = _ba_cay_state_payload(game_id, user)
+        if not payload:
+            return jsonify({'success': False, 'error': 'Không tìm thấy bàn 3 cây'}), 404
+        response = make_response(jsonify(payload))
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        return response
+    except Exception as e:
+        DBLogger.log_error(f"Error loading ba cay state: {str(e)}", user.get('email'), f'/giai-tri/ba-cay/{game_id}/state', context=traceback.format_exc())
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/xoa', methods=['POST'])
+@login_required
+def xoa_ban_ba_cay(game_id):
+    user = session.get('user', {})
+    game = EntertainmentBaCayGameModel.get_game(game_id)
+    if not game:
+        flash('Không tìm thấy bàn 3 cây.', 'warning')
+        return redirect(url_for('giai_tri_ba_cay'))
+    if user.get('role') != 'admin' and not (user.get('role') == 'vdv' and game[10] == user.get('id')):
+        flash('Bạn không có quyền xóa bàn này.', 'danger')
+        return redirect(url_for('giai_tri_ba_cay'))
+    EntertainmentBaCayGameModel.delete_game(game_id)
+    flash('Đã xóa bàn 3 cây.', 'success')
+    return redirect(url_for('giai_tri_ba_cay'))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/ket-thuc', methods=['POST'])
+@login_required
+def ket_thuc_ban_ba_cay(game_id):
+    try:
+        EntertainmentBaCayGameModel.end_game(game_id)
+        flash('Đã kết thúc bàn 3 cây.', 'success')
+        return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id, ket_thuc=1))
+    except ValueError as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/them-toi', methods=['POST'])
+@login_required
+def them_toi_vao_ba_cay(game_id):
+    user = session.get('user', {})
+    try:
+        active_lieng = EntertainmentLiengGameModel.active_table_for_user(user)
+        if active_lieng:
+            raise ValueError(f"Bạn đang ở bàn {active_lieng[1]}. Hãy thoát bàn đó trước khi vào bàn khác.")
+        EntertainmentBaCayGameModel.add_current_user(game_id, user)
+        flash('Đã thêm bạn vào bàn.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/thoat-ban', methods=['POST'])
+@login_required
+def thoat_ban_ba_cay(game_id):
+    user = session.get('user', {})
+    try:
+        display_name = EntertainmentBaCayGameModel.leave_current_user(game_id, user)
+        flash(f'{display_name} đã thoát bàn.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/quay-vi-tri', methods=['POST'])
+@login_required
+def quay_vi_tri_ba_cay(game_id):
+    count = EntertainmentBaCayGameModel.shuffle_seats(game_id)
+    flash(f'Đã quay ngẫu nhiên vị trí cho {count} người chơi.', 'success')
+    return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/quay-chuong', methods=['POST'])
+@login_required
+def quay_chuong_ba_cay(game_id):
+    try:
+        banker_name = EntertainmentBaCayGameModel.random_banker(game_id)
+        flash(f'{banker_name} làm chương.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/chon-chuong', methods=['POST'])
+@login_required
+def chon_chuong_ba_cay(game_id):
+    user = session.get('user', {})
+    participant_id = EntertainmentBaCayGameModel.participant_for_user(game_id, user)
+    if not participant_id:
+        flash('Bạn chưa có trong bàn này.', 'danger')
+        return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+    try:
+        banker_name = EntertainmentBaCayGameModel.set_banker(game_id, participant_id, int(request.form.get('banker_participant_id')))
+        flash(f'{banker_name} làm chương.', 'success')
+    except (TypeError, ValueError) as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/bat-dau', methods=['POST'])
+@login_required
+def bat_dau_ba_cay(game_id):
+    try:
+        round_no = EntertainmentBaCayGameModel.start_round(game_id)
+        flash(f'Đã bắt đầu ván {round_no}. Mọi người có 10 giây để đặt cược.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/dat-cuoc', methods=['POST'])
+@login_required
+def dat_cuoc_ba_cay(game_id):
+    user = session.get('user', {})
+    participant_id = EntertainmentBaCayGameModel.participant_for_user(game_id, user)
+    if not participant_id:
+        flash('Bạn chưa có trong bàn này.', 'danger')
+        return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+    try:
+        EntertainmentBaCayGameModel.place_bet(game_id, participant_id, request.form.get('amount'))
+        flash('Đã đặt cược.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/chot-van', methods=['POST'])
+@login_required
+def chot_van_ba_cay(game_id):
+    user = session.get('user', {})
+    participant_id = EntertainmentBaCayGameModel.participant_for_user(game_id, user)
+    if not participant_id:
+        flash('Bạn chưa có trong bàn này.', 'danger')
+        return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+    try:
+        participants = EntertainmentBaCayGameModel.get_participants(game_id)
+        results = {}
+        for player in participants:
+            if player[0] == participant_id:
+                continue
+            value = request.form.get(f'result_{player[0]}')
+            if value in ('win', 'lose'):
+                results[player[0]] = value
+        settled_count = EntertainmentBaCayGameModel.settle_round(game_id, participant_id, results)
+        flash(f'Đã chốt {settled_count} người. Ván đã kết thúc, chờ bấm bắt đầu ván mới.', 'success')
+    except ValueError as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
 
 
 @app.route('/giai-tri/ghi-diem/<int:game_id>')

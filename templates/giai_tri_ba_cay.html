@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghi điểm 3 cây</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-dark app-navbar mb-4 py-2">
+        <div class="container-fluid px-4">
+            <div class="d-flex gap-2 align-items-center flex-wrap ms-auto">
+                <a class="btn btn-sm btn-outline-light" href="{{ '/' if user.role == 'admin' else '/vdv-dashboard' }}">Trang chủ</a>
+                <a class="btn btn-sm btn-outline-light" href="/giai-tri">Giải trí</a>
+                <span class="navbar-text d-none d-md-inline">{{ user.display_name or user.email }} · {{ 'Admin' if user.role == 'admin' else 'Client' }}</span>
+                <a href="/dang-xuat" class="btn btn-sm btn-outline-danger">Đăng xuất</a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container pb-5">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <section class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h1 class="h4 fw-bold mb-3">Tạo bàn 3 cây</h1>
+                        <form method="post" action="/giai-tri/ba-cay/tao">
+                            <label class="form-label fw-semibold" for="name">Tên bàn</label>
+                            <input class="form-control mb-3" id="name" name="name" value="Bàn 3 cây">
+                            <label class="form-label fw-semibold" for="min_bet">Min cược</label>
+                            <input class="form-control mb-3" id="min_bet" name="min_bet" type="number" min="1" step="1" value="1" required>
+                            <label class="form-label fw-semibold" for="max_bet">Max cược</label>
+                            <input class="form-control mb-3" id="max_bet" name="max_bet" type="number" min="1" step="1" placeholder="Bỏ trống nếu không giới hạn">
+                            <button class="btn btn-primary w-100" type="submit" data-loading-text="Đang tạo...">Tạo bàn</button>
+                        </form>
+                    </div>
+                </section>
+            </div>
+            <div class="col-lg-8">
+                <section class="card shadow-sm border-0">
+                    <div class="card-body">
+                        <h2 class="h4 fw-bold mb-3">Danh sách bàn</h2>
+                        {% if games %}
+                            <div class="list-group">
+                                {% for game in games %}
+                                <div class="list-group-item">
+                                    <div class="d-flex justify-content-between align-items-start gap-3">
+                                        <a class="text-decoration-none text-reset flex-grow-1" href="/giai-tri/ba-cay/{{ game[0] }}">
+                                            <div class="fw-bold">{{ game[1] }}</div>
+                                            <div class="text-muted small">Min {{ game[3] }}{% if game[4] %} · Max {{ game[4] }}{% else %} · Không giới hạn max{% endif %} · Ván {{ game[5] }}</div>
+                                            <div class="text-muted small">{{ game[8] }} người · Chương: {{ game[6] or 'Chưa chọn' }} · Tạo bởi: {{ game[7] }}</div>
+                                        </a>
+                                        <div class="d-flex gap-2 align-items-center">
+                                            <span class="badge {{ 'bg-success' if game[2] == 'betting' else ('bg-warning text-dark' if game[2] == 'settling' else ('bg-dark' if game[2] == 'ended' else 'bg-secondary')) }}">{{ 'Đang cược' if game[2] == 'betting' else ('Chờ chương chốt' if game[2] == 'settling' else ('Đã kết thúc' if game[2] == 'ended' else 'Chờ ván')) }}</span>
+                                            {% if user.role == 'admin' %}
+                                            <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/xoa" onsubmit="return confirm({{ ('Xóa bàn ' ~ game[1] ~ '?')|tojson }});">
+                                                <button class="btn btn-sm btn-outline-danger" data-loading-text="Đang xóa...">Xóa</button>
+                                            </form>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info mb-0">Chưa có bàn 3 cây nào.</div>
+                        {% endif %}
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>
