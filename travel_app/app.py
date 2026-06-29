@@ -428,7 +428,7 @@ def update_collections(trip_id):
         updates.append({
             "member_id": member_id,
             "amount": amount,
-            "note": request.form.get(f"collection_note_{member_id}", ""),
+            "note": request.form.get(f"collection_note_{member_id}", member[5]),
         })
     FinanceModel.update_collections(trip_id, updates)
     flash("Đã cập nhật tiền thu.", "success")

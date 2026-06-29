@@ -77,7 +77,7 @@
     <section class="card mb-3">
         <div class="card-hdr blue">
             <span>Tổng hợp thành viên</span>
-            <span class="badge bg-light text-primary">Phải đóng bình quân: {{ summary.average_spent|vnd }}đ/người</span>
+            <span class="badge bg-light text-primary">Chi bình quân: {{ summary.average_spent|vnd }}đ/người</span>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive frozen-table-wrap">
@@ -90,7 +90,16 @@
                                 {{ member[1] }}
                                 {% if trip[5] == member[0] %}<span class="badge bg-info text-dark ms-1">Thủ quỹ</span>{% endif %}
                             </td>
-                            <td>{{ summary.member_collected[member[0]]|vnd }}đ</td>
+                            <td>
+                                {% if trip[5] == member[0] %}
+                                {{ summary.effective_collected[member[0]]|vnd }}đ
+                                {% else %}
+                                {{ summary.actual_collected[member[0]]|vnd }}đ
+                                {% endif %}
+                                {% if trip[5] != member[0] and summary.member_paid_total[member[0]] >= summary.member_spent[member[0]] and summary.member_spent[member[0]] > 0 %}
+                                <div class="small text-success">Đã trả chi tiêu đủ phần phải đóng.</div>
+                                {% endif %}
+                            </td>
                             <td class="fw-semibold">{{ summary.member_paid_total[member[0]]|vnd }}đ</td>
                             <td class="text-success fw-semibold">{{ summary.member_advanced[member[0]]|vnd }}đ</td>
                             <td class="{% if summary.member_debt[member[0]] > 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">{{ summary.member_debt[member[0]]|vnd }}đ</td>
