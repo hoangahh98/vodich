@@ -291,6 +291,10 @@
                             data-bs-toggle="collapse" data-bs-target="#formCapNhatPhiDoiBong">
                         ✏️ Cập nhật phí
                     </button>
+                    <button type="button" class="btn btn-sm btn-info text-white fw-bold"
+                            data-bs-toggle="modal" data-bs-target="#modalTeamGetEmail">
+                        📧 Get Email
+                    </button>
                     {% endif %}
                 </div>
             </div>
@@ -400,14 +404,6 @@
                         </tbody>
                     </table>
                 </div>
-                {% if can_edit %}
-                <div class="pt-3 text-end">
-                    <button type="button" class="btn btn-info text-white fw-bold"
-                            data-bs-toggle="modal" data-bs-target="#modalTeamGetEmail">
-                        📧 Get Email
-                    </button>
-                </div>
-                {% endif %}
                 {% else %}
                 <div class="p-3 text-muted">Chưa có thành viên nào trong đội.</div>
                 {% endif %}
