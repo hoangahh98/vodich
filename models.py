@@ -1665,7 +1665,7 @@ class EntertainmentLiengGameModel:
 
 
 class EntertainmentBaCayGameModel:
-    BET_SECONDS = 10
+    BET_SECONDS = 20
 
     @staticmethod
     def create_game(name, min_bet, max_bet=None, owner_admin_id=None, created_by_role=None, created_by_client_id=None):
@@ -1953,7 +1953,7 @@ class EntertainmentBaCayGameModel:
             return row[0]
 
     @staticmethod
-    def start_round(game_id):
+    def start_round(game_id, starter_participant_id=None):
         with db_cursor(commit=True) as cursor:
             cursor.execute("SELECT status, banker_participant_id FROM entertainment_ba_cay_games WHERE id = %s;", (game_id,))
             game = cursor.fetchone()
@@ -1970,6 +1970,8 @@ class EntertainmentBaCayGameModel:
             if len(ids) < 2:
                 raise ValueError("Cần ít nhất 2 người chơi để bắt đầu.")
             banker_id = game[1] if game[1] in ids else ids[0]
+            if starter_participant_id is not None and starter_participant_id != banker_id:
+                raise ValueError("Chỉ chương mới được bắt đầu ván.")
             cursor.execute("""
                 UPDATE entertainment_ba_cay_participants
                 SET current_bet = 0, bet_submitted = FALSE, current_multiplier = 1, last_action_at = NULL
@@ -1983,14 +1985,14 @@ class EntertainmentBaCayGameModel:
             cursor.execute("""
                 UPDATE entertainment_ba_cay_games
                 SET status = 'betting', round_no = round_no + 1, banker_participant_id = %s,
-                    bet_deadline_at = CURRENT_TIMESTAMP + INTERVAL '10 seconds'
+                    bet_deadline_at = CURRENT_TIMESTAMP + INTERVAL '20 seconds'
                 WHERE id = %s
                 RETURNING round_no;
             """, (banker_id, game_id))
             round_no = cursor.fetchone()[0]
             cursor.execute("""
                 INSERT INTO entertainment_ba_cay_actions (game_id, participant_id, round_no, action_type, note)
-                VALUES (%s, %s, %s, 'start_round', 'Bắt đầu ván, chờ đặt cược 10 giây');
+                VALUES (%s, %s, %s, 'start_round', 'Bắt đầu ván, chờ đặt cược 20 giây');
             """, (game_id, banker_id, round_no))
             return round_no
 
@@ -2021,7 +2023,7 @@ class EntertainmentBaCayGameModel:
                 cursor.execute("""
                     INSERT INTO entertainment_ba_cay_actions (game_id, participant_id, round_no, action_type, note)
                     VALUES (%s, %s, %s, 'timeout_leave', %s);
-                """, (game_id, participant_id, round_no, f"{display_name} quá 10 giây chưa đặt cược, bị rời bàn"))
+                """, (game_id, participant_id, round_no, f"{display_name} quá 20 giây chưa đặt cược, bị rời bàn"))
             cursor.execute("""
                 SELECT COUNT(1)
                 FROM entertainment_ba_cay_participants
@@ -2058,7 +2060,7 @@ class EntertainmentBaCayGameModel:
             multiplier = int(multiplier or 1)
         except (TypeError, ValueError):
             multiplier = 1
-        if multiplier not in (1, 2, 3):
+        if multiplier not in (1, 2, 3, 4):
             raise ValueError("Hệ số cược không hợp lệ.")
         with db_cursor(commit=True) as cursor:
             cursor.execute("""
@@ -2145,7 +2147,7 @@ class EntertainmentBaCayGameModel:
                     banker_multiplier = int(banker_multipliers.get(player_id, 1) or 1)
                 except (TypeError, ValueError):
                     banker_multiplier = 1
-                if banker_multiplier not in (1, 2, 3):
+                if banker_multiplier not in (1, 2, 3, 4):
                     raise ValueError(f"Hệ số chương chọn cho {display_name} không hợp lệ.")
                 multiplier = max(int(player_multiplier or 1), banker_multiplier)
                 delta = int(bet) * multiplier

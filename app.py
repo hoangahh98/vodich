@@ -866,9 +866,14 @@ def chon_chuong_ba_cay(game_id):
 @app.route('/giai-tri/ba-cay/<int:game_id>/bat-dau', methods=['POST'])
 @login_required
 def bat_dau_ba_cay(game_id):
+    user = session.get('user', {})
+    participant_id = EntertainmentBaCayGameModel.participant_for_user(game_id, user)
+    if not participant_id:
+        flash('Bạn chưa có trong bàn này.', 'danger')
+        return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
     try:
-        round_no = EntertainmentBaCayGameModel.start_round(game_id)
-        flash(f'Đã bắt đầu ván {round_no}. Mọi người có 10 giây để đặt cược.', 'success')
+        round_no = EntertainmentBaCayGameModel.start_round(game_id, participant_id)
+        flash(f'Đã bắt đầu ván {round_no}. Mọi người có 20 giây để đặt cược.', 'success')
     except ValueError as e:
         flash(str(e), 'warning')
     return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))

@@ -85,6 +85,21 @@
             gap: .75rem;
             align-items: center;
         }
+        .ba-cay-history-x2 {
+            background: #fff7cc;
+            border-color: #ffe083;
+        }
+        .ba-cay-history-x3 {
+            background: #ffe8a3;
+            border-color: #ffc94f;
+            box-shadow: inset 4px 0 0 #ffc107;
+        }
+        .ba-cay-history-x4 {
+            background: #ffd166;
+            border-color: #ffad1f;
+            box-shadow: inset 5px 0 0 #ff8c00, 0 0 0 2px rgba(255, 193, 7, .2);
+            font-weight: 700;
+        }
         .seat-meta {
             display: flex;
             flex-wrap: wrap;
@@ -167,7 +182,7 @@
                 </div>
                 {% if game[2] == 'betting' %}
                     <div class="alert alert-success mt-3 mb-0">
-                        Đang đặt cược · Còn <strong id="betCountdown">{{ bet_left }}</strong>s. Ai chưa cược sau 10 giây sẽ bị rời bàn.
+                        Đang đặt cược · Còn <strong id="betCountdown">{{ bet_left }}</strong>s. Ai chưa cược sau 20 giây sẽ bị rời bàn.
                     </div>
                 {% elif game[2] == 'settling' %}
                     <div class="alert alert-warning mt-3 mb-0">Chờ chương chọn người thắng/thua để chốt ván.</div>
@@ -205,9 +220,13 @@
                             <button class="btn btn-warning w-100" data-loading-text="Đang lưu...">Chọn chương</button>
                         </form>
                         {% endif %}
-                        <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/bat-dau" class="mb-3">
-                            <button class="btn btn-success w-100" data-loading-text="Đang bắt đầu...">Bắt đầu ván</button>
-                        </form>
+                        {% if my_participant_id and my_participant_id == game[6] %}
+                            <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/bat-dau" class="mb-3">
+                                <button class="btn btn-success w-100" data-loading-text="Đang bắt đầu...">Bắt đầu ván</button>
+                            </form>
+                        {% elif my_participant_id %}
+                            <div class="alert alert-info py-2 mb-0 small">Chờ chương bắt đầu ván.</div>
+                        {% endif %}
                         {% endif %}
                     </div>
                 </section>
@@ -224,6 +243,7 @@
                                 <option value="1">x1</option>
                                 <option value="2">x2</option>
                                 <option value="3">x3</option>
+                                <option value="4">x4</option>
                             </select>
                             <div class="form-text mb-3">Cược trong {{ bet_seconds }} giây. Hết giờ chưa cược sẽ bị rời bàn.</div>
                             <button class="btn btn-primary w-100" data-loading-text="Đang đặt...">Đặt cược</button>
@@ -248,6 +268,7 @@
                                         <option value="1">x1</option>
                                         <option value="2">x2</option>
                                         <option value="3">x3</option>
+                                        <option value="4">x4</option>
                                     </select>
                                     <div class="btn-group w-100" role="group">
                                         <input class="btn-check" type="radio" name="result_{{ p[0] }}" value="win" id="win{{ p[0] }}" required>
@@ -352,7 +373,8 @@
                         {% if actions %}
                             <div class="list-group">
                             {% for action in actions %}
-                                <div class="list-group-item">
+                                {% set action_text = (action[4] or '') %}
+                                <div class="list-group-item {% if 'x4' in action_text %}ba-cay-history-x4{% elif 'x3' in action_text %}ba-cay-history-x3{% elif 'x2' in action_text %}ba-cay-history-x2{% endif %}">
                                     <span class="fw-semibold">{{ action[6] or 'Hệ thống' }}</span>
                                     {% if action[7] %}<span class="text-muted"> → {{ action[7] }}</span>{% endif %}
                                     <span class="text-muted small"> · ván {{ action[1] }} · {{ action[2] }}{% if action[3] %} {{ action[3] }}{% endif %}</span>
