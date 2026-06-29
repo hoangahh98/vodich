@@ -71,6 +71,7 @@
                     <span>Thành viên trong chuyến đi</span>
                     <div class="d-flex align-items-center gap-2 flex-wrap">
                         <span>{{ members|length }} người</span>
+                        <span class="badge bg-light text-primary">Phải đóng bình quân: {{ summary.average_spent|vnd }}đ/người</span>
                         <button type="button" class="btn btn-sm btn-light text-primary fw-bold" data-bs-toggle="modal" data-bs-target="#memberEmailModal" data-feedback="off">
                             📧 Get Email
                         </button>
@@ -100,7 +101,7 @@
                     {% endif %}
                     <div class="table-responsive frozen-table-wrap">
                         <table class="table table-hover align-middle mb-0 frozen-table">
-                            <thead class="table-light"><tr><th class="sticky-col">Tên</th><th>Email xem</th><th>Đã thu</th><th>Phần chi</th><th>Đã trả</th><th>Ứng trước</th><th>Còn thiếu</th><th></th></tr></thead>
+                            <thead class="table-light"><tr><th class="sticky-col">Tên</th><th>Email xem</th><th>Đã thu</th><th>Đã trả</th><th>Ứng trước</th><th>Còn thiếu</th><th></th></tr></thead>
                             <tbody>
                                 {% for member in members %}
                                 <tr class="{% if summary.balances[member[0]] >= 0 %}sufficient-row{% else %}insufficient-row{% endif %}">
@@ -110,7 +111,6 @@
                                     </td>
                                     <td class="small text-muted">{{ member[2] or 'Chưa có' }}</td>
                                     <td>{{ summary.effective_collected[member[0]]|vnd }}đ</td>
-                                    <td>{{ summary.member_spent[member[0]]|vnd }}đ</td>
                                     <td class="fw-semibold">{{ summary.member_paid_total[member[0]]|vnd }}đ</td>
                                     <td class="text-success fw-semibold">{{ summary.member_advanced[member[0]]|vnd }}đ</td>
                                     <td class="{% if summary.member_debt[member[0]] > 0 %}text-danger{% else %}text-success{% endif %} fw-bold">{{ summary.member_debt[member[0]]|vnd }}đ</td>
@@ -123,7 +123,7 @@
                                 </tr>
                                 {% endfor %}
                                 {% if not members %}
-                                <tr><td colspan="8" class="text-muted">Chưa có thành viên nào.</td></tr>
+                                <tr><td colspan="7" class="text-muted">Chưa có thành viên nào.</td></tr>
                                 {% endif %}
                             </tbody>
                         </table>

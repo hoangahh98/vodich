@@ -75,11 +75,14 @@
         <div class="col-md-3"><div class="card h-100"><div class="card-body text-center"><div class="small text-muted">Còn lại</div><div class="fw-bold fs-4 {{ 'text-success' if summary.balance >= 0 else 'text-danger' }}">{{ summary.balance|vnd }}đ</div></div></div></div>
     </div>
     <section class="card mb-3">
-        <div class="card-hdr blue">Tổng hợp thành viên</div>
+        <div class="card-hdr blue">
+            <span>Tổng hợp thành viên</span>
+            <span class="badge bg-light text-primary">Phải đóng bình quân: {{ summary.average_spent|vnd }}đ/người</span>
+        </div>
         <div class="card-body p-0">
             <div class="table-responsive frozen-table-wrap">
                 <table class="table align-middle mb-0 frozen-table">
-                    <thead class="table-light"><tr><th class="sticky-col">Tên</th><th>Đã thu</th><th>Phần chi</th><th>Đã trả</th><th>Ứng trước</th><th>Còn thiếu</th></tr></thead>
+                    <thead class="table-light"><tr><th class="sticky-col">Tên</th><th>Đã thu</th><th>Đã trả</th><th>Ứng trước</th><th>Còn thiếu</th></tr></thead>
                     <tbody>
                         {% for member in members %}
                         <tr class="{% if member[0] == viewer_member_id %}table-primary{% endif %}">
@@ -88,7 +91,6 @@
                                 {% if trip[5] == member[0] %}<span class="badge bg-info text-dark ms-1">Thủ quỹ</span>{% endif %}
                             </td>
                             <td>{{ summary.effective_collected[member[0]]|vnd }}đ</td>
-                            <td>{{ summary.member_spent[member[0]]|vnd }}đ</td>
                             <td class="fw-semibold">{{ summary.member_paid_total[member[0]]|vnd }}đ</td>
                             <td class="text-success fw-semibold">{{ summary.member_advanced[member[0]]|vnd }}đ</td>
                             <td class="{% if summary.member_debt[member[0]] > 0 %}text-danger{% else %}text-success{% endif %} fw-semibold">{{ summary.member_debt[member[0]]|vnd }}đ</td>
