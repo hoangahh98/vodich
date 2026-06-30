@@ -143,9 +143,26 @@ CREATE TABLE IF NOT EXISTS dang_ky_giai (
     giai_dau_id INTEGER NOT NULL REFERENCES giai_dau(id) ON DELETE CASCADE,
     so_tien_da_dong NUMERIC(12, 2) DEFAULT 0,
     trang_thai_dong_tien VARCHAR(50) DEFAULT 'Chưa đóng',
+    registration_status VARCHAR(20) DEFAULT 'active',
     notes TEXT DEFAULT '',
+    withdrawn_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE (user_client_id, giai_dau_id)
+);
+
+CREATE TABLE IF NOT EXISTS dang_ky_giai_ngoai (
+    id SERIAL PRIMARY KEY,
+    giai_dau_id INTEGER NOT NULL REFERENCES giai_dau(id) ON DELETE CASCADE,
+    display_name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    skill_level VARCHAR(10) DEFAULT 'C',
+    so_tien_da_dong NUMERIC(12, 2) DEFAULT 0,
+    trang_thai_dong_tien VARCHAR(50) DEFAULT 'Chưa đóng',
+    registration_status VARCHAR(20) DEFAULT 'active',
+    notes TEXT DEFAULT '',
+    withdrawn_at TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (giai_dau_id, email)
 );
 
 CREATE TABLE IF NOT EXISTS tran_dau (
@@ -183,6 +200,20 @@ ADD COLUMN IF NOT EXISTS the_thuc VARCHAR(20) DEFAULT 'vong_tron',
 ADD COLUMN IF NOT EXISTS so_doi_moi_bang INTEGER DEFAULT 4,
 ADD COLUMN IF NOT EXISTS so_bang INTEGER DEFAULT 2,
 ADD COLUMN IF NOT EXISTS so_doi_vao_vong_trong INTEGER DEFAULT 2;
+
+ALTER TABLE giai_dau
+ADD COLUMN IF NOT EXISTS cho_phep_dang_ky_ngoai BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE dang_ky_giai
+ADD COLUMN IF NOT EXISTS registration_status VARCHAR(20) DEFAULT 'active',
+ADD COLUMN IF NOT EXISTS withdrawn_at TIMESTAMP;
+
+ALTER TABLE dang_ky_giai
+ALTER COLUMN registration_status SET DEFAULT 'active';
+
+UPDATE dang_ky_giai
+SET registration_status = 'active'
+WHERE registration_status IS NULL;
 
 ALTER TABLE giai_dau
 ALTER COLUMN so_doi_vao_vong_trong SET DEFAULT 2;
@@ -240,6 +271,15 @@ ON dang_ky_giai (user_client_id);
 
 CREATE INDEX IF NOT EXISTS idx_dang_ky_giai_giai_vdv
 ON dang_ky_giai (giai_dau_id, user_client_id);
+
+CREATE INDEX IF NOT EXISTS idx_dang_ky_giai_status
+ON dang_ky_giai (giai_dau_id, registration_status);
+
+CREATE INDEX IF NOT EXISTS idx_dang_ky_giai_ngoai_giai
+ON dang_ky_giai_ngoai (giai_dau_id, registration_status);
+
+CREATE INDEX IF NOT EXISTS idx_dang_ky_giai_ngoai_email
+ON dang_ky_giai_ngoai (lower(email), registration_status);
 
 CREATE INDEX IF NOT EXISTS idx_tran_dau_giai_order
 ON tran_dau (giai_dau_id, vong_dau, san_so_may, id);

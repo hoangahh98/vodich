@@ -231,6 +231,7 @@ def normalize_tournament_form_v2(form):
         "thoi_gian_bat_dau": thoi_gian_bat_dau,
         "loai_dau": loai_dau,
         "the_thuc": the_thuc,
+        "cho_phep_dang_ky_ngoai": bool(form.get("cho_phep_dang_ky_ngoai")),
         **numeric_fields,
     }, errors
 

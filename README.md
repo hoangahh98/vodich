@@ -1,107 +1,204 @@
 # Duhy
 
-Ứng dụng Flask quản lý giải đấu pickleball và các công cụ giải trí/ghi điểm cho nhóm chơi.
-
-## Tính năng chính
-
-- Đăng nhập theo vai trò admin và người chơi.
-- Quản lý vận động viên, đội bóng, giải đấu, đăng ký giải và lịch thi đấu.
-- Theo dõi chi phí, quỹ, giải thưởng và lịch sử thao tác.
-- PWA cơ bản với manifest, service worker và icon cài đặt.
-- Khu vực giải trí gồm ghi điểm đánh bài, tố liêng và 3 cây.
+Ứng dụng Flask quản lý giải đấu pickleball, đội bóng, thu chi chuyến đi và các công cụ giải trí/ghi điểm cho nhóm chơi.
 
 ## Chạy dự án
 
-1. Tạo môi trường Python và cài thư viện:
-
 ```bash
 pip install -r requirements.txt
-```
-
-2. Cấu hình biến môi trường theo `.env.example`.
-
-3. Khởi tạo/cập nhật schema:
-
-```bash
 python init_db.py
-```
-
-4. Chạy ứng dụng:
-
-```bash
 python app.py
 ```
 
-Ứng dụng tự gọi `ensure_all_schema()` khi khởi động để bổ sung các bảng/cột còn thiếu.
+Cấu hình môi trường theo `.env.example`. Khi app khởi động, `ensure_all_schema()` tự tạo hoặc bổ sung bảng/cột còn thiếu.
 
-## Khu vực giải trí
+## Đăng nhập và vai trò
 
-Vào mục `Giải trí` để mở ba công cụ:
+- Admin đăng nhập bằng tài khoản trong bảng `users`.
+- VĐV có sẵn đăng nhập bằng email trong `user_clients`, mật khẩu mặc định `123456789`.
+- VĐV đăng ký ngoài đăng nhập bằng email đã dùng ở form đăng ký ngoài, mật khẩu mặc định `123456789`.
+- VĐV chỉ thấy các giải/đội/chuyến đi gắn với mình hoặc email của mình.
 
-- `Mở ghi điểm`: ghi điểm đánh bài tự do.
-- `Mở tố liêng`: tạo bàn tố liêng, tố/bỏ theo lượt và cộng pot cho người thắng.
-- `Mở 3 cây`: tạo bàn 3 cây, chọn chương, đặt cược và chốt thắng/thua.
+## Quản lý giải đấu
 
-Ngay cạnh từng nút mở có nút `Hướng dẫn sử dụng`. Nút này mở hướng dẫn nhanh ngay trong trang, không cần rời màn hình.
+Admin có thể:
 
-## Ghi điểm đánh bài
+- Tạo, sửa, xóa giải đấu.
+- Nhập tên giải, địa điểm, thời gian, số sân, số người dự kiến.
+- Chọn thi đơn hoặc thi đôi.
+- Cấu hình luật điểm: điểm chạm và max điểm.
+- Chọn thể thức vòng tròn hoặc đánh bảng kèm knockout.
+- Cấu hình số đội mỗi bảng, số bảng, số đội vào vòng trong.
+- Nhập chi phí sân bãi, ăn uống, giải thưởng, chi phí khác.
+- Nhập tỷ lệ hoặc tiền giải nhất/nhì/ba.
+- Cấp quyền admin khác cùng xem/quản lý giải.
+
+## Đăng ký VĐV trong giải
+
+Trong chi tiết giải, admin có thể:
+
+- Thêm nhiều VĐV có sẵn từ bảng `user_clients`.
+- Theo dõi số lượng đã đăng ký so với số người dự kiến.
+- Cập nhật tiền đã đóng và trạng thái đóng phí hàng loạt.
+- Copy danh sách email VĐV.
+- Copy nội dung email mời tham gia giải.
+
+## Đăng ký ngoài
+
+Khi tạo hoặc sửa giải, admin có thể bật `Cho phép đăng ký ngoài`.
+
+Khi bật:
+
+- Chi tiết giải hiển thị link đăng ký ngoài.
+- Người nhận link tự nhập họ tên, email và chọn trình độ A/B/C/D.
+- Sau khi bấm đăng ký, hệ thống thêm người đó thẳng vào giải.
+- Dữ liệu được lưu ở bảng riêng `dang_ky_giai_ngoai`, không ghi vào bảng VĐV nhập tay `user_clients`.
+- Người đăng ký ngoài chỉ thuộc giải đã đăng ký bằng dòng dữ liệu đó.
+- Nếu cùng email đăng ký nhiều giải, khi đăng nhập màn hình VĐV sẽ hiện nhiều giải tương ứng.
+- Màn hình thành công trả về email đăng nhập, mật khẩu mặc định `123456789`, link đăng nhập và link xem giải.
+
+## Bỏ giải và khôi phục
+
+Đăng ký giải không còn bị xóa cứng khỏi dữ liệu.
+
+- Nút cũ xóa đăng ký được thay bằng `Bỏ`.
+- Khi bấm `Bỏ`, đăng ký chuyển trạng thái `withdrawn`.
+- VĐV đã bỏ giải không còn nằm trong danh sách đang thi đấu, không được đưa vào tạo lịch và không tính vào bảng phí hiện tại.
+- Các VĐV bỏ giải hiển thị ở nhóm `Bỏ giải`.
+- Admin có thể bấm `Khôi phục` để đưa người đó trở lại giải.
+
+Áp dụng cho cả đăng ký từ VĐV có sẵn và đăng ký ngoài.
+
+## Lịch thi đấu và ghi điểm giải
+
+Hệ thống hỗ trợ:
+
+- Tự chia lịch theo thi đơn hoặc thi đôi.
+- Ghép đôi thông minh theo trình độ cho thi đôi.
+- Ghép đôi thủ công khi cần chọn cặp cụ thể.
+- Chia vòng tròn hoặc đánh bảng kèm vòng trong.
+- Ghi điểm trận đấu bằng modal.
+- Tự lưu điểm khi thay đổi.
+- Giới hạn điểm theo luật chạm điểm/max điểm.
+- Chọn thứ tự đánh và đội đang giao.
+- Đọc điểm bằng giọng nói tiếng Việt nếu trình duyệt hỗ trợ.
+- Bảng xếp hạng tự cập nhật theo kết quả.
+
+## Dashboard VĐV
+
+VĐV đăng nhập sẽ thấy:
+
+- Các giải đã đăng ký.
+- Chi tiết giải, danh sách VĐV, lịch thi đấu, bảng xếp hạng.
+- Đội bóng mình thuộc về.
+- Chuyến đi/thu chi mình được gắn.
+- Công cụ đọc điểm giao lưu.
+- Khu vực giải trí.
+
+## Quản lý VĐV
+
+Admin có thể:
+
+- Thêm VĐV thủ công vào `user_clients`.
+- Sửa họ tên, email, trình độ, ghi chú.
+- Xóa VĐV thủ công nếu không còn dùng.
+- VĐV thủ công dùng email để đăng nhập với mật khẩu mặc định `123456789`.
+
+Đăng ký ngoài không tạo VĐV thủ công và không xuất hiện trong danh sách này.
+
+## Quản lý đội bóng
+
+Admin có thể:
+
+- Tạo, sửa, xóa đội bóng.
+- Thêm thành viên từ danh sách VĐV.
+- Phân loại thành viên cố định hoặc vãng lai.
+- Cấu hình phí tháng.
+- Theo dõi tiền đóng từng tháng.
+- Ghi khoản chi của đội.
+- Tính quỹ đội theo tháng.
+- Cấp quyền admin khác cùng xem/quản lý đội.
+
+VĐV được gắn vào đội có thể xem thông tin đội trên dashboard.
+
+## Thu chi chuyến đi
+
+Module `travel_app` hỗ trợ:
+
+- Quản lý chuyến đi.
+- Quản lý người tham gia.
+- Ghi khoản thu, khoản chi.
+- Theo dõi người xem/chuyến đi theo quyền được gắn.
+- Có đường dẫn legacy tự chuyển về `/thu-chi/...`.
+
+## Giải trí
+
+Trang `Giải trí` có ba công cụ và mỗi công cụ có nút `Hướng dẫn sử dụng` ngay cạnh nút mở.
+
+### Ghi điểm đánh bài
 
 - Tạo ván ghi điểm.
-- Thêm người chơi vào ván.
-- Dùng xúc xắc để chọn ngẫu nhiên người đánh trước nếu cần.
-- Nhập điểm từng trận cho từng người.
-- Xem bảng xếp hạng và bảng điểm cuối ván khi kết thúc.
+- Thêm người chơi.
+- Ghi điểm từng trận.
+- Dùng xúc xắc chọn người đánh trước.
+- Xem bảng xếp hạng và kết thúc ván.
 
-## Tố liêng
+### Tố liêng
 
-- Tạo bàn với min cược và max cược tùy chọn.
-- Người chơi tự thêm mình vào bàn.
-- Có thể quay vị trí để sắp xếp lượt.
-- Người chơi tố hoặc bỏ theo lượt trong thời gian quy định.
-- Người thắng nhận pot, hệ thống tự cộng điểm và ghi lịch sử.
+- Tạo bàn với min/max cược.
+- Người chơi tự vào bàn.
+- Quay vị trí.
+- Tố hoặc bỏ theo lượt.
+- Tự cộng pot cho người thắng.
+- Lưu lịch sử hành động.
 
-## 3 cây
+### 3 cây
 
 Luồng cơ bản:
 
-1. Tạo bàn với min cược và max cược tùy chọn.
+1. Tạo bàn với min/max cược.
 2. Người chơi tự thêm mình vào bàn.
 3. Quay hoặc chọn chương.
-4. Chương bấm `Bắt đầu ván`.
-5. Người không phải chương có 20 giây để đặt cược.
-6. Chương chốt từng người là `Thắng` hoặc `Thua`, chọn hệ số trả thưởng x1, x2, x3 hoặc x4.
-7. Hệ thống cộng/trừ điểm giữa chương và từng người chơi, ghi lịch sử, rồi đưa bàn về trạng thái chờ ván mới.
+4. Chương bắt đầu ván.
+5. Người không phải chương có 20 giây đặt cược.
+6. Chương chốt từng người thắng/thua và chọn hệ số x1, x2, x3 hoặc x4.
+7. Hệ thống cộng/trừ điểm và ghi lịch sử.
 
-### Gửi điểm trong 3 cây
+Tính năng gửi điểm:
 
-Trong thời gian đặt cược, người không phải chương có thể gửi điểm sang người chơi khác:
+- Người không phải chương có thể gửi điểm sang người chơi khác trong thời gian đặt cược.
+- Nút `1x`: gửi `min điểm x 1`.
+- Nút `2x`: gửi `min điểm x 2`.
+- Không gửi sang chương và không gửi sang chính mình.
+- Khoản gửi đi theo kết quả của người được gửi.
+- Nếu A gửi theo B và B thắng chương x3, A cũng thắng khoản gửi x3 từ chương.
+- Nếu B thua chương x3, A cũng thua khoản gửi x3 cho chương.
+- Dữ liệu gửi điểm lưu ở `entertainment_ba_cay_point_transfers`.
 
-- Nút `1x`: gửi một khoản bằng `min điểm x 1`.
-- Nút `2x`: gửi một khoản bằng `min điểm x 2`.
-- Không được gửi sang chương.
-- Không được gửi sang chính mình.
-- Có thể gửi nhiều lần nếu muốn ghi nhiều khoản riêng.
+## PWA và giao diện
 
-Khoản gửi không chuyển điểm trực tiếp cho người nhận. Khoản gửi đi theo kết quả của người nhận khi chương chốt ván.
+- Có manifest, service worker và icon.
+- Có partial `_pwa_head.html`, `_pwa_register.html`.
+- Có feedback tương tác qua `_interaction_feedback.html` và `static/interaction-feedback.js`.
 
-Ví dụ:
+## Bảng dữ liệu chính
 
-- Bàn có min điểm là 10.
-- A bấm `2x` gửi theo B, khoản gửi là 20 điểm.
-- Nếu chương chốt B thắng x3, B được cộng tiền cược x3 từ chương, đồng thời A cũng được cộng `20 x 3 = 60` điểm từ chương.
-- Nếu chương chốt B thua x3, B bị trừ tiền cược x3 trả cho chương, đồng thời A cũng bị trừ `20 x 3 = 60` điểm trả cho chương.
-
-Các khoản gửi đang chờ được hiển thị trong bàn chơi và được ghi lại trong lịch sử khi chốt ván.
-
-## Dữ liệu 3 cây liên quan
-
-- `entertainment_ba_cay_games`: thông tin bàn, trạng thái, min/max cược, chương và hạn đặt cược.
-- `entertainment_ba_cay_participants`: người chơi, ghế, cược hiện tại và tổng điểm.
-- `entertainment_ba_cay_actions`: lịch sử thao tác và kết quả.
-- `entertainment_ba_cay_point_transfers`: các khoản gửi điểm 1x/2x theo từng ván.
+- `users`: tài khoản admin.
+- `user_clients`: VĐV nhập tay.
+- `giai_dau`: giải đấu.
+- `dang_ky_giai`: đăng ký giải của VĐV nhập tay.
+- `dang_ky_giai_ngoai`: đăng ký ngoài theo từng giải.
+- `tran_dau`: lịch và điểm trận đấu.
+- `giai_dau_admin_quyen`: phân quyền admin theo giải.
+- `doi_bong`: đội bóng.
+- `doi_bong_thanh_vien`: thành viên đội.
+- `doi_bong_dong_phi`: đóng phí đội theo tháng.
+- `doi_bong_khoan_chi`: khoản chi đội.
+- `entertainment_*`: các bảng giải trí, ghi điểm, tố liêng và 3 cây.
+- `app_logs`, `user_actions`: log hệ thống và thao tác.
 
 ## Kiểm tra nhanh
 
 ```bash
-python -m py_compile app.py models.py schema.py
+python -m py_compile app.py models.py schema.py validators.py
 ```

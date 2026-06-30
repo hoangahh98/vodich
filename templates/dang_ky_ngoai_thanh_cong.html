@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký thành công</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <main class="container py-5" style="max-width: 680px;">
+        <section class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <div class="alert alert-success">
+                    <h1 class="h4 fw-bold mb-2">Đăng ký thành công</h1>
+                    <div>{{ display_name }} đã được thêm vào giải <strong>{{ giai.ten_giai_dau }}</strong>.</div>
+                </div>
+                <div class="border rounded p-3 bg-light mb-3">
+                    <div class="fw-bold mb-2">Thông tin đăng nhập</div>
+                    <div>Email: <code>{{ email }}</code></div>
+                    <div>Mật khẩu: <code>{{ password }}</code></div>
+                </div>
+                <div class="d-flex gap-2 flex-wrap">
+                    <a class="btn btn-primary" href="{{ login_url }}">Đăng nhập</a>
+                    <a class="btn btn-outline-primary" href="{{ tournament_url }}">Link xem giải</a>
+                </div>
+                <div class="form-text mt-3">Sau khi đăng nhập bằng email trên, màn hình VĐV sẽ hiển thị các giải đã đăng ký bằng email này.</div>
+            </div>
+        </section>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>

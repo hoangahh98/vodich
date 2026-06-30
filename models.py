@@ -259,7 +259,8 @@ class TournamentModel:
                            COALESCE(g.loai_dau, 'don'), COALESCE(g.diem_cham, 11), COALESCE(g.diem_toi_da, 15),
                            g.tien_giai_1, g.tien_giai_2, g.tien_giai_3, g.owner_admin_id,
                            COALESCE(g.the_thuc, 'vong_tron'), COALESCE(g.so_doi_moi_bang, 4),
-                           COALESCE(g.so_bang, 2), COALESCE(g.so_doi_vao_vong_trong, 8)
+                           COALESCE(g.so_bang, 2), COALESCE(g.so_doi_vao_vong_trong, 8),
+                           COALESCE(g.cho_phep_dang_ky_ngoai, FALSE)
                     FROM giai_dau g
                     LEFT JOIN giai_dau_admin_quyen q ON g.id = q.giai_dau_id AND q.admin_id = %s
                     WHERE g.id = %s AND (g.owner_admin_id = %s OR q.admin_id IS NOT NULL);
@@ -273,7 +274,8 @@ class TournamentModel:
                            COALESCE(loai_dau, 'don'), COALESCE(diem_cham, 11), COALESCE(diem_toi_da, 15),
                            tien_giai_1, tien_giai_2, tien_giai_3, owner_admin_id,
                            COALESCE(the_thuc, 'vong_tron'), COALESCE(so_doi_moi_bang, 4),
-                           COALESCE(so_bang, 2), COALESCE(so_doi_vao_vong_trong, 8)
+                           COALESCE(so_bang, 2), COALESCE(so_doi_vao_vong_trong, 8),
+                           COALESCE(cho_phep_dang_ky_ngoai, FALSE)
                     FROM giai_dau WHERE id = %s;
                 """, (giai_id,))
             return cursor.fetchone()
@@ -335,18 +337,53 @@ class DangKyGiaiModel:
     """Đăng ký giải (Registration)"""
 
     @staticmethod
-    def get_by_tournament(giai_id):
-        """Get all registrations for tournament"""
+    def _external_row(row):
+        return (
+            f"external_{row[0]}",
+            f"external_{row[0]}",
+            row[1],
+            row[2],
+            row[3],
+            row[4],
+            row[5],
+            row[6],
+            "external",
+            row[0],
+            row[7],
+        )
+
+    @staticmethod
+    def get_external_by_tournament(giai_id, status='active'):
+        with db_cursor() as cursor:
+            cursor.execute("""
+                SELECT id, display_name, skill_level, email, so_tien_da_dong,
+                       trang_thai_dong_tien, notes, registration_status
+                FROM dang_ky_giai_ngoai
+                WHERE giai_dau_id = %s AND registration_status = %s
+                ORDER BY display_name ASC;
+            """, (giai_id, status))
+            return [DangKyGiaiModel._external_row(row) for row in cursor.fetchall()]
+
+    @staticmethod
+    def get_by_tournament(giai_id, status='active'):
+        """Get all active registrations for tournament, including external signups."""
         with db_cursor() as cursor:
             cursor.execute("""
                 SELECT dkg.id, dkg.user_client_id, vdv.display_name, vdv.skill_level, vdv.email,
-                       dkg.so_tien_da_dong, dkg.trang_thai_dong_tien, dkg.notes
+                       dkg.so_tien_da_dong, dkg.trang_thai_dong_tien, dkg.notes,
+                       'internal' AS source, dkg.id AS source_id, dkg.registration_status
                 FROM dang_ky_giai dkg
                 INNER JOIN user_clients vdv ON dkg.user_client_id = vdv.id
-                WHERE dkg.giai_dau_id = %s
+                WHERE dkg.giai_dau_id = %s AND dkg.registration_status = %s
                 ORDER BY vdv.display_name ASC;
-            """, (giai_id,))
-            return cursor.fetchall()
+            """, (giai_id, status))
+            rows = list(cursor.fetchall())
+        rows.extend(DangKyGiaiModel.get_external_by_tournament(giai_id, status=status))
+        return sorted(rows, key=lambda row: (row[2] or '').lower())
+
+    @staticmethod
+    def get_withdrawn_by_tournament(giai_id):
+        return DangKyGiaiModel.get_by_tournament(giai_id, status='withdrawn')
 
     @staticmethod
     def get_by_vdv(vdv_id):
@@ -360,10 +397,43 @@ class DangKyGiaiModel:
                        dkg.so_tien_da_dong, dkg.trang_thai_dong_tien
                 FROM dang_ky_giai dkg
                 INNER JOIN giai_dau g ON dkg.giai_dau_id = g.id
-                WHERE dkg.user_client_id = %s
+                WHERE dkg.user_client_id = %s AND dkg.registration_status = 'active'
                 ORDER BY g.id DESC;
             """, (vdv_id,))
             return cursor.fetchall()
+
+    @staticmethod
+    def get_external_by_email(email, status='active'):
+        email = (email or '').strip().lower()
+        if not email:
+            return []
+        with db_cursor() as cursor:
+            cursor.execute("""
+                SELECT dke.id, dke.giai_dau_id, g.ten_giai_dau, g.so_luong_san, g.dia_diem,
+                       g.chi_phi_san_bai, g.chi_phi_nuoc_noi, g.chi_phi_giai_thuong, g.chi_phi_khac,
+                       g.ty_le_giai_1, g.ty_le_giai_2, g.ty_le_giai_3, g.so_nguoi_du_kien,
+                       g.thoi_gian_bat_dau, g.banner_image, g.qr_image,
+                       dke.so_tien_da_dong, dke.trang_thai_dong_tien
+                FROM dang_ky_giai_ngoai dke
+                INNER JOIN giai_dau g ON dke.giai_dau_id = g.id
+                WHERE lower(dke.email) = lower(%s) AND dke.registration_status = %s
+                ORDER BY g.id DESC;
+            """, (email, status))
+            return cursor.fetchall()
+
+    @staticmethod
+    def is_external_registered(giai_id, email):
+        email = (email or '').strip().lower()
+        if not email:
+            return False
+        with db_cursor() as cursor:
+            cursor.execute("""
+                SELECT 1
+                FROM dang_ky_giai_ngoai
+                WHERE giai_dau_id = %s AND lower(email) = lower(%s) AND registration_status = 'active'
+                LIMIT 1;
+            """, (giai_id, email))
+            return cursor.fetchone() is not None
 
     @staticmethod
     def is_vdv_registered(giai_id, vdv_id):
@@ -373,7 +443,7 @@ class DangKyGiaiModel:
             cursor.execute("""
                 SELECT 1
                 FROM dang_ky_giai
-                WHERE giai_dau_id = %s AND user_client_id = %s
+                WHERE giai_dau_id = %s AND user_client_id = %s AND registration_status = 'active'
                 LIMIT 1;
             """, (giai_id, vdv_id))
             return cursor.fetchone() is not None
@@ -392,11 +462,34 @@ class DangKyGiaiModel:
                 FROM dang_ky_giai dkg
                 INNER JOIN user_clients vdv ON dkg.user_client_id = vdv.id
                 WHERE dkg.giai_dau_id = ANY(%s)
+                  AND dkg.registration_status = 'active'
                 ORDER BY dkg.giai_dau_id DESC, vdv.display_name ASC;
             """, (ids,))
             grouped = {giai_id: [] for giai_id in ids}
             for row in cursor.fetchall():
                 grouped.setdefault(row[0], []).append(row[1:])
+            cursor.execute("""
+                SELECT dke.giai_dau_id, dke.id, dke.display_name, dke.skill_level, dke.email,
+                       dke.so_tien_da_dong, dke.trang_thai_dong_tien, dke.notes
+                FROM dang_ky_giai_ngoai dke
+                WHERE dke.giai_dau_id = ANY(%s)
+                  AND dke.registration_status = 'active'
+                ORDER BY dke.giai_dau_id DESC, dke.display_name ASC;
+            """, (ids,))
+            for row in cursor.fetchall():
+                grouped.setdefault(row[0], []).append((
+                    f"external_{row[1]}",
+                    f"external_{row[1]}",
+                    row[2],
+                    row[3],
+                    row[4],
+                    row[5],
+                    row[6],
+                    row[7],
+                    "external",
+                    row[1],
+                    "active",
+                ))
             return grouped
 
     @staticmethod
@@ -447,9 +540,67 @@ class DangKyGiaiModel:
 
     @staticmethod
     def remove(dang_ky_id):
-        """Remove VĐV from tournament"""
+        """Withdraw VĐV from tournament without deleting the registration row."""
         with db_cursor(commit=True) as cursor:
-            cursor.execute("DELETE FROM dang_ky_giai WHERE id = %s;", (dang_ky_id,))
+            cursor.execute("""
+                UPDATE dang_ky_giai
+                SET registration_status = 'withdrawn', withdrawn_at = CURRENT_TIMESTAMP
+                WHERE id = %s;
+            """, (dang_ky_id,))
+
+    @staticmethod
+    def restore(dang_ky_id):
+        with db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                UPDATE dang_ky_giai
+                SET registration_status = 'active', withdrawn_at = NULL
+                WHERE id = %s;
+            """, (dang_ky_id,))
+
+    @staticmethod
+    def create_external(giai_id, display_name, email, skill_level):
+        display_name = (display_name or '').strip()
+        email = (email or '').strip().lower()
+        skill_level = (skill_level or 'C').strip().upper()
+        with db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                INSERT INTO dang_ky_giai_ngoai (giai_dau_id, display_name, email, skill_level)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (giai_dau_id, email)
+                DO UPDATE SET display_name = EXCLUDED.display_name,
+                              skill_level = EXCLUDED.skill_level,
+                              registration_status = 'active',
+                              withdrawn_at = NULL
+                RETURNING id;
+            """, (giai_id, display_name, email, skill_level))
+            return cursor.fetchone()[0]
+
+    @staticmethod
+    def update_external_payment(external_id, so_tien, trang_thai):
+        with db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                UPDATE dang_ky_giai_ngoai
+                SET so_tien_da_dong=%s, trang_thai_dong_tien=%s
+                WHERE id=%s;
+            """, (so_tien, trang_thai, external_id))
+
+    @staticmethod
+    def withdraw_external(external_id):
+        with db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                UPDATE dang_ky_giai_ngoai
+                SET registration_status = 'withdrawn', withdrawn_at = CURRENT_TIMESTAMP
+                WHERE id = %s;
+            """, (external_id,))
+
+    @staticmethod
+    def restore_external(external_id):
+        with db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                UPDATE dang_ky_giai_ngoai
+                SET registration_status = 'active', withdrawn_at = NULL
+                WHERE id = %s;
+            """, (external_id,))
 
 class DoiBongModel:
     """Team management and monthly fee tracking."""

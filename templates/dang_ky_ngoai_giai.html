@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng ký {{ giai.ten_giai_dau }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    {% include '_pwa_head.html' %}
+</head>
+<body class="bg-light">
+    <main class="container py-5" style="max-width: 620px;">
+        <section class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <div class="mb-4">
+                    <h1 class="h4 fw-bold mb-1">Đăng ký giải đấu</h1>
+                    <div class="text-success fw-semibold">{{ giai.ten_giai_dau }}</div>
+                    <div class="text-muted small">
+                        {{ giai.dia_diem or 'Chưa có địa điểm' }}
+                        {% if giai.thoi_gian_bat_dau %} · {{ giai.thoi_gian_bat_dau.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+                    </div>
+                </div>
+
+                {% if errors %}
+                <div class="alert alert-danger">
+                    <ul class="mb-0">
+                        {% for error in errors %}
+                        <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <form method="post">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Họ tên</label>
+                        <input class="form-control" name="display_name" value="{{ form_data.get('display_name', '') }}" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email</label>
+                        <input class="form-control" type="email" name="email" value="{{ form_data.get('email', '') }}" required>
+                        <div class="form-text">Email này dùng để đăng nhập xem giải sau khi đăng ký.</div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Trình độ</label>
+                        <div class="btn-group w-100" role="group">
+                            {% for level in ['A', 'B', 'C', 'D'] %}
+                            <input class="btn-check" type="radio" name="skill_level" value="{{ level }}" id="skill{{ level }}"
+                                   {% if (form_data.get('skill_level') or 'C') == level %}checked{% endif %}>
+                            <label class="btn btn-outline-primary" for="skill{{ level }}">{{ level }}</label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <button class="btn btn-success w-100 fw-bold" data-loading-text="Đang đăng ký...">Đăng ký</button>
+                </form>
+            </div>
+        </section>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+{% include '_pwa_register.html' %}
+{% include '_interaction_feedback.html' %}
+</body>
+</html>

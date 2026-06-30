@@ -265,6 +265,15 @@ BTC</textarea>
                         <span>👥 VẬN ĐỘNG VIÊN ({{ registrations|length }}/{{ giai.so_nguoi_du_kien }})</span>
                     </div>
                     <div class="card-body p-3">
+                        {% if giai.cho_phep_dang_ky_ngoai %}
+                        <div class="alert alert-info py-2 small">
+                            <div class="fw-semibold mb-1">Link đăng ký ngoài</div>
+                            <div class="input-group input-group-sm">
+                                <input class="form-control" id="externalRegisterLink" value="{{ base_url }}/giai-dau/{{ giai.id }}/dang-ky-ngoai" readonly>
+                                <button class="btn btn-outline-primary" type="button" onclick="copyText('externalRegisterLink', this)">Copy</button>
+                            </div>
+                        </div>
+                        {% endif %}
 
                         <!-- Thanh tiến trình -->
                         {% set pct = (registrations|length / giai.so_nguoi_du_kien * 100) if giai.so_nguoi_du_kien else 0 %}
@@ -286,7 +295,7 @@ BTC</textarea>
                         <div class="table-responsive frozen-table-wrap mb-2" style="max-height:200px;">
                             <table class="table table-sm table-hover mb-0 frozen-table">
                                 <thead class="table-light">
-                                    <tr><th class="sticky-col">Tên VĐV</th><th style="width:50px">Trình</th><th style="width:70px">Đóng phí</th><th style="width:40px"></th></tr>
+                                    <tr><th class="sticky-col">Tên VĐV</th><th style="width:50px">Trình</th><th style="width:70px">Đóng phí</th><th style="width:70px">Nguồn</th><th style="width:70px"></th></tr>
                                 </thead>
                                 <tbody>
                                 {% for reg in registrations %}
@@ -294,10 +303,17 @@ BTC</textarea>
                                     <td class="fw-semibold sticky-col">{{ reg[2] }}</td>
                                     <td><span class="badge bg-secondary">{{ reg[3] }}</span></td>
                                     <td class="small text-muted">{{ "{:,.0f}".format(reg[5] or 0) }}đ</td>
+                                    <td><span class="badge {{ 'bg-info text-dark' if reg|length > 8 and reg[8] == 'external' else 'bg-light text-dark' }}">{{ 'Ngoài' if reg|length > 8 and reg[8] == 'external' else 'Có sẵn' }}</span></td>
                                     <td>
+                                        {% if reg|length > 8 and reg[8] == 'external' %}
+                                        <a href="/dang-ky-giai-ngoai/{{ reg[9] }}/bo-giai"
+                                           class="btn btn-sm btn-outline-warning py-0 px-1"
+                                           onclick="return confirm('Cho {{ reg[2] }} bỏ giải?')" style="font-size:11px;">Bỏ</a>
+                                        {% else %}
                                         <a href="/dang-ky-giai/{{ reg[0] }}/xoa"
-                                           class="btn btn-sm btn-outline-danger py-0 px-1"
-                                           onclick="return confirm('Xóa {{ reg[2] }} khỏi giải?')" style="font-size:11px;">🗑</a>
+                                           class="btn btn-sm btn-outline-warning py-0 px-1"
+                                           onclick="return confirm('Cho {{ reg[2] }} bỏ giải?')" style="font-size:11px;">Bỏ</a>
+                                        {% endif %}
                                     </td>
                                 </tr>
                                 {% endfor %}
@@ -345,6 +361,28 @@ BTC</textarea>
                                 Hết VĐV trong danh sách. Hãy thêm VĐV ở trang quản lý vận động viên.
                             </div>
                             {% endif %}
+                        {% endif %}
+
+                        {% if withdrawn_registrations %}
+                        <div class="border-top mt-3 pt-3">
+                            <div class="fw-bold small text-muted mb-2">Bỏ giải</div>
+                            <div class="list-group list-group-flush">
+                                {% for reg in withdrawn_registrations %}
+                                <div class="list-group-item px-0 py-2 d-flex justify-content-between align-items-center gap-2">
+                                    <div class="small">
+                                        <span class="fw-semibold">{{ reg[2] }}</span>
+                                        <span class="badge bg-secondary ms-1">{{ reg[3] }}</span>
+                                        <span class="badge {{ 'bg-info text-dark' if reg|length > 8 and reg[8] == 'external' else 'bg-light text-dark' }} ms-1">{{ 'Ngoài' if reg|length > 8 and reg[8] == 'external' else 'Có sẵn' }}</span>
+                                    </div>
+                                    {% if reg|length > 8 and reg[8] == 'external' %}
+                                    <a class="btn btn-sm btn-outline-success" href="/dang-ky-giai-ngoai/{{ reg[9] }}/khoi-phuc">Khôi phục</a>
+                                    {% else %}
+                                    <a class="btn btn-sm btn-outline-success" href="/dang-ky-giai/{{ reg[0] }}/khoi-phuc">Khôi phục</a>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
                         {% endif %}
                     </div>
                 </div>

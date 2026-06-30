@@ -130,6 +130,13 @@
                         <input type="number" name="so_nguoi_du_kien" class="form-control" value="{{ form_data.get('so_nguoi_du_kien', 10) if form_data else 10 }}" required>
                     </div>
 
+                    <div class="form-check form-switch border rounded bg-light p-3 mb-3">
+                        <input class="form-check-input ms-0 me-2" type="checkbox" role="switch" name="cho_phep_dang_ky_ngoai" value="1" id="choPhepDangKyNgoai"
+                               {% if form_data and form_data.get('cho_phep_dang_ky_ngoai') %}checked{% endif %}>
+                        <label class="form-check-label fw-semibold" for="choPhepDangKyNgoai">Cho phép đăng ký ngoài</label>
+                        <div class="form-text">Bật để tạo link cho VĐV tự đăng ký bằng họ tên, email và trình độ A/B/C/D.</div>
+                    </div>
+
                     <!-- CHI PHÍ -->
                     <div class="card bg-light mb-3">
                         <div class="card-body">

@@ -25,6 +25,8 @@ import traceback
 import time
 from datetime import date, datetime
 from validators import (
+    EMAIL_RE,
+    VALID_TRINH_DO,
     normalize_tournament_form,
     normalize_vdv_form,
     normalize_team_form,
@@ -191,6 +193,7 @@ def _giai_tuple_from_form(giai_id, form_data):
         form_data.get('so_doi_moi_bang', 4),
         form_data.get('so_bang', 2),
         form_data.get('so_doi_vao_vong_trong', 2),
+        form_data.get('cho_phep_dang_ky_ngoai', False),
     )
 
 
@@ -2058,8 +2061,8 @@ def them_giai_dau():
                     (ten_giai_dau, so_luong_san, dia_diem,
                      chi_phi_san_bai, chi_phi_nuoc_noi, chi_phi_giai_thuong, chi_phi_khac,
                      ty_le_giai_1, ty_le_giai_2, ty_le_giai_3, so_nguoi_du_kien, thoi_gian_bat_dau, loai_dau,
-                     owner_admin_id, the_thuc, so_doi_moi_bang, so_bang, so_doi_vao_vong_trong)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
+                     owner_admin_id, the_thuc, so_doi_moi_bang, so_bang, so_doi_vao_vong_trong, cho_phep_dang_ky_ngoai)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
             """, (
                 form_data['ten_giai_dau'],
                 form_data['so_luong_san'],
@@ -2078,7 +2081,8 @@ def them_giai_dau():
                 form_data['the_thuc'],
                 form_data['so_doi_moi_bang'],
                 form_data['so_bang'],
-                form_data['so_doi_vao_vong_trong']
+                form_data['so_doi_vao_vong_trong'],
+                form_data['cho_phep_dang_ky_ngoai']
             ))
         DBLogger.log_success(f"Tournament created: {form_data['ten_giai_dau']} ({loai_dau})", user.get('email'), '/them-giai-dau')
         return redirect('/giai-dau')
@@ -2120,7 +2124,8 @@ def sua_giai_dau(giai_id):
                     ty_le_giai_1=%s, ty_le_giai_2=%s, ty_le_giai_3=%s,
                     so_nguoi_du_kien=%s, thoi_gian_bat_dau=%s, loai_dau=%s,
                     diem_cham=%s, diem_toi_da=%s,
-                    the_thuc=%s, so_doi_moi_bang=%s, so_bang=%s, so_doi_vao_vong_trong=%s
+                    the_thuc=%s, so_doi_moi_bang=%s, so_bang=%s, so_doi_vao_vong_trong=%s,
+                    cho_phep_dang_ky_ngoai=%s
                 WHERE id=%s;
             """, (
                 form_data['ten_giai_dau'],
@@ -2142,6 +2147,7 @@ def sua_giai_dau(giai_id):
                 form_data['so_doi_moi_bang'],
                 form_data['so_bang'],
                 form_data['so_doi_vao_vong_trong'],
+                form_data['cho_phep_dang_ky_ngoai'],
                 giai_id
             ))
         DBLogger.log_success(f"Tournament {giai_id} updated ({loai_dau})", user.get('email'), f'/sua-giai-dau/{giai_id}')
@@ -2178,6 +2184,7 @@ def chi_tiet_giai_admin(giai_id):
             return "Không có quyền xem giải đấu này", 403
 
         registrations = DangKyGiaiModel.get_by_tournament(giai_id)
+        withdrawn_registrations = DangKyGiaiModel.get_withdrawn_by_tournament(giai_id)
         all_vdv = VanDongVienModel.get_available_for_tournament(giai_id)
         matches = MatchModel.get_all_by_tournament(giai_id)
 
@@ -2205,6 +2212,7 @@ def chi_tiet_giai_admin(giai_id):
         giai_detail['so_doi_moi_bang'] = int(giai_raw[23] if len(giai_raw) > 23 and giai_raw[23] else 4)
         giai_detail['so_bang'] = int(giai_raw[24] if len(giai_raw) > 24 and giai_raw[24] else 2)
         giai_detail['so_doi_vao_vong_trong'] = int(giai_raw[25] if len(giai_raw) > 25 and giai_raw[25] else 2)
+        giai_detail['cho_phep_dang_ky_ngoai'] = bool(giai_raw[26] if len(giai_raw) > 26 else False)
 
         # Build vong_dict: { vong_number: [match_dict, ...] } for the template
         vong_dict = {}
@@ -2246,6 +2254,7 @@ def chi_tiet_giai_admin(giai_id):
             'chi_tiet_giai_admin.html',
             giai=giai_detail,
             registrations=registrations,
+            withdrawn_registrations=withdrawn_registrations,
             canh_bao=canh_bao,
             enumerate=enumerate,
             base_url=BASE_URL,
@@ -2304,10 +2313,64 @@ def dang_ky_vdv(giai_id):
         DBLogger.log_error(f"Error registering VĐV: {str(e)}", user.get('email'), f'/giai-dau/{giai_id}/dang-ky', context=traceback.format_exc())
         return f"❌ Error: {str(e)}", 500
 
+
+@app.route('/giai-dau/<int:giai_id>/dang-ky-ngoai', methods=['GET', 'POST'])
+def dang_ky_ngoai_giai(giai_id):
+    try:
+        giai_raw = TournamentModel.get_details(giai_id)
+        if not giai_raw:
+            return "Không tìm thấy giải đấu", 404
+        allow_external = bool(giai_raw[26] if len(giai_raw) > 26 else False)
+        if not allow_external:
+            return "Giải đấu này chưa mở đăng ký ngoài", 403
+
+        registrations = DangKyGiaiModel.get_by_tournament(giai_id)
+        giai_detail = prepare_tournament_detail(giai_raw, registrations)
+        giai_detail['cho_phep_dang_ky_ngoai'] = allow_external
+
+        if request.method == 'GET':
+            return render_template('dang_ky_ngoai_giai.html', giai=giai_detail, form_data={}, errors=[])
+
+        display_name = (request.form.get('display_name') or '').strip()
+        email = (request.form.get('email') or '').strip().lower()
+        skill_level = (request.form.get('skill_level') or 'C').strip().upper()
+        errors = []
+        if not display_name:
+            errors.append("Họ tên không được để trống.")
+        if not email:
+            errors.append("Email không được để trống.")
+        elif not EMAIL_RE.match(email):
+            errors.append("Email không đúng định dạng.")
+        if skill_level not in VALID_TRINH_DO:
+            errors.append("Trình độ chỉ được chọn A, B, C hoặc D.")
+
+        so_nguoi_du_kien = giai_raw[11] if giai_raw and giai_raw[11] else 0
+        if so_nguoi_du_kien and len(registrations) >= so_nguoi_du_kien:
+            errors.append("Giải đã đủ số người dự kiến.")
+
+        form_data = {"display_name": display_name, "email": email, "skill_level": skill_level}
+        if errors:
+            return render_template('dang_ky_ngoai_giai.html', giai=giai_detail, form_data=form_data, errors=errors), 400
+
+        external_id = DangKyGiaiModel.create_external(giai_id, display_name, email, skill_level)
+        DBLogger.log_success(f"External registration {external_id} for tournament {giai_id}", email, f'/giai-dau/{giai_id}/dang-ky-ngoai')
+        return render_template(
+            'dang_ky_ngoai_thanh_cong.html',
+            giai=giai_detail,
+            display_name=display_name,
+            email=email,
+            password='123456789',
+            login_url=url_for('login', _external=True),
+            tournament_url=url_for('chi_tiet_giai_vdv', giai_id=giai_id, _external=True),
+        )
+    except Exception as e:
+        DBLogger.log_error(f"External registration error: {str(e)}", request.form.get('email'), f'/giai-dau/{giai_id}/dang-ky-ngoai', context=traceback.format_exc())
+        return f"❌ Error: {str(e)}", 500
+
 @app.route('/dang-ky-giai/<int:dang_ky_id>/xoa')
 @admin_required
 def xoa_dang_ky(dang_ky_id):
-    """Xóa đăng ký"""
+    """Bỏ giải cho đăng ký nội bộ, không xóa dữ liệu."""
     user = session.get('user', {})
     try:
         with db_cursor() as cursor:
@@ -2318,7 +2381,7 @@ def xoa_dang_ky(dang_ky_id):
             return "Khong co quyen cap nhat giai dau nay", 403
 
         DangKyGiaiModel.remove(dang_ky_id)
-        DBLogger.log_success(f"Registration {dang_ky_id} removed", user.get('email'), f'/dang-ky-giai/{dang_ky_id}/xoa')
+        DBLogger.log_success(f"Registration {dang_ky_id} withdrawn", user.get('email'), f'/dang-ky-giai/{dang_ky_id}/xoa')
         return redirect(f'/giai-dau/{giai_id}/admin')
     except Exception as e:
         DBLogger.log_error(f"Error removing registration: {str(e)}", user.get('email'), f'/dang-ky-giai/{dang_ky_id}/xoa', context=traceback.format_exc())
@@ -2471,14 +2534,21 @@ def cap_nhat_tien_hang_loat(giai_id):
         if not _get_tournament_for_admin_or_403(giai_id, user):
             return "Khong co quyen cap nhat giai dau nay", 403
         registrations = DangKyGiaiModel.get_by_tournament(giai_id)
-        updates = []
+        internal_updates = []
+        external_updates = []
         for reg in registrations:
             reg_id = reg[0]
             so_tien = request.form.get(f'tien_{reg_id}', 0)
             trang_thai = request.form.get(f'trang_thai_{reg_id}', 'Chưa đóng')
             so_tien = _money_from_form(so_tien)
-            updates.append((reg_id, so_tien, trang_thai))
-        updated = DangKyGiaiModel.update_payments(updates)
+            if str(reg_id).startswith('external_'):
+                external_updates.append((int(str(reg_id).split('_', 1)[1]), so_tien, trang_thai))
+            else:
+                internal_updates.append((reg_id, so_tien, trang_thai))
+        updated = DangKyGiaiModel.update_payments(internal_updates)
+        for external_id, so_tien, trang_thai in external_updates:
+            DangKyGiaiModel.update_external_payment(external_id, so_tien, trang_thai)
+        updated += len(external_updates)
         DBLogger.log_success(f"Batch payment update: {updated} records for tournament {giai_id}", user.get('email'), f'/giai-dau/{giai_id}/cap-nhat-tien-hang-loat')
         return redirect(f'/giai-dau/{giai_id}/admin')
     except Exception as e:
@@ -2610,7 +2680,10 @@ def live_scores_giai_dau(giai_id):
         if user.get('role') == 'admin':
             can_view = bool(_get_tournament_for_admin_or_403(giai_id, user))
         elif user.get('role') == 'vdv':
-            can_view = DangKyGiaiModel.is_vdv_registered(giai_id, user.get('id'))
+            can_view = (
+                (isinstance(user.get('id'), int) and DangKyGiaiModel.is_vdv_registered(giai_id, user.get('id')))
+                or DangKyGiaiModel.is_external_registered(giai_id, user.get('email'))
+            )
 
         if not can_view:
             return jsonify({'success': False, 'error': 'Khong co quyen xem giai dau nay'}), 403
@@ -2669,9 +2742,19 @@ def login():
         if role == 'admin':
             user, error = AuthService.login_admin(login_name, password)
         else:
-            vdv = VanDongVienModel.get_by_email(email)
+            vdv = VanDongVienModel.get_by_email(login_name)
             if vdv and password == '123456789':
                 user = {"id": vdv[0], "ten": vdv[1], "email": vdv[2], "role": "vdv", "display_name": vdv[1]}
+                error = None
+            elif DangKyGiaiModel.get_external_by_email(login_name) and password == '123456789':
+                user = {
+                    "id": f"external:{login_name}",
+                    "ten": login_name,
+                    "email": login_name,
+                    "role": "vdv",
+                    "display_name": login_name,
+                    "external_registration": True,
+                }
                 error = None
             else:
                 user, error = None, "Email hoặc mật khẩu sai"
@@ -2841,8 +2924,11 @@ def vdv_dashboard():
         return redirect(url_for('login'))
 
     try:
-        vdv_id = user['id']
-        tournaments_raw = DangKyGiaiModel.get_by_vdv(vdv_id)
+        vdv_id = user.get('id')
+        tournaments_raw = []
+        if isinstance(vdv_id, int):
+            tournaments_raw.extend(DangKyGiaiModel.get_by_vdv(vdv_id))
+        tournaments_raw.extend(DangKyGiaiModel.get_external_by_email(user.get('email')))
         registrations_by_tournament = DangKyGiaiModel.get_by_tournaments([row[1] for row in tournaments_raw])
 
         vdv_giai = []
@@ -2856,8 +2942,8 @@ def vdv_dashboard():
                 DBLogger.log_error(f"Error loading tournament for VĐV: {str(e)}", user.get('email'), '/vdv-dashboard', context=traceback.format_exc())
                 continue
 
-        vdv_doi_bong = DoiBongModel.get_by_vdv(vdv_id)
-        travel_trips = TravelTripModel.all_for_viewer(vdv_id, user.get('email'))
+        vdv_doi_bong = DoiBongModel.get_by_vdv(vdv_id) if isinstance(vdv_id, int) else []
+        travel_trips = TravelTripModel.all_for_viewer(vdv_id if isinstance(vdv_id, int) else None, user.get('email'))
         return render_template(
             'vdv_dashboard.html',
             vdv_giai=vdv_giai,
@@ -2918,9 +3004,11 @@ def chi_tiet_giai_vdv(giai_id):
         return redirect(url_for('login'))
 
     try:
-        vdv_id = user['id']
-        tournaments = DangKyGiaiModel.get_by_vdv(vdv_id)
-        if not any(t[1] == giai_id for t in tournaments):
+        vdv_id = user.get('id')
+        can_view = (
+            isinstance(vdv_id, int) and DangKyGiaiModel.is_vdv_registered(giai_id, vdv_id)
+        ) or DangKyGiaiModel.is_external_registered(giai_id, user.get('email'))
+        if not can_view:
             return "❌ Không có quyền", 403
 
         giai_raw = TournamentModel.get_details(giai_id)
@@ -2981,6 +3069,63 @@ def chi_tiet_giai_vdv(giai_id):
         )
     except Exception as e:
         DBLogger.log_error(f"Error loading tournament: {str(e)}", user.get('email'), f'/giai-dau/{giai_id}/vdv', context=traceback.format_exc())
+        return f"❌ Error: {str(e)}", 500
+
+
+@app.route('/dang-ky-giai/<int:dang_ky_id>/khoi-phuc')
+@admin_required
+def khoi_phuc_dang_ky(dang_ky_id):
+    user = session.get('user', {})
+    try:
+        with db_cursor() as cursor:
+            cursor.execute("SELECT giai_dau_id FROM dang_ky_giai WHERE id = %s;", (dang_ky_id,))
+            result = cursor.fetchone()
+        giai_id = result[0] if result else None
+        if not giai_id or not _get_tournament_for_admin_or_403(giai_id, user):
+            return "Khong co quyen cap nhat giai dau nay", 403
+        DangKyGiaiModel.restore(dang_ky_id)
+        DBLogger.log_success(f"Registration {dang_ky_id} restored", user.get('email'), f'/dang-ky-giai/{dang_ky_id}/khoi-phuc')
+        return redirect(f'/giai-dau/{giai_id}/admin')
+    except Exception as e:
+        DBLogger.log_error(f"Error restoring registration: {str(e)}", user.get('email'), f'/dang-ky-giai/{dang_ky_id}/khoi-phuc', context=traceback.format_exc())
+        return f"❌ Error: {str(e)}", 500
+
+
+@app.route('/dang-ky-giai-ngoai/<int:external_id>/bo-giai')
+@admin_required
+def bo_giai_ngoai(external_id):
+    user = session.get('user', {})
+    try:
+        with db_cursor() as cursor:
+            cursor.execute("SELECT giai_dau_id FROM dang_ky_giai_ngoai WHERE id = %s;", (external_id,))
+            result = cursor.fetchone()
+        giai_id = result[0] if result else None
+        if not giai_id or not _get_tournament_for_admin_or_403(giai_id, user):
+            return "Khong co quyen cap nhat giai dau nay", 403
+        DangKyGiaiModel.withdraw_external(external_id)
+        DBLogger.log_success(f"External registration {external_id} withdrawn", user.get('email'), f'/dang-ky-giai-ngoai/{external_id}/bo-giai')
+        return redirect(f'/giai-dau/{giai_id}/admin')
+    except Exception as e:
+        DBLogger.log_error(f"Error withdrawing external registration: {str(e)}", user.get('email'), f'/dang-ky-giai-ngoai/{external_id}/bo-giai', context=traceback.format_exc())
+        return f"❌ Error: {str(e)}", 500
+
+
+@app.route('/dang-ky-giai-ngoai/<int:external_id>/khoi-phuc')
+@admin_required
+def khoi_phuc_dang_ky_ngoai(external_id):
+    user = session.get('user', {})
+    try:
+        with db_cursor() as cursor:
+            cursor.execute("SELECT giai_dau_id FROM dang_ky_giai_ngoai WHERE id = %s;", (external_id,))
+            result = cursor.fetchone()
+        giai_id = result[0] if result else None
+        if not giai_id or not _get_tournament_for_admin_or_403(giai_id, user):
+            return "Khong co quyen cap nhat giai dau nay", 403
+        DangKyGiaiModel.restore_external(external_id)
+        DBLogger.log_success(f"External registration {external_id} restored", user.get('email'), f'/dang-ky-giai-ngoai/{external_id}/khoi-phuc')
+        return redirect(f'/giai-dau/{giai_id}/admin')
+    except Exception as e:
+        DBLogger.log_error(f"Error restoring external registration: {str(e)}", user.get('email'), f'/dang-ky-giai-ngoai/{external_id}/khoi-phuc', context=traceback.format_exc())
         return f"❌ Error: {str(e)}", 500
 
 
