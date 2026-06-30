@@ -107,6 +107,12 @@
             align-items: center;
         }
         .seat-meta .badge { font-size: .66rem; line-height: 1; }
+        .send-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: .5rem;
+            align-items: center;
+        }
         @media (max-width: 576px) {
             .table-layout {
                 min-height: 0;
@@ -241,6 +247,30 @@
                             <div class="form-text mb-3">Cược trong {{ bet_seconds }} giây. Hết giờ chưa cược sẽ bị rời bàn.</div>
                             <button class="btn btn-primary w-100" data-loading-text="Đang đặt...">Đặt cược</button>
                         </form>
+                        <hr>
+                        <h3 class="h6 fw-bold mb-2">Gửi điểm sang người khác</h3>
+                        <div class="small text-muted mb-3">Mỗi lần gửi bằng min điểm x1 hoặc x2. Khi chương chốt người nhận thắng/thua x1-x4, điểm gửi cũng ăn/thua với chương theo cùng hệ số đó.</div>
+                        <div class="vstack gap-2">
+                            {% for p in participants %}
+                                {% if p[0] != game[6] and p[0] != my_participant_id %}
+                                <div class="send-row border rounded p-2 bg-light">
+                                    <div class="fw-semibold small text-truncate">{{ p[1] }}</div>
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Gửi điểm theo {{ p[1] }}">
+                                        <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/gui-diem">
+                                            <input type="hidden" name="target_participant_id" value="{{ p[0] }}">
+                                            <input type="hidden" name="transfer_multiplier" value="1">
+                                            <button class="btn btn-outline-primary fw-bold" data-loading-text="...">1x</button>
+                                        </form>
+                                        <form method="post" action="/giai-tri/ba-cay/{{ game[0] }}/gui-diem">
+                                            <input type="hidden" name="target_participant_id" value="{{ p[0] }}">
+                                            <input type="hidden" name="transfer_multiplier" value="2">
+                                            <button class="btn btn-outline-warning fw-bold" data-loading-text="...">2x</button>
+                                        </form>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
                     </div>
                 </section>
                 {% endif %}
@@ -315,6 +345,22 @@
                                 </div>
                             {% endfor %}
                             </div>
+                            {% if point_transfers %}
+                            <div class="mt-3">
+                                <h3 class="h6 fw-bold mb-2">Điểm gửi trong ván</h3>
+                                <div class="list-group list-group-flush">
+                                    {% for transfer in point_transfers %}
+                                    <div class="list-group-item px-0 py-2 small">
+                                        <span class="fw-semibold">{{ transfer[3] or 'Người chơi' }}</span>
+                                        <span class="text-muted"> gửi theo </span>
+                                        <span class="fw-semibold">{{ transfer[5] or 'người chơi khác' }}</span>
+                                        <span class="badge text-bg-light ms-1">{{ transfer[6] }}x min</span>
+                                        <span class="text-muted"> · {{ transfer[7] }} điểm</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endif %}
                         {% else %}
                             <div class="alert alert-info mb-0">Chưa có người chơi nào.</div>
                         {% endif %}
@@ -390,6 +436,8 @@
         round_no: {{ game[5]|tojson }},
         banker_participant_id: {{ game[6]|tojson }},
         my_participant_id: {{ my_participant_id|tojson }},
+        latest_action_id: {{ (actions[0][0] if actions else 0)|tojson }},
+        point_transfer_count: {{ point_transfers|length|tojson }},
         participants: [
             {% for p in participants %}
             {id: {{ p[0]|tojson }}, current_bet: {{ p[7]|tojson }}, bet_submitted: {{ p[8]|tojson }}, current_multiplier: {{ p[9]|tojson }}, score: {{ p[10]|tojson }}}{% if not loop.last %},{% endif %}
@@ -431,6 +479,8 @@
             round_no: state.round_no,
             banker_participant_id: state.banker_participant_id,
             my_participant_id: state.my_participant_id,
+            latest_action_id: state.latest_action_id,
+            point_transfer_count: state.point_transfer_count,
             participants: (state.participants || []).map(function(player) {
                 return {
                     id: player.id,

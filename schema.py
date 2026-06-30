@@ -529,6 +529,19 @@ CREATE TABLE IF NOT EXISTS entertainment_ba_cay_actions (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS entertainment_ba_cay_point_transfers (
+    id SERIAL PRIMARY KEY,
+    game_id INTEGER NOT NULL REFERENCES entertainment_ba_cay_games(id) ON DELETE CASCADE,
+    round_no INTEGER NOT NULL DEFAULT 0,
+    sender_participant_id INTEGER REFERENCES entertainment_ba_cay_participants(id) ON DELETE SET NULL,
+    target_participant_id INTEGER REFERENCES entertainment_ba_cay_participants(id) ON DELETE SET NULL,
+    transfer_multiplier INTEGER NOT NULL DEFAULT 1,
+    amount INTEGER NOT NULL DEFAULT 0,
+    settled BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    settled_at TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_entertainment_ba_cay_games_status
 ON entertainment_ba_cay_games (status, created_at DESC);
 
@@ -545,6 +558,9 @@ WHERE admin_id IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_entertainment_ba_cay_actions_game
 ON entertainment_ba_cay_actions (game_id, round_no, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_entertainment_ba_cay_transfers_round
+ON entertainment_ba_cay_point_transfers (game_id, round_no, settled);
 """
 
 

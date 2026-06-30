@@ -27,55 +27,120 @@
 
         <div class="row g-4">
             <div class="col-md-6 col-xl-4">
-                <a class="text-decoration-none text-reset" href="/giai-tri/ghi-diem">
-                    <section class="card h-100 shadow-sm border-0">
-                        <div class="card-body p-4">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="fs-2">🃏</div>
-                                <div>
-                                    <h2 class="h4 fw-bold mb-2">Ghi điểm đánh bài</h2>
-                                    <p class="text-muted mb-3">Thêm người chơi, ghi điểm từng trận, xúc xắc chọn người đánh trước và xem bảng xếp hạng cuối ván.</p>
-                                    <span class="btn btn-primary">Mở ghi điểm</span>
+                <section class="card h-100 shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="fs-2">🃏</div>
+                            <div>
+                                <h2 class="h4 fw-bold mb-2">Ghi điểm đánh bài</h2>
+                                <p class="text-muted mb-3">Thêm người chơi, ghi điểm từng trận, xúc xắc chọn người đánh trước và xem bảng xếp hạng cuối ván.</p>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <a class="btn btn-primary" href="/giai-tri/ghi-diem">Mở ghi điểm</a>
+                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#guideGhiDiem">Hướng dẫn sử dụng</button>
                                 </div>
                             </div>
                         </div>
-                    </section>
-                </a>
+                    </div>
+                </section>
             </div>
             <div class="col-md-6 col-xl-4">
-                <a class="text-decoration-none text-reset" href="/giai-tri/to-lieng">
-                    <section class="card h-100 shadow-sm border-0">
-                        <div class="card-body p-4">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="fs-2">♣️</div>
-                                <div>
-                                    <h2 class="h4 fw-bold mb-2">Ghi điểm tố liêng</h2>
-                                    <p class="text-muted mb-3">Tạo bàn, đặt min/max cược, quay vị trí, tố/bỏ theo lượt 60 giây và tự cộng pot cho người thắng.</p>
-                                    <span class="btn btn-outline-primary">Mở tố liêng</span>
+                <section class="card h-100 shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="fs-2">♣️</div>
+                            <div>
+                                <h2 class="h4 fw-bold mb-2">Ghi điểm tố liêng</h2>
+                                <p class="text-muted mb-3">Tạo bàn, đặt min/max cược, quay vị trí, tố/bỏ theo lượt 60 giây và tự cộng pot cho người thắng.</p>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <a class="btn btn-outline-primary" href="/giai-tri/to-lieng">Mở tố liêng</a>
+                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#guideToLieng">Hướng dẫn sử dụng</button>
                                 </div>
                             </div>
                         </div>
-                    </section>
-                </a>
+                    </div>
+                </section>
             </div>
             <div class="col-md-6 col-xl-4">
-                <a class="text-decoration-none text-reset" href="/giai-tri/ba-cay">
-                    <section class="card h-100 shadow-sm border-0">
-                        <div class="card-body p-4">
-                            <div class="d-flex align-items-start gap-3">
-                                <div class="fs-2">♦️</div>
-                                <div>
-                                    <h2 class="h4 fw-bold mb-2">Ghi điểm 3 cây</h2>
-                                    <p class="text-muted mb-3">Tạo bàn, quay/chọn chương, đặt cược 10 giây và để chương chốt thắng thua từng người.</p>
-                                    <span class="btn btn-outline-primary">Mở 3 cây</span>
+                <section class="card h-100 shadow-sm border-0">
+                    <div class="card-body p-4">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="fs-2">♦️</div>
+                            <div>
+                                <h2 class="h4 fw-bold mb-2">Ghi điểm 3 cây</h2>
+                                <p class="text-muted mb-3">Tạo bàn, quay/chọn chương, đặt cược 20 giây, gửi điểm 1x/2x min sang người khác và để chương chốt thắng thua từng người.</p>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <a class="btn btn-outline-primary" href="/giai-tri/ba-cay">Mở 3 cây</a>
+                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#guideBaCay">Hướng dẫn sử dụng</button>
                                 </div>
                             </div>
                         </div>
-                    </section>
-                </a>
+                    </div>
+                </section>
             </div>
         </div>
     </main>
+
+    <div class="modal fade" id="guideGhiDiem" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Hướng dẫn ghi điểm đánh bài</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                </div>
+                <div class="modal-body">
+                    <ol class="mb-0">
+                        <li>Tạo ván và thêm người chơi vào danh sách.</li>
+                        <li>Dùng xúc xắc nếu cần chọn ngẫu nhiên người đánh trước.</li>
+                        <li>Sau mỗi trận, nhập điểm cộng hoặc trừ cho từng người chơi.</li>
+                        <li>Xem bảng xếp hạng để biết tổng điểm hiện tại.</li>
+                        <li>Kết thúc ván để xem bảng điểm cuối cùng.</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="guideToLieng" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Hướng dẫn tố liêng</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                </div>
+                <div class="modal-body">
+                    <ol class="mb-0">
+                        <li>Tạo bàn, nhập min cược và max cược nếu muốn giới hạn.</li>
+                        <li>Mỗi người tự bấm thêm mình vào bàn.</li>
+                        <li>Quay vị trí trước khi bắt đầu để sắp xếp lượt chơi.</li>
+                        <li>Khi ván bắt đầu, người chơi tố hoặc bỏ theo lượt trong thời gian quy định.</li>
+                        <li>Người thắng bấm nhận thắng; hệ thống cộng pot và ghi lịch sử.</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="guideBaCay" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-scrollable">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title h5">Hướng dẫn 3 cây</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                </div>
+                <div class="modal-body">
+                    <ol class="mb-0">
+                        <li>Tạo bàn, đặt min cược và max cược nếu cần.</li>
+                        <li>Mỗi người tự thêm mình vào bàn, sau đó quay hoặc chọn chương.</li>
+                        <li>Chương bấm bắt đầu ván; người không phải chương có 20 giây để đặt cược.</li>
+                        <li>Trong thời gian đặt cược, người không phải chương có thể gửi điểm sang người chơi khác bằng nút 1x hoặc 2x. Mỗi lần gửi tương ứng min điểm x1 hoặc min điểm x2.</li>
+                        <li>Khi chương chốt người được gửi thắng/thua với hệ số x1, x2, x3 hoặc x4, khoản gửi cũng ăn/thua với chương theo cùng hệ số đó.</li>
+                        <li>Ví dụ A gửi 2x min theo B. Nếu B thắng chương x3, B được cộng tiền cược x3 và A cũng được cộng khoản gửi x3 từ chương. Nếu B thua x3, B trả cược x3 và A cũng trả khoản gửi x3 cho chương.</li>
+                        <li>Sau khi chốt xong, bảng điểm và lịch sử tự cập nhật, chờ chương bắt đầu ván mới.</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 {% include '_pwa_register.html' %}

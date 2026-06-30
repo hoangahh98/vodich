@@ -1859,6 +1859,28 @@ class EntertainmentBaCayGameModel:
             return cursor.fetchall()
 
     @staticmethod
+    def get_point_transfers(game_id, round_no=None, unsettled_only=False):
+        with db_cursor() as cursor:
+            filters = ["t.game_id = %s"]
+            params = [game_id]
+            if round_no is not None:
+                filters.append("t.round_no = %s")
+                params.append(round_no)
+            if unsettled_only:
+                filters.append("t.settled = FALSE")
+            cursor.execute(f"""
+                SELECT t.id, t.round_no, t.sender_participant_id, sender.display_name,
+                       t.target_participant_id, target.display_name,
+                       t.transfer_multiplier, t.amount, t.settled, t.created_at
+                FROM entertainment_ba_cay_point_transfers t
+                LEFT JOIN entertainment_ba_cay_participants sender ON sender.id = t.sender_participant_id
+                LEFT JOIN entertainment_ba_cay_participants target ON target.id = t.target_participant_id
+                WHERE {' AND '.join(filters)}
+                ORDER BY t.id DESC;
+            """, tuple(params))
+            return cursor.fetchall()
+
+    @staticmethod
     def active_table_for_user(user):
         with db_cursor() as cursor:
             if user.get("role") == "admin":
@@ -2165,6 +2187,61 @@ class EntertainmentBaCayGameModel:
             """, (game_id, participant_id, round_no, amount, "Đã đặt cược"))
 
     @staticmethod
+    def send_points(game_id, sender_id, target_id, transfer_multiplier):
+        try:
+            transfer_multiplier = int(transfer_multiplier or 1)
+        except (TypeError, ValueError):
+            transfer_multiplier = 1
+        if transfer_multiplier not in (1, 2):
+            raise ValueError("Chỉ được gửi điểm 1x hoặc 2x min điểm.")
+        with db_cursor(commit=True) as cursor:
+            cursor.execute("""
+                SELECT status, min_bet, banker_participant_id, round_no
+                FROM entertainment_ba_cay_games
+                WHERE id = %s;
+            """, (game_id,))
+            game = cursor.fetchone()
+            if not game:
+                raise ValueError("Không tìm thấy bàn.")
+            status, min_bet, banker_id, round_no = game
+            if status != 'betting':
+                raise ValueError("Chỉ gửi điểm trong thời gian đặt cược.")
+            if sender_id == banker_id:
+                raise ValueError("Chương không gửi điểm sang người chơi khác.")
+            if target_id == banker_id:
+                raise ValueError("Không gửi điểm sang chương.")
+            if sender_id == target_id:
+                raise ValueError("Không thể gửi điểm sang chính mình.")
+            cursor.execute("""
+                SELECT id, display_name
+                FROM entertainment_ba_cay_participants
+                WHERE game_id = %s AND id IN (%s, %s) AND active = TRUE
+                ORDER BY id;
+            """, (game_id, sender_id, target_id))
+            players = cursor.fetchall()
+            if len(players) != 2:
+                raise ValueError("Người gửi hoặc người nhận không hợp lệ.")
+            names = {row[0]: row[1] for row in players}
+            amount = int(min_bet) * transfer_multiplier
+            cursor.execute("""
+                INSERT INTO entertainment_ba_cay_point_transfers (
+                    game_id, round_no, sender_participant_id, target_participant_id,
+                    transfer_multiplier, amount
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                RETURNING id;
+            """, (game_id, round_no, sender_id, target_id, transfer_multiplier, amount))
+            transfer_id = cursor.fetchone()[0]
+            note = f"{names[sender_id]} gửi {transfer_multiplier}x min điểm theo {names[target_id]}"
+            cursor.execute("""
+                INSERT INTO entertainment_ba_cay_actions (
+                    game_id, participant_id, target_participant_id, round_no, action_type, amount, note
+                )
+                VALUES (%s, %s, %s, %s, 'send_points', %s, %s);
+            """, (game_id, sender_id, target_id, round_no, amount, note))
+            return transfer_id
+
+    @staticmethod
     def settle_round(game_id, banker_id, results, banker_multipliers=None):
         banker_multipliers = banker_multipliers or {}
         with db_cursor(commit=True) as cursor:
@@ -2243,6 +2320,50 @@ class EntertainmentBaCayGameModel:
             unknown_ids = set(results.keys()) - valid_ids
             if unknown_ids:
                 raise ValueError("Có người chơi không hợp lệ trong kết quả.")
+            cursor.execute("""
+                SELECT t.id, t.sender_participant_id, sender.display_name,
+                       t.target_participant_id, target.display_name, t.amount
+                FROM entertainment_ba_cay_point_transfers t
+                JOIN entertainment_ba_cay_participants sender ON sender.id = t.sender_participant_id
+                JOIN entertainment_ba_cay_participants target ON target.id = t.target_participant_id
+                WHERE t.game_id = %s AND t.round_no = %s AND t.settled = FALSE
+                  AND sender.active = TRUE AND target.active = TRUE;
+            """, (game_id, round_no))
+            transfers = cursor.fetchall()
+            for transfer_id, sender_id, sender_name, target_id, target_name, transfer_amount in transfers:
+                if sender_id == banker_id or target_id == banker_id:
+                    continue
+                target_result = results.get(target_id)
+                if target_result not in ('win', 'lose'):
+                    continue
+                try:
+                    target_multiplier = int(banker_multipliers.get(target_id, 1) or 1)
+                except (TypeError, ValueError):
+                    target_multiplier = 1
+                if target_multiplier not in (1, 2, 3, 4):
+                    raise ValueError(f"Hệ số chương chọn cho {target_name} không hợp lệ.")
+                delta = int(transfer_amount) * target_multiplier
+                if target_result == 'win':
+                    cursor.execute("UPDATE entertainment_ba_cay_participants SET score = score + %s WHERE id = %s;", (delta, sender_id))
+                    cursor.execute("UPDATE entertainment_ba_cay_participants SET score = score - %s WHERE id = %s;", (delta, banker_id))
+                    note = f"{sender_name} gửi theo {target_name} thắng chương x{target_multiplier}"
+                    action_type = 'transfer_win'
+                else:
+                    cursor.execute("UPDATE entertainment_ba_cay_participants SET score = score - %s WHERE id = %s;", (delta, sender_id))
+                    cursor.execute("UPDATE entertainment_ba_cay_participants SET score = score + %s WHERE id = %s;", (delta, banker_id))
+                    note = f"{sender_name} gửi theo {target_name} thua chương x{target_multiplier}"
+                    action_type = 'transfer_lose'
+                cursor.execute("""
+                    INSERT INTO entertainment_ba_cay_actions (
+                        game_id, participant_id, target_participant_id, round_no, action_type, amount, note
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s);
+                """, (game_id, sender_id, target_id, round_no, action_type, delta, note))
+                cursor.execute("""
+                    UPDATE entertainment_ba_cay_point_transfers
+                    SET settled = TRUE, settled_at = CURRENT_TIMESTAMP
+                    WHERE id = %s;
+                """, (transfer_id,))
             cursor.execute("""
                 UPDATE entertainment_ba_cay_participants
                 SET current_bet = 0, bet_submitted = FALSE, current_multiplier = 1

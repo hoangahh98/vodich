@@ -696,6 +696,13 @@ def chi_tiet_ban_ba_cay(game_id):
     scoreboard = EntertainmentBaCayGameModel.get_scoreboard(game_id)
     actions = EntertainmentBaCayGameModel.get_actions(game_id)
     my_participant_id = EntertainmentBaCayGameModel.participant_for_user(game_id, user)
+    point_transfers = []
+    if game[2] in ('betting', 'settling'):
+        point_transfers = EntertainmentBaCayGameModel.get_point_transfers(
+            game_id,
+            round_no=game[5],
+            unsettled_only=True,
+        )
     bet_left = EntertainmentBaCayGameModel.BET_SECONDS
     if game[2] == 'betting' and game[7]:
         try:
@@ -716,6 +723,7 @@ def chi_tiet_ban_ba_cay(game_id):
         bet_seconds=EntertainmentBaCayGameModel.BET_SECONDS,
         final_view=final_view,
         bettors=bettors,
+        point_transfers=point_transfers,
     )
 
 
@@ -744,6 +752,7 @@ def _ba_cay_state_payload(game_id, user):
         'is_my_bet_turn': bool(my_participant_id and game[2] == 'betting' and my_participant_id != game[6]),
         'bet_left': bet_left,
         'latest_action_id': latest_action_id,
+        'point_transfer_count': len(EntertainmentBaCayGameModel.get_point_transfers(game_id, round_no=game[5], unsettled_only=True)),
         'participants': [
             {
                 'id': p[0],
@@ -895,6 +904,24 @@ def dat_cuoc_ba_cay(game_id):
         EntertainmentBaCayGameModel.place_bet(game_id, participant_id, request.form.get('amount'))
         flash('Đã đặt cược.', 'success')
     except ValueError as e:
+        flash(str(e), 'warning')
+    return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+
+
+@app.route('/giai-tri/ba-cay/<int:game_id>/gui-diem', methods=['POST'])
+@login_required
+def gui_diem_ba_cay(game_id):
+    user = session.get('user', {})
+    participant_id = EntertainmentBaCayGameModel.participant_for_user(game_id, user)
+    if not participant_id:
+        flash('Bạn chưa có trong bàn này.', 'danger')
+        return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
+    try:
+        target_id = int(request.form.get('target_participant_id'))
+        transfer_multiplier = int(request.form.get('transfer_multiplier'))
+        EntertainmentBaCayGameModel.send_points(game_id, participant_id, target_id, transfer_multiplier)
+        flash('Đã gửi điểm theo người chơi đã chọn.', 'success')
+    except (TypeError, ValueError) as e:
         flash(str(e), 'warning')
     return redirect(url_for('chi_tiet_ban_ba_cay', game_id=game_id))
 
