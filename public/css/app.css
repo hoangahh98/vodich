@@ -214,6 +214,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .group-board { border: 1px solid #19875455; border-radius: 8px; overflow: hidden; background: #fff; }
 .group-board-title { background: #d1f2dc; color: #0f5132; font-weight: 800; text-align: center; padding: 6px 8px; border-bottom: 1px solid #19875455; }
 .group-team-row { padding: 6px 10px; border-bottom: 1px solid #e9ecef; font-size: .86rem; font-weight: 600; }
+.mine-row { background: #fff3cd !important; box-shadow: inset 4px 0 0 #ffc107; }
+.mine-card { background: #fff8dc !important; border-left-color: #ffc107 !important; box-shadow: 0 0 0 2px rgba(255,193,7,.35); }
 .rank-1 { background: #fff8dc; }
 .rank-2 { background: #f5f5f5; }
 .rank-3 { background: #fff0e6; }
@@ -221,6 +223,12 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .hieu-so-neg { color: #dc3545; font-weight: 800; }
 .ranking-table table { text-align: center; }
 .ranking-table td:nth-child(2), .ranking-table th:nth-child(2) { text-align: left; }
+.ranking-table th:nth-child(1), .ranking-table td:nth-child(1) { width: 54px; }
+.ranking-table th:nth-child(3), .ranking-table td:nth-child(3),
+.ranking-table th:nth-child(4), .ranking-table td:nth-child(4),
+.ranking-table th:nth-child(5), .ranking-table td:nth-child(5) { width: 64px; }
+.ranking-table th:nth-child(6), .ranking-table td:nth-child(6),
+.ranking-table th:nth-child(7), .ranking-table td:nth-child(7) { width: 86px; }
 .ranking-board-list { display: grid; gap: 14px; }
 .ranking-board { border: 1px solid #cfe2ff; border-radius: 10px; overflow: hidden; background: #fff; }
 .ranking-board-title { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #e7f1ff; color: #084298; border-bottom: 1px solid #cfe2ff; font-size: 18px; }
