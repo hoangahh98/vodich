@@ -80,9 +80,12 @@
 
     <section class="card-lite p-3" th:if="${section == 'ranking'}">
         <h2 class="section-title mb-3">Bảng xếp hạng</h2>
-        <div th:if="${rankingGroups.isEmpty()}" class="text-muted">Chưa có lịch vòng bảng để tính xếp hạng.</div>
+        <div th:if="${rankingGroups.isEmpty()}" class="text-muted">Chưa có lịch thi đấu để tính xếp hạng.</div>
         <div class="mb-4" th:each="group : ${rankingGroups}">
-            <h3 class="h6 fw-bold text-primary mb-2">BXH - Bảng <span th:text="${group.groupName}"></span></h3>
+            <h3 class="h6 fw-bold text-primary mb-2">
+                <span th:if="${tournament.format.name() == 'ROUND_ROBIN'}">BXH</span>
+                <span th:if="${tournament.format.name() == 'GROUP_KNOCKOUT'}">BXH - Bảng <span th:text="${group.groupName}"></span></span>
+            </h3>
             <div class="table-responsive">
                 <table class="table table-sm table-hover align-middle">
                     <thead class="table-dark">
@@ -130,10 +133,11 @@
                     <div class="flex-grow-1">
                         <div class="mb-1"><span class="badge text-bg-dark" th:text="${m.stage}"></span></div>
                         <div class="fw-bold d-flex align-items-center flex-wrap gap-2">
+                            <span class="text-muted" th:if="${m.stage != 'Vòng bảng' and m.stage != 'Vòng tròn'}">|-----</span>
                             <span th:text="${m.teamA}"></span>
                             <span class="text-muted">vs</span>
                             <span th:text="${m.teamB}"></span>
-                            <span class="text-muted flex-grow-1 d-none d-sm-inline">-----</span>
+                            <span class="text-muted flex-grow-1 d-none d-sm-inline" th:if="${m.stage == 'Vòng bảng' or m.stage == 'Vòng tròn'}">-----</span>
                             <span th:text="${m.courtNumber}"></span>
                         </div>
                         <div class="text-muted small">Vòng <span th:text="${m.roundNumber}"></span> · <span class="match-status" th:text="${m.status}"></span></div>

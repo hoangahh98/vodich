@@ -27,7 +27,7 @@
                         <option value="GROUP_KNOCKOUT">Vòng bảng + loại trực tiếp</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-md-4" id="knockoutQualifierField">
                     <label class="form-label fw-bold">Vào vòng trong</label>
                     <select class="form-select" name="knockoutQualifierCount">
                         <option value="2">2 đội - Chung kết</option>
@@ -53,5 +53,17 @@
     </section>
 </main>
 <script src="/js/app.js"></script>
+<script>
+(() => {
+    const formatSelect = document.querySelector('select[name="format"]');
+    const qualifierField = document.getElementById('knockoutQualifierField');
+    if (!formatSelect || !qualifierField) return;
+    const syncQualifierField = () => {
+        qualifierField.classList.toggle('d-none', formatSelect.value !== 'GROUP_KNOCKOUT');
+    };
+    formatSelect.addEventListener('change', syncQualifierField);
+    syncQualifierField();
+})();
+</script>
 </body>
 </html>
