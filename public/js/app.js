@@ -1,6 +1,10 @@
 document.addEventListener('submit', (event) => {
   const form = event.target;
   if (!(form instanceof HTMLFormElement)) return;
+  if (form.dataset.submitting === 'true') {
+    event.preventDefault();
+    return;
+  }
   const requiredCheckedName = form.dataset.requireChecked;
   if (requiredCheckedName && !form.querySelector(`input[name="${requiredCheckedName}"]:checked`)) {
     event.preventDefault();
@@ -24,11 +28,16 @@ document.addEventListener('submit', (event) => {
       return;
     }
   }
-  const button = form.querySelector('button[type="submit"], button:not([type])');
+  const button = event.submitter instanceof HTMLButtonElement ? event.submitter : form.querySelector('button[type="submit"], button:not([type])');
+  form.dataset.submitting = 'true';
+  form.setAttribute('aria-busy', 'true');
   if (!button) return;
   button.dataset.originalText = button.textContent || '';
   button.textContent = button.getAttribute('data-loading-text') || 'Đang xử lý...';
   button.classList.add('loading');
+  form.querySelectorAll('button').forEach((item) => {
+    if (item !== button) item.disabled = true;
+  });
 });
 
 document.addEventListener('input', (event) => {

@@ -404,28 +404,43 @@ function buildGroupMatches(tournament: Tournament, teams: string[]): MatchCreate
   const stage = tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng' : 'Vòng tròn';
   const groups = tournament.format === 'GROUP_KNOCKOUT' ? splitGroups(teams, groupCountFor(tournament, teams.length)) : [teams];
   const matches: MatchCreate[] = [];
-  let court = 1;
-  let round = 1;
-  const groupQueues = groups.map((groupTeams, groupIndex) => {
+  const groupRounds = groups.map((groupTeams, groupIndex) => {
     const groupName = String.fromCharCode('A'.charCodeAt(0) + groupIndex);
-    const queue: Omit<MatchCreate, 'courtNumber' | 'roundNumber'>[] = [];
-    for (let i = 0; i < groupTeams.length; i++) {
-      for (let j = i + 1; j < groupTeams.length; j++) {
-        queue.push({ tournamentId: tournament.id, teamA: groupTeams[i], teamB: groupTeams[j], stage, groupName });
-      }
-    }
-    return queue;
+    return roundRobinRounds(groupTeams).map((roundMatches) =>
+      roundMatches.map(([teamA, teamB]) => ({ tournamentId: tournament.id, teamA, teamB, stage, groupName })),
+    );
   });
-  while (groupQueues.some((queue) => queue.length)) {
-    for (const queue of groupQueues) {
-      const match = queue.shift();
-      if (!match) continue;
-      matches.push({ ...match, courtNumber: court, roundNumber: round });
-      court = court >= tournament.courtCount ? 1 : court + 1;
-      if (court === 1) round++;
+  const maxRound = groupRounds.reduce((max, rounds) => Math.max(max, rounds.length), 0);
+  for (let roundIndex = 0; roundIndex < maxRound; roundIndex++) {
+    let court = 1;
+    for (const rounds of groupRounds) {
+      const roundMatches = rounds[roundIndex] || [];
+      for (const match of roundMatches) {
+        matches.push({ ...match, courtNumber: court, roundNumber: roundIndex + 1 });
+        court = court >= tournament.courtCount ? 1 : court + 1;
+      }
     }
   }
   return matches;
+}
+
+function roundRobinRounds(teams: string[]): [string, string][][] {
+  const rotated = teams.filter(Boolean);
+  if (rotated.length < 2) return [];
+  if (rotated.length % 2 === 1) rotated.push('');
+  const rounds: [string, string][][] = [];
+  const count = rotated.length;
+  for (let round = 0; round < count - 1; round++) {
+    const matches: [string, string][] = [];
+    for (let index = 0; index < count / 2; index++) {
+      const teamA = rotated[index];
+      const teamB = rotated[count - 1 - index];
+      if (teamA && teamB) matches.push(round % 2 === 0 ? [teamA, teamB] : [teamB, teamA]);
+    }
+    rounds.push(matches);
+    rotated.splice(1, 0, rotated.pop() || '');
+  }
+  return rounds;
 }
 
 function buildKnockout(tournament: Tournament, _startRound: number): MatchCreate[] {
