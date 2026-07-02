@@ -9,10 +9,6 @@ services:
         value: prod
       - key: DATABASE_URL
         sync: false
-      - key: DB_USERNAME
-        sync: false
-      - key: DB_PASSWORD
-        sync: false
       - key: APP_ADMIN_USERNAME
         value: admin
       - key: APP_ADMIN_PASSWORD

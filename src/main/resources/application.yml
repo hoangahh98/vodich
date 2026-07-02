@@ -19,6 +19,7 @@ spring:
   flyway:
     enabled: true
     baseline-on-migrate: true
+    baseline-version: 0
 server:
   port: ${PORT:8080}
   servlet:

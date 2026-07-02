@@ -28,12 +28,12 @@ mvn spring-boot:run
 Required environment:
 
 ```bash
-DATABASE_URL=jdbc:postgresql://host:5432/postgres?sslmode=require
-DB_USERNAME=postgres...
-DB_PASSWORD=...
+DATABASE_URL=postgresql://user:password@host:5432/postgres?sslmode=require
 APP_ADMIN_USERNAME=admin
 APP_ADMIN_PASSWORD=123456789
 ```
+
+The app converts Render/Supabase `DATABASE_URL` into Spring's JDBC datasource settings automatically.
 
 ## Architecture
 

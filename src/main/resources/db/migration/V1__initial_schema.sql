@@ -1,4 +1,4 @@
-CREATE TABLE app_user (
+CREATE TABLE IF NOT EXISTS app_user (
     id BIGSERIAL PRIMARY KEY,
     username VARCHAR(120) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -7,14 +7,14 @@ CREATE TABLE app_user (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE admin_feature_permission (
+CREATE TABLE IF NOT EXISTS admin_feature_permission (
     id BIGSERIAL PRIMARY KEY,
     admin_id BIGINT NOT NULL REFERENCES app_user(id) ON DELETE CASCADE,
     feature VARCHAR(40) NOT NULL,
     UNIQUE (admin_id, feature)
 );
 
-CREATE TABLE player (
+CREATE TABLE IF NOT EXISTS player (
     id BIGSERIAL PRIMARY KEY,
     display_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
@@ -23,7 +23,7 @@ CREATE TABLE player (
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tournament (
+CREATE TABLE IF NOT EXISTS tournament (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     venue VARCHAR(255),
@@ -46,7 +46,7 @@ CREATE TABLE tournament (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE tournament_registration (
+CREATE TABLE IF NOT EXISTS tournament_registration (
     id BIGSERIAL PRIMARY KEY,
     tournament_id BIGINT NOT NULL REFERENCES tournament(id) ON DELETE CASCADE,
     player_id BIGINT REFERENCES player(id) ON DELETE SET NULL,
@@ -63,7 +63,7 @@ CREATE TABLE tournament_registration (
     UNIQUE (tournament_id, external_email)
 );
 
-CREATE TABLE match_game (
+CREATE TABLE IF NOT EXISTS match_game (
     id BIGSERIAL PRIMARY KEY,
     tournament_id BIGINT NOT NULL REFERENCES tournament(id) ON DELETE CASCADE,
     team_a VARCHAR(255) NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE match_game (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE team_club (
+CREATE TABLE IF NOT EXISTS team_club (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
@@ -87,7 +87,7 @@ CREATE TABLE team_club (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE team_member (
+CREATE TABLE IF NOT EXISTS team_member (
     id BIGSERIAL PRIMARY KEY,
     team_id BIGINT NOT NULL REFERENCES team_club(id) ON DELETE CASCADE,
     player_id BIGINT NOT NULL REFERENCES player(id) ON DELETE CASCADE,
@@ -98,7 +98,7 @@ CREATE TABLE team_member (
     UNIQUE (team_id, player_id)
 );
 
-CREATE TABLE team_month_fund (
+CREATE TABLE IF NOT EXISTS team_month_fund (
     id BIGSERIAL PRIMARY KEY,
     team_id BIGINT NOT NULL REFERENCES team_club(id) ON DELETE CASCADE,
     fund_month DATE NOT NULL,
@@ -109,7 +109,7 @@ CREATE TABLE team_month_fund (
     UNIQUE (team_id, fund_month)
 );
 
-CREATE TABLE team_member_payment (
+CREATE TABLE IF NOT EXISTS team_member_payment (
     id BIGSERIAL PRIMARY KEY,
     member_id BIGINT NOT NULL REFERENCES team_member(id) ON DELETE CASCADE,
     fund_month DATE NOT NULL,
