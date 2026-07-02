@@ -1,8 +1,8 @@
-<%- include('partials/head', { title: 'Đăng nhập - Vô Địch Tool' }) %>
+<%- include('partials/head', { title: 'Đăng nhập - Vô địch' }) %>
 <body class="login-page">
   <section class="login-card">
-    <img class="login-logo" src="/uploads/black-panther.svg" alt="Logo Vô Địch">
-    <h1 class="text-center">Vô Địch Tool</h1>
+    <img class="login-logo" src="/uploads/logo.png" alt="Logo Vô địch">
+    <h1 class="text-center">Vô địch</h1>
     <p class="text-center muted">Quản lý giải đấu, đội bóng và tỉ số trực tiếp</p>
     <% if (typeof error !== 'undefined') { %><div class="badge badge-danger mb"><%= error %></div><% } %>
     <form method="post" action="/login">

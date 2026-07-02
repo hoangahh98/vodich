@@ -63,6 +63,28 @@ document.addEventListener('input', (event) => {
 })();
 
 (() => {
+  const prizeRadios = [...document.querySelectorAll('input[name="prizeMode"]')];
+  if (!prizeRadios.length) return;
+  const sync = () => {
+    const manual = prizeRadios.find((radio) => radio.checked)?.value === 'manual';
+    document.querySelectorAll('[data-prize-label]').forEach((label) => {
+      label.textContent = `Giải ${label.dataset.prizeLabel} ${manual ? '(đ)' : '(%)'}`;
+    });
+  };
+  prizeRadios.forEach((radio) => radio.addEventListener('change', sync));
+  sync();
+})();
+
+(() => {
+  document.querySelectorAll('[data-menu-toggle]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const menu = button.closest('.bottom-menu');
+      menu?.classList.toggle('open');
+    });
+  });
+})();
+
+(() => {
   document.querySelectorAll('[data-check-all]').forEach((checkbox) => {
     checkbox.addEventListener('change', () => {
       document.querySelectorAll(checkbox.dataset.checkAll).forEach((item) => {
@@ -123,6 +145,54 @@ document.addEventListener('input', (event) => {
     return [nextA, nextB];
   };
   const formatTeam = (name) => String(name || '').split(' / ').join('\n');
+  let lastWinnerKey = '';
+  let speakTimer = null;
+  const readVietnameseNumber = (value) => {
+    const number = Number.parseInt(value, 10) || 0;
+    const units = ['không', 'một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín'];
+    if (number < 10) return units[number];
+    if (number === 10) return 'mười';
+    if (number < 20) return number === 15 ? 'mười lăm' : `mười ${units[number % 10]}`;
+    const tens = Math.floor(number / 10);
+    const unit = number % 10;
+    if (unit === 0) return `${units[tens]} mươi`;
+    if (unit === 1) return `${units[tens]} mươi mốt`;
+    if (unit === 5) return `${units[tens]} mươi lăm`;
+    return `${units[tens]} mươi ${units[unit]}`;
+  };
+  const teamSpeechName = (name) => String(name || '').replace(/\s*\/\s*/g, ' và ');
+  const winnerName = () => {
+    if (!activeRow || scoreA === scoreB) return '';
+    const high = Math.max(scoreA, scoreB);
+    const diff = Math.abs(scoreA - scoreB);
+    if (!(high >= maxScore || (high >= touchScore && diff >= 2))) return '';
+    return teamSpeechName(scoreA > scoreB ? activeRow.dataset.teamA : activeRow.dataset.teamB);
+  };
+  const speak = (text) => {
+    if (!('speechSynthesis' in window) || !text) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'vi-VN';
+    utterance.rate = 0.95;
+    window.speechSynthesis.speak(utterance);
+  };
+  const scheduleSpeak = () => {
+    window.clearTimeout(speakTimer);
+    speakTimer = window.setTimeout(() => {
+      const scoreText = servingTeam === 'B'
+        ? `${readVietnameseNumber(scoreB)} ${readVietnameseNumber(scoreA)} ${readVietnameseNumber(scoreOrder)}`
+        : `${readVietnameseNumber(scoreA)} ${readVietnameseNumber(scoreB)} ${readVietnameseNumber(scoreOrder)}`;
+      const winner = winnerName();
+      const winnerKey = activeRow ? `${activeRow.dataset.matchId}:${winner}:${scoreA}-${scoreB}` : '';
+      if (winner && winnerKey !== lastWinnerKey) {
+        lastWinnerKey = winnerKey;
+        const prefix = winner.includes(' và ') ? 'đội ' : '';
+        speak(`${scoreText}. Chúc mừng ${prefix}${winner} giành chiến thắng`);
+        return;
+      }
+      speak(scoreText);
+    }, 220);
+  };
   const setStatus = (text, className = 'muted') => {
     if (!saveStatus) return;
     saveStatus.className = `score-save-status ${className}`;
@@ -151,10 +221,16 @@ document.addEventListener('input', (event) => {
     row.dataset.servingTeam = match.servingTeam || 'A';
     row.querySelector('.score-a').textContent = match.scoreA;
     row.querySelector('.score-b').textContent = match.scoreB;
+    const scorePill = row.querySelector('.score-pill');
+    scorePill?.classList.toggle('bg-success', match.status === 'FINISHED');
+    scorePill?.classList.toggle('bg-primary', match.status !== 'FINISHED');
     const order = row.querySelector('.score-order');
     if (order) order.textContent = match.scoreOrder || 2;
     const status = match.status === 'FINISHED' ? 'Đã xong' : match.status === 'PLAYING' ? 'Đang đánh' : 'Chưa đánh';
-    row.querySelector('.match-status').textContent = status;
+    const statusEl = row.querySelector('.match-status');
+    statusEl.textContent = status;
+    statusEl.classList.toggle('bg-success', match.status === 'FINISHED');
+    statusEl.classList.toggle('bg-secondary', match.status !== 'FINISHED');
     row.classList.toggle('da-xong', match.status === 'FINISHED');
   };
   const optimisticRow = () => {
@@ -201,6 +277,7 @@ document.addEventListener('input', (event) => {
     [scoreA, scoreB] = clampScores(scoreA, scoreB);
     optimisticRow();
     renderModal();
+    scheduleSpeak();
     saveScore();
   };
   socket.emit('joinTournament', tournamentId);

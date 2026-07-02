@@ -227,7 +227,11 @@ export class TournamentService {
     });
     await this.prisma.tournamentRegistration.update({
       where: { id: registrationId },
-      data: { status: activeCount < registration.tournament.expectedPlayers ? 'ACTIVE' : 'RESERVE', withdrawnAt: null },
+      data: {
+        status: activeCount < registration.tournament.expectedPlayers ? 'ACTIVE' : 'RESERVE',
+        withdrawnAt: null,
+        paidAmount: Number(registration.paidAmount || 0) > 0 ? registration.paidAmount : this.minimumFee(registration.tournament),
+      },
     });
   }
 
