@@ -126,6 +126,7 @@ model TeamClub {
 
   members TeamMember[]
   funds   TeamMonthFund[]
+  expenses TeamExpense[]
 
   @@map("team_club")
 }
@@ -141,6 +142,7 @@ model TeamMember {
 
   team   TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
   player Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  payments TeamMemberPayment[]
 
   @@unique([teamId, playerId])
   @@map("team_member")
@@ -159,6 +161,36 @@ model TeamMonthFund {
 
   @@unique([teamId, fundMonth])
   @@map("team_month_fund")
+}
+
+model TeamMemberPayment {
+  id            BigInt   @id @default(autoincrement())
+  memberId      BigInt   @map("member_id")
+  fundMonth     DateTime @map("fund_month") @db.Date
+  paidAmount    Decimal  @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  paymentStatus String   @default("UNPAID") @map("payment_status") @db.VarChar(40)
+  notes         String?
+
+  member TeamMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([memberId, fundMonth])
+  @@map("team_member_payment")
+}
+
+model TeamExpense {
+  id          BigInt   @id @default(autoincrement())
+  teamId      BigInt   @map("team_id")
+  expenseMonth DateTime @map("expense_month") @db.Date
+  expenseDate DateTime? @map("expense_date") @db.Date
+  content     String   @db.VarChar(255)
+  amount      Decimal  @default(0) @db.Decimal(14, 2)
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  team TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@map("team_expense")
 }
 
 model AppLog {
