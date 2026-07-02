@@ -7,7 +7,7 @@ export function parseMoney(value: unknown): number {
 
 export function formatMoney(value: unknown): string {
   const number = typeof value === 'number' ? value : Number(value ?? 0);
-  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Number.isFinite(number) ? number : 0);
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Number.isFinite(number) ? number : 0);
 }
 
 export function roundUpToStep(value: number, step = 50000): number {

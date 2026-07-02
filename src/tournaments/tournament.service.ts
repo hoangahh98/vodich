@@ -235,6 +235,27 @@ export class TournamentService {
     await this.prisma.tournamentRegistration.delete({ where: { id: registrationId } });
   }
 
+  async bulkRegistrations(registrationIds: bigint[], action: string) {
+    const ids = [...new Set(registrationIds.map((id) => id.toString()))].map((id) => BigInt(id));
+    if (!ids.length) return;
+    if (action === 'delete') {
+      await this.prisma.tournamentRegistration.deleteMany({ where: { id: { in: ids } } });
+      return;
+    }
+    if (action === 'withdraw') {
+      await this.prisma.tournamentRegistration.updateMany({
+        where: { id: { in: ids } },
+        data: { status: 'WITHDRAWN', withdrawnAt: new Date() },
+      });
+      return;
+    }
+    if (action === 'restore') {
+      for (const id of ids) {
+        await this.restore(id);
+      }
+    }
+  }
+
   async generateSchedule(tournamentId: bigint) {
     const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
     const registrations = await this.prisma.tournamentRegistration.findMany({
@@ -242,8 +263,8 @@ export class TournamentService {
       include: { player: true },
       orderBy: { id: 'asc' },
     });
-    const names = registrations.map(displayRegistrationName);
-    const teams = tournament.playType === 'DOUBLES' ? doublesTeams(names) : names;
+    const names = shuffle(registrations.map(displayRegistrationName));
+    const teams = tournament.playType === 'DOUBLES' ? shuffle(doublesTeams(names)) : names;
     const groupMatches = buildGroupMatches(tournament, teams);
     const knockout = tournament.format === 'GROUP_KNOCKOUT' ? buildKnockout(tournament, lastRound(groupMatches) + 1) : [];
     await this.prisma.$transaction([
@@ -321,6 +342,15 @@ function doublesTeams(names: string[]) {
     teams.push(`${names[i]} / ${names[i + 1] || 'Chờ thành viên'}`);
   }
   return teams;
+}
+
+function shuffle<T>(items: T[]): T[] {
+  const result = [...items];
+  for (let index = result.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+  }
+  return result;
 }
 
 function buildGroupMatches(tournament: Tournament, teams: string[]): MatchCreate[] {

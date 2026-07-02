@@ -186,6 +186,15 @@ export class AppController {
     return res.redirect(`/tournaments/${tournamentId}/players`);
   }
 
+  @Post('/tournaments/:id/registrations/bulk')
+  async bulkRegistrations(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string | string[]>) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    const selected = Array.isArray(body.registrationIds) ? body.registrationIds : body.registrationIds ? [body.registrationIds] : [];
+    const action = String(body.bulkAction || '');
+    await this.tournaments.bulkRegistrations(selected.map((item) => BigInt(item)), action);
+    return res.redirect(`/tournaments/${id}/players`);
+  }
+
   @Post('/registrations/:id/payment')
   async payment(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: { tournamentId: string; amount: string; status: string }) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
