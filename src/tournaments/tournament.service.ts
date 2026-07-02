@@ -514,7 +514,7 @@ function prizeFundFromForm(totalPaid: number, form: Record<string, unknown>) {
 }
 
 function normalizePrizes(form: Record<string, unknown>, availablePrizeFund: number) {
-  const values = [parseMoney(form.prizeRate1) || 0, parseMoney(form.prizeRate2) || 0, parseMoney(form.prizeRate3) || 0];
+  const values = [prizeValue(form.prizeRate1, 30), prizeValue(form.prizeRate2, 30), prizeValue(form.prizeRate3, 30)];
   if (String(form.prizeMode || 'percent') === 'manual') {
     const total = values.reduce((sum, value) => sum + value, 0);
     if (total > availablePrizeFund) {
@@ -528,6 +528,11 @@ function normalizePrizes(form: Record<string, unknown>, availablePrizeFund: numb
     remaining -= next;
     return next;
   });
+}
+
+function prizeValue(value: unknown, fallback: number) {
+  if (value === null || value === undefined || String(value).trim() === '') return fallback;
+  return parseMoney(value) || 0;
 }
 
 function blankToNull(value?: string) {

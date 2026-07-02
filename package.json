@@ -8,7 +8,7 @@
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
-    "render:build": "npm ci && npx prisma generate && npm run build && npm prune --omit=dev && npm cache clean --force",
+    "render:build": "npm ci && npx prisma migrate deploy && npx prisma generate && npm run build && npm prune --omit=dev && npm cache clean --force",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy"
   },
