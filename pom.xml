@@ -11,10 +11,10 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.duhy</groupId>
-    <artifactId>duhy</artifactId>
+    <groupId>com.vodich</groupId>
+    <artifactId>vodich</artifactId>
     <version>0.1.0</version>
-    <name>Duhy</name>
+    <name>Vodich</name>
     <description>Tournament, team fund, and realtime livescore platform</description>
 
     <properties>

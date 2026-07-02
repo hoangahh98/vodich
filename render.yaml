@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: duhy
+    name: vodich
     env: docker
     plan: free
     autoDeploy: true
