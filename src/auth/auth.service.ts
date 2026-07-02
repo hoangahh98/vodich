@@ -44,7 +44,7 @@ export class AuthService implements OnModuleInit {
       return { id: player.id.toString(), email: player.email, displayName: player.displayName, role: 'CLIENT' };
     }
     const registration = await this.prisma.tournamentRegistration.findFirst({
-      where: { externalEmail: { equals: normalized, mode: 'insensitive' }, status: 'ACTIVE' },
+      where: { externalEmail: { equals: normalized, mode: 'insensitive' }, status: { in: ['ACTIVE', 'RESERVE'] } },
       orderBy: { id: 'asc' },
     });
     if (!registration || !registration.externalEmail) {

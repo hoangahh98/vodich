@@ -120,10 +120,15 @@ export class AppController {
     if (!user) return;
     const tournamentId = BigInt(id);
     if (!(await this.tournaments.canView(user, tournamentId))) return res.status(403).render('error', { message: 'Không có quyền' });
-    const [tournament, registrations, withdrawnRegistrations, players, matches, rankingGroups, groupBoards] = await Promise.all([
+    const [tournament, registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, groupBoards] = await Promise.all([
       this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } }),
       this.prisma.tournamentRegistration.findMany({
         where: { tournamentId, status: 'ACTIVE' },
+        include: { player: true },
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.tournamentRegistration.findMany({
+        where: { tournamentId, status: 'RESERVE' },
         include: { player: true },
         orderBy: { id: 'asc' },
       }),
@@ -141,19 +146,22 @@ export class AppController {
       section,
       tournament,
       registrations,
+      reserveRegistrations,
       withdrawnRegistrations,
       players,
       matches,
       rankingGroups,
       groupBoards,
+      minimumFee: this.tournaments.minimumFee(tournament),
       externalLink: `${req.protocol}://${req.get('host')}/external-register/${id}`,
     });
   }
 
   @Post('/tournaments/:id/registrations')
-  async addRegistration(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('playerId') playerId: string) {
+  async addRegistration(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('playerId') playerId: string | string[]) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
-    await this.tournaments.registerPlayer(BigInt(id), BigInt(playerId));
+    const ids = Array.isArray(playerId) ? playerId : playerId ? [playerId] : [];
+    await this.tournaments.registerPlayers(BigInt(id), ids.map((item) => BigInt(item)));
     return res.redirect(`/tournaments/${id}/players`);
   }
 
@@ -171,6 +179,13 @@ export class AppController {
     return res.redirect(`/tournaments/${tournamentId}/players`);
   }
 
+  @Post('/registrations/:id/delete')
+  async deleteRegistration(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('tournamentId') tournamentId: string) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    await this.tournaments.deleteRegistration(BigInt(id));
+    return res.redirect(`/tournaments/${tournamentId}/players`);
+  }
+
   @Post('/registrations/:id/payment')
   async payment(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: { tournamentId: string; amount: string; status: string }) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
@@ -178,10 +193,37 @@ export class AppController {
     return res.redirect(`/tournaments/${body.tournamentId}/fees`);
   }
 
+  @Post('/tournaments/:id/payments')
+  async tournamentPayments(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    await this.tournaments.updatePayments(body);
+    return res.redirect(`/tournaments/${id}/fees`);
+  }
+
   @Post('/tournaments/:id/generate-schedule')
   async generateSchedule(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.generateSchedule(BigInt(id));
+    return res.redirect(`/tournaments/${id}/schedule`);
+  }
+
+  @Post('/tournaments/:id/manual-schedule')
+  async manualSchedule(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    const pairCount = Math.max(0, Number(body.pairCount || 0));
+    const teams: string[] = [];
+    const usedNames = new Set<string>();
+    for (let index = 1; index <= pairCount; index++) {
+      const a = String(body[`teamA_${index}`] || '').trim();
+      const b = String(body[`teamB_${index}`] || '').trim();
+      if ((a && usedNames.has(a)) || (b && usedNames.has(b)) || (a && b && a === b)) continue;
+      if (a) usedNames.add(a);
+      if (b) usedNames.add(b);
+      if (a && b) teams.push(`${a} / ${b}`);
+      else if (a) teams.push(a);
+      else if (b) teams.push(b);
+    }
+    await this.tournaments.generateManualSchedule(BigInt(id), teams);
     return res.redirect(`/tournaments/${id}/schedule`);
   }
 

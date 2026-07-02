@@ -2,7 +2,11 @@
 <body class="login-page">
   <section class="login-card">
     <h1>Đăng ký thành công</h1>
-    <p class="muted">Bạn đã được thêm vào giải. Tài khoản xem giải:</p>
+    <% if (registration.status === 'RESERVE') { %>
+      <p class="muted">Bạn đã được thêm vào danh sách dự bị. Tài khoản xem giải:</p>
+    <% } else { %>
+      <p class="muted">Bạn đã được thêm vào giải. Tài khoản xem giải:</p>
+    <% } %>
     <div class="card-lite p mb">
       <div><strong>Tài khoản:</strong> <%= registration.externalEmail %></div>
       <div><strong>Mật khẩu:</strong> 123456789</div>

@@ -48,7 +48,7 @@ export class TournamentService {
   async clientTournaments(email: string): Promise<Tournament[]> {
     const rows = await this.prisma.tournamentRegistration.findMany({
       where: {
-        status: 'ACTIVE',
+        status: { in: ['ACTIVE', 'RESERVE'] },
         OR: [
           { externalEmail: { equals: email, mode: 'insensitive' } },
           { player: { email: { equals: email, mode: 'insensitive' } } },
@@ -68,7 +68,7 @@ export class TournamentService {
       (await this.prisma.tournamentRegistration.count({
         where: {
           tournamentId,
-          status: 'ACTIVE',
+          status: { in: ['ACTIVE', 'RESERVE'] },
           OR: [
             { externalEmail: { equals: user.email, mode: 'insensitive' } },
             { player: { email: { equals: user.email, mode: 'insensitive' } } },
@@ -137,34 +137,52 @@ export class TournamentService {
   }
 
   async registerPlayer(tournamentId: bigint, playerId: bigint) {
+    return this.registerPlayers(tournamentId, [playerId]);
+  }
+
+  async registerPlayers(tournamentId: bigint, playerIds: bigint[]) {
     const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
-    const player = await this.prisma.player.findUniqueOrThrow({ where: { id: playerId } });
-    await this.prisma.tournamentRegistration.upsert({
-      where: { tournamentId_playerId: { tournamentId, playerId } },
-      update: { status: 'ACTIVE', withdrawnAt: null },
-      create: {
-        tournamentId,
-        playerId,
-        skillLevel: player.skillLevel,
-        source: 'INTERNAL',
-        paidAmount: this.minimumFee(tournament),
-        paymentStatus: 'UNPAID',
-      },
-    });
+    const uniqueIds = [...new Set(playerIds.map((id) => id.toString()))].map((id) => BigInt(id));
+    const players = await this.prisma.player.findMany({ where: { id: { in: uniqueIds } }, orderBy: { displayName: 'asc' } });
+    const activeCount = await this.prisma.tournamentRegistration.count({ where: { tournamentId, status: 'ACTIVE' } });
+    let slotsLeft = Math.max(0, tournament.expectedPlayers - activeCount);
+    let reserveCount = 0;
+    for (const player of players) {
+      const status = slotsLeft > 0 ? 'ACTIVE' : 'RESERVE';
+      if (status === 'ACTIVE') slotsLeft--;
+      if (status === 'RESERVE') reserveCount++;
+      await this.prisma.tournamentRegistration.upsert({
+        where: { tournamentId_playerId: { tournamentId, playerId: player.id } },
+        update: { status, withdrawnAt: null, paidAmount: this.minimumFee(tournament) },
+        create: {
+          tournamentId,
+          playerId: player.id,
+          skillLevel: player.skillLevel,
+          source: 'INTERNAL',
+          status,
+          paidAmount: this.minimumFee(tournament),
+          paymentStatus: 'UNPAID',
+        },
+      });
+    }
+    return { added: players.length, reserveCount };
   }
 
   async registerExternal(tournamentId: bigint, displayName: string, email: string, skillLevel?: string) {
     const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
     if (!tournament.externalRegistrationEnabled) throw new Error('Giải chưa mở đăng ký ngoài');
+    const activeCount = await this.prisma.tournamentRegistration.count({ where: { tournamentId, status: 'ACTIVE' } });
+    const status = activeCount < tournament.expectedPlayers ? 'ACTIVE' : 'RESERVE';
     return this.prisma.tournamentRegistration.upsert({
       where: { tournamentId_externalEmail: { tournamentId, externalEmail: email.trim().toLowerCase() } },
-      update: { status: 'ACTIVE', withdrawnAt: null, externalName: displayName.trim(), skillLevel: blankToNull(skillLevel) },
+      update: { status, withdrawnAt: null, externalName: displayName.trim(), skillLevel: blankToNull(skillLevel) },
       create: {
         tournamentId,
         externalName: displayName.trim(),
         externalEmail: email.trim().toLowerCase(),
         skillLevel: blankToNull(skillLevel),
         source: 'EXTERNAL',
+        status,
         paidAmount: this.minimumFee(tournament),
         paymentStatus: 'UNPAID',
       },
@@ -178,6 +196,20 @@ export class TournamentService {
     });
   }
 
+  async updatePayments(body: Record<string, string>) {
+    const updates = Object.entries(body)
+      .filter(([key]) => key.startsWith('amount_'))
+      .map(([key, amount]) => {
+        const id = BigInt(key.replace('amount_', ''));
+        return this.prisma.tournamentRegistration.update({
+          where: { id },
+          data: { paidAmount: parseMoney(amount), paymentStatus: body[`status_${id}`] || 'UNPAID' },
+        });
+      });
+    if (!updates.length) return [];
+    return this.prisma.$transaction(updates);
+  }
+
   async withdraw(registrationId: bigint) {
     await this.prisma.tournamentRegistration.update({
       where: { id: registrationId },
@@ -186,10 +218,21 @@ export class TournamentService {
   }
 
   async restore(registrationId: bigint) {
+    const registration = await this.prisma.tournamentRegistration.findUniqueOrThrow({
+      where: { id: registrationId },
+      include: { tournament: true },
+    });
+    const activeCount = await this.prisma.tournamentRegistration.count({
+      where: { tournamentId: registration.tournamentId, status: 'ACTIVE' },
+    });
     await this.prisma.tournamentRegistration.update({
       where: { id: registrationId },
-      data: { status: 'ACTIVE', withdrawnAt: null },
+      data: { status: activeCount < registration.tournament.expectedPlayers ? 'ACTIVE' : 'RESERVE', withdrawnAt: null },
     });
+  }
+
+  async deleteRegistration(registrationId: bigint) {
+    await this.prisma.tournamentRegistration.delete({ where: { id: registrationId } });
   }
 
   async generateSchedule(tournamentId: bigint) {
@@ -201,6 +244,17 @@ export class TournamentService {
     });
     const names = registrations.map(displayRegistrationName);
     const teams = tournament.playType === 'DOUBLES' ? doublesTeams(names) : names;
+    const groupMatches = buildGroupMatches(tournament, teams);
+    const knockout = tournament.format === 'GROUP_KNOCKOUT' ? buildKnockout(tournament, lastRound(groupMatches) + 1) : [];
+    await this.prisma.$transaction([
+      this.prisma.matchGame.deleteMany({ where: { tournamentId } }),
+      this.prisma.matchGame.createMany({ data: [...groupMatches, ...knockout] }),
+    ]);
+  }
+
+  async generateManualSchedule(tournamentId: bigint, pairNames: string[]) {
+    const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
+    const teams = pairNames.filter((name) => name.trim());
     const groupMatches = buildGroupMatches(tournament, teams);
     const knockout = tournament.format === 'GROUP_KNOCKOUT' ? buildKnockout(tournament, lastRound(groupMatches) + 1) : [];
     await this.prisma.$transaction([

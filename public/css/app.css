@@ -78,6 +78,17 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .option-card small { display: block; color: var(--muted); margin-top: 4px; }
 .sufficient-row { background: #d4edda; }
 .insufficient-row { background: #fff3cd; }
+.alert-lite { border-radius: 8px; padding: 10px 12px; border: 1px solid #cfe2ff; background: #e7f1ff; color: #084298; }
+.alert-lite.warn { border-color: #ffe69c; background: #fff3cd; color: #664d03; }
+.player-check-list { max-height: 270px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
+.player-check-list label { display: flex; gap: 10px; padding: 10px 12px; margin: 0; border-bottom: 1px solid #eef2f7; cursor: pointer; }
+.player-check-list label:last-child { border-bottom: 0; }
+.player-check-list input { width: auto; min-height: auto; margin-top: 4px; }
+.player-check-list small { display: block; color: var(--muted); margin-top: 2px; }
+.manual-pair-box { border: 1px solid #9ec5fe; border-radius: 8px; background: #f8fbff; padding: 12px; }
+.manual-pair-box summary { cursor: pointer; font-weight: 800; color: #0b5ed7; }
+.manual-pair-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 12px; }
+.manual-pair-card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
 .bottom-menu { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: #fff; border-top: 1px solid var(--line); box-shadow: 0 -2px 12px rgba(0,0,0,.06); }
 .bottom-menu-inner { max-width: 900px; margin: 0 auto; display: grid; grid-auto-flow: column; grid-auto-columns: minmax(120px, 1fr); justify-content: center; }
 .bottom-menu a { padding: 11px 6px; text-align: center; text-decoration: none; color: var(--muted); font-weight: 700; font-size: 13px; }

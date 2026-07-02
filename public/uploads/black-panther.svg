@@ -1,21 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Logo Vô Địch">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="bg" x1="70" x2="440" y1="60" y2="450" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#19a65a"/>
-      <stop offset=".55" stop-color="#0d6efd"/>
-      <stop offset="1" stop-color="#0a58ca"/>
+    <linearGradient id="ring" x1="70" x2="430" y1="60" y2="448" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#198754"/>
+      <stop offset="1" stop-color="#0d6efd"/>
     </linearGradient>
-    <linearGradient id="gold" x1="150" x2="360" y1="120" y2="340" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#fff2a6"/>
-      <stop offset=".5" stop-color="#ffc107"/>
-      <stop offset="1" stop-color="#d58b00"/>
+    <linearGradient id="cup" x1="160" x2="360" y1="210" y2="430" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff0a6"/>
+      <stop offset=".52" stop-color="#ffc107"/>
+      <stop offset="1" stop-color="#c98300"/>
     </linearGradient>
   </defs>
   <rect width="512" height="512" rx="108" fill="#f8fbff"/>
-  <circle cx="256" cy="244" r="196" fill="#fff" stroke="url(#bg)" stroke-width="18"/>
-  <path fill="url(#gold)" d="M181 142h150v56h45c0 65-32 107-88 118v39h47v35H177v-35h47v-39c-56-11-88-53-88-118h45v-56Zm0 92c-13-11-20-28-22-51h22v51Zm150 0v-51h22c-2 23-9 40-22 51Z"/>
-  <path fill="#0d6efd" d="M190 210h132v36H190z"/>
-  <text x="256" y="242" text-anchor="middle" font-family="Times New Roman, Times, serif" font-size="66" font-weight="800" fill="#fff">VĐ</text>
-  <path fill="none" stroke="#198754" stroke-width="16" stroke-linecap="round" d="M158 418c58 34 138 34 196 0"/>
-  <text x="256" y="472" text-anchor="middle" font-family="Times New Roman, Times, serif" font-size="34" font-weight="800" fill="#0d6efd">VÔ ĐỊCH</text>
+  <circle cx="256" cy="244" r="196" fill="#fff" stroke="url(#ring)" stroke-width="18"/>
+  <path fill="url(#cup)" d="M176 236h160v78c0 48-35 87-80 87s-80-39-80-87v-78Z"/>
+  <path fill="none" stroke="#d58b00" stroke-width="18" stroke-linecap="round" d="M176 266h-38c3 45 25 72 65 78M336 266h38c-3 45-25 72-65 78"/>
+  <path fill="#d58b00" d="M224 398h64v34h48v32H176v-32h48v-34Z"/>
+  <path fill="#fff7cc" opacity=".72" d="M196 257h119v46c0 34-26 62-59 62s-60-28-60-62v-46Z"/>
+  <path fill="#111827" d="M120 206c31-31 71-48 119-50l93-4c42-2 74 13 91 44 8 15 5 31-8 40-16 11-43 9-70-4-27-13-58-18-92-15l-103 9c-21 2-38-7-30-20Z"/>
+  <path fill="#1f2937" d="M151 193c23-27 59-42 108-46 42-3 83 4 123 20 20 8 34 21 42 39-31-10-66-15-106-14l-129 3c-14 0-27 0-38-2Z"/>
+  <path fill="#111827" d="M365 160l38-34c9-8 24-3 27 9l11 44c3 13-9 24-22 20l-50-15c1-8 0-16-4-24Z"/>
+  <path fill="#111827" d="M331 153c12-22 31-34 57-36-9 19-19 36-30 50-11-2-20-7-27-14Z"/>
+  <path fill="#f8fbff" d="M386 177c13-4 25-3 37 4-8 7-17 10-27 9-6-1-10-5-10-13Z"/>
+  <path fill="#198754" d="M402 178c7-2 13-1 19 2-4 4-8 6-13 5-4 0-6-2-6-7Z"/>
+  <path fill="#0d6efd" d="M366 202c11 1 20 4 28 10-12 7-24 8-36 3l8-13Z"/>
+  <path fill="#111827" d="M130 219c-22 23-23 48-4 74 8 11 24 3 21-11-3-18 2-34 16-49l24-25-57 11Z"/>
+  <path fill="#111827" d="M224 213c-17 32-15 59 7 81 10 10 25-1 19-14-8-18-7-36 2-56l10-21-38 10Z"/>
+  <path fill="#111827" d="M306 202c19 23 41 33 65 31 14-1 18-20 5-26-16-8-31-17-44-28l-26 23Z"/>
+  <path fill="#111827" d="M117 211c-18 3-35 15-51 36 30 3 55-4 76-21l-25-15Z"/>
 </svg>
