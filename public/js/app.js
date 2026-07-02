@@ -150,13 +150,18 @@ const getTournamentSocket = (tournamentId) => {
 (() => {
   const selects = [...document.querySelectorAll('[data-manual-pair-select]')];
   if (!selects.length) return;
+  selects.forEach((select) => {
+    select.dataset.options = JSON.stringify([...select.options].map((option) => ({ value: option.value, text: option.textContent || '' })));
+  });
   const sync = () => {
     const selected = new Set(selects.map((select) => select.value).filter(Boolean));
     selects.forEach((select) => {
-      [...select.options].forEach((option) => {
-        const unavailable = Boolean(option.value) && option.value !== select.value && selected.has(option.value);
-        option.hidden = unavailable;
-        option.disabled = unavailable;
+      const currentValue = select.value;
+      const options = JSON.parse(select.dataset.options || '[]');
+      select.replaceChildren();
+      options.forEach((option) => {
+        if (option.value && option.value !== currentValue && selected.has(option.value)) return;
+        select.add(new Option(option.text, option.value, false, option.value === currentValue));
       });
     });
   };
