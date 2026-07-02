@@ -355,6 +355,7 @@ export class AppController {
   async updateTeamSettings(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     await this.teams.updateTeam(BigInt(id), body.name, body.description);
+    await this.teams.setFund(BigInt(id), body.month, body.monthlyFee, body.courtCost, body.previousBalance, body.notes);
     return res.redirect(`/teams/${id}/settings?month=${body.month || new Date().toISOString().slice(0, 7)}`);
   }
 

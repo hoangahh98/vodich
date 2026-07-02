@@ -166,11 +166,11 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .team-create-action { grid-column: 1 / -1; width: 20%; min-width: 160px; }
 .team-create-action .btn { width: 100%; }
 .team-detail-shell { max-width: 1280px; }
-.team-expense-form { display: grid; grid-template-columns: 2fr 4fr 3fr 1fr; gap: 12px; align-items: end; }
-.team-expense-form .expense-date { grid-column: span 2; }
-.team-expense-form .expense-content { grid-column: span 4; }
-.team-expense-form .expense-amount { grid-column: span 3; }
-.team-expense-form .expense-action { grid-column: 1 / span 2; }
+.team-expense-form { display: grid; grid-template-columns: 3fr 4fr 3fr; gap: 12px; align-items: end; }
+.team-expense-form .expense-date { grid-column: span 1; }
+.team-expense-form .expense-content { grid-column: span 1; }
+.team-expense-form .expense-amount { grid-column: span 1; }
+.team-expense-form .expense-action { grid-column: 1 / span 1; width: 10%; min-width: 96px; }
 .team-expense-form .expense-action .btn { width: 100%; }
 .team-member-picker { max-height: 260px; }
 .team-member-actions > .flex { flex: 1 1 auto; }
