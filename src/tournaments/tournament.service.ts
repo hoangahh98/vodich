@@ -514,7 +514,7 @@ function prizeFundFromForm(totalPaid: number, form: Record<string, unknown>) {
 }
 
 function normalizePrizes(form: Record<string, unknown>, availablePrizeFund: number) {
-  const values = [prizeValue(form.prizeRate1, 30), prizeValue(form.prizeRate2, 30), prizeValue(form.prizeRate3, 30)];
+  const values = [prizeValue(form.prizeRate1, 50), prizeValue(form.prizeRate2, 30), prizeValue(form.prizeRate3, 20)];
   if (String(form.prizeMode || 'percent') === 'manual') {
     const total = values.reduce((sum, value) => sum + value, 0);
     if (total > availablePrizeFund) {

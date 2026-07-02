@@ -70,10 +70,10 @@
           <label><input type="radio" name="prizeMode" value="percent" <%= !isManualPrize ? 'checked' : '' %>> Theo tỷ lệ phần trăm</label>
           <label><input type="radio" name="prizeMode" value="manual" <%= isManualPrize ? 'checked' : '' %>> Nhập tiền thưởng thủ công</label>
         </div>
-        <div class="row" id="prizeConfigFields">
-          <div class="col-4"><label data-prize-label="1">Giải 1 (%)</label><input class="money-input" name="prizeRate1" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate1) : '30' %>"></div>
-          <div class="col-4"><label data-prize-label="2">Giải 2 (%)</label><input class="money-input" name="prizeRate2" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate2) : '30' %>"></div>
-          <div class="col-4"><label data-prize-label="3">Giải 3 (%)</label><input class="money-input" name="prizeRate3" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate3) : '30' %>"></div>
+        <div class="row prize-config-grid" id="prizeConfigFields">
+          <div class="prize-config-col"><label data-prize-label="1">Giải 1 (%)</label><input class="money-input" name="prizeRate1" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate1) : '50' %>"></div>
+          <div class="prize-config-col"><label data-prize-label="2">Giải 2 (%)</label><input class="money-input" name="prizeRate2" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate2) : '30' %>"></div>
+          <div class="prize-config-col"><label data-prize-label="3">Giải 3 (%)</label><input class="money-input" name="prizeRate3" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate3) : '20' %>"></div>
         </div>
         <p class="muted mt">Nếu chọn thủ công, nhập số tiền cụ thể cho từng giải. Nếu chọn tỷ lệ, nhập phần trăm.</p>
       </section>
