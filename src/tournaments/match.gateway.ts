@@ -21,11 +21,19 @@ export class MatchGateway {
       include: { tournament: true },
     });
     if (!match) return;
-    const scoreA = Math.max(0, Number(body.scoreA) || 0);
-    const scoreB = Math.max(0, Number(body.scoreB) || 0);
+    let scoreA = Math.max(0, Number(body.scoreA) || 0);
+    let scoreB = Math.max(0, Number(body.scoreB) || 0);
+    const touchScore = Math.max(1, match.tournament.touchScore || 11);
+    const maxScore = Math.max(1, match.tournament.maxScore || 15);
+    const maxAllowed = (opponentScore: number) => {
+      if (opponentScore >= touchScore - 1) return Math.min(opponentScore + 2, maxScore);
+      return Math.min(touchScore, maxScore);
+    };
+    scoreA = Math.min(scoreA, maxAllowed(scoreB));
+    scoreB = Math.min(scoreB, maxAllowed(scoreA));
     const high = Math.max(scoreA, scoreB);
     const diff = Math.abs(scoreA - scoreB);
-    const status = high >= match.tournament.maxScore || (high >= match.tournament.touchScore && diff >= 2) ? 'FINISHED' : 'PLAYING';
+    const status = high >= maxScore || (high >= touchScore && diff >= 2) ? 'FINISHED' : 'PLAYING';
     const updated = await this.prisma.matchGame.update({
       where: { id: match.id },
       data: {

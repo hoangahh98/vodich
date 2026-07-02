@@ -9,6 +9,7 @@ export interface RankingRow {
   played: number;
   won: number;
   lost: number;
+  rankingPoints: number;
   pointsFor: number;
   pointsAgainst: number;
   pointDiff: number;
@@ -345,17 +346,21 @@ class RankingAccumulator {
   played = 0;
   won = 0;
   lost = 0;
+  rankingPoints = 0;
   pointsFor = 0;
   pointsAgainst = 0;
 
   constructor(private readonly teamName: string) {}
 
   apply(pointsFor: number, pointsAgainst: number, finished: boolean) {
+    if (!finished) return;
     this.pointsFor += pointsFor;
     this.pointsAgainst += pointsAgainst;
-    if (!finished) return;
     this.played++;
-    if (pointsFor > pointsAgainst) this.won++;
+    if (pointsFor > pointsAgainst) {
+      this.won++;
+      this.rankingPoints++;
+    }
     if (pointsFor < pointsAgainst) this.lost++;
   }
 
@@ -365,6 +370,7 @@ class RankingAccumulator {
       played: this.played,
       won: this.won,
       lost: this.lost,
+      rankingPoints: this.rankingPoints,
       pointsFor: this.pointsFor,
       pointsAgainst: this.pointsAgainst,
       pointDiff: this.pointsFor - this.pointsAgainst,

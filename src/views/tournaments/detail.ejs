@@ -45,7 +45,7 @@
       <% rankingGroups.forEach((group) => { %>
         <h3><%= tournament.format === 'ROUND_ROBIN' ? 'BXH' : `BXH - Bảng ${group.groupName}` %></h3>
         <div class="table-wrap"><table><thead><tr><th>#</th><th>Đội</th><th>Trận</th><th>Thắng</th><th>Thua</th><th>Điểm</th><th>Hiệu số</th></tr></thead><tbody>
-          <% group.rows.forEach((row, index) => { %><tr><td><%= index + 1 %></td><td><strong><%= row.teamName %></strong></td><td><%= row.played %></td><td><%= row.won %></td><td><%= row.lost %></td><td><%= row.pointsFor %>-<%= row.pointsAgainst %></td><td><%= row.pointDiff %></td></tr><% }) %>
+          <% group.rows.forEach((row, index) => { %><tr><td><%= index + 1 %></td><td><strong><%= row.teamName %></strong></td><td><%= row.played %></td><td><%= row.won %></td><td><%= row.lost %></td><td><span class="badge bg-primary"><%= row.rankingPoints %></span></td><td><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
         </tbody></table></div>
       <% }) %>
     </section>
@@ -54,7 +54,7 @@
   <% if (section === 'schedule') { %>
     <section class="card-lite p">
       <div class="flex between center mb"><div><h2>Lịch thi đấu</h2><% if (tournament.format === 'GROUP_KNOCKOUT') { %><div class="muted">Vào vòng trong: <%= tournament.knockoutQualifierCount %> đội</div><% } %></div><% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">Chia lịch</button></form><% } %></div>
-      <div id="matchList" data-tournament-id="<%= tournament.id %>">
+      <div id="matchList" data-tournament-id="<%= tournament.id %>" data-touch-score="<%= tournament.touchScore || 11 %>" data-max-score="<%= tournament.maxScore || 15 %>">
         <%
           const roundMap = new Map();
           matches.forEach((match) => {
@@ -133,7 +133,7 @@
                           </div>
                           <div class="score-section">
                             <span class="badge <%= done ? 'bg-success' : 'bg-primary' %> px-2 py-1 score-pill">
-                              <span class="score-a"><%= m.scoreA %></span> – <span class="score-b"><%= m.scoreB %></span> - <%= m.scoreOrder || 2 %>
+                              <span class="score-a"><%= m.scoreA %></span> – <span class="score-b"><%= m.scoreB %></span> - <span class="score-order"><%= m.scoreOrder || 2 %></span>
                             </span>
                             <span class="badge <%= done ? 'bg-success' : 'bg-secondary' %> match-status"><%= done ? 'Đã xong' : 'Đang đánh' %></span>
                             <% if (currentUser.role === 'ADMIN') { %>

@@ -56,12 +56,26 @@ document.addEventListener('input', (event) => {
   if (!list || typeof io === 'undefined') return;
   const socket = io();
   const tournamentId = list.dataset.tournamentId;
+  const touchScore = Number.parseInt(list.dataset.touchScore || '11', 10) || 11;
+  const maxScore = Number.parseInt(list.dataset.maxScore || '15', 10) || 15;
+  const maxAllowedScore = (opponentScore) => {
+    if (opponentScore >= touchScore - 1) return Math.min(opponentScore + 2, maxScore);
+    return Math.min(touchScore, maxScore);
+  };
+  const clampScores = (scoreA, scoreB) => {
+    let nextA = Math.min(Math.max(0, scoreA), maxAllowedScore(scoreB));
+    let nextB = Math.min(Math.max(0, scoreB), maxAllowedScore(nextA));
+    nextA = Math.min(nextA, maxAllowedScore(nextB));
+    return [nextA, nextB];
+  };
   socket.emit('joinTournament', tournamentId);
   socket.on('scoreUpdated', (match) => {
     const row = list.querySelector(`[data-match-id="${match.id}"]`);
     if (!row) return;
     row.querySelector('.score-a').textContent = match.scoreA;
     row.querySelector('.score-b').textContent = match.scoreB;
+    const order = row.querySelector('.score-order');
+    if (order) order.textContent = match.scoreOrder || 2;
     const status = match.status === 'FINISHED' ? 'Đã xong' : match.status === 'PLAYING' ? 'Đang đánh' : 'Chưa đánh';
     row.querySelector('.match-status').textContent = status;
     row.classList.toggle('da-xong', match.status === 'FINISHED');
@@ -77,6 +91,7 @@ document.addEventListener('input', (event) => {
     const delta = Number.parseInt(button.dataset.delta || '0', 10);
     if (button.dataset.side === 'A') scoreA = Math.max(0, scoreA + delta);
     if (button.dataset.side === 'B') scoreB = Math.max(0, scoreB + delta);
+    [scoreA, scoreB] = clampScores(scoreA, scoreB);
     scoreAEl.textContent = String(scoreA);
     scoreBEl.textContent = String(scoreB);
     button.classList.add('loading');

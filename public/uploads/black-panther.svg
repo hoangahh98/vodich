@@ -1,24 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Logo con báo Vô Địch">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Logo Vô Địch">
   <defs>
-    <linearGradient id="ring" x1="80" x2="432" y1="70" y2="438" gradientUnits="userSpaceOnUse">
+    <linearGradient id="bg" x1="70" x2="440" y1="60" y2="450" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#19a65a"/>
-      <stop offset="1" stop-color="#0d6efd"/>
+      <stop offset=".55" stop-color="#0d6efd"/>
+      <stop offset="1" stop-color="#0a58ca"/>
     </linearGradient>
-    <radialGradient id="face" cx="50%" cy="45%" r="65%">
-      <stop offset="0" stop-color="#2c3442"/>
-      <stop offset="1" stop-color="#0f1722"/>
-    </radialGradient>
+    <linearGradient id="gold" x1="150" x2="360" y1="120" y2="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff2a6"/>
+      <stop offset=".5" stop-color="#ffc107"/>
+      <stop offset="1" stop-color="#d58b00"/>
+    </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="108" fill="#f7fbff"/>
-  <circle cx="256" cy="242" r="198" fill="#fff" stroke="url(#ring)" stroke-width="18"/>
-  <path fill="#0f1722" d="M137 193 92 121c-8-13 1-29 16-31l76-10c16-2 29 14 23 29l-27 77c-15 1-29 3-43 7Zm238-1 45-71c8-13-1-29-16-31l-76-10c-16-2-29 14-23 29l27 76c15 1 29 3 43 7Z"/>
-  <path fill="url(#face)" d="M108 276c0-91 62-156 148-156s148 65 148 156c0 88-58 148-148 148s-148-60-148-148Z"/>
-  <path fill="#1e293b" d="M125 274c35-34 70-50 111-47 10 1 19 3 29 6 10-3 21-5 32-6 38-2 70 14 99 47-11 71-65 116-140 116-75 0-124-45-131-116Z"/>
-  <path fill="#e9f5ff" d="M157 267c34-20 66-23 96-9-15 26-37 42-66 48-17 3-27-9-30-39Z"/>
-  <path fill="#e9f5ff" d="M355 267c-34-20-66-23-96-9 15 26 37 42 66 48 17 3 27-9 30-39Z"/>
-  <path fill="#1f9d55" d="M182 270c19-8 37-8 55 0-10 9-22 14-36 15-9 0-15-5-19-15Zm148 0c-19-8-37-8-55 0 10 9 22 14 36 15 9 0 15-5 19-15Z"/>
-  <path fill="#0d6efd" d="M239 327h34l-17 24Z"/>
-  <path fill="none" stroke="#eff6ff" stroke-linecap="round" stroke-width="10" d="M215 356c14 15 28 22 41 22s27-7 41-22"/>
-  <path fill="none" stroke="#19a65a" stroke-linecap="round" stroke-width="16" d="M155 421c58 34 144 34 202 0"/>
-  <text x="256" y="474" text-anchor="middle" font-family="Times New Roman, Times, serif" font-size="34" font-weight="800" fill="#0d6efd">VÔ ĐỊCH</text>
+  <rect width="512" height="512" rx="108" fill="#f8fbff"/>
+  <circle cx="256" cy="244" r="196" fill="#fff" stroke="url(#bg)" stroke-width="18"/>
+  <path fill="url(#gold)" d="M181 142h150v56h45c0 65-32 107-88 118v39h47v35H177v-35h47v-39c-56-11-88-53-88-118h45v-56Zm0 92c-13-11-20-28-22-51h22v51Zm150 0v-51h22c-2 23-9 40-22 51Z"/>
+  <path fill="#0d6efd" d="M190 210h132v36H190z"/>
+  <text x="256" y="242" text-anchor="middle" font-family="Times New Roman, Times, serif" font-size="66" font-weight="800" fill="#fff">VĐ</text>
+  <path fill="none" stroke="#198754" stroke-width="16" stroke-linecap="round" d="M158 418c58 34 138 34 196 0"/>
+  <text x="256" y="472" text-anchor="middle" font-family="Times New Roman, Times, serif" font-size="34" font-weight="800" fill="#0d6efd">VÔ ĐỊCH</text>
 </svg>
