@@ -5,7 +5,8 @@
 <% const totalCost = Number(tournament.courtCost) + Number(tournament.foodCost) + Number(tournament.prizeCost) + Number(tournament.otherCost); %>
 <% const totalPaid = registrations.reduce((sum, r) => sum + Number(r.paidAmount || 0), 0); %>
 <% const totalExpected = registrations.length * minimumFee; %>
-<% const missingFee = Math.max(0, totalExpected - totalPaid); %>
+<% const unpaidCount = registrations.filter((r) => r.paymentStatus !== 'PAID').length; %>
+<% const missingFee = unpaidCount * minimumFee; %>
 <% const operatingCost = Number(tournament.courtCost) + Number(tournament.foodCost) + Number(tournament.otherCost); %>
 <% const prizeFund = Math.max(0, totalPaid - operatingCost); %>
 <% const manualPrize = Number(tournament.prizeRate1) > 100 || Number(tournament.prizeRate2) > 100 || Number(tournament.prizeRate3) > 100; %>
@@ -105,9 +106,9 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
     <section class="card-lite p">
       <div class="section-heading mb"><div><span class="feature-icon">🏆</span><h2 class="section-title">Quỹ giải thưởng</h2><p class="muted">Tổng hợp chi phí, tiền đã thu và quỹ thưởng thực tế.</p></div></div>
       <div class="grid finance-grid mb">
-        <div class="metric-card blue"><span>💰 Đã thu</span><strong><%= formatMoney(totalPaid) %>đ</strong><small><%= registrations.length %> thành viên chính thức</small></div>
+        <div class="metric-card blue"><span>💰 Tổng thu</span><strong><%= formatMoney(totalPaid) %>đ</strong><small><%= registrations.length %> thành viên chính thức</small></div>
         <div class="metric-card green"><span>✅ Lệ phí/người</span><strong><%= formatMoney(minimumFee) %>đ</strong><small>Dựa trên <%= formatMoney(totalCost) %>đ chi phí</small></div>
-        <div class="metric-card orange"><span>⚠️ Còn thiếu</span><strong><%= formatMoney(missingFee) %>đ</strong><small>Mục tiêu thu <%= formatMoney(totalExpected) %>đ</small></div>
+        <div class="metric-card orange"><span>⚠️ Còn thiếu</span><strong><%= formatMoney(missingFee) %>đ</strong><small><%= unpaidCount %> người đang ở trạng thái ✕</small></div>
         <div class="metric-card gold"><span>🏆 Quỹ thưởng</span><strong><%= formatMoney(prizeFund) %>đ</strong><small>Đã thu - sân/ăn/khác</small></div>
       </div>
       <div class="grid team-admin-grid">
@@ -143,12 +144,16 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
   <% if (section === 'ranking') { %>
     <section class="card-lite p ranking-live"><div class="section-heading mb"><div><span class="feature-icon">📊</span><h2 class="section-title">Bảng xếp hạng</h2><p class="muted">Theo dõi số trận, điểm và hiệu số sau mỗi trận.</p></div></div>
       <% if (!rankingGroups.length) { %><p class="muted">Chưa có trận thi đấu để tính xếp hạng.</p><% } %>
-      <% rankingGroups.forEach((group) => { %>
-        <h3><%= tournament.format === 'ROUND_ROBIN' ? 'BXH' : `BXH - Bảng ${group.groupName}` %></h3>
-        <div class="table-wrap ranking-table"><table><thead><tr><th>#</th><th>Đội</th><th>Trận</th><th class="text-success">W</th><th class="text-danger">L</th><th>Điểm</th><th>Hiệu số</th></tr></thead><tbody>
-          <% group.rows.forEach((row, index) => { const rank = index + 1; const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %>"><td><%= rankLabel %></td><td><strong><%= row.teamName %></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.rankingPoints %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
-        </tbody></table></div>
-      <% }) %>
+      <div class="ranking-board-list">
+        <% rankingGroups.forEach((group) => { %>
+          <div class="ranking-board">
+            <div class="ranking-board-title"><span>🏅</span><strong><%= tournament.format === 'ROUND_ROBIN' ? 'Bảng xếp hạng' : `Bảng xếp hạng ${group.groupName}` %></strong></div>
+            <div class="table-wrap ranking-table"><table><thead><tr><th>#</th><th>Đội</th><th>Trận</th><th class="text-success">W</th><th class="text-danger">L</th><th>Điểm</th><th>Hiệu số</th></tr></thead><tbody>
+              <% group.rows.forEach((row, index) => { const rank = index + 1; const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %>"><td><%= rankLabel %></td><td><strong><%= row.teamName %></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.rankingPoints %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
+            </tbody></table></div>
+          </div>
+        <% }) %>
+      </div>
     </section>
   <% } %>
 

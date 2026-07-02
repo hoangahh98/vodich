@@ -221,6 +221,10 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .hieu-so-neg { color: #dc3545; font-weight: 800; }
 .ranking-table table { text-align: center; }
 .ranking-table td:nth-child(2), .ranking-table th:nth-child(2) { text-align: left; }
+.ranking-board-list { display: grid; gap: 14px; }
+.ranking-board { border: 1px solid #cfe2ff; border-radius: 10px; overflow: hidden; background: #fff; }
+.ranking-board-title { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #e7f1ff; color: #084298; border-bottom: 1px solid #cfe2ff; font-size: 18px; }
+.ranking-board-title strong { font-weight: 900; }
 @media (max-width: 720px) {
   body { overflow-x: hidden; }
   input, select, textarea { min-width: 0; max-width: 100%; }
@@ -243,6 +247,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .manual-pair-card .row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .manual-pair-card .col-6 { grid-column: span 1; }
   .manual-pair-card select { min-height: 72px; font-size: 15px; padding: 12px 8px; }
+  .ranking-board { min-width: 0; }
   .ranking-table table { min-width: 0; }
   .hero-actions { width: 100%; justify-content: space-between; flex-direction: row; align-items: center; }
   .hero-action-buttons { order: 2; grid-template-columns: 1fr; }
