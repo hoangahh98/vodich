@@ -21,8 +21,12 @@ public class Player {
     public Player(String displayName, String email, String skillLevel, String notes) {
         this.displayName = displayName;
         this.email = email;
-        this.skillLevel = skillLevel;
+        this.skillLevel = normalizeSkill(skillLevel);
         this.notes = notes;
+    }
+
+    private static String normalizeSkill(String skillLevel) {
+        return skillLevel == null || skillLevel.isBlank() ? null : skillLevel.trim();
     }
 
     public Long getId() { return id; }

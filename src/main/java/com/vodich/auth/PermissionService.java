@@ -26,7 +26,7 @@ public class PermissionService {
         if (user == null) {
             return false;
         }
-        if (user.role() == UserRole.PLAYER) {
+        if (user.role() == UserRole.CLIENT) {
             return feature != AppFeature.PERMISSIONS;
         }
         if (isRoot(user)) {
@@ -46,7 +46,7 @@ public class PermissionService {
         if (isRoot(user)) {
             return EnumSet.allOf(AppFeature.class);
         }
-        if (user.role() == UserRole.PLAYER) {
+        if (user.role() == UserRole.CLIENT) {
             EnumSet<AppFeature> playerFeatures = EnumSet.of(AppFeature.TOURNAMENTS, AppFeature.TEAMS, AppFeature.TRAVEL);
             return playerFeatures;
         }

@@ -26,6 +26,10 @@ public class MatchGame {
     private int courtNumber;
     @Column(name = "round_number")
     private int roundNumber;
+    @Column(name = "stage")
+    private String stage;
+    @Column(name = "group_name")
+    private String groupName;
     @Column(name = "serving_team")
     private String servingTeam;
     @Column(name = "score_order")
@@ -35,11 +39,21 @@ public class MatchGame {
     }
 
     public MatchGame(Tournament tournament, String teamA, String teamB, int courtNumber, int roundNumber) {
+        this(tournament, teamA, teamB, courtNumber, roundNumber, "Vòng tròn");
+    }
+
+    public MatchGame(Tournament tournament, String teamA, String teamB, int courtNumber, int roundNumber, String stage) {
+        this(tournament, teamA, teamB, courtNumber, roundNumber, stage, null);
+    }
+
+    public MatchGame(Tournament tournament, String teamA, String teamB, int courtNumber, int roundNumber, String stage, String groupName) {
         this.tournament = tournament;
         this.teamA = teamA;
         this.teamB = teamB;
         this.courtNumber = courtNumber;
         this.roundNumber = roundNumber;
+        this.stage = stage;
+        this.groupName = groupName;
         this.status = MatchStatus.SCHEDULED;
         this.servingTeam = "A";
         this.scoreOrder = 2;
@@ -66,6 +80,8 @@ public class MatchGame {
     public MatchStatus getStatus() { return status; }
     public int getCourtNumber() { return courtNumber; }
     public int getRoundNumber() { return roundNumber; }
+    public String getStage() { return stage; }
+    public String getGroupName() { return groupName; }
     public String getServingTeam() { return servingTeam; }
     public int getScoreOrder() { return scoreOrder; }
 }

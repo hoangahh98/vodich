@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="vi">
-<head th:replace="~{layout :: head('Giải Đấu')}"></head>
+<head th:replace="~{layout :: head('Giải đấu')}"></head>
 <body>
 <nav th:replace="~{layout :: topbar}"></nav>
 <main class="app-shell">
     <div class="card-lite p-3 mb-4">
         <div class="d-flex justify-content-between align-items-center">
-            <h1 class="h4 fw-bold mb-0">🏆 Quản Lý Giải Đấu</h1>
-            <a class="btn btn-success fw-bold" href="/tournaments/new" th:if="${currentUser.admin()}">➕ THÊM GIẢI</a>
+            <h1 class="h4 fw-bold mb-0">Quản lý giải đấu</h1>
+            <a class="btn btn-success fw-bold" href="/tournaments/new" th:if="${currentUser.admin()}">Thêm giải</a>
         </div>
     </div>
     <div class="row g-3">
@@ -15,8 +15,8 @@
             <a class="card-lite p-3 h-100 d-block text-decoration-none text-dark" th:href="@{/tournaments/{id}/players(id=${item.tournament.id})}">
                 <div class="fw-bold text-primary h5" th:text="${item.tournament.name}"></div>
                 <div class="text-muted small">
-                    👥 <span th:text="${item.activeCount}"></span>/<span th:text="${item.tournament.expectedPlayers}"></span> VĐV<br>
-                    💰 Lệ phí: <span th:text="${#numbers.formatDecimal(item.minimumFee,0,'COMMA',0,'POINT')}"></span>đ
+                    Thành viên: <span th:text="${item.activeCount}"></span>/<span th:text="${item.tournament.expectedPlayers}"></span><br>
+                    Lệ phí: <span th:text="${#numbers.formatDecimal(item.minimumFee,0,'COMMA',0,'POINT')}"></span>đ
                 </div>
             </a>
         </div>

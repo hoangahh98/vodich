@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="vi">
-<head th:replace="~{layout :: head('Vận Động Viên')}"></head>
+<head th:replace="~{layout :: head('Thành viên')}"></head>
 <body>
 <nav th:replace="~{layout :: topbar}"></nav>
 <main class="app-shell">
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h1 class="h4 fw-bold mb-0">👥 Quản Lý VĐV</h1>
-        <a class="btn btn-outline-secondary" href="/">🏠 Trang chủ</a>
+        <h1 class="h4 fw-bold mb-0">Quản lý thành viên</h1>
+        <a class="btn btn-outline-secondary" href="/">Trang chủ</a>
     </div>
     <section class="card-lite p-3 mb-3">
         <div class="alert alert-warning" th:if="${error != null and !error.isBlank()}" th:text="${error}"></div>
@@ -15,15 +15,16 @@
             <div class="col-md-3"><input class="form-control" type="email" name="email" placeholder="Email" required></div>
             <div class="col-md-2">
                 <select class="form-select" name="skillLevel">
-                    <option>A</option><option>B</option><option selected>C</option><option>D</option>
+                    <option value="">Chưa chọn trình</option>
+                    <option>A</option><option>B</option><option>C</option><option>D</option>
                 </select>
             </div>
             <div class="col-md-3"><input class="form-control" name="notes" placeholder="Ghi chú"></div>
-            <div class="col-md-1"><button class="btn btn-success w-100 fw-bold" data-loading-text="...">➕ Thêm</button></div>
+            <div class="col-md-1"><button class="btn btn-success w-100 fw-bold" data-loading-text="...">Thêm</button></div>
         </form>
     </section>
     <section class="card-lite p-0">
-        <div class="card-header bg-primary text-white fw-bold">📋 DANH SÁCH VĐV</div>
+        <div class="card-header bg-primary text-white fw-bold">Danh sách thành viên</div>
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead class="table-dark"><tr><th>Tên</th><th>Email</th><th>Trình</th></tr></thead>
@@ -31,7 +32,7 @@
                 <tr th:each="p : ${players}">
                     <td class="fw-bold" th:text="${p.displayName}"></td>
                     <td class="text-muted small" th:text="${p.email}"></td>
-                    <td><span class="badge" th:classappend="'badge-trinh-' + ${p.skillLevel}" th:text="${p.skillLevel}"></span></td>
+                    <td><span class="badge text-bg-secondary" th:text="${p.skillLevel ?: '-'}"></span></td>
                 </tr>
                 </tbody>
             </table>

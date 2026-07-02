@@ -1,19 +1,19 @@
 <!doctype html>
 <html lang="vi">
-<head th:replace="~{layout :: head('Đăng Ký Thành Công')}"></head>
+<head th:replace="~{layout :: head('Đăng ký thành công')}"></head>
 <body class="login-page">
 <main class="container">
     <div class="row justify-content-center">
         <div class="col-md-5">
             <section class="card login-card">
                 <div class="card-body p-4">
-                    <h1 class="h4 fw-bold text-center">✅ Đăng Ký Thành Công</h1>
+                    <h1 class="h4 fw-bold text-center">Đăng ký thành công</h1>
                     <p class="text-muted text-center">Bạn đã được thêm vào giải. Tài khoản xem giải:</p>
                     <div class="alert alert-light border">
                         <div><strong>User:</strong> <span th:text="${registration.email}"></span></div>
                         <div><strong>Mật khẩu:</strong> 123456789</div>
                     </div>
-                    <a class="btn btn-primary w-100 fw-bold" th:href="@{/tournaments/{id}/players(id=${registration.tournament.id})}">👁️ Link xem giải</a>
+                    <a class="btn btn-primary w-100 fw-bold" th:href="@{/tournaments/{id}/players(id=${registration.tournament.id})}">Link xem giải</a>
                 </div>
             </section>
         </div>

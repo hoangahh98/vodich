@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="vi">
-<head th:replace="~{layout :: head('Đăng Ký Giải')}"></head>
+<head th:replace="~{layout :: head('Đăng ký giải')}"></head>
 <body class="login-page">
 <main class="container">
     <div class="row justify-content-center">
@@ -8,15 +8,21 @@
             <section class="card login-card">
                 <div class="card-body p-4">
                     <div class="text-center mb-3">
-                        <img class="login-logo mb-3" src="/uploads/icon.jpg" alt="Pickleball">
-                        <h1 class="h4 fw-bold">Đăng Ký Giải</h1>
+                        <img class="login-logo mb-3" src="/uploads/icon.jpg" alt="Vô Địch Tool">
+                        <h1 class="h4 fw-bold">Đăng ký giải</h1>
                         <p class="text-muted mb-0" th:text="${tournament.name}"></p>
                     </div>
                     <form method="post">
                         <div class="mb-3"><label class="form-label fw-bold">Họ tên</label><input class="form-control form-control-lg" name="displayName" required></div>
                         <div class="mb-3"><label class="form-label fw-bold">Email</label><input class="form-control form-control-lg" type="email" name="email" required></div>
-                        <div class="mb-3"><label class="form-label fw-bold">Trình độ</label><select class="form-select form-select-lg" name="skillLevel"><option>A</option><option>B</option><option selected>C</option><option>D</option></select></div>
-                        <button class="btn btn-success w-100 btn-lg fw-bold" data-loading-text="Đang đăng ký...">✅ ĐĂNG KÝ</button>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Trình độ</label>
+                            <select class="form-select form-select-lg" name="skillLevel">
+                                <option value="">Chưa chọn trình</option>
+                                <option>A</option><option>B</option><option>C</option><option>D</option>
+                            </select>
+                        </div>
+                        <button class="btn btn-success w-100 btn-lg fw-bold" data-loading-text="Đang đăng ký...">Đăng ký</button>
                     </form>
                 </div>
             </section>

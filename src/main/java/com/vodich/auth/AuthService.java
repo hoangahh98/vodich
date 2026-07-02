@@ -51,7 +51,7 @@ public class AuthService {
             throw new IllegalArgumentException("Sai email hoặc mật khẩu");
         }
         return players.findByEmailIgnoreCase(normalized)
-            .map(player -> new CurrentUser(player.getId(), player.getEmail(), player.getDisplayName(), UserRole.PLAYER))
+            .map(player -> new CurrentUser(player.getId(), player.getEmail(), player.getDisplayName(), UserRole.CLIENT))
             .orElseGet(() -> externalParticipant(normalized));
     }
 
@@ -59,6 +59,6 @@ public class AuthService {
         TournamentRegistration registration = registrations.findByExternalEmailIgnoreCaseAndStatusOrderByIdAsc(email, RegistrationStatus.ACTIVE).stream()
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Sai email hoặc mật khẩu"));
-        return new CurrentUser(registration.getId(), registration.getEmail(), registration.getDisplayName(), UserRole.PLAYER);
+        return new CurrentUser(registration.getId(), registration.getEmail(), registration.getDisplayName(), UserRole.CLIENT);
     }
 }

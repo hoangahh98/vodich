@@ -9,8 +9,9 @@
             <div>
                 <h1 class="h4 fw-bold mb-1" th:text="${tournament.name}"></h1>
                 <div class="text-muted small">
-                    📍 <span th:text="${tournament.venue ?: 'Chưa có địa điểm'}"></span> ·
-                    💰 Phí tối thiểu <span th:text="${#numbers.formatDecimal(tournament.minimumFeePerPlayer(),0,'COMMA',0,'POINT')}"></span>đ
+                    <span th:text="${tournament.venue ?: 'Chưa có địa điểm'}"></span> ·
+                    Phí tối thiểu <span th:text="${#numbers.formatDecimal(tournament.minimumFeePerPlayer(),0,'COMMA',0,'POINT')}"></span>đ ·
+                    <span th:text="${tournament.format.name() == 'GROUP_KNOCKOUT' ? 'Vòng bảng + loại trực tiếp' : 'Vòng tròn'}"></span>
                 </div>
             </div>
             <a class="btn btn-outline-secondary" href="/tournaments">Danh sách</a>
@@ -19,7 +20,7 @@
 
     <section class="card-lite p-3" th:if="${section == 'players'}">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="section-title">👥 Vận động viên</h2>
+            <h2 class="section-title">Thành viên</h2>
             <span class="badge text-bg-primary" th:text="${registrations.size()} + '/' + ${tournament.expectedPlayers}"></span>
         </div>
         <div class="alert alert-info py-2" th:if="${tournament.externalRegistrationEnabled}">
@@ -29,11 +30,11 @@
         <form class="row g-2 mb-3" method="post" th:if="${currentUser.admin()}" th:action="@{/tournaments/{id}/registrations(id=${tournament.id})}">
             <div class="col">
                 <select class="form-select" name="playerId" required>
-                    <option value="">Chọn VĐV có sẵn</option>
-                    <option th:each="p : ${players}" th:value="${p.id}" th:text="${p.displayName + ' · ' + p.skillLevel}"></option>
+                    <option value="">Chọn thành viên có sẵn</option>
+                    <option th:each="p : ${players}" th:value="${p.id}" th:text="${p.displayName + ' · ' + (p.skillLevel ?: 'Chưa chọn trình')}"></option>
                 </select>
             </div>
-            <div class="col-auto"><button class="btn btn-success fw-bold" data-loading-text="Đang thêm...">➕ Thêm</button></div>
+            <div class="col-auto"><button class="btn btn-success fw-bold" data-loading-text="Đang thêm...">Thêm</button></div>
         </form>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
@@ -41,8 +42,8 @@
                 <tbody>
                 <tr th:each="reg : ${registrations}">
                     <td class="fw-bold" th:text="${reg.displayName}"></td>
-                    <td><span class="badge" th:classappend="'badge-trinh-' + ${reg.skillLevel}" th:text="${reg.skillLevel}"></span></td>
-                    <td th:text="${reg.source}"></td>
+                    <td><span class="badge text-bg-secondary" th:text="${reg.skillLevel ?: '-'}"></span></td>
+                    <td th:text="${reg.source.name() == 'EXTERNAL' ? 'Đăng ký ngoài' : 'Danh sách chung'}"></td>
                     <td class="text-end" th:if="${currentUser.admin()}">
                         <form method="post" th:action="@{/registrations/{id}/withdraw(id=${reg.id})}">
                             <input type="hidden" name="tournamentId" th:value="${tournament.id}">
@@ -68,7 +69,7 @@
     </section>
 
     <section class="card-lite p-3" th:if="${section == 'fund'}">
-        <h2 class="section-title mb-3">💰 Quỹ giải</h2>
+        <h2 class="section-title mb-3">Quỹ giải</h2>
         <div class="row g-3">
             <div class="col-md-3"><div class="card-lite p-3"><div class="text-muted small">Sân bãi</div><div class="fw-bold" th:text="${#numbers.formatDecimal(tournament.courtCost,0,'COMMA',0,'POINT')} + 'đ'"></div></div></div>
             <div class="col-md-3"><div class="card-lite p-3"><div class="text-muted small">Ăn uống</div><div class="fw-bold" th:text="${#numbers.formatDecimal(tournament.foodCost,0,'COMMA',0,'POINT')} + 'đ'"></div></div></div>
@@ -78,23 +79,64 @@
     </section>
 
     <section class="card-lite p-3" th:if="${section == 'ranking'}">
-        <h2 class="section-title mb-3">🏅 Bảng xếp hạng</h2>
-        <p class="text-muted mb-0">Bảng xếp hạng sẽ được tính từ lịch thi đấu. Bản dựng đầu tiên tập trung realtime score và cấu trúc module.</p>
+        <h2 class="section-title mb-3">Bảng xếp hạng</h2>
+        <div th:if="${rankingGroups.isEmpty()}" class="text-muted">Chưa có lịch vòng bảng để tính xếp hạng.</div>
+        <div class="mb-4" th:each="group : ${rankingGroups}">
+            <h3 class="h6 fw-bold text-primary mb-2">BXH - Bảng <span th:text="${group.groupName}"></span></h3>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle">
+                    <thead class="table-dark">
+                    <tr>
+                        <th style="width:48px">#</th>
+                        <th>Đội</th>
+                        <th class="text-center">Trận</th>
+                        <th class="text-center">Thắng</th>
+                        <th class="text-center">Thua</th>
+                        <th class="text-center">Điểm</th>
+                        <th class="text-center">Hiệu số</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr th:each="row, stat : ${group.rows}">
+                        <td class="fw-bold" th:text="${stat.count}"></td>
+                        <td class="fw-semibold" th:text="${row.teamName}"></td>
+                        <td class="text-center" th:text="${row.played}"></td>
+                        <td class="text-center text-success fw-semibold" th:text="${row.won}"></td>
+                        <td class="text-center text-danger fw-semibold" th:text="${row.lost}"></td>
+                        <td class="text-center" th:text="${row.pointsFor + '-' + row.pointsAgainst}"></td>
+                        <td class="text-center fw-semibold" th:text="${row.pointDiff()}"></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </section>
 
     <section class="card-lite p-3" th:if="${section == 'schedule'}">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="section-title">📅 Lịch thi đấu</h2>
+            <div>
+                <h2 class="section-title mb-1">Lịch thi đấu</h2>
+                <div class="text-muted small" th:if="${tournament.format.name() == 'GROUP_KNOCKOUT'}">
+                    Vào vòng trong: <span th:text="${tournament.knockoutQualifierCount}"></span> đội
+                </div>
+            </div>
             <form method="post" th:if="${currentUser.admin()}" th:action="@{/tournaments/{id}/generate-schedule(id=${tournament.id})}">
                 <button class="btn btn-primary btn-sm fw-bold" data-loading-text="Đang chia...">Chia lịch</button>
             </form>
         </div>
         <div id="matchList" th:attr="data-tournament-id=${tournament.id}">
             <div class="border rounded p-2 mb-2 bg-white" th:each="m : ${matches}" th:attr="data-match-id=${m.id}">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <div class="fw-bold"><span th:text="${m.teamA}"></span> vs <span th:text="${m.teamB}"></span></div>
-                        <div class="text-muted small">Sân <span th:text="${m.courtNumber}"></span> · Vòng <span th:text="${m.roundNumber}"></span> · <span class="match-status" th:text="${m.status}"></span></div>
+                <div class="d-flex justify-content-between align-items-center gap-3">
+                    <div class="flex-grow-1">
+                        <div class="mb-1"><span class="badge text-bg-dark" th:text="${m.stage}"></span></div>
+                        <div class="fw-bold d-flex align-items-center flex-wrap gap-2">
+                            <span th:text="${m.teamA}"></span>
+                            <span class="text-muted">vs</span>
+                            <span th:text="${m.teamB}"></span>
+                            <span class="text-muted flex-grow-1 d-none d-sm-inline">------</span>
+                            <span>Sân <span th:text="${m.courtNumber}"></span></span>
+                        </div>
+                        <div class="text-muted small">Vòng <span th:text="${m.roundNumber}"></span> · <span class="match-status" th:text="${m.status}"></span></div>
                     </div>
                     <div class="d-flex align-items-center gap-2" th:if="${currentUser.admin()}">
                         <button class="btn btn-outline-danger score-button" data-side="A" data-delta="-1">-</button>
@@ -114,7 +156,7 @@
     </section>
 
     <section class="card-lite p-3" th:if="${section == 'fees'}">
-        <h2 class="section-title mb-3">📋 Danh sách đóng phí</h2>
+        <h2 class="section-title mb-3">Danh sách đóng phí</h2>
         <div class="table-responsive">
             <table class="table align-middle">
                 <thead class="table-dark"><tr><th>Tên</th><th>Tiền</th><th>Trạng thái</th><th></th></tr></thead>
@@ -139,14 +181,14 @@
     </section>
 
     <section class="card-lite p-3" th:if="${section == 'settings'}">
-        <h2 class="section-title mb-3">⚙️ Cài đặt</h2>
+        <h2 class="section-title mb-3">Cài đặt</h2>
         <p class="text-muted mb-0">Phần sửa giải sẽ được tách riêng ở vòng tiếp theo để giữ controller gọn.</p>
     </section>
 </main>
 
 <nav class="bottom-menu">
     <div class="bottom-menu-inner">
-        <a th:classappend="${section == 'players'} ? 'active'" th:href="@{/tournaments/{id}/players(id=${tournament.id})}">VĐV</a>
+        <a th:classappend="${section == 'players'} ? 'active'" th:href="@{/tournaments/{id}/players(id=${tournament.id})}">Thành viên</a>
         <a th:classappend="${section == 'fund'} ? 'active'" th:href="@{/tournaments/{id}/fund(id=${tournament.id})}">Quỹ</a>
         <a th:classappend="${section == 'ranking'} ? 'active'" th:href="@{/tournaments/{id}/ranking(id=${tournament.id})}">BXH</a>
         <a th:classappend="${section == 'schedule'} ? 'active'" th:href="@{/tournaments/{id}/schedule(id=${tournament.id})}">Lịch</a>

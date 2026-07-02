@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Đăng Nhập - Vô Địch</title>
+    <title>Đăng nhập - Vô Địch Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="/css/app.css" rel="stylesheet">
     <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
@@ -15,30 +15,30 @@
             <section class="card login-card">
                 <div class="card-body p-5">
                     <div class="text-center mb-4">
-                        <img class="login-logo mb-3" src="/uploads/icon.jpg" alt="Pickleball">
-                        <h1 class="h3 fw-bold mb-1">🏸 PICKLEBALL</h1>
-                        <div class="text-muted">Tournament Manager</div>
+                        <img class="login-logo mb-3" src="/uploads/icon.jpg" alt="Vô Địch Tool">
+                        <h1 class="h3 fw-bold mb-1">Vô Địch Tool</h1>
+                        <div class="text-muted">Quản lý giải đấu và đội bóng</div>
                     </div>
                     <div class="alert alert-danger" th:if="${error}" th:text="${error}"></div>
                     <form method="post" action="/login">
                         <div class="mb-3">
-                            <label class="form-label fw-bold">📧 Tài khoản / Email <span class="text-danger">*</span></label>
+                            <label class="form-label fw-bold">Tài khoản / Email <span class="text-danger">*</span></label>
                             <input class="form-control form-control-lg" name="username" required autofocus>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-bold">🔐 Mật Khẩu <span class="text-danger">*</span></label>
+                            <label class="form-label fw-bold">Mật khẩu <span class="text-danger">*</span></label>
                             <input class="form-control form-control-lg" type="password" name="password" required>
-                            <small class="text-muted">VĐV: 123456789</small>
+                            <small class="text-muted">Client mặc định: 123456789</small>
                         </div>
                         <div class="mb-4">
-                            <label class="form-label fw-bold">👤 Vai Trò <span class="text-danger">*</span></label>
+                            <label class="form-label fw-bold">Vai trò <span class="text-danger">*</span></label>
                             <select class="form-select form-select-lg" name="role" required>
-                                <option value="PLAYER">🏃 Vận Động Viên</option>
-                                <option value="ADMIN">👨‍💼 Admin</option>
+                                <option value="CLIENT">Client</option>
+                                <option value="ADMIN">Admin</option>
                             </select>
                         </div>
                         <button class="btn btn-admin text-white w-100 btn-lg fw-bold" data-loading-text="Đang đăng nhập...">
-                            🔓 ĐĂNG NHẬP
+                            Đăng nhập
                         </button>
                     </form>
                 </div>

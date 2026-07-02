@@ -26,6 +26,8 @@ public class Tournament {
     private PlayType playType;
     @Enumerated(EnumType.STRING)
     private TournamentFormat format;
+    @Column(name = "knockout_qualifier_count")
+    private int knockoutQualifierCount;
     @Column(name = "touch_score")
     private int touchScore;
     @Column(name = "max_score")
@@ -57,6 +59,7 @@ public class Tournament {
         this.expectedPlayers = 10;
         this.playType = PlayType.SINGLES;
         this.format = TournamentFormat.ROUND_ROBIN;
+        this.knockoutQualifierCount = 4;
         this.touchScore = 11;
         this.maxScore = 15;
         this.courtCost = BigDecimal.ZERO;
@@ -84,6 +87,7 @@ public class Tournament {
     public int getExpectedPlayers() { return expectedPlayers; }
     public PlayType getPlayType() { return playType; }
     public TournamentFormat getFormat() { return format; }
+    public int getKnockoutQualifierCount() { return knockoutQualifierCount; }
     public int getTouchScore() { return touchScore; }
     public int getMaxScore() { return maxScore; }
     public BigDecimal getCourtCost() { return courtCost; }
@@ -100,6 +104,7 @@ public class Tournament {
         this.expectedPlayers = command.expectedPlayers();
         this.playType = command.playType();
         this.format = command.format();
+        this.knockoutQualifierCount = command.knockoutQualifierCount();
         this.touchScore = command.touchScore();
         this.maxScore = command.maxScore();
         this.courtCost = command.courtCost();

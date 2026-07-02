@@ -43,7 +43,7 @@ public class TournamentRegistration {
         TournamentRegistration registration = new TournamentRegistration();
         registration.tournament = tournament;
         registration.player = player;
-        registration.skillLevel = player.getSkillLevel();
+        registration.skillLevel = normalizeSkill(player.getSkillLevel());
         registration.source = RegistrationSource.INTERNAL;
         registration.status = RegistrationStatus.ACTIVE;
         registration.paidAmount = tournament.minimumFeePerPlayer();
@@ -56,7 +56,7 @@ public class TournamentRegistration {
         registration.tournament = tournament;
         registration.externalName = name;
         registration.externalEmail = email;
-        registration.skillLevel = skillLevel;
+        registration.skillLevel = normalizeSkill(skillLevel);
         registration.source = RegistrationSource.EXTERNAL;
         registration.status = RegistrationStatus.ACTIVE;
         registration.paidAmount = tournament.minimumFeePerPlayer();
@@ -77,6 +77,10 @@ public class TournamentRegistration {
     public void updatePayment(BigDecimal amount, PaymentStatus status) {
         this.paidAmount = amount;
         this.paymentStatus = status;
+    }
+
+    private static String normalizeSkill(String skillLevel) {
+        return skillLevel == null || skillLevel.isBlank() ? null : skillLevel.trim();
     }
 
     public Long getId() { return id; }

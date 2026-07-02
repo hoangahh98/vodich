@@ -1,25 +1,45 @@
 <!doctype html>
 <html lang="vi">
-<head th:replace="~{layout :: head('Tạo Giải')}"></head>
+<head th:replace="~{layout :: head('Tạo giải')}"></head>
 <body>
 <nav th:replace="~{layout :: topbar}"></nav>
 <main class="app-shell">
     <section class="card-lite p-3">
-        <h1 class="h4 fw-bold mb-3">➕ THÊM GIẢI ĐẤU MỚI</h1>
+        <h1 class="h4 fw-bold mb-3">Thêm giải đấu mới</h1>
         <form method="post" action="/tournaments">
             <div class="row g-3">
-                <div class="col-md-6"><label class="form-label fw-bold">Tên Giải</label><input class="form-control" name="name" required></div>
-                <div class="col-md-6"><label class="form-label fw-bold">Địa Điểm</label><input class="form-control" name="venue"></div>
-                <div class="col-md-4"><label class="form-label fw-bold">Thời Gian</label><input class="form-control" type="datetime-local" name="startTime"></div>
-                <div class="col-md-4"><label class="form-label fw-bold">Số Sân</label><input class="form-control" type="number" name="courtCount" value="1"></div>
-                <div class="col-md-4"><label class="form-label fw-bold">Dự Kiến VĐV</label><input class="form-control" type="number" name="expectedPlayers" value="10"></div>
-                <div class="col-md-6"><label class="form-label fw-bold">Loại Đấu</label><select class="form-select" name="playType"><option value="SINGLES">👤 Thi Đơn</option><option value="DOUBLES">👥 Thi Đôi</option></select></div>
-                <div class="col-md-6"><label class="form-label fw-bold">Thể Thức</label><select class="form-select" name="format"><option value="ROUND_ROBIN">Vòng Tròn</option><option value="GROUP_KNOCKOUT">Bảng + Knockout</option></select></div>
-                <div class="col-md-3"><label class="form-label fw-bold">Chạm Điểm</label><input class="form-control" type="number" name="touchScore" value="11"></div>
-                <div class="col-md-3"><label class="form-label fw-bold">Max Điểm</label><input class="form-control" type="number" name="maxScore" value="15"></div>
-                <div class="col-md-3"><label class="form-label fw-bold">Sân Bãi</label><input class="form-control money-input" name="courtCost" value="0"></div>
-                <div class="col-md-3"><label class="form-label fw-bold">Ăn Uống</label><input class="form-control money-input" name="foodCost" value="0"></div>
-                <div class="col-md-3"><label class="form-label fw-bold">Giải Thưởng</label><input class="form-control money-input" name="prizeCost" value="0"></div>
+                <div class="col-md-6"><label class="form-label fw-bold">Tên giải</label><input class="form-control" name="name" required></div>
+                <div class="col-md-6"><label class="form-label fw-bold">Địa điểm</label><input class="form-control" name="venue"></div>
+                <div class="col-md-4"><label class="form-label fw-bold">Thời gian</label><input class="form-control" type="datetime-local" name="startTime"></div>
+                <div class="col-md-4"><label class="form-label fw-bold">Số sân</label><input class="form-control" type="number" name="courtCount" value="1" min="1"></div>
+                <div class="col-md-4"><label class="form-label fw-bold">Dự kiến thành viên</label><input class="form-control" type="number" name="expectedPlayers" value="10" min="1"></div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Loại đấu</label>
+                    <select class="form-select" name="playType">
+                        <option value="SINGLES">Thi đơn</option>
+                        <option value="DOUBLES">Thi đôi</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Thể thức</label>
+                    <select class="form-select" name="format">
+                        <option value="ROUND_ROBIN">Vòng tròn</option>
+                        <option value="GROUP_KNOCKOUT">Vòng bảng + loại trực tiếp</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label fw-bold">Vào vòng trong</label>
+                    <select class="form-select" name="knockoutQualifierCount">
+                        <option value="2">2 đội - Chung kết</option>
+                        <option value="4" selected>4 đội - Bán kết, chung kết</option>
+                        <option value="8">8 đội - Tứ kết, bán kết, chung kết</option>
+                    </select>
+                </div>
+                <div class="col-md-3"><label class="form-label fw-bold">Chạm điểm</label><input class="form-control" type="number" name="touchScore" value="11" min="1"></div>
+                <div class="col-md-3"><label class="form-label fw-bold">Max điểm</label><input class="form-control" type="number" name="maxScore" value="15" min="1"></div>
+                <div class="col-md-3"><label class="form-label fw-bold">Sân bãi</label><input class="form-control money-input" name="courtCost" value="0"></div>
+                <div class="col-md-3"><label class="form-label fw-bold">Ăn uống</label><input class="form-control money-input" name="foodCost" value="0"></div>
+                <div class="col-md-3"><label class="form-label fw-bold">Giải thưởng</label><input class="form-control money-input" name="prizeCost" value="0"></div>
                 <div class="col-md-3"><label class="form-label fw-bold">Khác</label><input class="form-control money-input" name="otherCost" value="0"></div>
                 <div class="col-12">
                     <div class="form-check form-switch">
@@ -28,7 +48,7 @@
                     </div>
                 </div>
             </div>
-            <div class="mt-3"><button class="btn btn-success fw-bold" data-loading-text="Đang tạo...">✅ TẠO GIẢI</button></div>
+            <div class="mt-3"><button class="btn btn-success fw-bold" data-loading-text="Đang tạo...">Tạo giải</button></div>
         </form>
     </section>
 </main>

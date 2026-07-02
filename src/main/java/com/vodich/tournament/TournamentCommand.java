@@ -11,6 +11,7 @@ public record TournamentCommand(
     int expectedPlayers,
     PlayType playType,
     TournamentFormat format,
+    int knockoutQualifierCount,
     int touchScore,
     int maxScore,
     BigDecimal courtCost,

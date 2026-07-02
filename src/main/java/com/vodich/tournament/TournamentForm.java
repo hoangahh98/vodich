@@ -13,6 +13,7 @@ public record TournamentForm(
     int expectedPlayers,
     PlayType playType,
     TournamentFormat format,
+    int knockoutQualifierCount,
     int touchScore,
     int maxScore,
     String courtCost,
@@ -22,6 +23,6 @@ public record TournamentForm(
     boolean externalRegistrationEnabled
 ) {
     public static TournamentForm defaults() {
-        return new TournamentForm("", "", null, 1, 10, PlayType.SINGLES, TournamentFormat.ROUND_ROBIN, 11, 15, "0", "0", "0", "0", false);
+        return new TournamentForm("", "", null, 1, 10, PlayType.SINGLES, TournamentFormat.ROUND_ROBIN, 4, 11, 15, "0", "0", "0", "0", false);
     }
 }

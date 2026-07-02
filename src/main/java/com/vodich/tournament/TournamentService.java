@@ -124,6 +124,7 @@ public class TournamentService {
             Math.max(1, form.expectedPlayers()),
             form.playType(),
             form.format(),
+            normalizeQualifierCount(form.knockoutQualifierCount()),
             Math.max(1, form.touchScore()),
             Math.max(form.touchScore(), form.maxScore()),
             Money.parse(form.courtCost()),
@@ -132,6 +133,13 @@ public class TournamentService {
             Money.parse(form.otherCost()),
             form.externalRegistrationEnabled()
         );
+    }
+
+    private int normalizeQualifierCount(int value) {
+        return switch (value) {
+            case 2, 4, 8 -> value;
+            default -> 4;
+        };
     }
 
     private TournamentSummary summary(Tournament tournament) {

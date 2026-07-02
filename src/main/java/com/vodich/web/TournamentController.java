@@ -70,6 +70,7 @@ public class TournamentController {
         model.addAttribute("withdrawnRegistrations", tournaments.withdrawnRegistrations(id));
         model.addAttribute("players", players.findAll());
         model.addAttribute("matches", matches.byTournament(id));
+        model.addAttribute("rankingGroups", matches.rankings(id));
         model.addAttribute("externalLink", request.getScheme() + "://" + request.getServerName() + (request.getServerPort() > 0 ? ":" + request.getServerPort() : "") + "/external-register/" + id);
         return "tournament/detail";
     }
@@ -105,7 +106,7 @@ public class TournamentController {
     @PostMapping("/tournaments/{id}/generate-schedule")
     public String generate(HttpSession session, @PathVariable Long id) {
         requireAdmin(session, AppFeature.TOURNAMENTS);
-        matches.generateRoundRobin(id);
+        matches.generateSchedule(id);
         return "redirect:/tournaments/" + id + "/schedule";
     }
 
