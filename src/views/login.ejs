@@ -6,9 +6,10 @@
     <p class="text-center muted">Quản lý giải đấu, đội bóng và tỉ số trực tiếp</p>
     <% if (typeof error !== 'undefined') { %><div class="badge badge-danger mb"><%= error %></div><% } %>
     <form method="post" action="/login">
-      <div class="mb"><label>Tài khoản / Email</label><input name="username" required autofocus></div>
+      <input type="hidden" name="next" value="<%= typeof next !== 'undefined' ? next : '' %>">
+      <div class="mb"><label>Tài khoản / Email</label><input name="username" value="<%= typeof username !== 'undefined' ? username : '' %>" required autofocus></div>
       <div class="mb"><label>Mật khẩu</label><input name="password" type="password" required><div class="muted">Khách xem mặc định: 123456789</div></div>
-      <div class="mb"><label>Vai trò</label><select name="role"><option value="ADMIN" selected>Quản trị</option><option value="CLIENT">Khách xem</option></select></div>
+      <div class="mb"><label>Vai trò</label><select name="role"><option value="ADMIN" <%= (typeof role === 'undefined' || role !== 'CLIENT') ? 'selected' : '' %>>Quản trị</option><option value="CLIENT" <%= typeof role !== 'undefined' && role === 'CLIENT' ? 'selected' : '' %>>Khách xem</option></select></div>
       <button class="btn btn-primary" style="width:100%" data-loading-text="Đang đăng nhập...">Đăng nhập</button>
     </form>
   </section>

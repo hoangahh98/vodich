@@ -4,6 +4,7 @@
   <section class="card-lite p tournament-edit-card">
     <div class="section-heading mb"><div><span class="feature-icon">✏️</span><h1><%= tournament ? 'Sửa giải đấu' : 'Tạo giải mới' %></h1><p class="muted">Cấu hình thông tin, luật điểm, chi phí và giải thưởng.</p></div></div>
     <form class="tournament-form" method="post" action="<%= action %>">
+      <input type="hidden" name="returnSection" value="<%= typeof returnSection !== 'undefined' ? returnSection : 'settings' %>">
       <section class="form-section">
         <h2 class="section-title mb">📝 Thông tin giải</h2>
         <div class="row">
@@ -24,14 +25,14 @@
         </div>
         <div id="knockoutQualifierField" class="mt">
           <input type="hidden" name="knockoutQualifierCount" id="knockoutQualifierCount" value="<%= tournament?.knockoutQualifierCount || 2 %>">
-          <div class="row">
-            <div class="col-4">
+          <div class="knockout-option-grid">
+            <div>
               <label class="option-card"><input type="checkbox" id="knockoutFinal" data-value="2" data-min-teams="4" checked> Chung kết <small>Lấy 2 đội</small></label>
             </div>
-            <div class="col-4">
+            <div>
               <label class="option-card"><input type="checkbox" id="knockoutSemi" data-value="4" data-min-teams="8" <%= (tournament?.knockoutQualifierCount || 2) >= 4 ? 'checked' : '' %>> Bán kết <small>Lấy 4 đội</small></label>
             </div>
-            <div class="col-4">
+            <div>
               <label class="option-card"><input type="checkbox" id="knockoutQuarter" data-value="8" data-min-teams="16" <%= (tournament?.knockoutQualifierCount || 2) >= 8 ? 'checked' : '' %>> Tứ kết <small>Lấy 8 đội</small></label>
             </div>
           </div>
@@ -68,7 +69,7 @@
       </section>
       <div class="form-actions">
         <button class="btn btn-success btn-lg" data-loading-text="<%= tournament ? 'Đang lưu...' : 'Đang tạo...' %>">💾 <%= tournament ? 'Lưu thay đổi' : 'Tạo giải' %></button>
-        <a class="btn btn-lg" href="/tournaments">Hủy</a>
+        <a class="btn btn-lg" href="<%= tournament ? `/tournaments/${tournament.id}/${typeof returnSection !== 'undefined' ? returnSection : 'settings'}` : '/tournaments' %>">Hủy</a>
       </div>
     </form>
   </section>

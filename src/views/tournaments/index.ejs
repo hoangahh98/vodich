@@ -7,11 +7,11 @@
   </div>
   <div class="grid module-grid">
     <% tournaments.forEach((item) => { %>
-      <a class="card-lite module-card" href="/tournaments/<%= item.tournament.id %>/players">
+      <a class="card-lite module-card tournament-card" href="/tournaments/<%= item.tournament.id %>/players">
         <h3><%= item.tournament.name %></h3>
         <p class="muted">Thành viên: <%= item.activeCount %>/<%= item.tournament.expectedPlayers %></p>
         <p class="muted">Lệ phí: <%= formatMoney(item.minimumFee) %>đ</p>
-        <span class="badge"><%= item.tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng + loại trực tiếp' : 'Vòng tròn' %></span>
+        <span class="badge tournament-format-badge"><%= item.tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng + loại trực tiếp' : 'Vòng tròn' %></span>
       </a>
     <% }) %>
   </div>

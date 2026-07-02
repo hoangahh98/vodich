@@ -21,9 +21,37 @@
         <h1><%= tournament.name %></h1>
         <div class="muted strong-muted">📍 <%= tournament.venue || 'Chưa có địa điểm' %> · Lệ phí <%= formatMoney(minimumFee) %>đ/người · <%= tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng + loại trực tiếp' : 'Vòng tròn' %></div>
       </div>
-      <div class="feature-hero-art">🏆</div>
+      <div class="hero-actions">
+        <% if (currentUser.role === 'ADMIN') { %>
+          <button class="btn btn-sm btn-primary" type="button" data-copy-target="emailListText">Get Email</button>
+          <button class="btn btn-sm btn-success" type="button" data-open-modal="contentModal">Content mẫu</button>
+        <% } %>
+        <div class="feature-hero-art">🏆</div>
+      </div>
     </div>
+    <% if (currentUser.role === 'ADMIN') { %>
+      <textarea id="emailListText" class="hidden"><%= [...registrations, ...(reserveRegistrations || [])].map((r) => r.player ? r.player.email : r.externalEmail).filter(Boolean).join('; ') %></textarea>
+    <% } %>
   </section>
+  <% if (currentUser.role === 'ADMIN') { %>
+    <div id="contentModal" class="score-modal hidden" aria-hidden="true">
+      <div class="score-modal-backdrop" data-close-modal="contentModal"></div>
+      <div class="score-modal-panel" role="dialog" aria-modal="true">
+        <div class="score-modal-head"><div><h3>Content mẫu</h3><small>Copy gửi cho thành viên</small></div><button class="btn btn-sm" type="button" data-close-modal="contentModal">Đóng</button></div>
+        <div class="score-modal-body">
+          <textarea id="contentSampleText" rows="10">Xin chào Anh/Chị,
+
+Chào mừng Anh/Chị đến với giải đấu "<%= tournament.name %>" tại <%= tournament.venue || 'địa điểm sẽ được cập nhật' %>.
+
+Link xem thông tin giải:
+<%= tournamentLink %>
+
+BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra thuận lợi.</textarea>
+          <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="contentSampleText">Copy nội dung</button></div>
+        </div>
+      </div>
+    </div>
+  <% } %>
 
   <% if (section === 'players') { %>
     <section class="card-lite p">
@@ -44,7 +72,7 @@
       <form class="registration-panel" method="post" action="/tournaments/<%= tournament.id %>/registrations/bulk" data-require-checked="registrationIds" data-confirm="Xử lý các thành viên đã chọn?">
         <div class="bulk-toolbar mb"><strong>Chính thức</strong><span class="muted"><%= registrations.length %> thành viên</span><% if (currentUser.role === 'ADMIN') { %><div class="flex gap"><button class="btn btn-sm" name="bulkAction" value="withdraw" data-loading-text="Đang bỏ giải...">Bỏ giải đã chọn</button><button class="btn btn-sm btn-danger" name="bulkAction" value="delete" data-loading-text="Đang xóa...">Xóa đã chọn</button></div><% } %></div>
         <div class="table-wrap"><table><thead><tr><th class="check-col"><input type="checkbox" data-check-all="[data-active-registration]"></th><th>Tên</th><th>Trình</th><th>Nguồn</th><th>Đóng phí</th></tr></thead><tbody>
-          <% registrations.forEach((r) => { %><tr><td><input data-active-registration type="checkbox" name="registrationIds" value="<%= r.id %>"></td><td><strong><%= r.player ? r.player.displayName : r.externalName %></strong><br><span class="muted"><%= r.player ? r.player.email : r.externalEmail || '-' %></span></td><td><span class="badge"><%= r.skillLevel || '-' %></span></td><td><%= r.source === 'EXTERNAL' ? 'Đăng ký ngoài' : 'Danh sách chung' %></td><td><%= formatMoney(r.paidAmount) %>đ</td></tr><% }) %>
+          <% registrations.forEach((r) => { %><tr><td><input data-active-registration type="checkbox" name="registrationIds" value="<%= r.id %>"></td><td><strong><%= r.player ? r.player.displayName : r.externalName %></strong><br><span class="muted"><%= r.player ? r.player.email : r.externalEmail || '-' %></span></td><td><% if (currentUser.role === 'ADMIN' && r.source === 'EXTERNAL') { %><input type="hidden" name="tournamentId" value="<%= tournament.id %>" form="skill-<%= r.id %>"><select name="skillLevel" form="skill-<%= r.id %>" onchange="document.getElementById('skill-<%= r.id %>').submit()"><option value="" <%= !r.skillLevel ? 'selected' : '' %>>Chưa chọn</option><% ['A','B','C','D'].forEach((level) => { %><option value="<%= level %>" <%= r.skillLevel === level ? 'selected' : '' %>><%= level %></option><% }) %></select><% } else { %><span class="badge"><%= r.skillLevel || '-' %></span><% } %></td><td><%= r.source === 'EXTERNAL' ? 'Đăng ký ngoài' : 'Danh sách chung' %></td><td><%= formatMoney(r.paidAmount || minimumFee) %>đ</td></tr><% }) %>
           <% if (!registrations.length) { %><tr><td colspan="5" class="muted text-center">Chưa có thành viên chính thức.</td></tr><% } %>
         </tbody></table></div>
       </form>
@@ -52,11 +80,12 @@
         <form class="registration-panel mt" method="post" action="/tournaments/<%= tournament.id %>/registrations/bulk" data-require-checked="registrationIds" data-confirm="Xử lý các thành viên dự bị đã chọn?">
           <div class="bulk-toolbar mb"><strong>Dự bị</strong><span class="muted"><%= reserveRegistrations.length %> thành viên</span><% if (currentUser.role === 'ADMIN') { %><div class="flex gap"><button class="btn btn-sm" name="bulkAction" value="restore" <%= slotsLeft <= 0 ? 'disabled title="Đã đủ thành viên chính thức"' : '' %> data-loading-text="Đang đưa vào giải...">Đưa vào giải</button><button class="btn btn-sm" name="bulkAction" value="withdraw" data-loading-text="Đang bỏ giải...">Bỏ giải đã chọn</button><button class="btn btn-sm btn-danger" name="bulkAction" value="delete" data-loading-text="Đang xóa...">Xóa đã chọn</button></div><% } %></div>
           <div class="table-wrap"><table><thead><tr><th class="check-col"><input type="checkbox" data-check-all="[data-reserve-registration]"></th><th>Tên</th><th>Trình</th><th>Nguồn</th><th>Trạng thái</th></tr></thead><tbody>
-            <% reserveRegistrations.forEach((r) => { %><tr class="insufficient-row"><td><input data-reserve-registration type="checkbox" name="registrationIds" value="<%= r.id %>"></td><td><strong><%= r.player ? r.player.displayName : r.externalName %></strong><br><span class="muted"><%= r.player ? r.player.email : r.externalEmail || '-' %></span></td><td><span class="badge"><%= r.skillLevel || '-' %></span></td><td><%= r.source === 'EXTERNAL' ? 'Đăng ký ngoài' : 'Danh sách chung' %></td><td><span class="badge badge-warn">Dự bị</span></td></tr><% }) %>
+            <% reserveRegistrations.forEach((r) => { %><tr class="insufficient-row"><td><input data-reserve-registration type="checkbox" name="registrationIds" value="<%= r.id %>"></td><td><strong><%= r.player ? r.player.displayName : r.externalName %></strong><br><span class="muted"><%= r.player ? r.player.email : r.externalEmail || '-' %></span></td><td><% if (currentUser.role === 'ADMIN' && r.source === 'EXTERNAL') { %><input type="hidden" name="tournamentId" value="<%= tournament.id %>" form="skill-<%= r.id %>"><select name="skillLevel" form="skill-<%= r.id %>" onchange="document.getElementById('skill-<%= r.id %>').submit()"><option value="" <%= !r.skillLevel ? 'selected' : '' %>>Chưa chọn</option><% ['A','B','C','D'].forEach((level) => { %><option value="<%= level %>" <%= r.skillLevel === level ? 'selected' : '' %>><%= level %></option><% }) %></select><% } else { %><span class="badge"><%= r.skillLevel || '-' %></span><% } %></td><td><%= r.source === 'EXTERNAL' ? 'Đăng ký ngoài' : 'Danh sách chung' %></td><td><span class="badge badge-warn">Dự bị</span></td></tr><% }) %>
           </tbody></table></div>
         </form>
       <% } %>
       <% if (withdrawnRegistrations.length) { %><div class="registration-panel mt"><div class="bulk-toolbar mb"><strong>Bỏ giải</strong><span class="muted"><%= withdrawnRegistrations.length %> thành viên</span></div><% withdrawnRegistrations.forEach((r) => { %><div class="flex between center card-lite p mb"><span><%= r.player ? r.player.displayName : r.externalName %></span><form method="post" action="/registrations/<%= r.id %>/restore"><input type="hidden" name="tournamentId" value="<%= tournament.id %>"><button class="btn btn-sm">Khôi phục</button></form></div><% }) %></div><% } %>
+      <% if (currentUser.role === 'ADMIN') { [...registrations, ...(reserveRegistrations || [])].filter((r) => r.source === 'EXTERNAL').forEach((r) => { %><form id="skill-<%= r.id %>" method="post" action="/registrations/<%= r.id %>/skill"></form><% }) } %>
     </section>
   <% } %>
 
@@ -129,8 +158,8 @@
                 <div class="manual-pair-card">
                   <strong>Đội <%= i %></strong>
                   <div class="row">
-                    <div class="col-6"><select name="teamA_<%= i %>"><option value="">Thành viên 1</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
-                    <div class="col-6"><select name="teamB_<%= i %>"><option value="">Thành viên 2</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
+                    <div class="col-6"><select class="manual-pair-select" name="teamA_<%= i %>"><option value="">Thành viên 1</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
+                    <div class="col-6"><select class="manual-pair-select" name="teamB_<%= i %>"><option value="">Thành viên 2</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
                   </div>
                 </div>
               <% } %>
@@ -306,7 +335,7 @@
         <div><span class="muted">Đăng ký ngoài</span><br><strong><%= tournament.externalRegistrationEnabled ? 'Đang mở' : 'Đang tắt' %></strong></div>
       </div>
       <div class="mt flex gap">
-        <a class="btn btn-primary" href="/tournaments/<%= tournament.id %>/edit">Sửa cấu hình giải</a>
+        <a class="btn btn-primary" href="/tournaments/<%= tournament.id %>/edit?returnSection=<%= section %>">Sửa cấu hình giải</a>
         <% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/delete" data-confirm="Xóa giải này và toàn bộ dữ liệu liên quan?"><button class="btn btn-danger" data-loading-text="Đang xóa...">Xóa giải</button></form><% } %>
       </div>
     </section>

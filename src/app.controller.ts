@@ -19,17 +19,18 @@ export class AppController {
   ) {}
 
   @Get('/login')
-  loginPage(@Res() res: Response) {
-    return render(res, 'login');
+  loginPage(@Req() req: Request, @Res() res: Response) {
+    if (req.query.role === 'CLIENT') delete req.session.user;
+    return render(res, 'login', { next: req.query.next || '', username: req.query.username || '', role: req.query.role || 'ADMIN' });
   }
 
   @Post('/login')
-  async login(@Req() req: Request, @Res() res: Response, @Body() body: { username: string; password: string; role: UserRole }) {
+  async login(@Req() req: Request, @Res() res: Response, @Body() body: { username: string; password: string; role: UserRole; next?: string }) {
     try {
       req.session.user = await this.auth.login(body.username || '', body.password || '', body.role || 'ADMIN');
-      return res.redirect('/');
+      return res.redirect(safeNext(body.next) || '/');
     } catch (error) {
-      return render(res, 'login', { error: error instanceof Error ? error.message : 'Đăng nhập thất bại' });
+      return render(res, 'login', { error: error instanceof Error ? error.message : 'Đăng nhập thất bại', next: body.next || '', username: body.username || '', role: body.role || 'ADMIN' });
     }
   }
 
@@ -97,14 +98,15 @@ export class AppController {
   async editTournament(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: BigInt(id) } });
-    return render(res, 'tournaments/form', { tournament, action: `/tournaments/${id}/edit` });
+    const returnSection = String(req.query.returnSection || 'settings');
+    return render(res, 'tournaments/form', { tournament, action: `/tournaments/${id}/edit`, returnSection });
   }
 
   @Post('/tournaments/:id/edit')
   async updateTournament(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.update(BigInt(id), body);
-    return res.redirect(`/tournaments/${id}/players`);
+    return res.redirect(`/tournaments/${id}/${safeSection(body.returnSection)}`);
   }
 
   @Post('/tournaments/:id/delete')
@@ -154,6 +156,7 @@ export class AppController {
       groupBoards,
       minimumFee: this.tournaments.minimumFee(tournament),
       externalLink: `${req.protocol}://${req.get('host')}/external-register/${id}`,
+      tournamentLink: `${req.protocol}://${req.get('host')}/tournaments/${id}/players`,
     });
   }
 
@@ -184,6 +187,13 @@ export class AppController {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.deleteRegistration(BigInt(id));
     return res.redirect(`/tournaments/${tournamentId}/players`);
+  }
+
+  @Post('/registrations/:id/skill')
+  async updateRegistrationSkill(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: { tournamentId: string; skillLevel?: string }) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    await this.tournaments.updateRegistrationSkill(BigInt(id), body.skillLevel || '');
+    return res.redirect(`/tournaments/${body.tournamentId}/players`);
   }
 
   @Post('/tournaments/:id/registrations/bulk')
@@ -385,4 +395,15 @@ function requireFeature(req: Request, res: Response, auth: AuthService, feature:
 
 function blankToNull(value?: string) {
   return value && value.trim() ? value.trim() : null;
+}
+
+function safeNext(value?: string) {
+  const next = String(value || '');
+  if (!next.startsWith('/') || next.startsWith('//') || next.includes('://')) return '';
+  return next;
+}
+
+function safeSection(value: unknown) {
+  const section = String(value || 'settings');
+  return ['players', 'fund', 'ranking', 'schedule', 'fees', 'settings'].includes(section) ? section : 'settings';
 }

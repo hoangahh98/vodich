@@ -117,6 +117,40 @@ document.addEventListener('input', (event) => {
 })();
 
 (() => {
+  document.querySelectorAll('[data-open-modal]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const modal = document.getElementById(button.dataset.openModal || '');
+      modal?.classList.remove('hidden');
+      modal?.setAttribute('aria-hidden', 'false');
+    });
+  });
+  document.querySelectorAll('[data-close-modal]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const modal = document.getElementById(button.dataset.closeModal || '');
+      modal?.classList.add('hidden');
+      modal?.setAttribute('aria-hidden', 'true');
+    });
+  });
+  document.querySelectorAll('[data-copy-target]').forEach((button) => {
+    button.addEventListener('click', async () => {
+      const target = document.getElementById(button.dataset.copyTarget || '');
+      const text = target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement ? target.value : target?.textContent || '';
+      if (!text.trim()) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        const original = button.textContent;
+        button.textContent = 'Đã copy';
+        window.setTimeout(() => {
+          button.textContent = original;
+        }, 1200);
+      } catch (_) {
+        window.prompt('Copy', text);
+      }
+    });
+  });
+})();
+
+(() => {
   document.querySelectorAll('[data-check-all]').forEach((checkbox) => {
     checkbox.addEventListener('change', () => {
       document.querySelectorAll(checkbox.dataset.checkAll).forEach((item) => {
@@ -208,22 +242,27 @@ document.addEventListener('input', (event) => {
     utterance.rate = 0.95;
     window.speechSynthesis.speak(utterance);
   };
-  const scheduleSpeak = () => {
+  const speakCurrentScore = () => {
+    const scoreText = servingTeam === 'B'
+      ? `${readVietnameseNumber(scoreB)} ${readVietnameseNumber(scoreA)} ${readVietnameseNumber(scoreOrder)}`
+      : `${readVietnameseNumber(scoreA)} ${readVietnameseNumber(scoreB)} ${readVietnameseNumber(scoreOrder)}`;
+    const winner = winnerName();
+    const winnerKey = activeRow ? `${activeRow.dataset.matchId}:${winner}:${scoreA}-${scoreB}` : '';
+    if (winner && winnerKey !== lastWinnerKey) {
+      lastWinnerKey = winnerKey;
+      const prefix = winner.includes(' và ') ? 'đội ' : '';
+      speak(`${scoreText}. Chúc mừng ${prefix}${winner} giành chiến thắng`);
+      return;
+    }
+    speak(scoreText);
+  };
+  const scheduleSpeak = (delay = 220) => {
     window.clearTimeout(speakTimer);
-    speakTimer = window.setTimeout(() => {
-      const scoreText = servingTeam === 'B'
-        ? `${readVietnameseNumber(scoreB)} ${readVietnameseNumber(scoreA)} ${readVietnameseNumber(scoreOrder)}`
-        : `${readVietnameseNumber(scoreA)} ${readVietnameseNumber(scoreB)} ${readVietnameseNumber(scoreOrder)}`;
-      const winner = winnerName();
-      const winnerKey = activeRow ? `${activeRow.dataset.matchId}:${winner}:${scoreA}-${scoreB}` : '';
-      if (winner && winnerKey !== lastWinnerKey) {
-        lastWinnerKey = winnerKey;
-        const prefix = winner.includes(' và ') ? 'đội ' : '';
-        speak(`${scoreText}. Chúc mừng ${prefix}${winner} giành chiến thắng`);
-        return;
-      }
-      speak(scoreText);
-    }, 220);
+    if (delay <= 0) {
+      speakCurrentScore();
+      return;
+    }
+    speakTimer = window.setTimeout(speakCurrentScore, delay);
   };
   const setStatus = (text, className = 'muted') => {
     if (!saveStatus) return;
@@ -296,6 +335,7 @@ document.addEventListener('input', (event) => {
     renderModal();
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
+    scheduleSpeak(120);
   };
   const closeModal = () => {
     modal?.classList.add('hidden');
@@ -309,7 +349,7 @@ document.addEventListener('input', (event) => {
     [scoreA, scoreB] = clampScores(scoreA, scoreB);
     optimisticRow();
     renderModal();
-    scheduleSpeak();
+    scheduleSpeak(0);
     saveScore();
   };
   socket.emit('joinTournament', tournamentId);
@@ -339,17 +379,21 @@ document.addEventListener('input', (event) => {
   });
   document.querySelectorAll('[data-score-close]').forEach((item) => item.addEventListener('click', closeModal));
   document.querySelectorAll('[data-serving-select], [data-serving-side]').forEach((item) => {
-    item.addEventListener('click', () => {
+    item.addEventListener('click', (event) => {
+      const clicked = event.target instanceof Element ? event.target : null;
+      if (clicked?.closest('[data-score-target]')) return;
       const side = item.dataset.servingSelect || item.dataset.servingSide;
       if (!side || !activeRow) return;
       if (side !== servingTeam && scoreOrder !== 2) {
         setStatus('Chỉ đổi đội giao khi đang ở tay 2', 'text-danger');
+        scheduleSpeak(0);
         return;
       }
       servingTeam = side === 'B' ? 'B' : 'A';
       if (activeRow.dataset.servingTeam !== servingTeam) scoreOrder = 1;
       optimisticRow();
       renderModal();
+      scheduleSpeak(0);
       saveScore();
     });
   });
@@ -358,6 +402,7 @@ document.addEventListener('input', (event) => {
       scoreOrder = Number(button.dataset.scoreOrderSelect) === 1 ? 1 : 2;
       optimisticRow();
       renderModal();
+      scheduleSpeak(0);
       saveScore();
     });
   });

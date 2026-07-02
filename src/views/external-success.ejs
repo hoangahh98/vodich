@@ -11,6 +11,6 @@
       <div><strong>Tài khoản:</strong> <%= registration.externalEmail %></div>
       <div><strong>Mật khẩu:</strong> 123456789</div>
     </div>
-    <a class="btn btn-primary" style="width:100%" href="/tournaments/<%= registration.tournamentId %>/players">Link xem giải</a>
+    <a class="btn btn-primary" style="width:100%" href="/login?role=CLIENT&username=<%= encodeURIComponent(registration.externalEmail || registration.player?.email || '') %>&next=<%= encodeURIComponent('/tournaments/' + registration.tournamentId + '/players') %>">Link xem giải</a>
   </section>
 </body></html>

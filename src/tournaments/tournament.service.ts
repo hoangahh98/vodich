@@ -173,21 +173,40 @@ export class TournamentService {
   async registerExternal(tournamentId: bigint, displayName: string, email: string, skillLevel?: string) {
     const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
     if (!tournament.externalRegistrationEnabled) throw new Error('Giải chưa mở đăng ký ngoài');
+    const normalizedEmail = email.trim().toLowerCase();
+    const existingPlayer = await this.prisma.player.findUnique({ where: { email: normalizedEmail } });
     const activeCount = await this.prisma.tournamentRegistration.count({ where: { tournamentId, status: 'ACTIVE' } });
     const status = activeCount < tournament.expectedPlayers ? 'ACTIVE' : 'RESERVE';
+    if (existingPlayer) {
+      return this.prisma.tournamentRegistration.upsert({
+        where: { tournamentId_playerId: { tournamentId, playerId: existingPlayer.id } },
+        update: { status, withdrawnAt: null, skillLevel: blankToNull(skillLevel) || existingPlayer.skillLevel },
+        create: {
+          tournamentId,
+          playerId: existingPlayer.id,
+          skillLevel: blankToNull(skillLevel) || existingPlayer.skillLevel,
+          source: 'INTERNAL',
+          status,
+          paidAmount: this.minimumFee(tournament),
+          paymentStatus: 'UNPAID',
+        },
+        include: { player: true },
+      });
+    }
     return this.prisma.tournamentRegistration.upsert({
-      where: { tournamentId_externalEmail: { tournamentId, externalEmail: email.trim().toLowerCase() } },
+      where: { tournamentId_externalEmail: { tournamentId, externalEmail: normalizedEmail } },
       update: { status, withdrawnAt: null, externalName: displayName.trim(), skillLevel: blankToNull(skillLevel) },
       create: {
         tournamentId,
         externalName: displayName.trim(),
-        externalEmail: email.trim().toLowerCase(),
+        externalEmail: normalizedEmail,
         skillLevel: blankToNull(skillLevel),
         source: 'EXTERNAL',
         status,
         paidAmount: this.minimumFee(tournament),
         paymentStatus: 'UNPAID',
       },
+      include: { player: true },
     });
   }
 
@@ -252,6 +271,13 @@ export class TournamentService {
 
   async deleteRegistration(registrationId: bigint) {
     await this.prisma.tournamentRegistration.delete({ where: { id: registrationId } });
+  }
+
+  async updateRegistrationSkill(registrationId: bigint, skillLevel: string) {
+    await this.prisma.tournamentRegistration.update({
+      where: { id: registrationId },
+      data: { skillLevel: blankToNull(skillLevel) },
+    });
   }
 
   async bulkRegistrations(registrationIds: bigint[], action: string) {
