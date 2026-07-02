@@ -334,14 +334,14 @@ export class AppController {
   async editTeamMember(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('memberId') memberId: string, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     await this.teams.updateMember(BigInt(memberId), body.memberType || 'FIXED', body.notes);
-    return res.redirect(`/teams/${teamId}/fees?month=${body.month || new Date().toISOString().slice(0, 7)}`);
+    return res.redirect(`/teams/${teamId}/members?month=${body.month || new Date().toISOString().slice(0, 7)}`);
   }
 
   @Post('/teams/:teamId/members/:memberId/delete')
   async deleteTeamMember(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('memberId') memberId: string, @Body('month') month: string) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     await this.teams.removeMember(BigInt(memberId));
-    return res.redirect(`/teams/${teamId}/fees?month=${month || new Date().toISOString().slice(0, 7)}`);
+    return res.redirect(`/teams/${teamId}/members?month=${month || new Date().toISOString().slice(0, 7)}`);
   }
 
   @Post('/teams/:id/fund')
@@ -351,12 +351,19 @@ export class AppController {
     return res.redirect(`/teams/${id}/overview?month=${body.month || new Date().toISOString().slice(0, 7)}`);
   }
 
+  @Post('/teams/:id/settings')
+  async updateTeamSettings(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
+    await this.teams.updateTeam(BigInt(id), body.name, body.description);
+    return res.redirect(`/teams/${id}/settings?month=${body.month || new Date().toISOString().slice(0, 7)}`);
+  }
+
   @Post('/teams/:id/payments')
   async updateTeamPayments(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     const month = body.month || new Date().toISOString().slice(0, 7);
     await this.teams.updatePayments(month, body);
-    return res.redirect(`/teams/${id}/fees?month=${month}`);
+    return res.redirect(`/teams/${id}/members?month=${month}`);
   }
 
   @Post('/teams/:id/expenses')
@@ -364,14 +371,14 @@ export class AppController {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     const month = body.month || new Date().toISOString().slice(0, 7);
     await this.teams.addExpense(BigInt(id), month, body.expenseDate, body.content, body.amount, body.notes);
-    return res.redirect(`/teams/${id}/expenses?month=${month}`);
+    return res.redirect(`/teams/${id}/overview?month=${month}`);
   }
 
   @Post('/teams/:teamId/expenses/:expenseId/delete')
   async deleteTeamExpense(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('expenseId') expenseId: string, @Body('month') month: string) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     await this.teams.deleteExpense(BigInt(expenseId));
-    return res.redirect(`/teams/${teamId}/expenses?month=${month || new Date().toISOString().slice(0, 7)}`);
+    return res.redirect(`/teams/${teamId}/overview?month=${month || new Date().toISOString().slice(0, 7)}`);
   }
 
   @Get('/permissions')
@@ -469,5 +476,5 @@ function safeSection(value: unknown) {
 
 function safeTeamSection(value: unknown) {
   const section = String(value || 'overview');
-  return ['overview', 'members', 'expenses', 'fees', 'settings'].includes(section) ? section : 'overview';
+  return ['overview', 'members', 'settings'].includes(section) ? section : 'overview';
 }

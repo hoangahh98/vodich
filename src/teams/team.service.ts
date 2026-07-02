@@ -20,6 +20,13 @@ export class TeamService {
     return this.prisma.teamClub.create({ data: { name: name.trim(), description: description?.trim() || null } });
   }
 
+  updateTeam(id: bigint, name: string, description?: string) {
+    return this.prisma.teamClub.update({
+      where: { id },
+      data: { name: name.trim(), description: cleanText(description), updatedAt: new Date() },
+    });
+  }
+
   async detail(id: bigint) {
     return this.detailForMonth(id, new Date().toISOString().slice(0, 7));
   }
