@@ -109,11 +109,61 @@ document.addEventListener('input', (event) => {
 
 (() => {
   document.querySelectorAll('[data-menu-toggle]').forEach((button) => {
-    button.addEventListener('click', () => {
+    const menu = button.closest('.bottom-menu');
+    let closeTimer = null;
+    const closeMenu = () => menu?.classList.remove('open');
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
       const menu = button.closest('.bottom-menu');
       menu?.classList.toggle('open');
     });
+    menu?.addEventListener('mouseenter', () => window.clearTimeout(closeTimer));
+    menu?.addEventListener('mouseleave', () => {
+      window.clearTimeout(closeTimer);
+      closeTimer = window.setTimeout(closeMenu, 250);
+    });
+    document.addEventListener('click', (event) => {
+      if (!menu?.contains(event.target)) closeMenu();
+    });
   });
+})();
+
+(() => {
+  const selects = [...document.querySelectorAll('[data-manual-pair-select]')];
+  if (!selects.length) return;
+  const sync = () => {
+    const selected = new Set(selects.map((select) => select.value).filter(Boolean));
+    selects.forEach((select) => {
+      [...select.options].forEach((option) => {
+        option.disabled = Boolean(option.value) && option.value !== select.value && selected.has(option.value);
+      });
+    });
+  };
+  selects.forEach((select) => select.addEventListener('change', sync));
+  sync();
+})();
+
+(() => {
+  const shell = document.querySelector('[data-tournament-id]');
+  let ranking = document.querySelector('.ranking-live');
+  if (!shell || !ranking || typeof io === 'undefined') return;
+  const socket = io();
+  socket.emit('joinTournament', shell.dataset.tournamentId);
+  let refreshTimer = null;
+  const refreshRanking = () => {
+    window.clearTimeout(refreshTimer);
+    refreshTimer = window.setTimeout(async () => {
+      const response = await fetch(`${window.location.pathname}?realtime=${Date.now()}`, { headers: { 'X-Requested-With': 'fetch' } });
+      const html = await response.text();
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const fresh = doc.querySelector('.ranking-live');
+      if (fresh && ranking) {
+        ranking.replaceWith(fresh);
+        ranking = fresh;
+      }
+    }, 250);
+  };
+  socket.on('scoreUpdated', refreshRanking);
 })();
 
 (() => {

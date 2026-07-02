@@ -14,7 +14,7 @@
 <% const prize2 = manualPrize ? Number(tournament.prizeRate2) : prizeFund * Number(tournament.prizeRate2) / prizeRateTotal; %>
 <% const prize3 = manualPrize ? Number(tournament.prizeRate3) : prizeFund * Number(tournament.prizeRate3) / prizeRateTotal; %>
 <% const topDonors = registrations.map((r) => ({ name: r.player ? r.player.displayName : r.externalName, amount: Math.max(0, Number(r.paidAmount || 0) - minimumFee) })).filter((item) => item.amount > 0).sort((a, b) => b.amount - a.amount).slice(0, 3); %>
-<main class="app-shell">
+<main class="app-shell" data-tournament-id="<%= tournament.id %>">
   <section class="feature-hero p mb">
     <div class="flex between center">
       <div>
@@ -23,8 +23,10 @@
       </div>
       <div class="hero-actions">
         <% if (currentUser.role === 'ADMIN') { %>
-          <button class="btn btn-sm btn-primary" type="button" data-copy-target="emailListText">Get Email</button>
-          <button class="btn btn-sm btn-success" type="button" data-open-modal="contentModal">Content mẫu</button>
+          <div class="hero-action-buttons">
+            <button class="btn btn-sm btn-primary" type="button" data-open-modal="emailModal">Get Email</button>
+            <button class="btn btn-sm btn-success" type="button" data-open-modal="contentModal">Content mẫu</button>
+          </div>
         <% } %>
         <div class="feature-hero-art">🏆</div>
       </div>
@@ -34,6 +36,16 @@
     <% } %>
   </section>
   <% if (currentUser.role === 'ADMIN') { %>
+    <div id="emailModal" class="score-modal hidden" aria-hidden="true">
+      <div class="score-modal-backdrop" data-close-modal="emailModal"></div>
+      <div class="score-modal-panel" role="dialog" aria-modal="true">
+        <div class="score-modal-head"><div><h3>Danh sách email</h3><small>Copy email thành viên trong giải</small></div><button class="btn btn-sm" type="button" data-close-modal="emailModal">Đóng</button></div>
+        <div class="score-modal-body">
+          <textarea id="emailModalText" rows="8"><%= [...registrations, ...(reserveRegistrations || [])].map((r) => r.player ? r.player.email : r.externalEmail).filter(Boolean).join('; ') %></textarea>
+          <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="emailModalText">Copy email</button></div>
+        </div>
+      </div>
+    </div>
     <div id="contentModal" class="score-modal hidden" aria-hidden="true">
       <div class="score-modal-backdrop" data-close-modal="contentModal"></div>
       <div class="score-modal-panel" role="dialog" aria-modal="true">
@@ -129,8 +141,8 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
   <% } %>
 
   <% if (section === 'ranking') { %>
-    <section class="card-lite p"><div class="section-heading mb"><div><span class="feature-icon">📊</span><h2 class="section-title">Bảng xếp hạng</h2><p class="muted">Theo dõi số trận, điểm và hiệu số sau mỗi trận.</p></div></div>
-      <% if (!rankingGroups.length) { %><p class="muted">Chưa có lịch thi đấu để tính xếp hạng.</p><% } %>
+    <section class="card-lite p ranking-live"><div class="section-heading mb"><div><span class="feature-icon">📊</span><h2 class="section-title">Bảng xếp hạng</h2><p class="muted">Theo dõi số trận, điểm và hiệu số sau mỗi trận.</p></div></div>
+      <% if (!rankingGroups.length) { %><p class="muted">Chưa có trận thi đấu để tính xếp hạng.</p><% } %>
       <div class="grid ranking-grid">
         <% rankingGroups.forEach((group) => { %>
           <div class="ranking-card">
@@ -146,11 +158,11 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
 
   <% if (section === 'schedule') { %>
     <section class="card-lite p">
-      <div class="section-heading mb"><div><span class="feature-icon">🗓️</span><h2 class="section-title">Lịch thi đấu</h2><p class="muted"><% if (tournament.format === 'GROUP_KNOCKOUT') { %>Vào vòng trong: <%= tournament.knockoutQualifierCount %> đội<% } else { %>Bấm vào thẻ trận để mở màn ghi điểm.<% } %></p></div><% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">Chia lịch</button></form><% } %></div>
+      <div class="section-heading mb"><div><span class="feature-icon">🗓️</span><h2 class="section-title">Thi đấu</h2><p class="muted"><% if (tournament.format === 'GROUP_KNOCKOUT') { %>Vào vòng trong: <%= tournament.knockoutQualifierCount %> đội<% } else { %>Bấm vào thẻ trận để mở màn ghi điểm.<% } %></p></div><% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">Chia trận</button></form><% } %></div>
       <% if (currentUser.role === 'ADMIN' && tournament.playType === 'DOUBLES' && registrations.length >= 2) { %>
         <details class="manual-pair-box mb">
           <summary>Ghép đội thủ công</summary>
-          <form method="post" action="/tournaments/<%= tournament.id %>/manual-schedule" data-confirm="Ghép đội thủ công sẽ xóa lịch và tỷ số hiện tại. Tiếp tục?">
+          <form method="post" action="/tournaments/<%= tournament.id %>/manual-schedule" data-confirm="Ghép đội thủ công sẽ xóa các trận và tỷ số hiện tại. Tiếp tục?">
             <% const pairCount = Math.floor(registrations.length / 2); %>
             <input type="hidden" name="pairCount" value="<%= pairCount %>">
             <div class="grid manual-pair-grid">
@@ -158,13 +170,13 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
                 <div class="manual-pair-card">
                   <strong>Đội <%= i %></strong>
                   <div class="row">
-                    <div class="col-6"><select class="manual-pair-select" name="teamA_<%= i %>"><option value="">Thành viên 1</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
-                    <div class="col-6"><select class="manual-pair-select" name="teamB_<%= i %>"><option value="">Thành viên 2</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
+                    <div class="col-6"><select class="manual-pair-select" name="teamA_<%= i %>" data-manual-pair-select><option value="">Thành viên 1</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
+                    <div class="col-6"><select class="manual-pair-select" name="teamB_<%= i %>" data-manual-pair-select><option value="">Thành viên 2</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
                   </div>
                 </div>
               <% } %>
             </div>
-            <div class="mt"><button class="btn btn-primary" data-loading-text="Đang tạo...">Tạo lịch từ đội đã ghép</button></div>
+            <div class="mt"><button class="btn btn-primary" data-loading-text="Đang tạo...">Tạo trận từ đội đã ghép</button></div>
           </form>
         </details>
       <% } %>
@@ -187,9 +199,9 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
         %>
         <% if (!matches.length) { %>
           <div class="text-center py-4">
-            <p class="muted mb">Chưa có lịch thi đấu. Bấm bên trên để tự động sinh lịch.</p>
+            <p class="muted mb">Chưa có trận thi đấu. Bấm bên trên để tự động chia trận.</p>
             <% if (currentUser.role === 'ADMIN') { %>
-              <form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">⚡ TỰ ĐỘNG SINH LỊCH</button></form>
+              <form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">⚡ TỰ ĐỘNG CHIA TRẬN</button></form>
             <% } %>
           </div>
         <% } %>
@@ -342,7 +354,7 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
   <% } %>
 </main>
 <nav class="bottom-menu"><button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div class="bottom-menu-inner">
-  <% ['players','fund','ranking','schedule','fees','settings'].forEach((item) => { const labels = {players:'Thành viên', fund:'Quỹ', ranking:'BXH', schedule:'Lịch', fees:'Đóng phí', settings:'Cài đặt'}; %><a class="<%= section === item ? 'active' : '' %>" href="/tournaments/<%= tournament.id %>/<%= item %>"><%= labels[item] %></a><% }) %>
+  <% ['players','fund','ranking','schedule','fees','settings'].forEach((item) => { const labels = {players:'👥 Thành viên', fund:'🏆 Quỹ', ranking:'📊 BXH', schedule:'🗓️ Thi đấu', fees:'💳 Đóng phí', settings:'⚙️ Cài đặt'}; %><a class="<%= section === item ? 'active' : '' %>" href="/tournaments/<%= tournament.id %>/<%= item %>"><%= labels[item] %></a><% }) %>
 </div></nav>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>

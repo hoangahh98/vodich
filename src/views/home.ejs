@@ -9,7 +9,7 @@
     </div>
   </section>
   <div class="grid module-grid">
-    <% if (featureSet.has('TOURNAMENTS')) { %><a class="card-lite module-card" href="/tournaments"><div class="module-icon">🏆</div><h3>Giải Đấu</h3><p class="muted">Thành viên, quỹ, BXH, lịch, đóng phí.</p></a><% } %>
+    <% if (featureSet.has('TOURNAMENTS')) { %><a class="card-lite module-card" href="/tournaments"><div class="module-icon">🏆</div><h3>Giải Đấu</h3><p class="muted">Thành viên, quỹ, BXH, thi đấu, đóng phí.</p></a><% } %>
     <% if (featureSet.has('TEAMS')) { %><a class="card-lite module-card" href="/teams"><div class="module-icon">👥</div><h3>Đội Bóng</h3><p class="muted">Thành viên và quỹ tháng.</p></a><% } %>
     <% if (featureSet.has('TRAVEL')) { %><a class="card-lite module-card" href="/travel"><div class="module-icon">🧳</div><h3>Du Lịch</h3><p class="muted">Mục thu chi chuyến đi.</p></a><% } %>
     <% if (currentUser && currentUser.role === 'ADMIN' && featureSet.has('TOURNAMENTS')) { %><a class="card-lite module-card" href="/players"><div class="module-icon">👤</div><h3>Thành Viên</h3><p class="muted">Danh sách thành viên dùng chung.</p></a><% } %>
