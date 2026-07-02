@@ -224,6 +224,22 @@ const getTournamentSocket = (tournamentId) => {
 })();
 
 (() => {
+  const picker = document.querySelector('[data-team-member-picker]');
+  if (!picker) return;
+  const checkboxes = [...picker.querySelectorAll('input[type="checkbox"][name="playerIds"]')];
+  const counter = document.querySelector('[data-team-member-count]');
+  const sync = () => {
+    const count = checkboxes.filter((checkbox) => checkbox.checked).length;
+    if (!counter) return;
+    counter.textContent = `Đã chọn ${count} thành viên`;
+    counter.classList.toggle('text-danger', count === 0);
+    counter.classList.toggle('text-primary', count > 0);
+  };
+  checkboxes.forEach((checkbox) => checkbox.addEventListener('change', sync));
+  sync();
+})();
+
+(() => {
   const shell = document.querySelector('[data-tournament-id]');
   let ranking = document.querySelector('.ranking-live');
   if (!shell || !ranking) return;

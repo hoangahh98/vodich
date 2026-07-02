@@ -315,10 +315,26 @@ export class AppController {
   }
 
   @Post('/teams/:id/members')
-  async addTeamMember(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+  async addTeamMember(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string | string[]>) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
-    await this.teams.addMember(BigInt(id), BigInt(body.playerId), body.memberType || 'FIXED');
-    return redirectBack(res, `/teams/${id}`);
+    const selected = Array.isArray(body.playerIds) ? body.playerIds : body.playerIds ? [body.playerIds] : body.playerId ? [String(body.playerId)] : [];
+    const month = String(body.month || new Date().toISOString().slice(0, 7));
+    await this.teams.addMembers(BigInt(id), selected.map((playerId) => BigInt(playerId)), String(body.memberType || 'FIXED'), String(body.notes || ''), month);
+    return res.redirect(`/teams/${id}?month=${month}`);
+  }
+
+  @Post('/teams/:teamId/members/:memberId/edit')
+  async editTeamMember(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('memberId') memberId: string, @Body() body: Record<string, string>) {
+    if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
+    await this.teams.updateMember(BigInt(memberId), body.memberType || 'FIXED', body.notes);
+    return res.redirect(`/teams/${teamId}?month=${body.month || new Date().toISOString().slice(0, 7)}`);
+  }
+
+  @Post('/teams/:teamId/members/:memberId/delete')
+  async deleteTeamMember(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('memberId') memberId: string, @Body('month') month: string) {
+    if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
+    await this.teams.removeMember(BigInt(memberId));
+    return res.redirect(`/teams/${teamId}?month=${month || new Date().toISOString().slice(0, 7)}`);
   }
 
   @Post('/teams/:id/fund')

@@ -1,10 +1,39 @@
 <%- include('../partials/head', { title: 'Đội bóng' }) %>
 <%- include('../partials/topbar') %>
 <main class="app-shell">
-  <div class="flex between center mb"><h1>Quản lý đội bóng</h1></div>
+  <section class="feature-hero p mb">
+    <div class="flex between center">
+      <div>
+        <h1>Quản lý đội bóng</h1>
+        <div class="muted strong-muted">👥 Theo dõi thành viên, quỹ tháng, đóng phí và khoản chi của từng đội.</div>
+      </div>
+      <div class="feature-hero-art">👥</div>
+    </div>
+  </section>
+
   <% if (currentUser.role === 'ADMIN') { %>
-    <section class="card-lite p mb"><form class="row" method="post" action="/teams"><div class="col-4"><input name="name" placeholder="Tên đội bóng" required></div><div class="col-6"><input name="description" placeholder="Ghi chú"></div><div class="col-2"><button class="btn btn-success">Tạo đội</button></div></form></section>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">➕</span><h2 class="section-title">Tạo đội bóng</h2><p class="muted">Tạo đội rồi vào chi tiết để thêm thành viên và cấu hình quỹ.</p></div></div>
+      <form class="row team-create-form" method="post" action="/teams">
+        <div class="col-4"><label>Tên đội bóng</label><input name="name" placeholder="Ví dụ: Pickleball tối thứ 3" required></div>
+        <div class="col-6"><label>Ghi chú</label><input name="description" placeholder="Sân, lịch chơi, ghi chú nội bộ"></div>
+        <div class="col-2"><label>&nbsp;</label><button class="btn btn-success" data-loading-text="Đang tạo...">Tạo đội</button></div>
+      </form>
+    </section>
   <% } %>
-  <div class="grid module-grid"><% teams.forEach((team) => { %><a class="card-lite module-card" href="/teams/<%= team.id %>"><h3><%= team.name %></h3><p class="muted"><%= team.description || '' %></p></a><% }) %></div>
+
+  <% if (!teams.length) { %>
+    <div class="alert-lite info">Chưa có đội bóng nào.</div>
+  <% } %>
+  <div class="grid module-grid">
+    <% teams.forEach((team) => { %>
+      <a class="card-lite module-card team-card" href="/teams/<%= team.id %>">
+        <div class="module-icon">🏟️</div>
+        <h3><%= team.name %></h3>
+        <p class="muted"><%= team.description || 'Chưa có ghi chú' %></p>
+        <div class="team-card-footer"><span class="badge"><%= team.activeMemberCount %> thành viên</span><span>Xem chi tiết →</span></div>
+      </a>
+    <% }) %>
+  </div>
 </main>
 <%- include('../partials/bottom-menu') %>

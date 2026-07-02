@@ -159,6 +159,23 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .cost-card { background: #f8fbff; border: 1px solid #cfe2ff; border-radius: 10px; padding: 14px; display: grid; gap: 4px; font-size: 28px; }
 .cost-card span { font-size: 14px; color: var(--muted); font-weight: 700; }
 .cost-card strong { font-size: 20px; }
+.team-card { position: relative; padding-bottom: 60px; }
+.team-card-footer { position: absolute; left: 18px; right: 18px; bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--brand); font-weight: 800; }
+.team-detail-shell { max-width: 1280px; }
+.team-member-picker { max-height: 260px; }
+.team-member-actions > .flex { flex: 1 1 auto; }
+.team-member-type { max-width: 140px; }
+.team-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.team-frozen-wrap { max-height: 70vh; overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
+.team-fee-table { min-width: 980px; }
+.team-frozen-wrap thead th { position: sticky; top: 0; z-index: 3; }
+.team-frozen-wrap .sticky-col { position: sticky; left: 0; z-index: 2; background: #fff; min-width: 180px; }
+.team-frozen-wrap thead .sticky-col { z-index: 4; background: #0d6efd; color: #fff; }
+.team-frozen-wrap .mine-row .sticky-col { background: #dbeafe; }
+.team-fee-edit { border: 1px solid #cfe2ff; border-radius: 10px; background: #f8fbff; padding: 12px; }
+.team-fee-edit summary { cursor: pointer; font-weight: 900; color: #0b5ed7; }
+.team-action-cell { display: flex; gap: 6px; align-items: center; }
+.team-action-cell form { margin: 0; }
 .bottom-menu { position: fixed; left: auto; right: 18px; bottom: 18px; z-index: 20; width: auto; background: transparent; border: 0; box-shadow: none; }
 .bottom-menu-inner { display: none; position: absolute; right: 0; bottom: 64px; min-width: 230px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 36px rgba(0,0,0,.18); overflow: hidden; grid-auto-flow: row; grid-auto-columns: auto; }
 .bottom-menu.open .bottom-menu-inner { display: grid; }
@@ -262,6 +279,12 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .manual-pair-card .row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .manual-pair-card .col-6 { grid-column: span 1; }
   .manual-pair-card select { min-height: 72px; font-size: 15px; padding: 12px 8px; }
+  .team-create-form .btn, .team-expense-form .btn { width: 100%; }
+  .team-member-actions, .team-member-actions > .flex { align-items: stretch; flex-direction: column; width: 100%; }
+  .team-member-type { max-width: none; }
+  .team-summary-grid { grid-template-columns: 1fr; }
+  .team-action-cell { flex-direction: column; align-items: stretch; }
+  .team-action-cell .btn { width: 100%; }
   .ranking-board { min-width: 0; }
   .ranking-table table { min-width: 0; }
   .ranking-table th, .ranking-table td { padding: 8px 4px; font-size: 13px; }
