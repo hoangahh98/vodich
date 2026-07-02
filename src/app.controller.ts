@@ -86,14 +86,23 @@ export class AppController {
   @Get('/tournaments/new')
   newTournament(@Req() req: Request, @Res() res: Response) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
-    return render(res, 'tournaments/form', { tournament: null, action: '/tournaments' });
+    return render(res, 'tournaments/form', { tournament: null, action: '/tournaments', prizeTotalPaid: 0 });
   }
 
   @Post('/tournaments')
   async createTournament(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, unknown>) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
-    const tournament = await this.tournaments.create(body);
-    return res.redirect(`/tournaments/${tournament.id}/players`);
+    try {
+      const tournament = await this.tournaments.create(body);
+      return res.redirect(`/tournaments/${tournament.id}/players`);
+    } catch (error) {
+      return render(res, 'tournaments/form', {
+        tournament: null,
+        action: '/tournaments',
+        prizeTotalPaid: 0,
+        error: error instanceof Error ? error.message : 'Không lưu được giải đấu',
+      });
+    }
   }
 
   @Get('/tournaments/:id/edit')
@@ -101,15 +110,28 @@ export class AppController {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: BigInt(id) } });
     const returnSection = String(req.query.returnSection || 'settings');
-    return render(res, 'tournaments/form', { tournament, action: `/tournaments/${id}/edit`, returnSection });
+    const prizeTotalPaid = await this.tournaments.prizeTotalPaid(BigInt(id));
+    return render(res, 'tournaments/form', { tournament, action: `/tournaments/${id}/edit`, returnSection, prizeTotalPaid });
   }
 
   @Post('/tournaments/:id/edit')
   async updateTournament(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
-    await this.tournaments.update(BigInt(id), body);
-    this.matchGateway.emitTournamentUpdated(id, 'tournament');
-    return res.redirect(`/tournaments/${id}/${safeSection(body.returnSection)}`);
+    try {
+      await this.tournaments.update(BigInt(id), body);
+      this.matchGateway.emitTournamentUpdated(id, 'tournament');
+      return res.redirect(`/tournaments/${id}/${safeSection(body.returnSection)}`);
+    } catch (error) {
+      const existing = await this.prisma.tournament.findUniqueOrThrow({ where: { id: BigInt(id) } });
+      const prizeTotalPaid = await this.tournaments.prizeTotalPaid(BigInt(id));
+      return render(res, 'tournaments/form', {
+        tournament: { ...existing, ...body, id: existing.id },
+        action: `/tournaments/${id}/edit`,
+        returnSection: safeSection(body.returnSection),
+        prizeTotalPaid,
+        error: error instanceof Error ? error.message : 'Không lưu được giải đấu',
+      });
+    }
   }
 
   @Post('/tournaments/:id/delete')

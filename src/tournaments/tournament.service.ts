@@ -85,7 +85,7 @@ export class TournamentService {
   }
 
   async create(form: Record<string, unknown>) {
-    const prizes = normalizePrizes(form);
+    const prizes = normalizePrizes(form, 0);
     return this.prisma.tournament.create({
       data: {
         name: String(form.name || '').trim(),
@@ -112,7 +112,8 @@ export class TournamentService {
   }
 
   async update(id: bigint, form: Record<string, unknown>) {
-    const prizes = normalizePrizes(form);
+    const prizeFund = await this.prizeFundForForm(id, form);
+    const prizes = normalizePrizes(form, prizeFund);
     return this.prisma.tournament.update({
       where: { id },
       data: {
@@ -367,6 +368,19 @@ export class TournamentService {
         .sort((a, b) => b.won - a.won || b.pointDiff - a.pointDiff || b.pointsFor - a.pointsFor || a.teamName.localeCompare(b.teamName)),
     }));
   }
+
+  async prizeTotalPaid(tournamentId: bigint): Promise<number> {
+    const result = await this.prisma.tournamentRegistration.aggregate({
+      where: { tournamentId, status: 'ACTIVE' },
+      _sum: { paidAmount: true },
+    });
+    return Number(result._sum.paidAmount || 0);
+  }
+
+  async prizeFundForForm(tournamentId: bigint, form: Record<string, unknown>): Promise<number> {
+    const totalPaid = await this.prizeTotalPaid(tournamentId);
+    return prizeFundFromForm(totalPaid, form);
+  }
 }
 
 type MatchCreate = {
@@ -494,9 +508,20 @@ function normalizeQualifierCount(value: number, expectedPlayers = 16, playType =
   return 2;
 }
 
-function normalizePrizes(form: Record<string, unknown>) {
+function prizeFundFromForm(totalPaid: number, form: Record<string, unknown>) {
+  const operatingCost = parseMoney(form.courtCost) + parseMoney(form.foodCost) + parseMoney(form.otherCost);
+  return Math.max(0, totalPaid - operatingCost);
+}
+
+function normalizePrizes(form: Record<string, unknown>, availablePrizeFund: number) {
   const values = [parseMoney(form.prizeRate1) || 0, parseMoney(form.prizeRate2) || 0, parseMoney(form.prizeRate3) || 0];
-  if (String(form.prizeMode || 'percent') === 'manual') return values;
+  if (String(form.prizeMode || 'percent') === 'manual') {
+    const total = values.reduce((sum, value) => sum + value, 0);
+    if (total > availablePrizeFund) {
+      throw new Error(`Tổng tiền thưởng thủ công không được vượt quá quỹ thưởng hiện có (${availablePrizeFund.toLocaleString('en-US')}đ).`);
+    }
+    return values;
+  }
   let remaining = 100;
   return values.map((value) => {
     const next = Math.min(Math.max(0, value), remaining);

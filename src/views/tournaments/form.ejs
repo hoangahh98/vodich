@@ -1,9 +1,13 @@
 <%- include('../partials/head', { title: tournament ? 'Sửa giải' : 'Tạo giải' }) %>
 <%- include('../partials/topbar') %>
+<% const editPrizeTotalPaid = typeof prizeTotalPaid !== 'undefined' ? Number(prizeTotalPaid) : 0; %>
+<% const parsePrizeMoney = (value) => Number(String(value || '0').replace(/[^\d.-]/g, '')) || 0; %>
+<% const editPrizeFund = Math.max(0, editPrizeTotalPaid - parsePrizeMoney(tournament?.courtCost) - parsePrizeMoney(tournament?.foodCost) - parsePrizeMoney(tournament?.otherCost)); %>
 <main class="app-shell narrow-shell">
   <section class="card-lite p tournament-edit-card">
     <div class="section-heading mb"><div><span class="feature-icon">✏️</span><h1><%= tournament ? 'Sửa giải đấu' : 'Tạo giải mới' %></h1><p class="muted">Cấu hình thông tin, luật điểm, chi phí và giải thưởng.</p></div></div>
-    <form class="tournament-form" method="post" action="<%= action %>">
+    <% if (typeof error !== 'undefined') { %><div class="alert-lite warn mb"><%= error %></div><% } %>
+    <form class="tournament-form" method="post" action="<%= action %>" data-prize-total-paid="<%= editPrizeTotalPaid %>">
       <input type="hidden" name="returnSection" value="<%= typeof returnSection !== 'undefined' ? returnSection : 'settings' %>">
       <section class="form-section">
         <h2 class="section-title mb">📝 Thông tin giải</h2>
@@ -57,14 +61,19 @@
       <section class="form-section">
         <% const isManualPrize = tournament && (Number(tournament.prizeRate1) > 100 || Number(tournament.prizeRate2) > 100 || Number(tournament.prizeRate3) > 100); %>
         <h2 class="section-title mb">🏆 Cài đặt giải thưởng</h2>
+        <div class="alert-lite info mb" data-prize-fund-box>
+          Quỹ thưởng hiện có: <strong data-prize-fund><%= formatMoney(editPrizeFund) %>đ</strong>.
+          <span data-manual-prize-summary class="<%= isManualPrize ? '' : 'hidden' %>">Đang nhập thủ công: <strong data-manual-prize-total>0đ</strong>, còn lại <strong data-manual-prize-left><%= formatMoney(editPrizeFund) %>đ</strong>.</span>
+          <div class="mt" data-manual-prize-suggestion>Gợi ý thủ công: Nhất <strong data-prize-suggest="1">0đ</strong>, Nhì <strong data-prize-suggest="2">0đ</strong>, Ba <strong data-prize-suggest="3">0đ</strong>. <button class="btn btn-sm" type="button" data-fill-prize-suggestion>Dùng gợi ý</button></div>
+        </div>
         <div class="segmented mb">
           <label><input type="radio" name="prizeMode" value="percent" <%= !isManualPrize ? 'checked' : '' %>> Theo tỷ lệ phần trăm</label>
           <label><input type="radio" name="prizeMode" value="manual" <%= isManualPrize ? 'checked' : '' %>> Nhập tiền thưởng thủ công</label>
         </div>
         <div class="row" id="prizeConfigFields">
-          <div class="col-4"><label data-prize-label="1">Giải 1 (%)</label><input class="money-input" name="prizeRate1" value="<%= tournament ? formatMoney(tournament.prizeRate1) : '50' %>"></div>
-          <div class="col-4"><label data-prize-label="2">Giải 2 (%)</label><input class="money-input" name="prizeRate2" value="<%= tournament ? formatMoney(tournament.prizeRate2) : '30' %>"></div>
-          <div class="col-4"><label data-prize-label="3">Giải 3 (%)</label><input class="money-input" name="prizeRate3" value="<%= tournament ? formatMoney(tournament.prizeRate3) : '20' %>"></div>
+          <div class="col-4"><label data-prize-label="1">Giải 1 (%)</label><input class="money-input" name="prizeRate1" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate1) : '50' %>"></div>
+          <div class="col-4"><label data-prize-label="2">Giải 2 (%)</label><input class="money-input" name="prizeRate2" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate2) : '30' %>"></div>
+          <div class="col-4"><label data-prize-label="3">Giải 3 (%)</label><input class="money-input" name="prizeRate3" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate3) : '20' %>"></div>
         </div>
         <p class="muted mt">Nếu chọn thủ công, nhập số tiền cụ thể cho từng giải. Nếu chọn tỷ lệ, nhập phần trăm.</p>
       </section>

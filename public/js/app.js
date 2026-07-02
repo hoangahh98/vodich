@@ -1,3 +1,18 @@
+const parseMoneyValue = (value) => Number(String(value || '0').replace(/[^\d.-]/g, '')) || 0;
+const formatMoneyValue = (value) => Math.max(0, Number(value) || 0).toLocaleString('en-US');
+const currentPrizeFund = (form) => {
+  const totalPaid = parseMoneyValue(form?.dataset.prizeTotalPaid || '0');
+  if (!form) return 0;
+  const operatingCost = ['courtCost', 'foodCost', 'otherCost'].reduce((sum, name) => sum + parseMoneyValue(form.querySelector(`[name="${name}"]`)?.value), 0);
+  return Math.max(0, totalPaid - operatingCost);
+};
+const manualPrizeTotal = (form) => ['prizeRate1', 'prizeRate2', 'prizeRate3'].reduce((sum, name) => sum + parseMoneyValue(form?.querySelector(`[name="${name}"]`)?.value), 0);
+const prizeSuggestion = (prizeFund) => {
+  const first = Math.floor(prizeFund * 0.5);
+  const second = Math.floor(prizeFund * 0.3);
+  return [first, second, Math.max(0, prizeFund - first - second)];
+};
+
 document.addEventListener('submit', (event) => {
   const form = event.target;
   if (!(form instanceof HTMLFormElement)) return;
@@ -20,11 +35,19 @@ document.addEventListener('submit', (event) => {
   if (prizeMode?.value === 'percent') {
     const total = ['prizeRate1', 'prizeRate2', 'prizeRate3'].reduce((sum, name) => {
       const input = form.querySelector(`[name="${name}"]`);
-      return sum + Number(String(input?.value || '0').replace(/[^\d.-]/g, ''));
+      return sum + parseMoneyValue(input?.value);
     }, 0);
     if (total > 100) {
       event.preventDefault();
       alert('Tổng tỷ lệ giải thưởng không được vượt quá 100%.');
+      return;
+    }
+  } else if (prizeMode?.value === 'manual') {
+    const prizeFund = currentPrizeFund(form);
+    const total = manualPrizeTotal(form);
+    if (total > prizeFund) {
+      event.preventDefault();
+      alert(`Tổng tiền thưởng thủ công không được vượt quá quỹ thưởng hiện có (${formatMoneyValue(prizeFund)}đ).`);
       return;
     }
   }
@@ -116,13 +139,44 @@ const getTournamentSocket = (tournamentId) => {
 (() => {
   const prizeRadios = [...document.querySelectorAll('input[name="prizeMode"]')];
   if (!prizeRadios.length) return;
+  const form = prizeRadios[0].closest('form');
   const sync = () => {
     const manual = prizeRadios.find((radio) => radio.checked)?.value === 'manual';
+    const prizeFund = currentPrizeFund(form);
+    const total = manualPrizeTotal(form);
+    const left = prizeFund - total;
     document.querySelectorAll('[data-prize-label]').forEach((label) => {
       label.textContent = `Giải ${label.dataset.prizeLabel} ${manual ? '(đ)' : '(%)'}`;
     });
+    document.querySelector('[data-manual-prize-summary]')?.classList.toggle('hidden', !manual);
+    const fundEl = document.querySelector('[data-prize-fund]');
+    const totalEl = document.querySelector('[data-manual-prize-total]');
+    const leftEl = document.querySelector('[data-manual-prize-left]');
+    if (fundEl) fundEl.textContent = `${formatMoneyValue(prizeFund)}đ`;
+    if (totalEl) totalEl.textContent = `${formatMoneyValue(total)}đ`;
+    if (leftEl) {
+      leftEl.textContent = `${formatMoneyValue(left)}đ`;
+      leftEl.classList.toggle('text-danger', manual && left < 0);
+    }
+    prizeSuggestion(prizeFund).forEach((value, index) => {
+      const el = document.querySelector(`[data-prize-suggest="${index + 1}"]`);
+      if (el) el.textContent = `${formatMoneyValue(value)}đ`;
+    });
+    document.querySelector('[data-prize-fund-box]')?.classList.toggle('warn', manual && left < 0);
   };
   prizeRadios.forEach((radio) => radio.addEventListener('change', sync));
+  ['courtCost', 'foodCost', 'otherCost', 'prizeRate1', 'prizeRate2', 'prizeRate3'].forEach((name) => {
+    form?.querySelector(`[name="${name}"]`)?.addEventListener('input', sync);
+  });
+  document.querySelector('[data-fill-prize-suggestion]')?.addEventListener('click', () => {
+    prizeSuggestion(currentPrizeFund(form)).forEach((value, index) => {
+      const input = form?.querySelector(`[name="prizeRate${index + 1}"]`);
+      if (input) input.value = formatMoneyValue(value);
+    });
+    const manualRadio = form?.querySelector('input[name="prizeMode"][value="manual"]');
+    if (manualRadio) manualRadio.checked = true;
+    sync();
+  });
   sync();
 })();
 
