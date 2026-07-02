@@ -1,0 +1,19 @@
+<%- include('../partials/head', { title: 'Giải đấu' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <div class="flex between center mb">
+    <h1>Quản lý giải đấu</h1>
+    <% if (currentUser.role === 'ADMIN') { %><a class="btn btn-success" href="/tournaments/new">Thêm giải</a><% } %>
+  </div>
+  <div class="grid module-grid">
+    <% tournaments.forEach((item) => { %>
+      <a class="card-lite module-card" href="/tournaments/<%= item.tournament.id %>/players">
+        <h3><%= item.tournament.name %></h3>
+        <p class="muted">Thành viên: <%= item.activeCount %>/<%= item.tournament.expectedPlayers %></p>
+        <p class="muted">Lệ phí: <%= formatMoney(item.minimumFee) %>đ</p>
+        <span class="badge"><%= item.tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng + loại trực tiếp' : 'Vòng tròn' %></span>
+      </a>
+    <% }) %>
+  </div>
+</main>
+<%- include('../partials/bottom-menu') %>

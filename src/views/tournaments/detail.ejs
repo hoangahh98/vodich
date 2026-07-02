@@ -1,0 +1,78 @@
+<%- include('../partials/head', { title: tournament.name }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <section class="card-lite p mb">
+    <div class="flex between center">
+      <div>
+        <h1><%= tournament.name %></h1>
+        <div class="muted"><%= tournament.venue || 'Chưa có địa điểm' %> · Phí tối thiểu <%= formatMoney(Number(tournament.courtCost) + Number(tournament.foodCost) + Number(tournament.prizeCost) + Number(tournament.otherCost)) %>đ · <%= tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng + loại trực tiếp' : 'Vòng tròn' %></div>
+      </div>
+      <a class="btn" href="/tournaments">Danh sách</a>
+    </div>
+  </section>
+
+  <% if (section === 'players') { %>
+    <section class="card-lite p">
+      <div class="flex between center mb"><h2 class="section-title">Thành viên</h2><span class="badge"><%= registrations.length %>/<%= tournament.expectedPlayers %></span></div>
+      <% if (tournament.externalRegistrationEnabled) { %><div class="card-lite p mb"><strong>Link đăng ký ngoài</strong><input value="<%= externalLink %>" readonly></div><% } %>
+      <% if (currentUser.role === 'ADMIN') { %>
+        <form class="row mb" method="post" action="/tournaments/<%= tournament.id %>/registrations">
+          <div class="col-6"><select name="playerId" required><option value="">Chọn thành viên có sẵn</option><% players.forEach((p) => { %><option value="<%= p.id %>"><%= p.displayName %> · <%= p.skillLevel || 'Chưa chọn trình' %></option><% }) %></select></div>
+          <div class="col-2"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
+        </form>
+      <% } %>
+      <div class="table-wrap"><table><thead><tr><th>Tên</th><th>Trình</th><th>Nguồn</th><th></th></tr></thead><tbody>
+        <% registrations.forEach((r) => { %><tr><td><strong><%= r.player ? r.player.displayName : r.externalName %></strong></td><td><span class="badge"><%= r.skillLevel || '-' %></span></td><td><%= r.source === 'EXTERNAL' ? 'Đăng ký ngoài' : 'Danh sách chung' %></td><td class="text-right"><% if (currentUser.role === 'ADMIN') { %><form method="post" action="/registrations/<%= r.id %>/withdraw"><input type="hidden" name="tournamentId" value="<%= tournament.id %>"><button class="btn btn-sm">Bỏ giải</button></form><% } %></td></tr><% }) %>
+      </tbody></table></div>
+      <% if (withdrawnRegistrations.length) { %><h3>Bỏ giải</h3><% withdrawnRegistrations.forEach((r) => { %><div class="flex between center card-lite p mb"><span><%= r.player ? r.player.displayName : r.externalName %></span><form method="post" action="/registrations/<%= r.id %>/restore"><input type="hidden" name="tournamentId" value="<%= tournament.id %>"><button class="btn btn-sm">Khôi phục</button></form></div><% }) %><% } %>
+    </section>
+  <% } %>
+
+  <% if (section === 'fund') { %>
+    <section class="card-lite p"><h2>Quỹ giải</h2><div class="grid module-grid"><div>Sân bãi<br><strong><%= formatMoney(tournament.courtCost) %>đ</strong></div><div>Ăn uống<br><strong><%= formatMoney(tournament.foodCost) %>đ</strong></div><div>Giải thưởng<br><strong><%= formatMoney(tournament.prizeCost) %>đ</strong></div><div>Khác<br><strong><%= formatMoney(tournament.otherCost) %>đ</strong></div></div></section>
+  <% } %>
+
+  <% if (section === 'ranking') { %>
+    <section class="card-lite p"><h2>Bảng xếp hạng</h2>
+      <% if (!rankingGroups.length) { %><p class="muted">Chưa có lịch thi đấu để tính xếp hạng.</p><% } %>
+      <% rankingGroups.forEach((group) => { %>
+        <h3><%= tournament.format === 'ROUND_ROBIN' ? 'BXH' : `BXH - Bảng ${group.groupName}` %></h3>
+        <div class="table-wrap"><table><thead><tr><th>#</th><th>Đội</th><th>Trận</th><th>Thắng</th><th>Thua</th><th>Điểm</th><th>Hiệu số</th></tr></thead><tbody>
+          <% group.rows.forEach((row, index) => { %><tr><td><%= index + 1 %></td><td><strong><%= row.teamName %></strong></td><td><%= row.played %></td><td><%= row.won %></td><td><%= row.lost %></td><td><%= row.pointsFor %>-<%= row.pointsAgainst %></td><td><%= row.pointDiff %></td></tr><% }) %>
+        </tbody></table></div>
+      <% }) %>
+    </section>
+  <% } %>
+
+  <% if (section === 'schedule') { %>
+    <section class="card-lite p">
+      <div class="flex between center mb"><div><h2>Lịch thi đấu</h2><% if (tournament.format === 'GROUP_KNOCKOUT') { %><div class="muted">Vào vòng trong: <%= tournament.knockoutQualifierCount %> đội</div><% } %></div><% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">Chia lịch</button></form><% } %></div>
+      <div id="matchList" data-tournament-id="<%= tournament.id %>">
+        <% matches.forEach((m) => { const knockout = m.stage !== 'Vòng bảng' && m.stage !== 'Vòng tròn'; %>
+          <div class="match-row" data-match-id="<%= m.id %>">
+            <div style="flex:1">
+              <span class="badge badge-dark"><%= m.stage %><%= m.groupName ? ` ${m.groupName}` : '' %></span>
+              <div class="match-line"><% if (knockout) { %><span class="muted">|-----</span><% } %><span><%= m.teamA %></span><span class="muted">vs</span><span><%= m.teamB %></span><% if (!knockout) { %><span class="match-spacer"></span><% } %><span><%= m.courtNumber %></span></div>
+              <div class="muted">Vòng <%= m.roundNumber %> · <span class="match-status"><%= m.status %></span></div>
+            </div>
+            <% if (currentUser.role === 'ADMIN') { %><div class="score-controls"><button class="btn btn-sm" data-side="A" data-delta="-1">-</button><strong class="score score-a"><%= m.scoreA %></strong><span>-</span><strong class="score score-b"><%= m.scoreB %></strong><button class="btn btn-sm" data-side="A" data-delta="1">+A</button><button class="btn btn-sm" data-side="B" data-delta="-1">-</button><button class="btn btn-sm" data-side="B" data-delta="1">+B</button></div><% } else { %><strong><span class="score-a"><%= m.scoreA %></span> - <span class="score-b"><%= m.scoreB %></span></strong><% } %>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+  <% } %>
+
+  <% if (section === 'fees') { %>
+    <section class="card-lite p"><h2>Danh sách đóng phí</h2><div class="table-wrap"><table><thead><tr><th>Tên</th><th>Tiền</th><th>Trạng thái</th></tr></thead><tbody>
+      <% registrations.forEach((r) => { %><tr><td><%= r.player ? r.player.displayName : r.externalName %></td><td><% if (currentUser.role === 'ADMIN') { %><form class="flex gap" method="post" action="/registrations/<%= r.id %>/payment"><input type="hidden" name="tournamentId" value="<%= tournament.id %>"><input class="money-input" name="amount" value="<%= formatMoney(r.paidAmount) %>"><select name="status"><option value="UNPAID" <%= r.paymentStatus === 'UNPAID' ? 'selected' : '' %>>Chưa đóng</option><option value="PAID" <%= r.paymentStatus === 'PAID' ? 'selected' : '' %>>Đã đóng</option></select><button class="btn btn-primary">Lưu</button></form><% } else { %><%= formatMoney(r.paidAmount) %>đ<% } %></td><td><%= r.paymentStatus %></td></tr><% }) %>
+    </tbody></table></div></section>
+  <% } %>
+
+  <% if (section === 'settings') { %><section class="card-lite p"><h2>Cài đặt</h2><p class="muted">Màn sửa giải chi tiết sẽ được tách tiếp, hiện tạo mới đã đủ cấu hình chính.</p></section><% } %>
+</main>
+<nav class="bottom-menu"><div class="bottom-menu-inner">
+  <% ['players','fund','ranking','schedule','fees','settings'].forEach((item) => { const labels = {players:'Thành viên', fund:'Quỹ', ranking:'BXH', schedule:'Lịch', fees:'Đóng phí', settings:'Cài đặt'}; %><a class="<%= section === item ? 'active' : '' %>" href="/tournaments/<%= tournament.id %>/<%= item %>"><%= labels[item] %></a><% }) %>
+</div></nav>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/app.js"></script>
+</body></html>

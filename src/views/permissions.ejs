@@ -1,0 +1,28 @@
+<%- include('partials/head', { title: 'Phân quyền' }) %>
+<%- include('partials/topbar') %>
+<main class="app-shell">
+  <section class="card-lite p mb">
+    <h1>Phân quyền admin</h1>
+    <form class="row" method="post" action="/admins">
+      <div class="col-3"><input name="username" placeholder="Tài khoản admin" required></div>
+      <div class="col-3"><input name="displayName" placeholder="Tên hiển thị"></div>
+      <div class="col-3"><input name="password" placeholder="Mật khẩu" value="123456789"></div>
+      <div class="col-3"><button class="btn btn-success">Tạo/cập nhật admin</button></div>
+    </form>
+  </section>
+  <% admins.forEach((admin) => { %>
+    <section class="card-lite p mb">
+      <h3><%= admin.displayName %> <span class="muted">(<%= admin.username %>)</span></h3>
+      <form method="post" action="/permissions">
+        <input type="hidden" name="adminId" value="<%= admin.id %>">
+        <div class="flex gap" style="flex-wrap:wrap">
+          <% features.forEach((feature) => { const checked = admin.permissions.some((p) => p.feature === feature); %>
+            <label class="card-lite p"><input type="checkbox" name="features" value="<%= feature %>" <%= checked ? 'checked' : '' %>> <%= feature %></label>
+          <% }) %>
+        </div>
+        <div class="mt"><button class="btn btn-primary">Lưu quyền</button></div>
+      </form>
+    </section>
+  <% }) %>
+</main>
+<%- include('partials/bottom-menu') %>

@@ -1,0 +1,10 @@
+<body>
+<nav class="topbar">
+  <a href="/">Vô Địch Tool</a>
+  <div class="flex center gap">
+    <% if (currentUser) { %><span class="muted"><%= currentUser.displayName %></span><% } %>
+    <% if (currentUser) { %>
+      <form method="post" action="/logout"><button class="btn btn-sm btn-danger" data-loading-text="...">Đăng xuất</button></form>
+    <% } %>
+  </div>
+</nav>

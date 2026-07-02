@@ -1,0 +1,20 @@
+<%- include('partials/head', { title: 'Trang chủ' }) %>
+<%- include('partials/topbar') %>
+<main class="app-shell">
+  <section class="card-lite p mb flex center gap">
+    <img src="/uploads/icon.jpg" class="login-logo" style="width:72px;height:72px;margin:0" alt="Vô Địch Tool">
+    <div>
+      <h1>Vô Địch Tool</h1>
+      <div class="muted">Quản lý giải đấu, đội bóng, phân quyền, log và livescore realtime.</div>
+    </div>
+  </section>
+  <div class="grid module-grid">
+    <% if (featureSet.has('TOURNAMENTS')) { %><a class="card-lite module-card" href="/tournaments"><div class="module-icon">🏆</div><h3>Giải Đấu</h3><p class="muted">Thành viên, quỹ, BXH, lịch, đóng phí.</p></a><% } %>
+    <% if (featureSet.has('TEAMS')) { %><a class="card-lite module-card" href="/teams"><div class="module-icon">👥</div><h3>Đội Bóng</h3><p class="muted">Thành viên và quỹ tháng.</p></a><% } %>
+    <% if (featureSet.has('TRAVEL')) { %><a class="card-lite module-card" href="/travel"><div class="module-icon">🧳</div><h3>Du Lịch</h3><p class="muted">Module thu chi chuyến đi.</p></a><% } %>
+    <% if (currentUser && currentUser.role === 'ADMIN' && featureSet.has('TOURNAMENTS')) { %><a class="card-lite module-card" href="/players"><div class="module-icon">👤</div><h3>Thành Viên</h3><p class="muted">Danh sách thành viên dùng chung.</p></a><% } %>
+    <% if (featureSet.has('PERMISSIONS')) { %><a class="card-lite module-card" href="/permissions"><div class="module-icon">⚙️</div><h3>Phân Quyền</h3><p class="muted">Cấp quyền module cho admin.</p></a><% } %>
+    <% if (isRoot) { %><a class="card-lite module-card" href="/logs"><div class="module-icon">🧾</div><h3>Monitor Log</h3><p class="muted">Theo dõi thao tác và lỗi.</p></a><% } %>
+  </div>
+</main>
+<%- include('partials/bottom-menu') %>

@@ -1,0 +1,11 @@
+<%- include('../partials/head', { title: team.name }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <section class="card-lite p mb"><h1><%= team.name %></h1><p class="muted"><%= team.description || '' %></p></section>
+  <% if (currentUser.role === 'ADMIN') { %>
+    <section class="card-lite p mb"><h2>Thêm thành viên</h2><form class="row" method="post" action="/teams/<%= team.id %>/members"><div class="col-6"><select name="playerId"><% players.forEach((p) => { %><option value="<%= p.id %>"><%= p.displayName %> · <%= p.email %></option><% }) %></select></div><div class="col-3"><select name="memberType"><option value="FIXED">Cố định</option><option value="GUEST">Khách</option></select></div><div class="col-3"><button class="btn btn-success">Thêm</button></div></form></section>
+    <section class="card-lite p mb"><h2>Cấu hình quỹ tháng</h2><form class="row" method="post" action="/teams/<%= team.id %>/fund"><div class="col-3"><input type="month" name="month" value="<%= new Date().toISOString().slice(0,7) %>"></div><div class="col-3"><input class="money-input" name="monthlyFee" placeholder="Phí tháng/người"></div><div class="col-3"><input class="money-input" name="courtCost" placeholder="Tiền sân"></div><div class="col-3"><button class="btn btn-primary">Lưu quỹ</button></div></form></section>
+  <% } %>
+  <section class="card-lite table-wrap"><table><thead><tr><th>Thành viên</th><th>Email</th><th>Loại</th></tr></thead><tbody><% members.forEach((member) => { %><tr><td><%= member.player.displayName %></td><td><%= member.player.email %></td><td><%= member.memberType === 'FIXED' ? 'Cố định' : 'Khách' %></td></tr><% }) %></tbody></table></section>
+</main>
+<%- include('../partials/bottom-menu') %>

@@ -1,0 +1,10 @@
+<%- include('partials/head', { title: 'Lỗi' }) %>
+<%- include('partials/topbar') %>
+<main class="app-shell">
+  <section class="card-lite p">
+    <h1>Không thể xử lý</h1>
+    <p class="muted"><%= message || 'Có lỗi xảy ra' %></p>
+    <a class="btn" href="/">Trang chủ</a>
+  </section>
+</main>
+<%- include('partials/bottom-menu') %>

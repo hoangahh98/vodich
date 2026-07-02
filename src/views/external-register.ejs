@@ -1,0 +1,15 @@
+<%- include('partials/head', { title: 'Đăng ký giải' }) %>
+<body class="login-page">
+  <section class="login-card">
+    <img class="login-logo" src="/uploads/icon.jpg" alt="Vô Địch Tool">
+    <h1>Đăng ký giải</h1>
+    <p class="muted"><%= tournament.name %></p>
+    <form method="post">
+      <div class="mb"><label>Họ tên</label><input name="displayName" required></div>
+      <div class="mb"><label>Email</label><input name="email" type="email" required></div>
+      <div class="mb"><label>Trình độ</label><select name="skillLevel"><option value="">Chưa chọn trình</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
+      <button class="btn btn-success" style="width:100%" data-loading-text="Đang đăng ký...">Đăng ký</button>
+    </form>
+  </section>
+  <script src="/js/app.js"></script>
+</body></html>

@@ -1,0 +1,11 @@
+<%- include('../partials/head', { title: 'Monitor Log' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <section class="card-lite p mb"><div class="flex between center"><div><h1>Monitor Log Hệ Thống</h1><p class="muted">Thời gian hiển thị theo giờ Việt Nam.</p></div><div class="flex gap"><% levels.forEach((item) => { %><a class="btn btn-sm <%= level === item ? 'btn-primary' : '' %>" href="/logs?level=<%= item %>"><%= item %></a><% }) %></div></div></section>
+  <section class="card-lite table-wrap"><table><thead><tr><th>Thời gian</th><th>Mức</th><th>User</th><th>Thao tác</th><th>HTTP</th><th>Chi tiết</th><th>Lỗi</th></tr></thead><tbody>
+    <% logs.forEach((log) => { const created = new Date(log.createdAt); const vn = created.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour12: false }); %>
+      <tr><td><%= vn %></td><td><span class="badge <%= log.level === 'ERROR' ? 'badge-danger' : (log.level === 'WARN' ? 'badge-warn' : '') %>"><%= log.level %></span></td><td><%= log.username || 'anonymous' %><br><span class="muted"><%= log.userRole || '' %></span></td><td><strong><%= log.category %></strong><br><%= log.action %></td><td><%= log.method || '' %> <%= log.path || '' %><br><span class="muted"><%= log.statusCode || '-' %> · <%= log.durationMs || '-' %>ms</span></td><td><%= log.details || '' %></td><td class="muted"><%= log.errorMessage || '' %></td></tr>
+    <% }) %>
+  </tbody></table></section>
+</main>
+<%- include('../partials/bottom-menu') %>

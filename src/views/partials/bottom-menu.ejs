@@ -1,0 +1,13 @@
+<nav class="bottom-menu">
+  <div class="bottom-menu-inner">
+    <% if (featureSet.has('TOURNAMENTS')) { %><a class="<%= path && path.startsWith('/tournaments') ? 'active' : '' %>" href="/tournaments">Giải đấu</a><% } %>
+    <% if (featureSet.has('TEAMS')) { %><a class="<%= path && path.startsWith('/teams') ? 'active' : '' %>" href="/teams">Đội bóng</a><% } %>
+    <% if (featureSet.has('TRAVEL')) { %><a class="<%= path && path.startsWith('/travel') ? 'active' : '' %>" href="/travel">Du lịch</a><% } %>
+    <% if (featureSet.has('PERMISSIONS')) { %><a class="<%= path && path.startsWith('/permissions') ? 'active' : '' %>" href="/permissions">Phân quyền</a><% } %>
+    <% if (isRoot) { %><a class="<%= path && path.startsWith('/logs') ? 'active' : '' %>" href="/logs">Log</a><% } %>
+  </div>
+</nav>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>

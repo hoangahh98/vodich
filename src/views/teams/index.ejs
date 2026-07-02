@@ -1,0 +1,10 @@
+<%- include('../partials/head', { title: 'Đội bóng' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <div class="flex between center mb"><h1>Quản lý đội bóng</h1></div>
+  <% if (currentUser.role === 'ADMIN') { %>
+    <section class="card-lite p mb"><form class="row" method="post" action="/teams"><div class="col-4"><input name="name" placeholder="Tên đội bóng" required></div><div class="col-6"><input name="description" placeholder="Ghi chú"></div><div class="col-2"><button class="btn btn-success">Tạo đội</button></div></form></section>
+  <% } %>
+  <div class="grid module-grid"><% teams.forEach((team) => { %><a class="card-lite module-card" href="/teams/<%= team.id %>"><h3><%= team.name %></h3><p class="muted"><%= team.description || '' %></p></a><% }) %></div>
+</main>
+<%- include('../partials/bottom-menu') %>

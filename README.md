@@ -1,45 +1,60 @@
-# Vodich Java
+# Vô Địch Tool
 
-Vodich is a Spring Boot modular monolith for tournament management, team monthly funds, external registration, and realtime livescore.
-
-Removed from the old Flask app:
-
-- Entertainment scorekeeper
-- To lieng
-- Ba cay
+Ứng dụng quản lý giải đấu, thành viên, đội bóng, phân quyền, log hệ thống và livescore realtime.
 
 ## Stack
 
-- Java 21
-- Spring Boot 3
-- Thymeleaf
-- Spring WebSocket + STOMP for realtime livescore
-- Spring Data JPA
-- Flyway migrations
-- Supabase Postgres
-- Render deploy with Docker
+- Node.js runtime trên Render
+- NestJS + TypeScript
+- Prisma + Supabase Postgres
+- EJS server-rendered UI
+- Socket.IO WebSocket cho cập nhật điểm realtime
 
-## Local Run
+## Chạy local
 
 ```bash
-mvn spring-boot:run
+npm install
+npx prisma generate
+npm run start:dev
 ```
 
-Required environment:
+Biến môi trường:
 
-```bash
-DATABASE_URL=postgresql://user:password@host:5432/postgres?sslmode=require
+```env
+DATABASE_URL=postgresql://...
 APP_ADMIN_USERNAME=admin
 APP_ADMIN_PASSWORD=123456789
+SESSION_SECRET=change-me
 ```
 
-The app converts Render/Supabase `DATABASE_URL` into Spring's JDBC datasource settings automatically.
+## Deploy Render
 
-## Permissions
+Chọn **Web Service -> Runtime Node**.
 
-- Root admin is configured by `APP_ADMIN_USERNAME`.
-- Root admin sees every menu and the permission screen.
-- Secondary admins only see modules granted in `admin_feature_permission`.
-- Player accounts are read-only and only see tournaments attached to their email.
-- Manually created players are unique by email.
-- External tournament registration is stored in `tournament_registration`, not in the shared player table.
+Build command:
+
+```bash
+npm install && npx prisma generate && npm run build
+```
+
+Start command:
+
+```bash
+npm run start:prod
+```
+
+## Tính năng
+
+- Admin đăng nhập, root admin phân quyền module cho admin khác.
+- Client đăng nhập bằng email thành viên hoặc email đăng ký ngoài, mật khẩu mặc định `123456789`.
+- Quản lý thành viên, chống trùng email.
+- Tạo giải, chọn vòng tròn hoặc vòng bảng + loại trực tiếp.
+- Nếu chọn vòng bảng mới hiện cấu hình số đội vào vòng trong.
+- BXH vòng tròn hiển thị BXH thường; vòng bảng hiển thị `BXH - Bảng A/B/...`.
+- Lịch thi đấu realtime qua WebSocket, có loading state khi bấm thao tác.
+- Đăng ký ngoài cho giải và lưu riêng trong bảng đăng ký giải.
+- Bỏ giải/khôi phục.
+- Quản lý đội bóng, thành viên đội, cấu hình quỹ tháng.
+- Monitor log chỉ dành cho root admin, hiển thị giờ Việt Nam.
+
+Các tính năng giải trí cũ đã bỏ.

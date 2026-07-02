@@ -1,0 +1,28 @@
+<%- include('../partials/head', { title: 'Thành viên' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <div class="flex between center mb">
+    <h1>Quản lý thành viên</h1>
+    <a class="btn" href="/">Trang chủ</a>
+  </div>
+  <section class="card-lite p mb">
+    <form class="row" method="post" action="/players">
+      <div class="col-3"><input name="displayName" placeholder="Họ tên" required></div>
+      <div class="col-3"><input name="email" type="email" placeholder="Email" required></div>
+      <div class="col-2"><select name="skillLevel"><option value="">Chưa chọn trình</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
+      <div class="col-3"><input name="notes" placeholder="Ghi chú"></div>
+      <div class="col-1"><button class="btn btn-success" data-loading-text="...">Thêm</button></div>
+    </form>
+  </section>
+  <section class="card-lite table-wrap">
+    <table>
+      <thead><tr><th>Tên</th><th>Email</th><th>Trình</th><th>Ghi chú</th></tr></thead>
+      <tbody>
+        <% players.forEach((p) => { %>
+          <tr><td><strong><%= p.displayName %></strong></td><td class="muted"><%= p.email %></td><td><span class="badge"><%= p.skillLevel || '-' %></span></td><td><%= p.notes || '' %></td></tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

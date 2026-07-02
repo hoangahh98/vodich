@@ -1,0 +1,184 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AppUser {
+  id           BigInt   @id @default(autoincrement())
+  username     String   @unique @db.VarChar(120)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  displayName  String   @map("display_name") @db.VarChar(255)
+  role         String   @db.VarChar(30)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  permissions AdminFeaturePermission[]
+
+  @@map("app_user")
+}
+
+model AdminFeaturePermission {
+  id      BigInt  @id @default(autoincrement())
+  adminId BigInt  @map("admin_id")
+  feature String  @db.VarChar(40)
+  admin   AppUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([adminId, feature])
+  @@map("admin_feature_permission")
+}
+
+model Player {
+  id          BigInt   @id @default(autoincrement())
+  displayName String   @map("display_name") @db.VarChar(255)
+  email       String   @unique @db.VarChar(255)
+  skillLevel  String?  @map("skill_level") @db.VarChar(10)
+  notes       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  registrations TournamentRegistration[]
+  teamMembers   TeamMember[]
+
+  @@map("player")
+}
+
+model Tournament {
+  id                          BigInt   @id @default(autoincrement())
+  name                        String   @db.VarChar(255)
+  venue                       String?  @db.VarChar(255)
+  startTime                   DateTime? @map("start_time")
+  courtCount                  Int      @default(1) @map("court_count")
+  expectedPlayers             Int      @default(10) @map("expected_players")
+  playType                    String   @default("SINGLES") @map("play_type") @db.VarChar(20)
+  format                      String   @default("ROUND_ROBIN") @db.VarChar(20)
+  knockoutQualifierCount      Int      @default(4) @map("knockout_qualifier_count")
+  touchScore                  Int      @default(11) @map("touch_score")
+  maxScore                    Int      @default(15) @map("max_score")
+  courtCost                   Decimal  @default(0) @map("court_cost") @db.Decimal(14, 2)
+  foodCost                    Decimal  @default(0) @map("food_cost") @db.Decimal(14, 2)
+  prizeCost                   Decimal  @default(0) @map("prize_cost") @db.Decimal(14, 2)
+  otherCost                   Decimal  @default(0) @map("other_cost") @db.Decimal(14, 2)
+  prizeRate1                  Decimal  @default(50) @map("prize_rate_1") @db.Decimal(5, 2)
+  prizeRate2                  Decimal  @default(30) @map("prize_rate_2") @db.Decimal(5, 2)
+  prizeRate3                  Decimal  @default(20) @map("prize_rate_3") @db.Decimal(5, 2)
+  externalRegistrationEnabled Boolean  @default(false) @map("external_registration_enabled")
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @default(now()) @map("updated_at")
+
+  registrations TournamentRegistration[]
+  matches       MatchGame[]
+
+  @@map("tournament")
+}
+
+model TournamentRegistration {
+  id            BigInt    @id @default(autoincrement())
+  tournamentId  BigInt    @map("tournament_id")
+  playerId      BigInt?   @map("player_id")
+  externalName  String?   @map("external_name") @db.VarChar(255)
+  externalEmail String?   @map("external_email") @db.VarChar(255)
+  skillLevel    String?   @map("skill_level") @db.VarChar(10)
+  source        String    @default("INTERNAL") @db.VarChar(20)
+  status        String    @default("ACTIVE") @db.VarChar(20)
+  paidAmount    Decimal   @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  paymentStatus String    @default("UNPAID") @map("payment_status") @db.VarChar(40)
+  withdrawnAt   DateTime? @map("withdrawn_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  player     Player?    @relation(fields: [playerId], references: [id], onDelete: SetNull)
+
+  @@unique([tournamentId, playerId])
+  @@unique([tournamentId, externalEmail])
+  @@map("tournament_registration")
+}
+
+model MatchGame {
+  id           BigInt   @id @default(autoincrement())
+  tournamentId BigInt   @map("tournament_id")
+  teamA        String   @map("team_a") @db.VarChar(255)
+  teamB        String   @map("team_b") @db.VarChar(255)
+  scoreA       Int      @default(0) @map("score_a")
+  scoreB       Int      @default(0) @map("score_b")
+  status       String   @default("SCHEDULED") @db.VarChar(30)
+  courtNumber  Int      @default(1) @map("court_number")
+  roundNumber  Int      @default(1) @map("round_number")
+  stage        String   @default("Vòng tròn") @db.VarChar(40)
+  groupName    String?  @map("group_name") @db.VarChar(20)
+  servingTeam  String   @default("A") @map("serving_team") @db.VarChar(1)
+  scoreOrder   Int      @default(2) @map("score_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @map("updated_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@map("match_game")
+}
+
+model TeamClub {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @db.VarChar(255)
+  description String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  members TeamMember[]
+  funds   TeamMonthFund[]
+
+  @@map("team_club")
+}
+
+model TeamMember {
+  id         BigInt   @id @default(autoincrement())
+  teamId     BigInt   @map("team_id")
+  playerId   BigInt   @map("player_id")
+  memberType String   @default("FIXED") @map("member_type") @db.VarChar(20)
+  active     Boolean  @default(true)
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  team   TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, playerId])
+  @@map("team_member")
+}
+
+model TeamMonthFund {
+  id              BigInt   @id @default(autoincrement())
+  teamId          BigInt   @map("team_id")
+  fundMonth       DateTime @map("fund_month") @db.Date
+  monthlyFee      Decimal  @default(0) @map("monthly_fee") @db.Decimal(14, 2)
+  courtCost       Decimal  @default(0) @map("court_cost") @db.Decimal(14, 2)
+  previousBalance Decimal  @default(0) @map("previous_balance") @db.Decimal(14, 2)
+  notes           String?
+
+  team TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, fundMonth])
+  @@map("team_month_fund")
+}
+
+model AppLog {
+  id          BigInt   @id @default(autoincrement())
+  createdAt   DateTime @default(now()) @map("created_at")
+  level       String   @db.VarChar(20)
+  category    String   @db.VarChar(80)
+  action      String   @db.VarChar(255)
+  method      String?  @db.VarChar(12)
+  path        String?  @db.VarChar(500)
+  queryString String?  @map("query_string")
+  statusCode  Int?     @map("status_code")
+  durationMs  BigInt?  @map("duration_ms")
+  userId      BigInt?  @map("user_id")
+  username    String?  @db.VarChar(255)
+  userRole    String?  @map("user_role") @db.VarChar(30)
+  ipAddress   String?  @map("ip_address") @db.VarChar(120)
+  userAgent   String?  @map("user_agent") @db.VarChar(500)
+  details     String?
+  errorMessage String? @map("error_message")
+
+  @@map("app_log")
+}

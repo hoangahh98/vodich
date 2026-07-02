@@ -1,0 +1,28 @@
+<%- include('../partials/head', { title: 'Tạo giải' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <section class="card-lite p">
+    <h1>Thêm giải đấu mới</h1>
+    <form method="post" action="/tournaments">
+      <div class="row">
+        <div class="col-6"><label>Tên giải</label><input name="name" required></div>
+        <div class="col-6"><label>Địa điểm</label><input name="venue"></div>
+        <div class="col-4"><label>Thời gian</label><input type="datetime-local" name="startTime"></div>
+        <div class="col-4"><label>Số sân</label><input type="number" name="courtCount" value="1" min="1"></div>
+        <div class="col-4"><label>Dự kiến thành viên</label><input type="number" name="expectedPlayers" value="10" min="1"></div>
+        <div class="col-4"><label>Loại đấu</label><select name="playType"><option value="SINGLES">Thi đơn</option><option value="DOUBLES">Thi đôi</option></select></div>
+        <div class="col-4"><label>Thể thức</label><select name="format"><option value="ROUND_ROBIN">Vòng tròn</option><option value="GROUP_KNOCKOUT">Vòng bảng + loại trực tiếp</option></select></div>
+        <div class="col-4" id="knockoutQualifierField"><label>Vào vòng trong</label><select name="knockoutQualifierCount"><option value="2">2 đội - Chung kết</option><option value="4" selected>4 đội - Bán kết, chung kết</option><option value="8">8 đội - Tứ kết, bán kết, chung kết</option></select></div>
+        <div class="col-3"><label>Chạm điểm</label><input type="number" name="touchScore" value="11"></div>
+        <div class="col-3"><label>Max điểm</label><input type="number" name="maxScore" value="15"></div>
+        <div class="col-3"><label>Sân bãi</label><input class="money-input" name="courtCost" value="0"></div>
+        <div class="col-3"><label>Ăn uống</label><input class="money-input" name="foodCost" value="0"></div>
+        <div class="col-3"><label>Giải thưởng</label><input class="money-input" name="prizeCost" value="0"></div>
+        <div class="col-3"><label>Khác</label><input class="money-input" name="otherCost" value="0"></div>
+        <div class="col-12"><label><input type="checkbox" name="externalRegistrationEnabled"> Cho phép đăng ký ngoài</label></div>
+      </div>
+      <div class="mt"><button class="btn btn-success" data-loading-text="Đang tạo...">Tạo giải</button></div>
+    </form>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

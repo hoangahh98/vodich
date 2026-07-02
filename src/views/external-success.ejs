@@ -1,0 +1,12 @@
+<%- include('partials/head', { title: 'Đăng ký thành công' }) %>
+<body class="login-page">
+  <section class="login-card">
+    <h1>Đăng ký thành công</h1>
+    <p class="muted">Bạn đã được thêm vào giải. Tài khoản xem giải:</p>
+    <div class="card-lite p mb">
+      <div><strong>User:</strong> <%= registration.externalEmail %></div>
+      <div><strong>Mật khẩu:</strong> 123456789</div>
+    </div>
+    <a class="btn btn-primary" style="width:100%" href="/tournaments/<%= registration.tournamentId %>/players">Link xem giải</a>
+  </section>
+</body></html>

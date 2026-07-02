@@ -1,15 +1,10 @@
 services:
   - type: web
-    name: vodich
-    env: docker
+    name: vodich-tool
+    env: node
     plan: free
-    autoDeploy: true
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: npm run start:prod
     envVars:
-      - key: SPRING_PROFILES_ACTIVE
-        value: prod
-      - key: DATABASE_URL
-        sync: false
-      - key: APP_ADMIN_USERNAME
-        value: admin
-      - key: APP_ADMIN_PASSWORD
-        sync: false
+      - key: NODE_ENV
+        value: production
