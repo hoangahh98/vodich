@@ -8,8 +8,10 @@ public class Player {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+    @Column(name = "display_name")
     private String displayName;
     private String email;
+    @Column(name = "skill_level")
     private String skillLevel;
     private String notes;
 

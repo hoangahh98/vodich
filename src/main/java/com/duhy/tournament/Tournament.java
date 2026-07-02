@@ -15,22 +15,36 @@ public class Tournament {
     private Long id;
     private String name;
     private String venue;
+    @Column(name = "start_time")
     private LocalDateTime startTime;
+    @Column(name = "court_count")
     private int courtCount;
+    @Column(name = "expected_players")
     private int expectedPlayers;
     @Enumerated(EnumType.STRING)
+    @Column(name = "play_type")
     private PlayType playType;
     @Enumerated(EnumType.STRING)
     private TournamentFormat format;
+    @Column(name = "touch_score")
     private int touchScore;
+    @Column(name = "max_score")
     private int maxScore;
+    @Column(name = "court_cost")
     private BigDecimal courtCost;
+    @Column(name = "food_cost")
     private BigDecimal foodCost;
+    @Column(name = "prize_cost")
     private BigDecimal prizeCost;
+    @Column(name = "other_cost")
     private BigDecimal otherCost;
+    @Column(name = "prize_rate_1")
     private BigDecimal prizeRate1;
+    @Column(name = "prize_rate_2")
     private BigDecimal prizeRate2;
+    @Column(name = "prize_rate_3")
     private BigDecimal prizeRate3;
+    @Column(name = "external_registration_enabled")
     private boolean externalRegistrationEnabled;
 
     protected Tournament() {

@@ -12,15 +12,23 @@ public class MatchGame {
     @ManyToOne(optional = false)
     @JoinColumn(name = "tournament_id")
     private Tournament tournament;
+    @Column(name = "team_a")
     private String teamA;
+    @Column(name = "team_b")
     private String teamB;
+    @Column(name = "score_a")
     private int scoreA;
+    @Column(name = "score_b")
     private int scoreB;
     @Enumerated(EnumType.STRING)
     private MatchStatus status;
+    @Column(name = "court_number")
     private int courtNumber;
+    @Column(name = "round_number")
     private int roundNumber;
+    @Column(name = "serving_team")
     private String servingTeam;
+    @Column(name = "score_order")
     private int scoreOrder;
 
     protected MatchGame() {

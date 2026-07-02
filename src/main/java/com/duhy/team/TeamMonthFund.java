@@ -14,9 +14,13 @@ public class TeamMonthFund {
     @ManyToOne(optional = false)
     @JoinColumn(name = "team_id")
     private TeamClub team;
+    @Column(name = "fund_month")
     private LocalDate fundMonth;
+    @Column(name = "monthly_fee")
     private BigDecimal monthlyFee;
+    @Column(name = "court_cost")
     private BigDecimal courtCost;
+    @Column(name = "previous_balance")
     private BigDecimal previousBalance;
     private String notes;
 

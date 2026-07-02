@@ -18,16 +18,22 @@ public class TournamentRegistration {
     @ManyToOne
     @JoinColumn(name = "player_id")
     private Player player;
+    @Column(name = "external_name")
     private String externalName;
+    @Column(name = "external_email")
     private String externalEmail;
+    @Column(name = "skill_level")
     private String skillLevel;
     @Enumerated(EnumType.STRING)
     private RegistrationSource source;
     @Enumerated(EnumType.STRING)
     private RegistrationStatus status;
+    @Column(name = "paid_amount")
     private BigDecimal paidAmount;
     @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status")
     private PaymentStatus paymentStatus;
+    @Column(name = "withdrawn_at")
     private LocalDateTime withdrawnAt;
 
     protected TournamentRegistration() {

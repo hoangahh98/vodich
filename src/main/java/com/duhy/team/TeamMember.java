@@ -16,6 +16,7 @@ public class TeamMember {
     @JoinColumn(name = "player_id")
     private Player player;
     @Enumerated(EnumType.STRING)
+    @Column(name = "member_type")
     private MemberType memberType;
     private boolean active = true;
     private String notes;
