@@ -4,6 +4,7 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from './prisma.service';
 import { AuthService } from './auth/auth.service';
 import { TournamentService } from './tournaments/tournament.service';
+import { MatchGateway } from './tournaments/match.gateway';
 import { TeamService } from './teams/team.service';
 import { render, redirectBack } from './common/view';
 import { parseMoney } from './common/money';
@@ -16,6 +17,7 @@ export class AppController {
     private readonly auth: AuthService,
     private readonly tournaments: TournamentService,
     private readonly teams: TeamService,
+    private readonly matchGateway: MatchGateway,
   ) {}
 
   @Get('/login')
@@ -106,6 +108,7 @@ export class AppController {
   async updateTournament(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.update(BigInt(id), body);
+    this.matchGateway.emitTournamentUpdated(id, 'tournament');
     return res.redirect(`/tournaments/${id}/${safeSection(body.returnSection)}`);
   }
 
@@ -165,6 +168,7 @@ export class AppController {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     const ids = Array.isArray(playerId) ? playerId : playerId ? [playerId] : [];
     await this.tournaments.registerPlayers(BigInt(id), ids.map((item) => BigInt(item)));
+    this.matchGateway.emitTournamentUpdated(id, 'registrations');
     return res.redirect(`/tournaments/${id}/players`);
   }
 
@@ -172,6 +176,7 @@ export class AppController {
   async withdraw(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('tournamentId') tournamentId: string) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.withdraw(BigInt(id));
+    this.matchGateway.emitTournamentUpdated(tournamentId, 'registrations');
     return res.redirect(`/tournaments/${tournamentId}/players`);
   }
 
@@ -179,6 +184,7 @@ export class AppController {
   async restore(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('tournamentId') tournamentId: string) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.restore(BigInt(id));
+    this.matchGateway.emitTournamentUpdated(tournamentId, 'registrations');
     return res.redirect(`/tournaments/${tournamentId}/players`);
   }
 
@@ -186,6 +192,7 @@ export class AppController {
   async deleteRegistration(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('tournamentId') tournamentId: string) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.deleteRegistration(BigInt(id));
+    this.matchGateway.emitTournamentUpdated(tournamentId, 'registrations');
     return res.redirect(`/tournaments/${tournamentId}/players`);
   }
 
@@ -193,6 +200,7 @@ export class AppController {
   async updateRegistrationSkill(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: { tournamentId: string; skillLevel?: string }) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.updateRegistrationSkill(BigInt(id), body.skillLevel || '');
+    this.matchGateway.emitTournamentUpdated(body.tournamentId, 'registrations');
     return res.redirect(`/tournaments/${body.tournamentId}/players`);
   }
 
@@ -202,6 +210,7 @@ export class AppController {
     const selected = Array.isArray(body.registrationIds) ? body.registrationIds : body.registrationIds ? [body.registrationIds] : [];
     const action = String(body.bulkAction || '');
     await this.tournaments.bulkRegistrations(selected.map((item) => BigInt(item)), action);
+    this.matchGateway.emitTournamentUpdated(id, 'registrations');
     return res.redirect(`/tournaments/${id}/players`);
   }
 
@@ -209,6 +218,7 @@ export class AppController {
   async payment(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: { tournamentId: string; amount: string; status: string }) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.updatePayment(BigInt(id), body.amount, body.status);
+    this.matchGateway.emitTournamentUpdated(body.tournamentId, 'payments');
     return res.redirect(`/tournaments/${body.tournamentId}/fees`);
   }
 
@@ -216,6 +226,7 @@ export class AppController {
   async tournamentPayments(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.updatePayments(body);
+    this.matchGateway.emitTournamentUpdated(id, 'payments');
     return res.redirect(`/tournaments/${id}/fees`);
   }
 
@@ -223,6 +234,7 @@ export class AppController {
   async generateSchedule(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     await this.tournaments.generateSchedule(BigInt(id));
+    this.matchGateway.emitTournamentUpdated(id, 'schedule');
     return res.redirect(`/tournaments/${id}/schedule`);
   }
 
@@ -243,6 +255,7 @@ export class AppController {
       else if (b) teams.push(b);
     }
     await this.tournaments.generateManualSchedule(BigInt(id), teams);
+    this.matchGateway.emitTournamentUpdated(id, 'schedule');
     return res.redirect(`/tournaments/${id}/schedule`);
   }
 
@@ -255,6 +268,7 @@ export class AppController {
   @Post('/external-register/:id')
   async externalRegisterSubmit(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     const registration = await this.tournaments.registerExternal(BigInt(id), body.displayName, body.email, body.skillLevel);
+    this.matchGateway.emitTournamentUpdated(id, 'registrations');
     return render(res, 'external-success', { registration: { ...registration, tournamentId: id } });
   }
 

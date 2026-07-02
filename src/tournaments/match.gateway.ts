@@ -9,6 +9,10 @@ export class MatchGateway {
 
   constructor(private readonly prisma: PrismaService) {}
 
+  emitTournamentUpdated(tournamentId: string | bigint, reason = 'updated') {
+    this.server.to(`tournament:${String(tournamentId)}`).emit('tournamentUpdated', { tournamentId: String(tournamentId), reason });
+  }
+
   @SubscribeMessage('joinTournament')
   join(@MessageBody() tournamentId: string, @ConnectedSocket() socket: Socket) {
     socket.join(`tournament:${tournamentId}`);

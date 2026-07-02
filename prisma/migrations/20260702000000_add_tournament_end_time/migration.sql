@@ -1,0 +1,1 @@
+ALTER TABLE "tournament" ADD COLUMN IF NOT EXISTS "end_time" TIMESTAMP(3);

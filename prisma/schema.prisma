@@ -49,6 +49,7 @@ model Tournament {
   name                        String   @db.VarChar(255)
   venue                       String?  @db.VarChar(255)
   startTime                   DateTime? @map("start_time")
+  endTime                     DateTime? @map("end_time")
   courtCount                  Int      @default(1) @map("court_count")
   expectedPlayers             Int      @default(10) @map("expected_players")
   playType                    String   @default("SINGLES") @map("play_type") @db.VarChar(20)

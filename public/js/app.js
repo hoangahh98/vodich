@@ -38,6 +38,16 @@ document.addEventListener('input', (event) => {
   input.value = digits ? Number(digits).toLocaleString('en-US') : '';
 });
 
+const getTournamentSocket = (tournamentId) => {
+  if (typeof io === 'undefined' || !tournamentId) return null;
+  if (!window.tournamentSocket) window.tournamentSocket = io();
+  if (window.joinedTournamentId !== String(tournamentId)) {
+    window.tournamentSocket.emit('joinTournament', String(tournamentId));
+    window.joinedTournamentId = String(tournamentId);
+  }
+  return window.tournamentSocket;
+};
+
 (() => {
   const formatSelect = document.querySelector('select[name="format"]');
   const formatRadios = [...document.querySelectorAll('input[name="format"]')];
@@ -135,7 +145,9 @@ document.addEventListener('input', (event) => {
     const selected = new Set(selects.map((select) => select.value).filter(Boolean));
     selects.forEach((select) => {
       [...select.options].forEach((option) => {
-        option.disabled = Boolean(option.value) && option.value !== select.value && selected.has(option.value);
+        const unavailable = Boolean(option.value) && option.value !== select.value && selected.has(option.value);
+        option.hidden = unavailable;
+        option.disabled = unavailable;
       });
     });
   };
@@ -146,9 +158,9 @@ document.addEventListener('input', (event) => {
 (() => {
   const shell = document.querySelector('[data-tournament-id]');
   let ranking = document.querySelector('.ranking-live');
-  if (!shell || !ranking || typeof io === 'undefined') return;
-  const socket = io();
-  socket.emit('joinTournament', shell.dataset.tournamentId);
+  if (!shell || !ranking) return;
+  const socket = getTournamentSocket(shell.dataset.tournamentId);
+  if (!socket) return;
   let refreshTimer = null;
   const refreshRanking = () => {
     window.clearTimeout(refreshTimer);
@@ -164,6 +176,18 @@ document.addEventListener('input', (event) => {
     }, 250);
   };
   socket.on('scoreUpdated', refreshRanking);
+})();
+
+(() => {
+  const shell = document.querySelector('[data-tournament-id]');
+  if (!shell) return;
+  const socket = getTournamentSocket(shell.dataset.tournamentId);
+  if (!socket) return;
+  let reloadTimer = null;
+  socket.on('tournamentUpdated', () => {
+    window.clearTimeout(reloadTimer);
+    reloadTimer = window.setTimeout(() => window.location.reload(), 300);
+  });
 })();
 
 (() => {
@@ -231,9 +255,10 @@ document.addEventListener('input', (event) => {
 
 (() => {
   const list = document.getElementById('matchList');
-  if (!list || typeof io === 'undefined') return;
-  const socket = io();
+  if (!list) return;
   const tournamentId = list.dataset.tournamentId;
+  const socket = getTournamentSocket(tournamentId);
+  if (!socket) return;
   const touchScore = Number.parseInt(list.dataset.touchScore || '11', 10) || 11;
   const maxScore = Number.parseInt(list.dataset.maxScore || '15', 10) || 15;
   const modal = document.getElementById('scoreModal');
@@ -402,7 +427,6 @@ document.addEventListener('input', (event) => {
     scheduleSpeak(0);
     saveScore();
   };
-  socket.emit('joinTournament', tournamentId);
   socket.on('scoreUpdated', (match) => {
     const row = list.querySelector(`[data-match-id="${match.id}"]`);
     if (!row) return;

@@ -10,7 +10,8 @@
         <div class="row">
           <div class="col-12"><label>Tên giải <span class="text-danger">*</span></label><input name="name" value="<%= tournament?.name || '' %>" required></div>
           <div class="col-12"><label>Địa điểm</label><input name="venue" value="<%= tournament?.venue || '' %>"></div>
-          <div class="col-12"><label>Thời gian bắt đầu</label><input type="datetime-local" name="startTime" value="<%= tournament?.startTime ? new Date(tournament.startTime).toISOString().slice(0,16) : '' %>"></div>
+          <div class="col-6"><label>Thời gian bắt đầu</label><input type="datetime-local" name="startTime" value="<%= tournament?.startTime ? new Date(tournament.startTime).toISOString().slice(0,16) : '' %>"></div>
+          <div class="col-6"><label>Thời gian kết thúc</label><input type="datetime-local" name="endTime" value="<%= tournament?.endTime ? new Date(tournament.endTime).toISOString().slice(0,16) : '' %>"></div>
           <div class="col-6"><label>Số sân</label><input type="number" name="courtCount" value="<%= tournament?.courtCount || 1 %>" min="1"></div>
           <div class="col-6"><label>Số thành viên</label><input type="number" name="expectedPlayers" value="<%= tournament?.expectedPlayers || 10 %>" min="1"></div>
           <div class="col-12"><label>Loại đấu</label><select name="playType"><option value="SINGLES" <%= tournament?.playType !== 'DOUBLES' ? 'selected' : '' %>>Thi đơn</option><option value="DOUBLES" <%= tournament?.playType === 'DOUBLES' ? 'selected' : '' %>>Thi đôi</option></select></div>
