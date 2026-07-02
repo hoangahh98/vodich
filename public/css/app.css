@@ -45,7 +45,7 @@ a { color: inherit; }
 .btn-success { background: var(--success); color: #fff; border-color: var(--success); }
 .btn-danger { background: var(--danger); color: #fff; border-color: var(--danger); }
 .btn-outline { background: #fff; color: var(--ink); }
-.btn:disabled, button:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.2); }
+.btn:disabled, button:disabled { opacity: .68; cursor: not-allowed; filter: grayscale(.1); background: #e9ecef; color: #495057; border-color: #adb5bd; }
 .btn.loading, button.loading { opacity: .75; pointer-events: none; position: relative; }
 .btn.loading::after, button.loading::after { content: ""; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .65s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -59,7 +59,7 @@ th, td { padding: 10px; border-bottom: 1px solid var(--line); text-align: left; 
 th { background: #0d6efd; color: #fff; font-size: 13px; }
 .muted { color: var(--muted); }
 .strong-muted { font-weight: 600; }
-.badge { display: inline-block; padding: 3px 8px; border-radius: 999px; background: #eef2f7; font-size: 12px; font-weight: 700; }
+.badge { display: inline-block; padding: 5px 10px; border-radius: 999px; background: #dbeafe; color: #0b5ed7; font-size: 13px; font-weight: 800; }
 .badge-dark { background: #111827; color: #fff; }
 .badge-danger { background: #fde7e7; color: #9d2424; }
 .badge-warn { background: #fff3cd; color: #8a6500; }
@@ -81,10 +81,12 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .checkbox-line input { width: auto; min-height: auto; }
 .form-section { border: 1px solid #cfe2ff; border-radius: 10px; padding: 18px; margin-bottom: 16px; background: #fbfdff; box-shadow: inset 0 0 0 1px rgba(13,110,253,.03); }
 .tournament-form .section-title { color: #0b5ed7; }
-.tournament-edit-card { max-width: 760px; margin: 0 auto; }
+.tournament-edit-card { max-width: 980px; margin: 0 auto; }
 .form-actions { display: grid; grid-template-columns: 1fr 160px; gap: 12px; margin-top: 16px; }
+.tournament-form label { white-space: nowrap; }
+.tournament-form .segmented label, .tournament-form .option-card { white-space: normal; font-weight: 800; }
 .segmented { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-.segmented label, .option-card { border: 1px solid #9ec5fe; border-radius: 8px; padding: 12px; background: #fff; color: #17202a; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(13,110,253,.04); }
+.segmented label, .option-card { border: 1px solid #9ec5fe; border-radius: 8px; padding: 14px; background: #fff; color: #17202a; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(13,110,253,.04); min-height: 58px; display: flex; align-items: center; gap: 8px; }
 .segmented input, .option-card input { width: auto; min-height: auto; margin-right: 6px; }
 .segmented label:has(input:checked), .option-card:has(input:checked) { background: #e7f1ff; border-color: #0d6efd; color: #084298; box-shadow: inset 0 0 0 1px #0d6efd; }
 .option-card { display: block; min-height: 78px; }
@@ -100,7 +102,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .player-check-list small { display: block; color: var(--muted); margin-top: 2px; }
 .manual-pair-box { border: 1px solid #9ec5fe; border-radius: 10px; background: #f8fbff; padding: 14px; }
 .manual-pair-box summary { cursor: pointer; font-weight: 800; color: #0b5ed7; }
-.manual-pair-grid { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); margin-top: 12px; }
+.manual-pair-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 12px; }
 .manual-pair-card { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
 .manual-pair-card select { min-height: 48px; font-size: 15px; }
 .registration-panel { border: 1px solid #cfe2ff; border-radius: 10px; background: #fff; padding: 12px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
@@ -179,6 +181,9 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .hieu-so-neg { color: #dc3545; font-weight: 800; }
 .ranking-table table { text-align: center; }
 .ranking-table td:nth-child(2), .ranking-table th:nth-child(2) { text-align: left; }
+.ranking-grid { grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); }
+.ranking-card { border: 1px solid #cfe2ff; border-radius: 10px; overflow: hidden; background: #fff; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.ranking-title { display: flex; align-items: center; gap: 8px; background: linear-gradient(90deg,#0d6efd,#198754); color: #fff; padding: 12px 14px; font-size: 18px; }
 @media (max-width: 720px) {
   .row { grid-template-columns: 1fr; }
   .col-12, .col-6, .col-4, .col-3, .col-2 { grid-column: span 1; }

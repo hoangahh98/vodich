@@ -85,6 +85,7 @@ export class TournamentService {
   }
 
   async create(form: Record<string, unknown>) {
+    const prizes = normalizePrizes(form);
     return this.prisma.tournament.create({
       data: {
         name: String(form.name || '').trim(),
@@ -94,22 +95,23 @@ export class TournamentService {
         expectedPlayers: Math.max(1, Number(form.expectedPlayers || 1)),
         playType: String(form.playType || 'SINGLES'),
         format: String(form.format || 'ROUND_ROBIN'),
-        knockoutQualifierCount: normalizeQualifierCount(Number(form.knockoutQualifierCount || 4)),
+        knockoutQualifierCount: normalizeQualifierCount(Number(form.knockoutQualifierCount || 4), Math.max(1, Number(form.expectedPlayers || 1)), String(form.playType || 'SINGLES')),
         touchScore: Math.max(1, Number(form.touchScore || 11)),
         maxScore: Math.max(1, Number(form.maxScore || 15)),
         courtCost: parseMoney(form.courtCost),
         foodCost: parseMoney(form.foodCost),
         prizeCost: parseMoney(form.prizeCost),
         otherCost: parseMoney(form.otherCost),
-        prizeRate1: parseMoney(form.prizeRate1) || 50,
-        prizeRate2: parseMoney(form.prizeRate2) || 30,
-        prizeRate3: parseMoney(form.prizeRate3) || 20,
+        prizeRate1: prizes[0],
+        prizeRate2: prizes[1],
+        prizeRate3: prizes[2],
         externalRegistrationEnabled: form.externalRegistrationEnabled === 'on',
       },
     });
   }
 
   async update(id: bigint, form: Record<string, unknown>) {
+    const prizes = normalizePrizes(form);
     return this.prisma.tournament.update({
       where: { id },
       data: {
@@ -120,16 +122,16 @@ export class TournamentService {
         expectedPlayers: Math.max(1, Number(form.expectedPlayers || 1)),
         playType: String(form.playType || 'SINGLES'),
         format: String(form.format || 'ROUND_ROBIN'),
-        knockoutQualifierCount: normalizeQualifierCount(Number(form.knockoutQualifierCount || 2)),
+        knockoutQualifierCount: normalizeQualifierCount(Number(form.knockoutQualifierCount || 2), Math.max(1, Number(form.expectedPlayers || 1)), String(form.playType || 'SINGLES')),
         touchScore: Math.max(1, Number(form.touchScore || 11)),
         maxScore: Math.max(1, Number(form.maxScore || 15)),
         courtCost: parseMoney(form.courtCost),
         foodCost: parseMoney(form.foodCost),
         prizeCost: parseMoney(form.prizeCost),
         otherCost: parseMoney(form.otherCost),
-        prizeRate1: parseMoney(form.prizeRate1) || 50,
-        prizeRate2: parseMoney(form.prizeRate2) || 30,
-        prizeRate3: parseMoney(form.prizeRate3) || 20,
+        prizeRate1: prizes[0],
+        prizeRate2: prizes[1],
+        prizeRate3: prizes[2],
         externalRegistrationEnabled: form.externalRegistrationEnabled === 'on',
         updatedAt: new Date(),
       },
@@ -197,13 +199,26 @@ export class TournamentService {
   }
 
   async updatePayments(body: Record<string, string>) {
+    const ids = Object.keys(body)
+      .filter((key) => key.startsWith('amount_'))
+      .map((key) => BigInt(key.replace('amount_', '')));
+    const registrations = await this.prisma.tournamentRegistration.findMany({
+      where: { id: { in: ids } },
+      include: { tournament: true },
+    });
+    const registrationMap = new Map(registrations.map((registration) => [registration.id.toString(), registration]));
     const updates = Object.entries(body)
       .filter(([key]) => key.startsWith('amount_'))
       .map(([key, amount]) => {
         const id = BigInt(key.replace('amount_', ''));
+        const parsedAmount = parseMoney(amount);
+        const registration = registrationMap.get(id.toString());
         return this.prisma.tournamentRegistration.update({
           where: { id },
-          data: { paidAmount: parseMoney(amount), paymentStatus: body[`status_${id}`] || 'UNPAID' },
+          data: {
+            paidAmount: parsedAmount || (registration ? this.minimumFee(registration.tournament) : 0),
+            paymentStatus: body[`status_${id}`] || 'UNPAID',
+          },
         });
       });
     if (!updates.length) return [];
@@ -363,16 +378,25 @@ function buildGroupMatches(tournament: Tournament, teams: string[]): MatchCreate
   const matches: MatchCreate[] = [];
   let court = 1;
   let round = 1;
-  groups.forEach((groupTeams, groupIndex) => {
+  const groupQueues = groups.map((groupTeams, groupIndex) => {
     const groupName = String.fromCharCode('A'.charCodeAt(0) + groupIndex);
+    const queue: Omit<MatchCreate, 'courtNumber' | 'roundNumber'>[] = [];
     for (let i = 0; i < groupTeams.length; i++) {
       for (let j = i + 1; j < groupTeams.length; j++) {
-        matches.push({ tournamentId: tournament.id, teamA: groupTeams[i], teamB: groupTeams[j], courtNumber: court, roundNumber: round, stage, groupName });
-        court = court >= tournament.courtCount ? 1 : court + 1;
-        if (court === 1) round++;
+        queue.push({ tournamentId: tournament.id, teamA: groupTeams[i], teamB: groupTeams[j], stage, groupName });
       }
     }
+    return queue;
   });
+  while (groupQueues.some((queue) => queue.length)) {
+    for (const queue of groupQueues) {
+      const match = queue.shift();
+      if (!match) continue;
+      matches.push({ ...match, courtNumber: court, roundNumber: round });
+      court = court >= tournament.courtCount ? 1 : court + 1;
+      if (court === 1) round++;
+    }
+  }
   return matches;
 }
 
@@ -420,10 +444,22 @@ function lastRound(matches: MatchCreate[]) {
   return matches.reduce((max, match) => Math.max(max, match.roundNumber), 0);
 }
 
-function normalizeQualifierCount(value: number) {
-  if (value >= 8) return 8;
-  if (value >= 4) return 4;
+function normalizeQualifierCount(value: number, expectedPlayers = 16, playType = 'SINGLES') {
+  const estimatedTeams = playType === 'DOUBLES' ? Math.floor(expectedPlayers / 2) : expectedPlayers;
+  if (value >= 8 && estimatedTeams >= 16) return 8;
+  if (value >= 4 && estimatedTeams >= 8) return 4;
   return 2;
+}
+
+function normalizePrizes(form: Record<string, unknown>) {
+  const values = [parseMoney(form.prizeRate1) || 0, parseMoney(form.prizeRate2) || 0, parseMoney(form.prizeRate3) || 0];
+  if (String(form.prizeMode || 'percent') === 'manual') return values;
+  let remaining = 100;
+  return values.map((value) => {
+    const next = Math.min(Math.max(0, value), remaining);
+    remaining -= next;
+    return next;
+  });
 }
 
 function blankToNull(value?: string) {

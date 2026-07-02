@@ -12,6 +12,18 @@ document.addEventListener('submit', (event) => {
     event.preventDefault();
     return;
   }
+  const prizeMode = form.querySelector('input[name="prizeMode"]:checked');
+  if (prizeMode?.value === 'percent') {
+    const total = ['prizeRate1', 'prizeRate2', 'prizeRate3'].reduce((sum, name) => {
+      const input = form.querySelector(`[name="${name}"]`);
+      return sum + Number(String(input?.value || '0').replace(/[^\d.-]/g, ''));
+    }, 0);
+    if (total > 100) {
+      event.preventDefault();
+      alert('Tổng tỷ lệ giải thưởng không được vượt quá 100%.');
+      return;
+    }
+  }
   const button = form.querySelector('button[type="submit"], button:not([type])');
   if (!button) return;
   button.dataset.originalText = button.textContent || '';
@@ -34,10 +46,28 @@ document.addEventListener('input', (event) => {
   const finalBox = document.getElementById('knockoutFinal');
   const semiBox = document.getElementById('knockoutSemi');
   const quarterBox = document.getElementById('knockoutQuarter');
+  const expectedPlayersInput = document.querySelector('input[name="expectedPlayers"]');
+  const playTypeSelect = document.querySelector('select[name="playType"]');
   if ((!formatSelect && !formatRadios.length) || !qualifierField) return;
   const currentFormat = () => formatSelect?.value || formatRadios.find((radio) => radio.checked)?.value;
+  const estimatedTeamCount = () => {
+    const players = Number.parseInt(expectedPlayersInput?.value || '0', 10) || 0;
+    return playTypeSelect?.value === 'DOUBLES' ? Math.floor(players / 2) : players;
+  };
   const syncKnockout = () => {
     if (!qualifierInput || !finalBox || !semiBox || !quarterBox) return;
+    const teamCount = estimatedTeamCount();
+    [finalBox, semiBox, quarterBox].forEach((box) => {
+      const enoughTeams = teamCount >= (Number.parseInt(box.dataset.minTeams || '0', 10) || 0);
+      box.disabled = !enoughTeams;
+      if (!enoughTeams) box.checked = false;
+    });
+    if (finalBox.disabled) {
+      qualifierInput.value = '2';
+      return;
+    }
+    if (semiBox.disabled || !finalBox.checked) semiBox.checked = false;
+    if (quarterBox.disabled || !semiBox.checked) quarterBox.checked = false;
     if (quarterBox.checked) {
       semiBox.checked = true;
       finalBox.checked = true;
@@ -59,6 +89,8 @@ document.addEventListener('input', (event) => {
   formatSelect?.addEventListener('change', sync);
   formatRadios.forEach((radio) => radio.addEventListener('change', sync));
   [finalBox, semiBox, quarterBox].forEach((box) => box?.addEventListener('change', syncKnockout));
+  [expectedPlayersInput, playTypeSelect].forEach((item) => item?.addEventListener('input', sync));
+  [expectedPlayersInput, playTypeSelect].forEach((item) => item?.addEventListener('change', sync));
   sync();
 })();
 

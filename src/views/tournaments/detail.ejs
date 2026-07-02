@@ -102,12 +102,16 @@
   <% if (section === 'ranking') { %>
     <section class="card-lite p"><div class="section-heading mb"><div><span class="feature-icon">📊</span><h2 class="section-title">Bảng xếp hạng</h2><p class="muted">Theo dõi số trận, điểm và hiệu số sau mỗi trận.</p></div></div>
       <% if (!rankingGroups.length) { %><p class="muted">Chưa có lịch thi đấu để tính xếp hạng.</p><% } %>
-      <% rankingGroups.forEach((group) => { %>
-        <h3><%= tournament.format === 'ROUND_ROBIN' ? 'BXH' : `BXH - Bảng ${group.groupName}` %></h3>
-        <div class="table-wrap ranking-table"><table><thead><tr><th>#</th><th>Đội</th><th>Trận</th><th class="text-success">W</th><th class="text-danger">L</th><th>Điểm</th><th>Hiệu số</th></tr></thead><tbody>
-          <% group.rows.forEach((row, index) => { const rank = index + 1; const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %>"><td><%= rankLabel %></td><td><strong><%= row.teamName %></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.rankingPoints %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
-        </tbody></table></div>
-      <% }) %>
+      <div class="grid ranking-grid">
+        <% rankingGroups.forEach((group) => { %>
+          <div class="ranking-card">
+            <div class="ranking-title"><span>🏅</span><strong><%= tournament.format === 'ROUND_ROBIN' ? 'Bảng xếp hạng' : `Bảng xếp hạng ${group.groupName}` %></strong></div>
+            <div class="table-wrap ranking-table"><table><thead><tr><th>#</th><th>Đội</th><th>Trận</th><th class="text-success">W</th><th class="text-danger">L</th><th>Điểm</th><th>Hiệu số</th></tr></thead><tbody>
+              <% group.rows.forEach((row, index) => { const rank = index + 1; const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %>"><td><%= rankLabel %></td><td><strong><%= row.teamName %></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.rankingPoints %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
+            </tbody></table></div>
+          </div>
+        <% }) %>
+      </div>
     </section>
   <% } %>
 
@@ -282,7 +286,7 @@
     <section class="card-lite p"><div class="section-heading mb"><div><span class="feature-icon">💳</span><h2 class="section-title">Danh sách đóng phí</h2><p class="muted">Dòng xanh là đủ phí, dòng vàng là còn thiếu.</p></div></div>
       <% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/payments"><% } %>
       <div class="table-wrap"><table><thead><tr><th>Tên</th><th>Số tiền</th><th>Trạng thái</th></tr></thead><tbody>
-        <% registrations.forEach((r) => { %><tr class="<%= Number(r.paidAmount) >= minimumFee ? 'sufficient-row' : 'insufficient-row' %>"><td><strong><%= r.player ? r.player.displayName : r.externalName %></strong><br><span class="muted">Lệ phí: <%= formatMoney(minimumFee) %>đ</span></td><% if (currentUser.role === 'ADMIN') { %><td><input class="money-input" name="amount_<%= r.id %>" value="<%= formatMoney(r.paidAmount || minimumFee) %>"></td><td><select name="status_<%= r.id %>"><option value="UNPAID" <%= r.paymentStatus === 'UNPAID' ? 'selected' : '' %>>Chưa đóng</option><option value="PAID" <%= r.paymentStatus === 'PAID' ? 'selected' : '' %>>Đã đóng</option></select></td><% } else { %><td><%= formatMoney(r.paidAmount) %>đ</td><td><%= paymentLabels[r.paymentStatus] || r.paymentStatus %></td><% } %></tr><% }) %>
+        <% registrations.forEach((r) => { const feeAmount = Number(r.paidAmount || 0) > 0 ? Number(r.paidAmount) : minimumFee; %><tr class="<%= feeAmount >= minimumFee ? 'sufficient-row' : 'insufficient-row' %>"><td><strong><%= r.player ? r.player.displayName : r.externalName %></strong><br><span class="muted">Lệ phí: <%= formatMoney(minimumFee) %>đ</span></td><% if (currentUser.role === 'ADMIN') { %><td><input class="money-input" name="amount_<%= r.id %>" value="<%= formatMoney(feeAmount) %>"></td><td><select name="status_<%= r.id %>"><option value="UNPAID" <%= r.paymentStatus === 'UNPAID' ? 'selected' : '' %>>Chưa đóng</option><option value="PAID" <%= r.paymentStatus === 'PAID' ? 'selected' : '' %>>Đã đóng</option></select></td><% } else { %><td><%= formatMoney(feeAmount) %>đ</td><td><%= paymentLabels[r.paymentStatus] || r.paymentStatus %></td><% } %></tr><% }) %>
       </tbody></table></div>
       <% if (currentUser.role === 'ADMIN') { %><div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu tất cả</button></div></form><% } %>
     </section>
