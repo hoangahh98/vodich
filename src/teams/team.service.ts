@@ -33,6 +33,7 @@ export class TeamService {
 
   async detailForMonth(id: bigint, month: string) {
     const fundMonth = monthDate(month);
+    const previousMonthBalance = await this.previousMonthBalance(id, fundMonth);
     const [team, members, players, fund, expenses] = await Promise.all([
       this.prisma.teamClub.findUniqueOrThrow({ where: { id } }),
       this.prisma.teamMember.findMany({
@@ -64,7 +65,7 @@ export class TeamService {
     const totalDonate = rows.reduce((sum, member) => sum + Math.max(0, member.paidAmount - member.expectedAmount), 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
     const courtCost = Number(fund?.courtCost || 0);
-    const previousBalance = Number(fund?.previousBalance || 0);
+    const previousBalance = fund ? Number(fund.previousBalance || 0) : previousMonthBalance;
     const totalDue = rows.reduce((sum, member) => sum + member.expectedAmount, 0);
     const fixedCount = rows.filter((member) => member.memberType === 'FIXED').length;
     const paidCount = rows.filter((member) => member.paymentStatus === 'PAID').length;
@@ -73,6 +74,7 @@ export class TeamService {
       monthlyFee,
       courtCost,
       previousBalance,
+      previousMonthBalance,
       totalPaid,
       totalDonate,
       totalExpense,
@@ -91,14 +93,15 @@ export class TeamService {
   }
 
   async addMember(teamId: bigint, playerId: bigint, memberType: string, notes?: string, month?: string) {
+    const normalizedMemberType = normalizeMemberType(memberType);
     const member = await this.prisma.teamMember.upsert({
       where: { teamId_playerId: { teamId, playerId } },
-      update: { active: true, memberType, notes: cleanText(notes) },
-      create: { teamId, playerId, memberType, notes: cleanText(notes) },
+      update: { active: true, memberType: normalizedMemberType, notes: cleanText(notes) },
+      create: { teamId, playerId, memberType: normalizedMemberType, notes: cleanText(notes) },
     });
     const fundMonth = monthDate(month);
     const fund = await this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth } } });
-    if (fund && memberType === 'FIXED') {
+    if (fund && normalizedMemberType === 'FIXED') {
       await this.prisma.teamMemberPayment.upsert({
         where: { memberId_fundMonth: { memberId: member.id, fundMonth: fund.fundMonth } },
         update: { paidAmount: Number(fund.monthlyFee), paymentStatus: 'UNPAID' },
@@ -119,7 +122,7 @@ export class TeamService {
   async updateMember(memberId: bigint, memberType: string, notes?: string) {
     return this.prisma.teamMember.update({
       where: { id: memberId },
-      data: { memberType, notes: cleanText(notes) },
+      data: { memberType: normalizeMemberType(memberType), notes: cleanText(notes) },
     });
   }
 
@@ -133,10 +136,11 @@ export class TeamService {
   async setFund(teamId: bigint, month: string, monthlyFee: string, courtCost: string, previousBalance?: string, notes?: string) {
     const fundMonth = monthDate(month);
     const fee = parseMoney(monthlyFee);
+    const resolvedPreviousBalance = hasMoneyValue(previousBalance) ? parseMoney(previousBalance) : await this.previousMonthBalance(teamId, fundMonth);
     const fund = await this.prisma.teamMonthFund.upsert({
       where: { teamId_fundMonth: { teamId, fundMonth } },
-      update: { monthlyFee: fee, courtCost: parseMoney(courtCost), previousBalance: parseMoney(previousBalance), notes: notes?.trim() || null },
-      create: { teamId, fundMonth, monthlyFee: fee, courtCost: parseMoney(courtCost), previousBalance: parseMoney(previousBalance), notes: notes?.trim() || null },
+      update: { monthlyFee: fee, courtCost: parseMoney(courtCost), previousBalance: resolvedPreviousBalance, notes: notes?.trim() || null },
+      create: { teamId, fundMonth, monthlyFee: fee, courtCost: parseMoney(courtCost), previousBalance: resolvedPreviousBalance, notes: notes?.trim() || null },
     });
     const fixedMembers = await this.prisma.teamMember.findMany({ where: { teamId, active: true, memberType: 'FIXED' } });
     await this.prisma.$transaction(
@@ -155,13 +159,17 @@ export class TeamService {
     const fundMonth = monthDate(month);
     const updates = Object.entries(body)
       .filter(([key]) => key.startsWith('amount_'))
-      .map(([key, amount]) => {
+      .flatMap(([key, amount]) => {
         const memberId = BigInt(key.replace('amount_', ''));
-        return this.prisma.teamMemberPayment.upsert({
-          where: { memberId_fundMonth: { memberId, fundMonth } },
-          update: { paidAmount: parseMoney(amount), paymentStatus: body[`status_${memberId}`] || 'UNPAID', notes: cleanText(body[`notes_${memberId}`]) },
-          create: { memberId, fundMonth, paidAmount: parseMoney(amount), paymentStatus: body[`status_${memberId}`] || 'UNPAID', notes: cleanText(body[`notes_${memberId}`]) },
-        });
+        const memberType = body[`memberType_${memberId}`];
+        return [
+          ...(memberType ? [this.prisma.teamMember.update({ where: { id: memberId }, data: { memberType: normalizeMemberType(memberType) } })] : []),
+          this.prisma.teamMemberPayment.upsert({
+            where: { memberId_fundMonth: { memberId, fundMonth } },
+            update: { paidAmount: parseMoney(amount), paymentStatus: body[`status_${memberId}`] || 'UNPAID', notes: cleanText(body[`notes_${memberId}`]) },
+            create: { memberId, fundMonth, paidAmount: parseMoney(amount), paymentStatus: body[`status_${memberId}`] || 'UNPAID', notes: cleanText(body[`notes_${memberId}`]) },
+          }),
+        ];
       });
     return this.prisma.$transaction(updates);
   }
@@ -182,10 +190,35 @@ export class TeamService {
   deleteExpense(id: bigint) {
     return this.prisma.teamExpense.delete({ where: { id } });
   }
+
+  private async previousMonthBalance(teamId: bigint, fundMonth: Date) {
+    const previousMonth = addMonths(fundMonth, -1);
+    const [fund, payments, expenses] = await Promise.all([
+      this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth: previousMonth } } }),
+      this.prisma.teamMemberPayment.findMany({ where: { fundMonth: previousMonth, member: { teamId } } }),
+      this.prisma.teamExpense.findMany({ where: { teamId, expenseMonth: previousMonth } }),
+    ]);
+    if (!fund) return 0;
+    const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.paidAmount), 0);
+    const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
+    return Number(fund.previousBalance || 0) + totalPaid - Number(fund.courtCost || 0) - totalExpense;
+  }
 }
 
 function monthDate(month?: string) {
   return new Date(`${month || new Date().toISOString().slice(0, 7)}-01T00:00:00Z`);
+}
+
+function addMonths(date: Date, amount: number) {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + amount, 1));
+}
+
+function hasMoneyValue(value?: string) {
+  return value !== undefined && value !== null && String(value).trim() !== '';
+}
+
+function normalizeMemberType(value?: string) {
+  return value === 'GUEST' ? 'GUEST' : 'FIXED';
 }
 
 function cleanText(value?: string) {

@@ -76,10 +76,11 @@
             <summary>✏️ Cập nhật phí tất cả thành viên</summary>
             <form method="post" action="/teams/<%= team.id %>/payments">
               <input type="hidden" name="month" value="<%= selectedMonth %>">
-              <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-fee-edit-table"><thead><tr><th class="sticky-col">Thành viên</th><th>Số tiền</th><th>Trạng thái</th><th>Ghi chú phí</th></tr></thead><tbody>
+              <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-fee-edit-table"><thead><tr><th class="sticky-col">Thành viên</th><th>Loại</th><th>Số tiền</th><th>Trạng thái</th><th>Ghi chú phí</th></tr></thead><tbody>
                 <% members.forEach((member) => { %>
                   <tr>
                     <td class="sticky-col"><strong><%= member.player.displayName %></strong><br><span class="muted"><%= member.typeLabel %></span></td>
+                    <td><select name="memberType_<%= member.id %>"><option value="FIXED" <%= member.memberType === 'FIXED' ? 'selected' : '' %>>Cố định</option><option value="GUEST" <%= member.memberType === 'GUEST' ? 'selected' : '' %>>Vãng lai</option></select></td>
                     <td><input class="money-input" name="amount_<%= member.id %>" value="<%= formatMoney(member.paidAmount) %>"></td>
                     <td><select class="payment-status-select" name="status_<%= member.id %>"><option value="UNPAID" <%= member.paymentStatus !== 'PAID' ? 'selected' : '' %>>✕</option><option value="PAID" <%= member.paymentStatus === 'PAID' ? 'selected' : '' %>>✓</option></select></td>
                     <td><input name="notes_<%= member.id %>" value="<%= member.feeNotes %>" placeholder="Ghi chú"></td>
@@ -131,7 +132,7 @@
             <div class="row">
               <div class="col-6"><label>Mức phí tháng / người</label><input class="money-input" name="monthlyFee" value="<%= formatMoney(finance.monthlyFee) %>"></div>
               <div class="col-6"><label>Tiền sân tháng này</label><input class="money-input" name="courtCost" value="<%= formatMoney(finance.courtCost) %>"></div>
-              <div class="col-6"><label>Tiền sân còn lại tháng trước</label><input class="money-input" name="previousBalance" value="<%= formatMoney(finance.previousBalance) %>"></div>
+              <div class="col-6"><label>Tiền sân còn lại tháng trước</label><input class="money-input" name="previousBalance" value="<%= formatMoney(finance.previousBalance) %>"><small class="muted">Tháng trước còn lại <%= formatMoney(finance.previousMonthBalance) %>đ. Nếu để trống, hệ thống tự dùng số này.</small></div>
               <div class="col-6"><label>Ghi chú tháng</label><input name="notes" value="<%= fund?.notes || '' %>"></div>
             </div>
           </section>
