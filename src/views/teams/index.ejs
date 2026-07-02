@@ -27,7 +27,7 @@
   <% } %>
   <div class="grid module-grid">
     <% teams.forEach((team) => { %>
-      <a class="card-lite module-card team-card" href="/teams/<%= team.id %>">
+      <a class="card-lite module-card team-card" href="/teams/<%= team.id %>/overview">
         <div class="module-icon">🏟️</div>
         <h3><%= team.name %></h3>
         <p class="muted"><%= team.description || 'Chưa có ghi chú' %></p>
