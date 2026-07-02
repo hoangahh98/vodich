@@ -1,0 +1,9 @@
+.git
+.agents
+.pytest_cache
+node_modules
+dist
+npm-debug.log*
+.env
+.env.*
+*.local

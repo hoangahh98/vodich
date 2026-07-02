@@ -3,7 +3,7 @@ services:
     name: vodich-tool
     env: node
     plan: free
-    buildCommand: npm install && npx prisma generate && npm run build
+    buildCommand: npm run render:build
     startCommand: npm run start:prod
     envVars:
       - key: NODE_ENV

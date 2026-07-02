@@ -152,7 +152,7 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
           <div class="ranking-board">
             <div class="ranking-board-title"><span>🏅</span><strong><%= tournament.format === 'ROUND_ROBIN' ? 'Bảng xếp hạng' : `Bảng xếp hạng ${group.groupName}` %></strong></div>
             <div class="table-wrap ranking-table"><table><thead><tr><th>#</th><th>Đội</th><th>Trận</th><th class="text-success">W</th><th class="text-danger">L</th><th>Điểm</th><th>Hiệu số</th></tr></thead><tbody>
-              <% group.rows.forEach((row, index) => { const rank = index + 1; const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %> <%= isMine(row.teamName) ? 'mine-row' : '' %>"><td><%= rankLabel %></td><td><strong><%= row.teamName %></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.rankingPoints %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
+              <% group.rows.forEach((row, index) => { const rank = index + 1; const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %> <%= isMine(row.teamName) ? 'mine-row' : '' %>"><td><%= rankLabel %></td><td><strong class="ranking-team-name"><% String(row.teamName).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.rankingPoints %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
             </tbody></table></div>
           </div>
         <% }) %>
@@ -217,7 +217,7 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
                 <div class="group-board">
                   <div class="group-board-title">Bảng <%= group.groupName %></div>
                   <% group.teams.forEach((team) => { %>
-                    <div class="group-team-row <%= isMine(team) ? 'mine-row' : '' %>"><%= team %></div>
+                    <div class="group-team-row <%= isMine(team) ? 'mine-row' : '' %>"><strong class="team-name"><% String(team).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %></strong></div>
                   <% }) %>
                 </div>
               <% }) %>
@@ -259,7 +259,7 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
                         </div>
                         <div class="match-grid">
                           <div class="team-name">
-                            <% String(m.teamA).split(' / ').forEach((name) => { %><span><%= name %></span><% }) %>
+                            <% String(m.teamA).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %>
                           </div>
                           <div class="score-section">
                             <span class="badge <%= done ? 'bg-success' : 'bg-primary' %> px-2 py-1 score-pill">
@@ -269,7 +269,7 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
                             <% if (currentUser.role === 'ADMIN') { %><small class="muted">Bấm thẻ để ghi điểm</small><% } %>
                           </div>
                           <div class="team-name text-end">
-                            <% String(m.teamB).split(' / ').forEach((name) => { %><span><%= name %></span><% }) %>
+                            <% String(m.teamB).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %>
                           </div>
                         </div>
                       </div>

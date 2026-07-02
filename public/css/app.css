@@ -223,6 +223,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .hieu-so-neg { color: #dc3545; font-weight: 800; }
 .ranking-table table { text-align: center; }
 .ranking-table td:nth-child(2), .ranking-table th:nth-child(2) { text-align: left; }
+.ranking-team-name { display: grid; gap: 2px; line-height: 1.25; }
+.ranking-team-name span { display: block; }
 .ranking-table th:nth-child(1), .ranking-table td:nth-child(1) { width: 54px; }
 .ranking-table th:nth-child(3), .ranking-table td:nth-child(3),
 .ranking-table th:nth-child(4), .ranking-table td:nth-child(4),
