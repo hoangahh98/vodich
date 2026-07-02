@@ -24,36 +24,16 @@
       <div class="metric-card gold"><span>🧾 Quỹ còn lại</span><strong><%= formatMoney(finance.balance) %>đ</strong><small>= Dư + Thu - Sân - Chi</small></div>
     </section>
 
-    <section class="grid team-admin-grid mb">
-      <div class="card-lite">
-        <div class="card-hdr green">⚙️ Cấu hình quỹ tháng <%= selectedMonth %></div>
-        <% if (currentUser.role === 'ADMIN') { %>
-          <form class="p" method="post" action="/teams/<%= team.id %>/fund">
-            <input type="hidden" name="month" value="<%= selectedMonth %>">
-            <label>Mức phí tháng / người</label><input class="money-input mb" name="monthlyFee" value="<%= formatMoney(finance.monthlyFee) %>">
-            <label>Tiền sân tháng này</label><input class="money-input mb" name="courtCost" value="<%= formatMoney(finance.courtCost) %>">
-            <label>Tiền sân còn lại tháng trước</label><input class="money-input mb" name="previousBalance" value="<%= formatMoney(finance.previousBalance) %>">
-            <label>Ghi chú tháng</label><input class="mb" name="notes" value="<%= fund?.notes || '' %>">
-            <button class="btn btn-success" data-loading-text="Đang lưu...">Lưu cấu hình tháng</button>
-          </form>
-        <% } else { %>
-          <div class="p">
-            <div class="prize-row"><span>Mức phí tháng</span><strong><%= formatMoney(finance.monthlyFee) %>đ</strong></div>
-            <div class="prize-row"><span>Tiền sân tháng</span><strong><%= formatMoney(finance.courtCost) %>đ</strong></div>
-            <div class="prize-row"><span>Dư tháng trước</span><strong><%= formatMoney(finance.previousBalance) %>đ</strong></div>
-          </div>
-        <% } %>
-      </div>
-      <div class="card-lite">
-        <div class="card-hdr blue"><span>🧾 Các khoản chi tháng <%= selectedMonth %></span><span><%= formatMoney(finance.totalExpense) %>đ</span></div>
+    <section class="card-lite mb">
+      <div class="card-hdr blue"><span>🧾 Các khoản chi tháng <%= selectedMonth %></span><span><%= formatMoney(finance.totalExpense) %>đ</span></div>
         <div class="p">
           <% if (currentUser.role === 'ADMIN') { %>
-            <form class="row mb team-expense-form" method="post" action="/teams/<%= team.id %>/expenses">
+            <form class="team-expense-form mb" method="post" action="/teams/<%= team.id %>/expenses">
               <input type="hidden" name="month" value="<%= selectedMonth %>">
-              <div class="col-3"><label>Ngày chi</label><input type="date" name="expenseDate" required></div>
-              <div class="col-4"><label>Nội dung</label><input name="content" placeholder="Uống nước, bóng..." required></div>
-              <div class="col-3"><label>Số tiền</label><input class="money-input" name="amount" required></div>
-              <div class="col-2"><label>&nbsp;</label><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
+              <div class="expense-date"><label>Ngày chi</label><input type="date" name="expenseDate" required></div>
+              <div class="expense-content"><label>Nội dung</label><input name="content" placeholder="Uống nước, bóng..." required></div>
+              <div class="expense-amount"><label>Số tiền</label><input class="money-input" name="amount" required></div>
+              <div class="expense-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
             </form>
           <% } %>
           <div class="table-wrap team-frozen-wrap"><table><thead><tr><th>Ngày</th><th>Nội dung</th><th>Tiền</th><th></th></tr></thead><tbody>
@@ -63,7 +43,6 @@
             <% if (!expenses.length) { %><tr><td colspan="4" class="muted text-center">Chưa có khoản chi nào trong tháng.</td></tr><% } %>
           </tbody></table></div>
         </div>
-      </div>
     </section>
   <% } %>
 
@@ -97,7 +76,7 @@
             <summary>✏️ Cập nhật phí tất cả thành viên</summary>
             <form method="post" action="/teams/<%= team.id %>/payments">
               <input type="hidden" name="month" value="<%= selectedMonth %>">
-              <div class="table-wrap team-frozen-wrap"><table class="team-fee-table"><thead><tr><th class="sticky-col">Thành viên</th><th>Số tiền</th><th>Trạng thái</th><th>Ghi chú phí</th></tr></thead><tbody>
+              <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-fee-edit-table"><thead><tr><th class="sticky-col">Thành viên</th><th>Số tiền</th><th>Trạng thái</th><th>Ghi chú phí</th></tr></thead><tbody>
                 <% members.forEach((member) => { %>
                   <tr>
                     <td class="sticky-col"><strong><%= member.player.displayName %></strong><br><span class="muted"><%= member.typeLabel %></span></td>
@@ -113,7 +92,7 @@
         <% } %>
       <% } %>
 
-      <div class="table-wrap team-frozen-wrap"><table class="team-fee-table"><thead><tr><th class="sticky-col">Tên</th><th>Loại</th><th>Tiền đóng</th><th>Trạng thái</th><th>Donate/thiếu</th></tr></thead><tbody>
+      <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-member-fee-list"><thead><tr><th class="sticky-col">Tên</th><th>Loại</th><th>Tiền đóng</th><th>Trạng thái</th><th>Donate/thiếu</th></tr></thead><tbody>
         <% members.forEach((member) => { %>
           <tr class="<%= isMine(member) ? 'mine-row' : '' %> <%= member.paymentStatus === 'PAID' ? 'sufficient-row' : 'insufficient-row' %>">
             <td class="sticky-col"><strong><%= member.player.displayName %></strong><% if (member.notes) { %><br><span class="muted"><%= member.notes %></span><% } %></td>
@@ -146,6 +125,17 @@
           </div>
           <div class="form-actions"><button class="btn btn-success btn-lg" data-loading-text="Đang lưu...">Lưu thay đổi</button><a class="btn btn-lg" href="/teams/<%= team.id %>/overview?month=<%= selectedMonth %>">Hủy</a></div>
         </form>
+        <div class="card-lite mt">
+          <div class="card-hdr green">⚙️ Cấu hình quỹ tháng <%= selectedMonth %></div>
+          <form class="p" method="post" action="/teams/<%= team.id %>/fund">
+            <input type="hidden" name="month" value="<%= selectedMonth %>">
+            <label>Mức phí tháng / người</label><input class="money-input mb" name="monthlyFee" value="<%= formatMoney(finance.monthlyFee) %>">
+            <label>Tiền sân tháng này</label><input class="money-input mb" name="courtCost" value="<%= formatMoney(finance.courtCost) %>">
+            <label>Tiền sân còn lại tháng trước</label><input class="money-input mb" name="previousBalance" value="<%= formatMoney(finance.previousBalance) %>">
+            <label>Ghi chú tháng</label><input class="mb" name="notes" value="<%= fund?.notes || '' %>">
+            <button class="btn btn-success" data-loading-text="Đang lưu...">Lưu cấu hình tháng</button>
+          </form>
+        </div>
       <% } else { %>
         <div class="grid team-summary-grid">
           <div class="cost-card">👥<span>Tên đội</span><strong><%= team.name %></strong></div>

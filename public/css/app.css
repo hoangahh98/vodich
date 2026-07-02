@@ -162,7 +162,16 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .team-card { min-height: 180px; display: flex; flex-direction: column; overflow: hidden; }
 .team-card h3, .team-card p { overflow-wrap: anywhere; word-break: break-word; }
 .team-card-footer { margin-top: auto; display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--brand); font-weight: 800; flex-wrap: wrap; }
+.team-create-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: end; }
+.team-create-action { grid-column: 1 / -1; width: 20%; min-width: 160px; }
+.team-create-action .btn { width: 100%; }
 .team-detail-shell { max-width: 1280px; }
+.team-expense-form { display: grid; grid-template-columns: 2fr 4fr 3fr 1fr; gap: 12px; align-items: end; }
+.team-expense-form .expense-date { grid-column: span 2; }
+.team-expense-form .expense-content { grid-column: span 4; }
+.team-expense-form .expense-amount { grid-column: span 3; }
+.team-expense-form .expense-action { grid-column: 1 / span 2; }
+.team-expense-form .expense-action .btn { width: 100%; }
 .team-member-picker { max-height: 260px; }
 .team-member-actions > .flex { flex: 1 1 auto; }
 .team-member-type { max-width: 140px; }
@@ -280,12 +289,32 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .manual-pair-card .row { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   .manual-pair-card .col-6 { grid-column: span 1; }
   .manual-pair-card select { min-height: 72px; font-size: 15px; padding: 12px 8px; }
+  .team-create-form, .team-expense-form { grid-template-columns: 1fr; }
+  .team-create-action, .team-expense-form .expense-date, .team-expense-form .expense-content, .team-expense-form .expense-amount, .team-expense-form .expense-action { grid-column: auto; width: 100%; min-width: 0; }
   .team-create-form .btn, .team-expense-form .btn { width: 100%; }
   .team-member-actions, .team-member-actions > .flex { align-items: stretch; flex-direction: column; width: 100%; }
   .team-member-type { max-width: none; }
   .team-summary-grid { grid-template-columns: 1fr; }
   .team-action-cell { flex-direction: column; align-items: stretch; }
   .team-action-cell .btn { width: 100%; }
+  .team-frozen-wrap { max-height: none; overflow-x: visible; }
+  .team-member-fee-list, .team-fee-edit-table { min-width: 0; border-collapse: separate; border-spacing: 0 10px; }
+  .team-member-fee-list thead, .team-fee-edit-table thead { display: none; }
+  .team-member-fee-list tbody, .team-member-fee-list tr, .team-member-fee-list td,
+  .team-fee-edit-table tbody, .team-fee-edit-table tr, .team-fee-edit-table td { display: block; width: 100%; }
+  .team-member-fee-list tr, .team-fee-edit-table tr { border: 1px solid var(--line); border-radius: 10px; background: #fff; overflow: hidden; }
+  .team-member-fee-list td, .team-fee-edit-table td { border-bottom: 1px solid #eef2f7; padding: 10px 12px; }
+  .team-member-fee-list td:last-child, .team-fee-edit-table td:last-child { border-bottom: 0; }
+  .team-member-fee-list .sticky-col, .team-fee-edit-table .sticky-col { position: static; min-width: 0; background: #f8fbff; }
+  .team-member-fee-list td:not(.sticky-col), .team-fee-edit-table td:not(.sticky-col) { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .team-member-fee-list td:not(.sticky-col)::before, .team-fee-edit-table td:not(.sticky-col)::before { color: var(--muted); font-weight: 800; flex: 0 0 112px; }
+  .team-member-fee-list td:nth-child(2)::before { content: "Loại"; }
+  .team-member-fee-list td:nth-child(3)::before { content: "Tiền đóng"; }
+  .team-member-fee-list td:nth-child(4)::before { content: "Trạng thái"; }
+  .team-member-fee-list td:nth-child(5)::before { content: "Donate/thiếu"; }
+  .team-fee-edit-table td:nth-child(2)::before { content: "Số tiền"; }
+  .team-fee-edit-table td:nth-child(3)::before { content: "Trạng thái"; }
+  .team-fee-edit-table td:nth-child(4)::before { content: "Ghi chú"; }
   .ranking-board { min-width: 0; }
   .ranking-table table { min-width: 0; }
   .ranking-table th, .ranking-table td { padding: 8px 4px; font-size: 13px; }
