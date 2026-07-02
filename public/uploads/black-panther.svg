@@ -1,12 +1,24 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Con báo đen">
-  <rect width="512" height="512" rx="112" fill="#0f1720"/>
-  <path fill="#f8fafc" opacity=".08" d="M96 344c44 58 100 86 168 84 63-2 113-29 152-81-45 28-92 43-141 44-66 2-125-13-179-47Z"/>
-  <path fill="#020617" d="M91 258c9-62 43-110 102-144 17-10 37-19 61-26 36 2 66 12 91 31 34 7 63 23 88 47-6 41-22 77-48 109 6 32-5 62-33 89-29 28-62 41-99 40-37-1-69-15-96-42-28-28-39-59-32-91-17-4-28-8-34-13Z"/>
-  <path fill="#111827" d="M144 255c6-49 36-86 90-112 11-5 23-10 37-14 29 5 53 16 72 34 24 3 44 13 61 29-8 33-24 60-49 82 5 28-5 52-29 73-22 20-48 30-77 29-30-1-55-12-76-34-22-22-30-47-24-75-4-5-6-9-5-12Z"/>
-  <path fill="#020617" d="M162 185 92 126c-9-8-7-23 4-28l65-27c12-5 25 2 28 15l20 82-47 17ZM349 186l71-60c9-8 7-23-4-28l-66-27c-12-5-25 2-28 15l-20 82 47 18Z"/>
-  <path fill="#f8fafc" d="M170 239c18-17 42-25 71-24-12 16-25 28-41 36-13 6-23 3-30-12ZM342 239c-18-17-42-25-71-24 12 16 25 28 41 36 13 6 23 3 30-12Z"/>
-  <path fill="#111827" d="M214 308c11 18 25 27 42 27s31-9 42-27c-9 4-18 6-27 7l-15 18-15-18c-9-1-18-3-27-7Z"/>
-  <path fill="#f8fafc" opacity=".85" d="M246 286h20l-10 17-10-17Z"/>
-  <path fill="#f8fafc" opacity=".18" d="M128 333c29 55 72 85 128 88 56-3 99-33 128-88-32 35-75 52-128 52s-96-17-128-52Z"/>
-  <path fill="none" stroke="#f8fafc" stroke-width="10" stroke-linecap="round" opacity=".18" d="M132 156c43-54 94-81 153-81 36 0 68 10 96 31"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Logo con báo Vô Địch">
+  <defs>
+    <linearGradient id="ring" x1="80" x2="432" y1="70" y2="438" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#19a65a"/>
+      <stop offset="1" stop-color="#0d6efd"/>
+    </linearGradient>
+    <radialGradient id="face" cx="50%" cy="45%" r="65%">
+      <stop offset="0" stop-color="#2c3442"/>
+      <stop offset="1" stop-color="#0f1722"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="108" fill="#f7fbff"/>
+  <circle cx="256" cy="242" r="198" fill="#fff" stroke="url(#ring)" stroke-width="18"/>
+  <path fill="#0f1722" d="M137 193 92 121c-8-13 1-29 16-31l76-10c16-2 29 14 23 29l-27 77c-15 1-29 3-43 7Zm238-1 45-71c8-13-1-29-16-31l-76-10c-16-2-29 14-23 29l27 76c15 1 29 3 43 7Z"/>
+  <path fill="url(#face)" d="M108 276c0-91 62-156 148-156s148 65 148 156c0 88-58 148-148 148s-148-60-148-148Z"/>
+  <path fill="#1e293b" d="M125 274c35-34 70-50 111-47 10 1 19 3 29 6 10-3 21-5 32-6 38-2 70 14 99 47-11 71-65 116-140 116-75 0-124-45-131-116Z"/>
+  <path fill="#e9f5ff" d="M157 267c34-20 66-23 96-9-15 26-37 42-66 48-17 3-27-9-30-39Z"/>
+  <path fill="#e9f5ff" d="M355 267c-34-20-66-23-96-9 15 26 37 42 66 48 17 3 27-9 30-39Z"/>
+  <path fill="#1f9d55" d="M182 270c19-8 37-8 55 0-10 9-22 14-36 15-9 0-15-5-19-15Zm148 0c-19-8-37-8-55 0 10 9 22 14 36 15 9 0 15-5 19-15Z"/>
+  <path fill="#0d6efd" d="M239 327h34l-17 24Z"/>
+  <path fill="none" stroke="#eff6ff" stroke-linecap="round" stroke-width="10" d="M215 356c14 15 28 22 41 22s27-7 41-22"/>
+  <path fill="none" stroke="#19a65a" stroke-linecap="round" stroke-width="16" d="M155 421c58 34 144 34 202 0"/>
+  <text x="256" y="474" text-anchor="middle" font-family="Times New Roman, Times, serif" font-size="34" font-weight="800" fill="#0d6efd">VÔ ĐỊCH</text>
 </svg>

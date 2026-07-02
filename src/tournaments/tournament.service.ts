@@ -19,6 +19,11 @@ export interface RankingGroup {
   rows: RankingRow[];
 }
 
+export interface GroupBoard {
+  groupName: string;
+  teams: string[];
+}
+
 @Injectable()
 export class TournamentService {
   constructor(private readonly prisma: PrismaService) {}
@@ -95,7 +100,37 @@ export class TournamentService {
         foodCost: parseMoney(form.foodCost),
         prizeCost: parseMoney(form.prizeCost),
         otherCost: parseMoney(form.otherCost),
+        prizeRate1: parseMoney(form.prizeRate1) || 50,
+        prizeRate2: parseMoney(form.prizeRate2) || 30,
+        prizeRate3: parseMoney(form.prizeRate3) || 20,
         externalRegistrationEnabled: form.externalRegistrationEnabled === 'on',
+      },
+    });
+  }
+
+  async update(id: bigint, form: Record<string, unknown>) {
+    return this.prisma.tournament.update({
+      where: { id },
+      data: {
+        name: String(form.name || '').trim(),
+        venue: String(form.venue || '').trim(),
+        startTime: form.startTime ? new Date(String(form.startTime)) : null,
+        courtCount: Math.max(1, Number(form.courtCount || 1)),
+        expectedPlayers: Math.max(1, Number(form.expectedPlayers || 1)),
+        playType: String(form.playType || 'SINGLES'),
+        format: String(form.format || 'ROUND_ROBIN'),
+        knockoutQualifierCount: normalizeQualifierCount(Number(form.knockoutQualifierCount || 2)),
+        touchScore: Math.max(1, Number(form.touchScore || 11)),
+        maxScore: Math.max(1, Number(form.maxScore || 15)),
+        courtCost: parseMoney(form.courtCost),
+        foodCost: parseMoney(form.foodCost),
+        prizeCost: parseMoney(form.prizeCost),
+        otherCost: parseMoney(form.otherCost),
+        prizeRate1: parseMoney(form.prizeRate1) || 50,
+        prizeRate2: parseMoney(form.prizeRate2) || 30,
+        prizeRate3: parseMoney(form.prizeRate3) || 20,
+        externalRegistrationEnabled: form.externalRegistrationEnabled === 'on',
+        updatedAt: new Date(),
       },
     });
   }
@@ -173,6 +208,22 @@ export class TournamentService {
     ]);
   }
 
+  async groupBoards(tournamentId: bigint): Promise<GroupBoard[]> {
+    const matches = await this.prisma.matchGame.findMany({
+      where: { tournamentId, stage: 'Vòng bảng', groupName: { not: null } },
+      orderBy: [{ groupName: 'asc' }, { id: 'asc' }],
+    });
+    const groups = new Map<string, Set<string>>();
+    for (const match of matches) {
+      const groupName = match.groupName || 'A';
+      const teams = groups.get(groupName) ?? new Set<string>();
+      teams.add(match.teamA);
+      teams.add(match.teamB);
+      groups.set(groupName, teams);
+    }
+    return [...groups.entries()].map(([groupName, teams]) => ({ groupName, teams: [...teams] }));
+  }
+
   async rankings(tournamentId: bigint): Promise<RankingGroup[]> {
     const matches = await this.prisma.matchGame.findMany({
       where: { tournamentId, stage: { in: ['Vòng bảng', 'Vòng tròn'] } },
@@ -236,21 +287,18 @@ function buildGroupMatches(tournament: Tournament, teams: string[]): MatchCreate
   return matches;
 }
 
-function buildKnockout(tournament: Tournament, startRound: number): MatchCreate[] {
+function buildKnockout(tournament: Tournament, _startRound: number): MatchCreate[] {
   const matches: MatchCreate[] = [];
-  let round = startRound;
   let previous = '';
   if (tournament.knockoutQualifierCount >= 8) {
-    matches.push(...stageMatches(tournament, 'Tứ kết', round, ['Nhất A', 'Nhì B', 'Nhất B', 'Nhì A', 'Nhất C', 'Nhì D', 'Nhất D', 'Nhì C']));
+    matches.push(...stageMatches(tournament, 'Tứ kết', 100, ['Nhất A', 'Nhì B', 'Nhất B', 'Nhì A', 'Nhất C', 'Nhì D', 'Nhất D', 'Nhì C']));
     previous = 'Tứ kết';
-    round++;
   }
   if (tournament.knockoutQualifierCount >= 4) {
-    matches.push(...stageMatches(tournament, 'Bán kết', round, previous ? winners(previous, 4) : ['Nhất A', 'Nhì B', 'Nhất B', 'Nhì A']));
+    matches.push(...stageMatches(tournament, 'Bán kết', 101, previous ? winners(previous, 4) : ['Nhất A', 'Nhì B', 'Nhất B', 'Nhì A']));
     previous = 'Bán kết';
-    round++;
   }
-  matches.push(...stageMatches(tournament, 'Chung kết', round, previous ? winners(previous, 2) : ['Nhất A', 'Nhất B']));
+  matches.push(...stageMatches(tournament, 'Chung kết', 102, previous ? winners(previous, 2) : ['Nhất A', 'Nhất B']));
   return matches;
 }
 
@@ -265,7 +313,8 @@ function stageMatches(tournament: Tournament, stage: string, round: number, team
 }
 
 function groupCountFor(tournament: Tournament, teamCount: number) {
-  return Math.min(Math.max(1, tournament.knockoutQualifierCount / 2), Math.max(1, Math.floor(teamCount / 2)));
+  if (tournament.format !== 'GROUP_KNOCKOUT') return 1;
+  return Math.min(Math.max(1, Math.ceil(tournament.knockoutQualifierCount / 2)), Math.max(1, Math.floor(teamCount / 2)));
 }
 
 function splitGroups(teams: string[], groupCount: number) {

@@ -3,12 +3,12 @@
   <section class="login-card">
     <img class="login-logo" src="/uploads/black-panther.svg" alt="Con báo đen">
     <h1 class="text-center">Vô Địch Tool</h1>
-    <p class="text-center muted">Quản lý giải đấu, đội bóng và livescore realtime</p>
+    <p class="text-center muted">Quản lý giải đấu, đội bóng và tỉ số trực tiếp</p>
     <% if (typeof error !== 'undefined') { %><div class="badge badge-danger mb"><%= error %></div><% } %>
     <form method="post" action="/login">
       <div class="mb"><label>Tài khoản / Email</label><input name="username" required autofocus></div>
-      <div class="mb"><label>Mật khẩu</label><input name="password" type="password" required><div class="muted">Client mặc định: 123456789</div></div>
-      <div class="mb"><label>Vai trò</label><select name="role"><option value="CLIENT">Client</option><option value="ADMIN">Admin</option></select></div>
+      <div class="mb"><label>Mật khẩu</label><input name="password" type="password" required><div class="muted">Khách xem mặc định: 123456789</div></div>
+      <div class="mb"><label>Vai trò</label><select name="role"><option value="CLIENT">Khách xem</option><option value="ADMIN">Quản trị</option></select></div>
       <button class="btn btn-primary" style="width:100%" data-loading-text="Đang đăng nhập...">Đăng nhập</button>
     </form>
   </section>

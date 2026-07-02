@@ -83,7 +83,7 @@ export class AppController {
   @Get('/tournaments/new')
   newTournament(@Req() req: Request, @Res() res: Response) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
-    return render(res, 'tournaments/form');
+    return render(res, 'tournaments/form', { tournament: null, action: '/tournaments' });
   }
 
   @Post('/tournaments')
@@ -93,13 +93,34 @@ export class AppController {
     return res.redirect(`/tournaments/${tournament.id}/players`);
   }
 
+  @Get('/tournaments/:id/edit')
+  async editTournament(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: BigInt(id) } });
+    return render(res, 'tournaments/form', { tournament, action: `/tournaments/${id}/edit` });
+  }
+
+  @Post('/tournaments/:id/edit')
+  async updateTournament(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    await this.tournaments.update(BigInt(id), body);
+    return res.redirect(`/tournaments/${id}/players`);
+  }
+
+  @Post('/tournaments/:id/delete')
+  async deleteTournament(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    await this.prisma.tournament.delete({ where: { id: BigInt(id) } });
+    return res.redirect('/tournaments');
+  }
+
   @Get('/tournaments/:id/:section')
   async tournamentDetail(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Param('section') section: string) {
     const user = requireFeature(req, res, this.auth, 'TOURNAMENTS');
     if (!user) return;
     const tournamentId = BigInt(id);
     if (!(await this.tournaments.canView(user, tournamentId))) return res.status(403).render('error', { message: 'Không có quyền' });
-    const [tournament, registrations, withdrawnRegistrations, players, matches, rankingGroups] = await Promise.all([
+    const [tournament, registrations, withdrawnRegistrations, players, matches, rankingGroups, groupBoards] = await Promise.all([
       this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } }),
       this.prisma.tournamentRegistration.findMany({
         where: { tournamentId, status: 'ACTIVE' },
@@ -114,6 +135,7 @@ export class AppController {
       this.prisma.player.findMany({ orderBy: { displayName: 'asc' } }),
       this.prisma.matchGame.findMany({ where: { tournamentId }, orderBy: [{ roundNumber: 'asc' }, { courtNumber: 'asc' }, { id: 'asc' }] }),
       this.tournaments.rankings(tournamentId),
+      this.tournaments.groupBoards(tournamentId),
     ]);
     return render(res, 'tournaments/detail', {
       section,
@@ -123,6 +145,7 @@ export class AppController {
       players,
       matches,
       rankingGroups,
+      groupBoards,
       externalLink: `${req.protocol}://${req.get('host')}/external-register/${id}`,
     });
   }
@@ -190,7 +213,8 @@ export class AppController {
   @Get('/teams/:id')
   async teamDetail(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     if (!requireFeature(req, res, this.auth, 'TEAMS')) return;
-    return render(res, 'teams/detail', await this.teams.detail(BigInt(id)));
+    const month = String(req.query.month || new Date().toISOString().slice(0, 7));
+    return render(res, 'teams/detail', await this.teams.detailForMonth(BigInt(id), month));
   }
 
   @Post('/teams/:id/members')
@@ -203,8 +227,31 @@ export class AppController {
   @Post('/teams/:id/fund')
   async setTeamFund(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
-    await this.teams.setFund(BigInt(id), body.month, body.monthlyFee, body.courtCost);
-    return redirectBack(res, `/teams/${id}`);
+    await this.teams.setFund(BigInt(id), body.month, body.monthlyFee, body.courtCost, body.previousBalance, body.notes);
+    return res.redirect(`/teams/${id}?month=${body.month || new Date().toISOString().slice(0, 7)}`);
+  }
+
+  @Post('/teams/:id/payments')
+  async updateTeamPayments(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
+    const month = body.month || new Date().toISOString().slice(0, 7);
+    await this.teams.updatePayments(month, body);
+    return res.redirect(`/teams/${id}?month=${month}`);
+  }
+
+  @Post('/teams/:id/expenses')
+  async addTeamExpense(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
+    const month = body.month || new Date().toISOString().slice(0, 7);
+    await this.teams.addExpense(BigInt(id), month, body.expenseDate, body.content, body.amount, body.notes);
+    return res.redirect(`/teams/${id}?month=${month}`);
+  }
+
+  @Post('/teams/:teamId/expenses/:expenseId/delete')
+  async deleteTeamExpense(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('expenseId') expenseId: string, @Body('month') month: string) {
+    if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
+    await this.teams.deleteExpense(BigInt(expenseId));
+    return res.redirect(`/teams/${teamId}?month=${month || new Date().toISOString().slice(0, 7)}`);
   }
 
   @Get('/permissions')

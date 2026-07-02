@@ -17,10 +17,37 @@ document.addEventListener('input', (event) => {
 
 (() => {
   const formatSelect = document.querySelector('select[name="format"]');
+  const formatRadios = [...document.querySelectorAll('input[name="format"]')];
   const qualifierField = document.getElementById('knockoutQualifierField');
-  if (!formatSelect || !qualifierField) return;
-  const sync = () => qualifierField.classList.toggle('hidden', formatSelect.value !== 'GROUP_KNOCKOUT');
-  formatSelect.addEventListener('change', sync);
+  const qualifierInput = document.getElementById('knockoutQualifierCount');
+  const finalBox = document.getElementById('knockoutFinal');
+  const semiBox = document.getElementById('knockoutSemi');
+  const quarterBox = document.getElementById('knockoutQuarter');
+  if ((!formatSelect && !formatRadios.length) || !qualifierField) return;
+  const currentFormat = () => formatSelect?.value || formatRadios.find((radio) => radio.checked)?.value;
+  const syncKnockout = () => {
+    if (!qualifierInput || !finalBox || !semiBox || !quarterBox) return;
+    if (quarterBox.checked) {
+      semiBox.checked = true;
+      finalBox.checked = true;
+      qualifierInput.value = '8';
+      return;
+    }
+    if (semiBox.checked) {
+      finalBox.checked = true;
+      qualifierInput.value = '4';
+      return;
+    }
+    finalBox.checked = true;
+    qualifierInput.value = '2';
+  };
+  const sync = () => {
+    qualifierField.classList.toggle('hidden', currentFormat() !== 'GROUP_KNOCKOUT');
+    syncKnockout();
+  };
+  formatSelect?.addEventListener('change', sync);
+  formatRadios.forEach((radio) => radio.addEventListener('change', sync));
+  [finalBox, semiBox, quarterBox].forEach((box) => box?.addEventListener('change', syncKnockout));
   sync();
 })();
 
@@ -35,7 +62,9 @@ document.addEventListener('input', (event) => {
     if (!row) return;
     row.querySelector('.score-a').textContent = match.scoreA;
     row.querySelector('.score-b').textContent = match.scoreB;
-    row.querySelector('.match-status').textContent = match.status;
+    const status = match.status === 'FINISHED' ? 'Đã xong' : match.status === 'PLAYING' ? 'Đang đánh' : 'Chưa đánh';
+    row.querySelector('.match-status').textContent = status;
+    row.classList.toggle('da-xong', match.status === 'FINISHED');
   });
   list.addEventListener('click', (event) => {
     const button = event.target.closest('[data-side]');

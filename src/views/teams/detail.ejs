@@ -1,11 +1,90 @@
 <%- include('../partials/head', { title: team.name }) %>
 <%- include('../partials/topbar') %>
 <main class="app-shell">
-  <section class="card-lite p mb"><h1><%= team.name %></h1><p class="muted"><%= team.description || '' %></p></section>
+  <section class="card-lite p mb">
+    <div class="flex between center">
+      <div>
+        <h1><%= team.name %></h1>
+        <p class="muted"><%= team.description || 'Chưa có ghi chú' %></p>
+      </div>
+      <form method="get" action="/teams/<%= team.id %>" class="month-filter">
+        <label>Tháng quỹ</label>
+        <input type="month" name="month" value="<%= selectedMonth %>" onchange="this.form.submit()">
+      </form>
+    </div>
+  </section>
+
+  <section class="grid finance-grid mb">
+    <div class="card-lite p text-center"><div class="muted">Tổng thu</div><strong class="metric text-primary"><%= formatMoney(finance.totalPaid) %>đ</strong><div class="muted"><%= members.length %> thành viên</div></div>
+    <div class="card-lite p text-center"><div class="muted">Tổng donate</div><strong class="metric text-success">+<%= formatMoney(finance.totalDonate) %>đ</strong><div class="muted">Vượt mức <%= formatMoney(finance.monthlyFee) %>đ/người</div></div>
+    <div class="card-lite p text-center"><div class="muted">Tiền sân tháng</div><strong class="metric"><%= formatMoney(finance.courtCost) %>đ</strong><div class="muted">Dư trước <%= formatMoney(finance.previousBalance) %>đ</div></div>
+    <div class="card-lite p text-center"><div class="muted">Quỹ còn lại</div><strong class="metric <%= finance.balance >= 0 ? 'text-success' : 'text-danger' %>"><%= formatMoney(finance.balance) %>đ</strong><div class="muted">= Dư + Thu - Sân - Chi</div></div>
+  </section>
+
   <% if (currentUser.role === 'ADMIN') { %>
-    <section class="card-lite p mb"><h2>Thêm thành viên</h2><form class="row" method="post" action="/teams/<%= team.id %>/members"><div class="col-6"><select name="playerId"><% players.forEach((p) => { %><option value="<%= p.id %>"><%= p.displayName %> · <%= p.email %></option><% }) %></select></div><div class="col-3"><select name="memberType"><option value="FIXED">Cố định</option><option value="GUEST">Khách</option></select></div><div class="col-3"><button class="btn btn-success">Thêm</button></div></form></section>
-    <section class="card-lite p mb"><h2>Cấu hình quỹ tháng</h2><form class="row" method="post" action="/teams/<%= team.id %>/fund"><div class="col-3"><input type="month" name="month" value="<%= new Date().toISOString().slice(0,7) %>"></div><div class="col-3"><input class="money-input" name="monthlyFee" placeholder="Phí tháng/người"></div><div class="col-3"><input class="money-input" name="courtCost" placeholder="Tiền sân"></div><div class="col-3"><button class="btn btn-primary">Lưu quỹ</button></div></form></section>
+    <section class="grid team-admin-grid mb">
+      <div class="card-lite">
+        <div class="card-hdr green">Cấu hình quỹ tháng <%= selectedMonth %></div>
+        <form class="p" method="post" action="/teams/<%= team.id %>/fund">
+          <input type="hidden" name="month" value="<%= selectedMonth %>">
+          <label>Mức phí tháng / người</label><input class="money-input mb" name="monthlyFee" value="<%= formatMoney(finance.monthlyFee) %>">
+          <label>Tiền sân tháng này</label><input class="money-input mb" name="courtCost" value="<%= formatMoney(finance.courtCost) %>">
+          <label>Tiền sân còn lại tháng trước</label><input class="money-input mb" name="previousBalance" value="<%= formatMoney(finance.previousBalance) %>">
+          <label>Ghi chú</label><input class="mb" name="notes" value="<%= fund?.notes || '' %>">
+          <button class="btn btn-success" data-loading-text="Đang lưu...">Lưu cấu hình tháng</button>
+        </form>
+      </div>
+      <div class="card-lite">
+        <div class="card-hdr blue">Thêm thành viên từ danh sách chung</div>
+        <form class="p row" method="post" action="/teams/<%= team.id %>/members">
+          <div class="col-6"><label>Thành viên</label><select name="playerId"><% players.forEach((p) => { %><option value="<%= p.id %>"><%= p.displayName %> · <%= p.email %></option><% }) %></select></div>
+          <div class="col-3"><label>Loại</label><select name="memberType"><option value="FIXED">Cố định</option><option value="GUEST">Vãng lai</option></select></div>
+          <div class="col-3"><label>&nbsp;</label><button class="btn btn-primary" data-loading-text="Đang thêm...">Thêm</button></div>
+        </form>
+      </div>
+    </section>
   <% } %>
-  <section class="card-lite table-wrap"><table><thead><tr><th>Thành viên</th><th>Email</th><th>Loại</th></tr></thead><tbody><% members.forEach((member) => { %><tr><td><%= member.player.displayName %></td><td><%= member.player.email %></td><td><%= member.memberType === 'FIXED' ? 'Cố định' : 'Khách' %></td></tr><% }) %></tbody></table></section>
+
+  <section class="grid team-admin-grid mb">
+    <div class="card-lite">
+      <div class="card-hdr blue"><span>Các khoản chi tháng <%= selectedMonth %></span><span><%= formatMoney(finance.totalExpense) %>đ</span></div>
+      <div class="p">
+        <% if (currentUser.role === 'ADMIN') { %>
+          <form class="row mb" method="post" action="/teams/<%= team.id %>/expenses">
+            <input type="hidden" name="month" value="<%= selectedMonth %>">
+            <div class="col-3"><label>Ngày chi</label><input type="date" name="expenseDate" required></div>
+            <div class="col-4"><label>Nội dung</label><input name="content" required></div>
+            <div class="col-3"><label>Số tiền</label><input class="money-input" name="amount" required></div>
+            <div class="col-2"><label>&nbsp;</label><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
+          </form>
+        <% } %>
+        <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Nội dung</th><th>Tiền</th><th></th></tr></thead><tbody>
+          <% expenses.forEach((expense) => { %>
+            <tr><td><%= expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('vi-VN') : '-' %></td><td><%= expense.content %></td><td><%= formatMoney(expense.amount) %>đ</td><td class="text-right"><% if (currentUser.role === 'ADMIN') { %><form method="post" action="/teams/<%= team.id %>/expenses/<%= expense.id %>/delete"><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xóa...">Xóa</button></form><% } %></td></tr>
+          <% }) %>
+          <% if (!expenses.length) { %><tr><td colspan="4" class="muted text-center">Chưa có khoản chi nào trong tháng.</td></tr><% } %>
+        </tbody></table></div>
+      </div>
+    </div>
+
+    <div class="card-lite">
+      <div class="card-hdr green">Danh sách đóng phí</div>
+      <form class="p" method="post" action="/teams/<%= team.id %>/payments">
+        <input type="hidden" name="month" value="<%= selectedMonth %>">
+        <div class="table-wrap"><table><thead><tr><th>Thành viên</th><th>Loại</th><th>Số tiền</th><th>Trạng thái</th></tr></thead><tbody>
+          <% members.forEach((member) => { %>
+            <tr class="<%= member.paidAmount >= member.expectedAmount ? 'sufficient-row' : 'insufficient-row' %>">
+              <td><strong><%= member.player.displayName %></strong><br><span class="muted"><%= member.player.email %></span></td>
+              <td><%= member.memberType === 'FIXED' ? 'Cố định' : 'Vãng lai' %></td>
+              <td><input class="money-input" name="amount_<%= member.id %>" value="<%= formatMoney(member.paidAmount) %>"></td>
+              <td><select name="status_<%= member.id %>"><option value="UNPAID" <%= member.payment?.paymentStatus !== 'PAID' ? 'selected' : '' %>>Chưa đóng</option><option value="PAID" <%= member.payment?.paymentStatus === 'PAID' ? 'selected' : '' %>>Đã đóng</option></select></td>
+            </tr>
+          <% }) %>
+          <% if (!members.length) { %><tr><td colspan="4" class="muted text-center">Chưa có thành viên.</td></tr><% } %>
+        </tbody></table></div>
+        <% if (currentUser.role === 'ADMIN') { %><div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu tất cả</button></div><% } %>
+      </form>
+    </div>
+  </section>
 </main>
 <%- include('../partials/bottom-menu') %>

@@ -1,27 +1,60 @@
-<%- include('../partials/head', { title: 'Tạo giải' }) %>
+<%- include('../partials/head', { title: tournament ? 'Sửa giải' : 'Tạo giải' }) %>
 <%- include('../partials/topbar') %>
-<main class="app-shell">
+<main class="app-shell narrow-shell">
   <section class="card-lite p">
-    <h1>Thêm giải đấu mới</h1>
-    <form method="post" action="/tournaments">
+    <div class="flex between center mb">
+      <h1><%= tournament ? 'Sửa giải đấu' : 'Tạo giải mới' %></h1>
+      <a class="btn btn-sm" href="/tournaments">Quay lại</a>
+    </div>
+    <form method="post" action="<%= action %>">
       <div class="row">
-        <div class="col-6"><label>Tên giải</label><input name="name" required></div>
-        <div class="col-6"><label>Địa điểm</label><input name="venue"></div>
-        <div class="col-4"><label>Thời gian</label><input type="datetime-local" name="startTime"></div>
-        <div class="col-4"><label>Số sân</label><input type="number" name="courtCount" value="1" min="1"></div>
-        <div class="col-4"><label>Dự kiến thành viên</label><input type="number" name="expectedPlayers" value="10" min="1"></div>
-        <div class="col-4"><label>Loại đấu</label><select name="playType"><option value="SINGLES">Thi đơn</option><option value="DOUBLES">Thi đôi</option></select></div>
-        <div class="col-4"><label>Thể thức</label><select name="format"><option value="ROUND_ROBIN">Vòng tròn</option><option value="GROUP_KNOCKOUT">Vòng bảng + loại trực tiếp</option></select></div>
-        <div class="col-4" id="knockoutQualifierField"><label>Vào vòng trong</label><select name="knockoutQualifierCount"><option value="2">2 đội - Chung kết</option><option value="4" selected>4 đội - Bán kết, chung kết</option><option value="8">8 đội - Tứ kết, bán kết, chung kết</option></select></div>
-        <div class="col-3"><label>Chạm điểm</label><input type="number" name="touchScore" value="11"></div>
-        <div class="col-3"><label>Max điểm</label><input type="number" name="maxScore" value="15"></div>
-        <div class="col-3"><label>Sân bãi</label><input class="money-input" name="courtCost" value="0"></div>
-        <div class="col-3"><label>Ăn uống</label><input class="money-input" name="foodCost" value="0"></div>
-        <div class="col-3"><label>Giải thưởng</label><input class="money-input" name="prizeCost" value="0"></div>
-        <div class="col-3"><label>Khác</label><input class="money-input" name="otherCost" value="0"></div>
-        <div class="col-12"><label><input type="checkbox" name="externalRegistrationEnabled"> Cho phép đăng ký ngoài</label></div>
+        <div class="col-12"><label>Tên giải <span class="text-danger">*</span></label><input name="name" value="<%= tournament?.name || '' %>" required></div>
+        <div class="col-6"><label>Địa điểm</label><input name="venue" value="<%= tournament?.venue || '' %>"></div>
+        <div class="col-6"><label>Thời gian bắt đầu</label><input type="datetime-local" name="startTime" value="<%= tournament?.startTime ? new Date(tournament.startTime).toISOString().slice(0,16) : '' %>"></div>
+        <div class="col-4"><label>Số sân</label><input type="number" name="courtCount" value="<%= tournament?.courtCount || 1 %>" min="1"></div>
+        <div class="col-4"><label>Dự kiến thành viên</label><input type="number" name="expectedPlayers" value="<%= tournament?.expectedPlayers || 10 %>" min="1"></div>
+        <div class="col-4"><label>Loại đấu</label><select name="playType"><option value="SINGLES" <%= tournament?.playType !== 'DOUBLES' ? 'selected' : '' %>>Thi đơn</option><option value="DOUBLES" <%= tournament?.playType === 'DOUBLES' ? 'selected' : '' %>>Thi đôi</option></select></div>
       </div>
-      <div class="mt"><button class="btn btn-success" data-loading-text="Đang tạo...">Tạo giải</button></div>
+
+      <div class="card-lite p mb mt">
+        <h2 class="section-title mb">Thể thức thi đấu</h2>
+        <div class="segmented">
+          <label><input type="radio" name="format" value="ROUND_ROBIN" <%= tournament?.format !== 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Vòng tròn</label>
+          <label><input type="radio" name="format" value="GROUP_KNOCKOUT" <%= tournament?.format === 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Đánh bảng + vòng trong</label>
+        </div>
+        <div id="knockoutQualifierField" class="mt">
+          <input type="hidden" name="knockoutQualifierCount" id="knockoutQualifierCount" value="<%= tournament?.knockoutQualifierCount || 2 %>">
+          <div class="row">
+            <div class="col-4">
+              <label class="option-card"><input type="checkbox" id="knockoutFinal" data-value="2" checked> Chung kết <small>Lấy 2 đội</small></label>
+            </div>
+            <div class="col-4">
+              <label class="option-card"><input type="checkbox" id="knockoutSemi" data-value="4" <%= (tournament?.knockoutQualifierCount || 2) >= 4 ? 'checked' : '' %>> Bán kết <small>Lấy 4 đội</small></label>
+            </div>
+            <div class="col-4">
+              <label class="option-card"><input type="checkbox" id="knockoutQuarter" data-value="8" <%= (tournament?.knockoutQualifierCount || 2) >= 8 ? 'checked' : '' %>> Tứ kết <small>Lấy 8 đội</small></label>
+            </div>
+          </div>
+          <p class="muted">Chỉ hiện cấu hình vòng trong khi chọn đánh bảng. Vòng tròn vẫn giữ bảng xếp hạng bình thường.</p>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="col-3"><label>Chạm điểm</label><input type="number" name="touchScore" value="<%= tournament?.touchScore || 11 %>" min="1"></div>
+        <div class="col-3"><label>Max điểm</label><input type="number" name="maxScore" value="<%= tournament?.maxScore || 15 %>" min="1"></div>
+        <div class="col-3"><label>Sân bãi</label><input class="money-input" name="courtCost" value="<%= tournament ? formatMoney(tournament.courtCost) : '0' %>"></div>
+        <div class="col-3"><label>Ăn uống</label><input class="money-input" name="foodCost" value="<%= tournament ? formatMoney(tournament.foodCost) : '0' %>"></div>
+        <div class="col-3"><label>Giải thưởng</label><input class="money-input" name="prizeCost" value="<%= tournament ? formatMoney(tournament.prizeCost) : '0' %>"></div>
+        <div class="col-3"><label>Khác</label><input class="money-input" name="otherCost" value="<%= tournament ? formatMoney(tournament.otherCost) : '0' %>"></div>
+        <div class="col-2"><label>Giải 1 (%)</label><input class="money-input" name="prizeRate1" value="<%= tournament ? formatMoney(tournament.prizeRate1) : '50' %>"></div>
+        <div class="col-2"><label>Giải 2 (%)</label><input class="money-input" name="prizeRate2" value="<%= tournament ? formatMoney(tournament.prizeRate2) : '30' %>"></div>
+        <div class="col-2"><label>Giải 3 (%)</label><input class="money-input" name="prizeRate3" value="<%= tournament ? formatMoney(tournament.prizeRate3) : '20' %>"></div>
+        <div class="col-12 checkbox-line"><label><input type="checkbox" name="externalRegistrationEnabled" <%= tournament?.externalRegistrationEnabled ? 'checked' : '' %>> Cho phép đăng ký ngoài</label></div>
+      </div>
+      <div class="mt flex gap">
+        <button class="btn btn-success" data-loading-text="<%= tournament ? 'Đang lưu...' : 'Đang tạo...' %>"><%= tournament ? 'Lưu giải' : 'Tạo giải' %></button>
+        <a class="btn" href="/tournaments">Hủy</a>
+      </div>
     </form>
   </section>
 </main>
