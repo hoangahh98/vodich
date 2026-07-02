@@ -26,7 +26,7 @@ export class AppController {
   @Post('/login')
   async login(@Req() req: Request, @Res() res: Response, @Body() body: { username: string; password: string; role: UserRole }) {
     try {
-      req.session.user = await this.auth.login(body.username || '', body.password || '', body.role || 'CLIENT');
+      req.session.user = await this.auth.login(body.username || '', body.password || '', body.role || 'ADMIN');
       return res.redirect('/');
     } catch (error) {
       return render(res, 'login', { error: error instanceof Error ? error.message : 'Đăng nhập thất bại' });
