@@ -198,10 +198,19 @@ const getTournamentSocket = (tournamentId) => {
       menu.style.right = 'auto';
       menu.style.bottom = 'auto';
     };
+    const keepInViewport = () => {
+      if (!menu) return;
+      const rect = menu.getBoundingClientRect();
+      applyPosition(rect.left, rect.top);
+      const nextRect = menu.getBoundingClientRect();
+      window.localStorage.setItem(storageKey, JSON.stringify({ left: nextRect.left, top: nextRect.top }));
+    };
     try {
       const saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null');
       if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) applyPosition(saved.left, saved.top);
     } catch (_) {}
+    window.addEventListener('resize', keepInViewport);
+    window.addEventListener('orientationchange', () => window.setTimeout(keepInViewport, 120));
     button.addEventListener('pointerdown', (event) => {
       if (!menu || event.button !== 0) return;
       const rect = menu.getBoundingClientRect();

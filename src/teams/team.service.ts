@@ -63,7 +63,7 @@ export class TeamService {
         difference: paidAmount - expectedAmount,
         typeLabel: member.memberType === 'FIXED' ? 'Cố định' : 'Vãng lai',
       };
-    });
+    }).sort((a, b) => memberTypeOrder(a.memberType) - memberTypeOrder(b.memberType) || a.player.displayName.localeCompare(b.player.displayName, 'vi'));
     const totalPaid = rows.reduce((sum, member) => sum + member.paidAmount, 0);
     const totalDonate = rows.reduce((sum, member) => sum + Math.max(0, member.paidAmount - member.expectedAmount), 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
@@ -225,6 +225,10 @@ function hasMoneyValue(value?: string) {
 
 function normalizeMemberType(value?: string) {
   return value === 'GUEST' ? 'GUEST' : 'FIXED';
+}
+
+function memberTypeOrder(value?: string) {
+  return value === 'GUEST' ? 1 : 0;
 }
 
 function cleanText(value?: string) {
