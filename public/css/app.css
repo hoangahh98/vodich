@@ -103,7 +103,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .text-success { color: var(--success); }
 .text-danger { color: var(--danger); }
 .metric { display: block; font-size: 26px; margin: 8px 0 2px; }
-.month-filter { flex: 0 1 170px; width: 170px; min-width: 0; max-width: 100%; }
+.month-filter { flex: 0 0 150px; width: 150px; min-width: 0; max-width: 100%; }
 .month-filter input { width: 100%; min-width: 0; max-width: 100%; }
 .checkbox-line label { display: flex; align-items: center; gap: 8px; margin: 0; }
 .checkbox-line input { width: auto; min-height: auto; }
@@ -168,8 +168,9 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .team-create-action { grid-column: 1 / -1; width: 20%; min-width: 160px; }
 .team-create-action .btn { width: 100%; }
 .team-detail-shell { max-width: 1280px; }
-.team-expense-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 12px; align-items: end; }
+.team-expense-form { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(120px, 160px) auto; gap: 12px; align-items: end; }
 .team-expense-form .expense-date, .team-expense-form .expense-content, .team-expense-form .expense-amount { grid-column: span 1; min-width: 0; }
+.team-expense-form .expense-date input { width: 150px; max-width: 100%; }
 .team-expense-form .expense-action { grid-column: span 1; min-width: 96px; }
 .team-expense-form .expense-action .btn { width: 100%; }
 .team-member-picker { max-height: 260px; }
@@ -281,7 +282,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .prize-config-grid { grid-template-columns: 1fr; }
   .prize-config-col input { min-width: 0; }
   .flex.between.center { align-items: flex-start; flex-direction: column; }
-  .feature-hero .flex.between.center, .month-filter { width: 100%; }
+  .feature-hero .flex.between.center { width: 100%; }
+  .month-filter { align-self: flex-start; flex: 0 0 150px; width: 150px; max-width: 100%; }
   .section-heading, .bulk-toolbar { align-items: flex-start; flex-direction: column; }
   .section-heading p { margin-left: 0; }
   .feature-hero-art { width: 58px; height: 58px; font-size: 32px; }
@@ -293,7 +295,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .manual-pair-card .col-6 { grid-column: span 1; }
   .manual-pair-card select { min-height: 72px; font-size: 15px; padding: 12px 8px; }
   .team-create-form, .team-expense-form { grid-template-columns: 1fr; }
-  .team-create-action, .team-expense-form .expense-date, .team-expense-form .expense-content, .team-expense-form .expense-amount, .team-expense-form .expense-action { grid-column: auto; width: 100%; min-width: 0; }
+  .team-create-action, .team-expense-form .expense-content, .team-expense-form .expense-amount, .team-expense-form .expense-action { grid-column: auto; width: 100%; min-width: 0; }
+  .team-expense-form .expense-date { grid-column: auto; width: 150px; max-width: 100%; min-width: 0; }
   .team-create-form .btn, .team-expense-form .btn { width: 100%; }
   .team-member-actions, .team-member-actions > .flex { align-items: stretch; flex-direction: column; width: 100%; }
   .team-member-type { max-width: none; }
@@ -337,9 +340,11 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .app-shell { margin-top: 12px; padding: 0 10px; }
   .feature-hero { padding: 10px; }
   .feature-hero h1 { margin: 0 0 4px; font-size: 22px; }
-  .month-filter { flex-basis: 150px; min-width: 0; width: min(150px, 100%); }
+  .month-filter { flex: 0 0 140px; min-width: 0; width: 140px; max-width: 100%; }
   .month-filter input { min-height: 38px; padding: 7px 9px; }
-  .team-expense-form { grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(82px, auto); gap: 8px; }
+  .team-expense-form { grid-template-columns: 140px minmax(0, 1fr) minmax(110px, 140px) minmax(82px, auto); gap: 8px; }
+  .team-expense-form .expense-date { width: 140px; max-width: 100%; }
+  .team-expense-form .expense-date input { width: 140px; }
   .team-expense-form label { font-size: 13px; }
   .team-expense-form input, .team-expense-form .btn { min-height: 38px; padding: 7px 9px; }
 }
