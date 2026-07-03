@@ -7,13 +7,19 @@ export class TeamService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list() {
-    const teams = await this.prisma.teamClub.findMany({ orderBy: { id: 'desc' } });
-    return Promise.all(
-      teams.map(async (team) => ({
-        ...team,
-        activeMemberCount: await this.prisma.teamMember.count({ where: { teamId: team.id, active: true } }),
-      })),
-    );
+    const [teams, memberCounts] = await Promise.all([
+      this.prisma.teamClub.findMany({ orderBy: { id: 'desc' } }),
+      this.prisma.teamMember.groupBy({
+        by: ['teamId'],
+        where: { active: true },
+        _count: { _all: true },
+      }),
+    ]);
+    const countByTeamId = new Map(memberCounts.map((item) => [item.teamId.toString(), item._count._all]));
+    return teams.map((team) => ({
+      ...team,
+      activeMemberCount: countByTeamId.get(team.id.toString()) || 0,
+    }));
   }
 
   create(name: string, description?: string) {
