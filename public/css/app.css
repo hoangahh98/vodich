@@ -183,9 +183,18 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .players-edit-table th:nth-child(2) { width: 98px; }
 .players-edit-table th:nth-child(3) { width: 34%; }
 .players-edit-table td { vertical-align: top; }
-.players-edit-table input, .players-edit-table select { min-height: 38px; padding: 7px 9px; font-size: 14px; }
+.players-edit-table input, .players-edit-table select { min-height: 38px; height: 38px; padding: 7px 9px; font-size: 14px; }
 .player-name-cell { display: grid; gap: 7px; }
 .player-name-cell input[type="email"] { color: var(--muted); }
+.permissions-shell { max-width: 1320px; }
+.permission-create-form { display: grid; grid-template-columns: minmax(220px, 1.1fr) minmax(220px, 1.1fr) minmax(180px, .9fr) auto; gap: 12px; align-items: end; }
+.permission-create-action { min-width: 150px; }
+.permission-create-action .btn { width: 100%; }
+.permission-admin-list { display: grid; gap: 14px; }
+.permission-admin-card { border: 1px solid #cfe2ff; border-radius: 10px; padding: 14px; background: #f8fbff; display: grid; gap: 14px; }
+.permission-admin-info { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 12px; }
+.permission-feature-grid { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 10px; }
+.permission-feature-grid .option-card { min-height: 52px; }
 .team-detail-shell { max-width: 1280px; }
 .team-expense-form { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(120px, 160px) auto; gap: 12px; align-items: end; }
 .team-expense-form .expense-date, .team-expense-form .expense-content, .team-expense-form .expense-amount { grid-column: span 1; min-width: 0; }
@@ -319,6 +328,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .team-create-action, .team-expense-form .expense-content, .team-expense-form .expense-amount, .team-expense-form .expense-action { grid-column: auto; width: 100%; min-width: 0; }
   .player-create-form { grid-template-columns: 1fr; }
   .player-create-action { width: 100%; min-width: 0; }
+  .permission-create-form, .permission-admin-info, .permission-feature-grid { grid-template-columns: 1fr; }
+  .permission-create-action { width: 100%; min-width: 0; }
   .players-table-wrap { max-height: 72vh; }
   .players-edit-table th, .players-edit-table td { padding: 8px 5px; }
   .players-edit-table th:nth-child(1) { width: 50%; }
@@ -383,5 +394,5 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .player-create-form > div:nth-child(4) { grid-column: 1 / 4; }
   .player-create-action { grid-column: 4; grid-row: 1 / 3; align-self: end; width: 100%; min-width: 86px; }
   .player-create-form label { font-size: 13px; }
-  .player-create-form input, .player-create-form select, .player-create-form .btn { min-height: 38px; padding: 7px 9px; }
+  .player-create-form input, .player-create-form select, .player-create-form .btn { min-height: 38px; height: 38px; padding: 7px 9px; }
 }

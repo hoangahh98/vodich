@@ -1,29 +1,53 @@
 <%- include('partials/head', { title: 'Phân quyền' }) %>
 <%- include('partials/topbar') %>
 <% const featureLabels = { TOURNAMENTS: 'Giải đấu', TEAMS: 'Đội bóng', TRAVEL: 'Du lịch', PERMISSIONS: 'Phân quyền' }; %>
-<main class="app-shell">
+<main class="app-shell permissions-shell">
+  <section class="feature-hero p mb">
+    <div class="section-heading">
+      <div><span class="feature-icon">🔐</span><h1>Phân quyền quản trị</h1><p class="muted">Admin gốc mặc định có toàn quyền. Chỉ tạo và phân quyền cho các admin phụ tại đây.</p></div>
+    </div>
+  </section>
+
   <section class="card-lite p mb">
-    <h1>Phân quyền quản trị</h1>
-    <form class="row" method="post" action="/admins">
-      <div class="col-3"><input name="username" placeholder="Tài khoản quản trị" required></div>
-      <div class="col-3"><input name="displayName" placeholder="Tên hiển thị"></div>
-      <div class="col-3"><input name="password" placeholder="Mật khẩu" value="123456789"></div>
-      <div class="col-3"><button class="btn btn-success" data-loading-text="Đang lưu...">Tạo/cập nhật quản trị</button></div>
+    <div class="section-heading mb">
+      <div><span class="feature-icon">➕</span><h2 class="section-title">Tạo quản trị mới</h2><p class="muted">Thông tin admin đã tạo sẽ được sửa ở phần danh sách bên dưới.</p></div>
+    </div>
+    <form class="permission-create-form" method="post" action="/admins">
+      <div><label>Tài khoản</label><input name="username" placeholder="admin_phu" autocomplete="username" required></div>
+      <div><label>Tên hiển thị</label><input name="displayName" placeholder="Tên hiển thị"></div>
+      <div><label>Mật khẩu</label><input name="password" placeholder="Mật khẩu" value="123456789" autocomplete="new-password"></div>
+      <div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang tạo...">Tạo quản trị</button></div>
     </form>
   </section>
-  <% admins.forEach((admin) => { %>
-    <section class="card-lite p mb">
-      <h3><%= admin.displayName %> <span class="muted">(<%= admin.username %>)</span></h3>
+
+  <section class="card-lite p">
+    <div class="section-heading mb">
+      <div><span class="feature-icon">⚙️</span><h2 class="section-title">Sửa admin và quyền</h2><p class="muted">Sửa thông tin, chọn quyền cho tất cả admin phụ rồi lưu một lần.</p></div>
+      <span class="badge"><%= admins.length %> admin phụ</span>
+    </div>
+    <% if (!admins.length) { %>
+      <p class="muted">Chưa có admin phụ nào.</p>
+    <% } else { %>
       <form method="post" action="/permissions">
-        <input type="hidden" name="adminId" value="<%= admin.id %>">
-        <div class="flex gap" style="flex-wrap:wrap">
-          <% features.forEach((feature) => { const checked = admin.permissions.some((p) => p.feature === feature); %>
-            <label class="card-lite p checkbox-line"><input type="checkbox" name="features" value="<%= feature %>" <%= checked ? 'checked' : '' %>> <%= featureLabels[feature] || feature %></label>
+        <div class="permission-admin-list">
+          <% admins.forEach((admin) => { %>
+            <section class="permission-admin-card">
+              <div class="permission-admin-info">
+                <div><label>Tài khoản</label><input name="username_<%= admin.id %>" value="<%= admin.username %>" required></div>
+                <div><label>Tên hiển thị</label><input name="displayName_<%= admin.id %>" value="<%= admin.displayName %>" required></div>
+                <div><label>Mật khẩu mới</label><input name="password_<%= admin.id %>" placeholder="Để trống nếu không đổi" autocomplete="new-password"></div>
+              </div>
+              <div class="permission-feature-grid">
+                <% features.forEach((feature) => { const checked = admin.permissions.some((p) => p.feature === feature); %>
+                  <label class="option-card"><input type="checkbox" name="features_<%= admin.id %>" value="<%= feature %>" <%= checked ? 'checked' : '' %>> <span><%= featureLabels[feature] || feature %></span></label>
+                <% }) %>
+              </div>
+            </section>
           <% }) %>
         </div>
-        <div class="mt"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu quyền</button></div>
+        <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu tất cả quyền</button></div>
       </form>
-    </section>
-  <% }) %>
+    <% } %>
+  </section>
 </main>
 <%- include('partials/bottom-menu') %>

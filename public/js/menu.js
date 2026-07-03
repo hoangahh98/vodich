@@ -3,6 +3,8 @@
     const menu = button.closest('.bottom-menu');
     let closeTimer = null;
     let dragState = null;
+    let keepTimer = null;
+    let suppressClick = false;
     const closeMenu = () => menu?.classList.remove('open');
     const storageKey = 'vodichBottomMenuPosition';
     const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
@@ -23,12 +25,26 @@
       const nextRect = menu.getBoundingClientRect();
       window.localStorage.setItem(storageKey, JSON.stringify({ left: nextRect.left, top: nextRect.top }));
     };
+    const resetInteraction = () => {
+      dragState = null;
+      suppressClick = false;
+      delete button.dataset.justDragged;
+      menu?.classList.remove('is-dragging');
+      closeMenu();
+    };
+    const scheduleKeepInViewport = () => {
+      window.clearTimeout(keepTimer);
+      keepTimer = window.setTimeout(() => {
+        resetInteraction();
+        keepInViewport();
+      }, 120);
+    };
     try {
       const saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null');
       if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) applyPosition(saved.left, saved.top);
     } catch (_) {}
-    window.addEventListener('resize', keepInViewport);
-    window.addEventListener('orientationchange', () => window.setTimeout(keepInViewport, 120));
+    window.addEventListener('resize', scheduleKeepInViewport);
+    window.addEventListener('orientationchange', scheduleKeepInViewport);
     button.addEventListener('pointerdown', (event) => {
       if (!menu || event.button !== 0) return;
       const rect = menu.getBoundingClientRect();
@@ -63,17 +79,20 @@
       if (moved) {
         event.preventDefault();
         event.stopPropagation();
+        suppressClick = true;
         button.dataset.justDragged = 'true';
-        window.setTimeout(() => delete button.dataset.justDragged, 0);
+        window.setTimeout(() => {
+          suppressClick = false;
+          delete button.dataset.justDragged;
+        }, 180);
       }
     });
     button.addEventListener('pointercancel', () => {
-      dragState = null;
-      menu?.classList.remove('is-dragging');
+      resetInteraction();
     });
     button.addEventListener('click', (event) => {
       event.stopPropagation();
-      if (button.dataset.justDragged === 'true') return;
+      if (suppressClick || button.dataset.justDragged === 'true') return;
       const menu = button.closest('.bottom-menu');
       menu?.classList.toggle('open');
     });
