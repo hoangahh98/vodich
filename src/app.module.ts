@@ -1,15 +1,20 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { AuthService } from './auth/auth.service';
+import { AuthController } from './auth/auth.controller';
 import { LogService } from './logs/log.service';
-import { AppController } from './app.controller';
+import { AdminController } from './admin/admin.controller';
+import { HomeController } from './home.controller';
+import { PlayersController } from './players/players.controller';
 import { TournamentService } from './tournaments/tournament.service';
+import { TournamentController } from './tournaments/tournament.controller';
 import { MatchGateway } from './tournaments/match.gateway';
 import { TeamService } from './teams/team.service';
+import { TeamController } from './teams/team.controller';
 import { LocalsMiddleware } from './common/locals.middleware';
 
 @Module({
-  controllers: [AppController],
+  controllers: [AuthController, HomeController, PlayersController, TournamentController, TeamController, AdminController],
   providers: [PrismaService, AuthService, LogService, TournamentService, TeamService, MatchGateway, LocalsMiddleware],
 })
 export class AppModule implements NestModule {
