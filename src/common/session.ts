@@ -1,7 +1,7 @@
 import * as session from 'express-session';
 import { RedisStore } from 'connect-redis';
 import { RequestHandler } from 'express';
-import { createConnectedRedisClient, isRedisConfigured, recordRedisLog, redisConnectionSummary } from './redis';
+import { createConnectedRedisClient, isRedisConfigured, isRedisRequired, recordRedisLog, redisConnectionSummary, requiredRedisError } from './redis';
 
 const sessionMaxAge = 12 * 60 * 60 * 1000;
 let sessionMiddlewarePromise: Promise<RequestHandler> | undefined;
@@ -31,10 +31,13 @@ async function createSessionMiddleware() {
         recordRedisLog('INFO', 'session store enabled', redisConnectionSummary());
       }
     } catch (error) {
-      recordRedisLog('ERROR', 'session store fallback to memory', redisConnectionSummary(), error);
+      const action = isRedisRequired() ? 'session store failed' : 'session store fallback to memory';
+      recordRedisLog('ERROR', action, redisConnectionSummary(), error);
+      if (isRedisRequired()) throw requiredRedisError('session store failed', error);
     }
   } else {
     recordRedisLog('WARN', 'session store using memory', redisConnectionSummary());
+    if (isRedisRequired()) throw requiredRedisError('REDIS_URL is not configured');
   }
 
   return session(options);

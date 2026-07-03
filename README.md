@@ -25,7 +25,11 @@ DATABASE_URL=postgresql://...
 APP_ADMIN_USERNAME=admin
 APP_ADMIN_PASSWORD=123456789
 SESSION_SECRET=change-me
+REDIS_URL=redis://...
+REQUIRE_REDIS=true
 ```
+
+`REQUIRE_REDIS=true` dÃ¹ng cho production nhiá»u Render service: náº¿u Redis thiáº¿u hoáº·c káº¿t ná»‘i lá»—i thÃ¬ app dá»«ng khá»Ÿi Ä‘á»™ng thay vÃ¬ fallback sang memory.
 
 ## Triển khai Render
 

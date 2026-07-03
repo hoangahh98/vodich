@@ -16,6 +16,7 @@ export type AppRedisClient = ReturnType<typeof createClient> & {
 };
 
 const redisUrl = process.env.REDIS_URL?.trim();
+const redisRequired = process.env.REQUIRE_REDIS?.trim().toLowerCase() === 'true';
 let redisLogSink: ((entry: RedisLogEntry) => void | Promise<void>) | undefined;
 
 export function setRedisLogSink(sink: (entry: RedisLogEntry) => void | Promise<void>) {
@@ -24,6 +25,10 @@ export function setRedisLogSink(sink: (entry: RedisLogEntry) => void | Promise<v
 
 export function isRedisConfigured() {
   return !!redisUrl;
+}
+
+export function isRedisRequired() {
+  return redisRequired;
 }
 
 export function redisConnectionSummary() {
@@ -60,12 +65,24 @@ export async function createConnectedRedisClient(label: string): Promise<AppRedi
 }
 
 export function recordRedisLog(level: RedisLogLevel, action: string, details?: string, error?: unknown) {
-  const errorMessage = error instanceof Error ? `${error.name}: ${error.message}` : error ? String(error) : undefined;
+  const errorMessage = redisErrorMessage(error);
   const line = `[redis] ${level} ${action}${details ? ` (${details})` : ''}${errorMessage ? ` - ${errorMessage}` : ''}`;
   if (level === 'ERROR') console.error(line);
   else if (level === 'WARN') console.warn(line);
   else console.log(line);
   redisLogSink?.({ level, action, details, errorMessage })?.catch?.(() => undefined);
+}
+
+export function requiredRedisError(action: string, error?: unknown) {
+  const details = redisErrorMessage(error);
+  const message = `REQUIRE_REDIS=true but ${action}${details ? `: ${details}` : ''}`;
+  const wrapped = new Error(message);
+  (wrapped as Error & { cause?: unknown }).cause = error;
+  return wrapped;
+}
+
+function redisErrorMessage(error?: unknown) {
+  return error instanceof Error ? `${error.name}: ${error.message}` : error ? String(error) : undefined;
 }
 
 function defaultPort(protocol: string) {
