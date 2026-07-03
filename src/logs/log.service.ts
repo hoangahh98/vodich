@@ -1,28 +1,15 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
-import { NextFunction, Request, Response } from 'express';
+import { Injectable } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { PrismaService } from '../prisma.service';
 import { httpAction } from './log-action';
 
 @Injectable()
-export class LogService implements NestMiddleware {
+export class LogService {
   constructor(private readonly prisma: PrismaService) {}
 
-  use(req: Request, res: Response, next: NextFunction) {
-    if (process.env.DISABLE_HTTP_LOGS === 'true') {
-      next();
-      return;
-    }
-    const started = Date.now();
-    res.on('finish', () => {
-      if (shouldSkipHttpLog(req, res)) return;
-      this.record(req, res, Date.now() - started).catch(() => undefined);
-    });
-    next();
-  }
-
-  async record(req: Request, res: Response, durationMs: number, error?: Error) {
+  async record(req: Request, res: Response, durationMs: number, error?: Error, statusCode?: number) {
     const user = req.session.user;
-    const status = res.statusCode;
+    const status = statusCode || res.statusCode;
     const level = error || status >= 500 ? 'ERROR' : status >= 400 ? 'WARN' : 'INFO';
     await this.prisma.appLog.create({
       data: {
@@ -47,10 +34,10 @@ export class LogService implements NestMiddleware {
   }
 }
 
-function shouldSkipHttpLog(req: Request, res: Response) {
+export function shouldSkipHttpLog(req: Request, statusCode: number) {
   if (process.env.LOG_ALL_HTTP === 'true') return false;
   if (req.path === '/healthz' || req.path === '/readyz' || req.path === '/favicon.ico' || req.path === '/manifest.json') return true;
-  if (req.method !== 'GET' || res.statusCode >= 400) return false;
+  if (req.method !== 'GET' || statusCode >= 400) return false;
   return ['/css/', '/js/', '/icons/', '/uploads/'].some((prefix) => req.path.startsWith(prefix));
 }
 

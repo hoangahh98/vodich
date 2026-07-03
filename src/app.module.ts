@@ -1,7 +1,9 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaService } from './prisma.service';
 import { AuthService } from './auth/auth.service';
 import { AuthController } from './auth/auth.controller';
+import { HttpLogInterceptor } from './logs/http-log.interceptor';
 import { LogService } from './logs/log.service';
 import { AdminController } from './admin/admin.controller';
 import { AdminService } from './admin/admin.service';
@@ -62,10 +64,14 @@ import { FeatureGuard } from './common/feature.guard';
     LocalsMiddleware,
     RateLimitService,
     FeatureGuard,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: HttpLogInterceptor,
+    },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LocalsMiddleware, LogService).forRoutes('*');
+    consumer.apply(LocalsMiddleware).forRoutes('*');
   }
 }
