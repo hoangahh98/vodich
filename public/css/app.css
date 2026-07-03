@@ -55,7 +55,7 @@ a { color: inherit; }
 form[aria-busy="true"] { opacity: .78; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .form-control, .form-select, input, select, textarea { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; min-height: 44px; background: #fff; font-family: inherit; font-size: 15px; }
-input[type="date"], input[type="month"] { width: 100%; min-width: 0; max-width: 100%; }
+input[type="date"], input[type="month"] { width: 100%; min-width: 0; max-width: 100%; height: 44px; line-height: 20px; }
 label { font-weight: 700; display: block; margin-bottom: 6px; }
 .row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
 .col-12 { grid-column: span 12; } .col-6 { grid-column: span 6; } .col-4 { grid-column: span 4; } .col-3 { grid-column: span 3; } .col-2 { grid-column: span 2; }
@@ -170,7 +170,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .team-detail-shell { max-width: 1280px; }
 .team-expense-form { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(120px, 160px) auto; gap: 12px; align-items: end; }
 .team-expense-form .expense-date, .team-expense-form .expense-content, .team-expense-form .expense-amount { grid-column: span 1; min-width: 0; }
-.team-expense-form .expense-date input { width: 150px; max-width: 100%; }
+.team-expense-form .expense-date input { width: 150px; max-width: 100%; height: 44px; }
 .team-expense-form .expense-action { grid-column: span 1; min-width: 96px; }
 .team-expense-form .expense-action .btn { width: 100%; }
 .team-member-picker { max-height: 260px; }
@@ -339,12 +339,14 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 @media (max-height: 520px) and (orientation: landscape) {
   .app-shell { margin-top: 12px; padding: 0 10px; }
   .feature-hero { padding: 10px; }
+  .feature-hero .flex.between.center { display: grid; grid-template-columns: minmax(0, 1fr) 124px; align-items: start; gap: 10px; }
+  .feature-hero .flex.between.center > div { min-width: 0; }
   .feature-hero h1 { margin: 0 0 4px; font-size: 22px; }
-  .month-filter { flex: 0 0 140px; min-width: 0; width: 140px; max-width: 100%; }
-  .month-filter input { min-height: 38px; padding: 7px 9px; }
-  .team-expense-form { grid-template-columns: 140px minmax(0, 1fr) minmax(110px, 140px) minmax(82px, auto); gap: 8px; }
-  .team-expense-form .expense-date { width: 140px; max-width: 100%; }
-  .team-expense-form .expense-date input { width: 140px; }
+  .month-filter { justify-self: end; flex: 0 0 124px; min-width: 0; width: 124px; max-width: 100%; }
+  .month-filter input { height: 38px; min-height: 38px; padding: 7px 7px; font-size: 13px; }
+  .team-expense-form { grid-template-columns: 132px minmax(0, 1fr) minmax(110px, 140px) minmax(82px, auto); gap: 8px; }
+  .team-expense-form .expense-date { width: 132px; max-width: 100%; }
+  .team-expense-form .expense-date input { width: 132px; height: 38px; }
   .team-expense-form label { font-size: 13px; }
   .team-expense-form input, .team-expense-form .btn { min-height: 38px; padding: 7px 9px; }
 }
