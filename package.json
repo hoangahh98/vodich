@@ -5,6 +5,7 @@
   "scripts": {
     "prebuild": "prisma generate",
     "build": "nest build",
+    "postinstall": "node scripts/render-postinstall.js",
     "test": "npm run build && node --test test/*.test.js",
     "test:e2e": "npm run build && node scripts/run-e2e.js",
     "seed:e2e": "node scripts/seed-e2e.js",
@@ -52,6 +53,6 @@
     "typescript": "^5.7.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": "20.x"
   }
 }
