@@ -3,30 +3,12 @@ import { MatchGame, Tournament, TournamentRegistration } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
 import { parseMoney, roundUpToStep } from '../common/money';
-
-export interface RankingRow {
-  teamName: string;
-  played: number;
-  won: number;
-  lost: number;
-  rankingPoints: number;
-  pointsFor: number;
-  pointsAgainst: number;
-  pointDiff: number;
-}
-
-export interface RankingGroup {
-  groupName: string;
-  rows: RankingRow[];
-}
-
-export interface GroupBoard {
-  groupName: string;
-  teams: string[];
-}
+import { GroupBoard, RankingGroup, TournamentRankingCalculator, compareRankingRows } from './tournament-ranking';
 
 @Injectable()
 export class TournamentService {
+  private readonly rankingCalculator = new TournamentRankingCalculator();
+
   constructor(private readonly prisma: PrismaService) {}
 
   async listFor(user: CurrentUser) {
@@ -341,15 +323,7 @@ export class TournamentService {
       where: { tournamentId, stage: 'Vòng bảng', groupName: { not: null } },
       orderBy: [{ groupName: 'asc' }, { id: 'asc' }],
     });
-    const groups = new Map<string, Set<string>>();
-    for (const match of matches) {
-      const groupName = match.groupName || 'A';
-      const teams = groups.get(groupName) ?? new Set<string>();
-      teams.add(match.teamA);
-      teams.add(match.teamB);
-      groups.set(groupName, teams);
-    }
-    return [...groups.entries()].map(([groupName, teams]) => ({ groupName, teams: [...teams] }));
+    return this.rankingCalculator.groupBoards(matches);
   }
 
   async rankings(tournamentId: bigint): Promise<RankingGroup[]> {
@@ -357,20 +331,7 @@ export class TournamentService {
       where: { tournamentId, stage: { in: ['Vòng bảng', 'Vòng tròn'] } },
       orderBy: [{ groupName: 'asc' }, { roundNumber: 'asc' }, { courtNumber: 'asc' }],
     });
-    const groups = new Map<string, Map<string, RankingAccumulator>>();
-    for (const match of matches) {
-      const groupName = match.groupName || 'A';
-      const rows = groups.get(groupName) ?? new Map<string, RankingAccumulator>();
-      groups.set(groupName, rows);
-      applyRanking(rows, match.teamA, match.scoreA, match.scoreB, match.status === 'FINISHED');
-      applyRanking(rows, match.teamB, match.scoreB, match.scoreA, match.status === 'FINISHED');
-    }
-    return [...groups.entries()].map(([groupName, rows]) => ({
-      groupName,
-      rows: [...rows.values()]
-        .map((row) => row.toRow())
-        .sort((a, b) => b.won - a.won || b.pointDiff - a.pointDiff || b.pointsFor - a.pointsFor || a.teamName.localeCompare(b.teamName)),
-    }));
+    return this.rankingCalculator.rankings(matches);
   }
 
   async syncKnockout(tournamentId: bigint): Promise<boolean> {
@@ -583,7 +544,7 @@ function knockoutSeeds(qualifierCount: number, rankingGroups: RankingGroup[]) {
       byGroup.get('A')?.[1]?.teamName,
     ].filter(Boolean) as string[];
   }
-  return rankingGroups.flatMap((group) => group.rows).sort((a, b) => b.won - a.won || b.pointDiff - a.pointDiff || b.pointsFor - a.pointsFor || a.teamName.localeCompare(b.teamName)).slice(0, 2).map((row) => row.teamName);
+  return rankingGroups.flatMap((group) => group.rows).sort(compareRankingRows).slice(0, 2).map((row) => row.teamName);
 }
 
 function finishedStageWinners(matches: MatchGame[], stage: string): string[] | null {
@@ -632,46 +593,4 @@ function prizeValue(value: unknown, fallback: number) {
 
 function blankToNull(value?: string) {
   return value && value.trim() ? value.trim() : null;
-}
-
-class RankingAccumulator {
-  played = 0;
-  won = 0;
-  lost = 0;
-  rankingPoints = 0;
-  pointsFor = 0;
-  pointsAgainst = 0;
-
-  constructor(private readonly teamName: string) {}
-
-  apply(pointsFor: number, pointsAgainst: number, finished: boolean) {
-    if (!finished) return;
-    this.pointsFor += pointsFor;
-    this.pointsAgainst += pointsAgainst;
-    this.played++;
-    if (pointsFor > pointsAgainst) {
-      this.won++;
-      this.rankingPoints++;
-    }
-    if (pointsFor < pointsAgainst) this.lost++;
-  }
-
-  toRow(): RankingRow {
-    return {
-      teamName: this.teamName,
-      played: this.played,
-      won: this.won,
-      lost: this.lost,
-      rankingPoints: this.rankingPoints,
-      pointsFor: this.pointsFor,
-      pointsAgainst: this.pointsAgainst,
-      pointDiff: this.pointsFor - this.pointsAgainst,
-    };
-  }
-}
-
-function applyRanking(rows: Map<string, RankingAccumulator>, name: string, pointsFor: number, pointsAgainst: number, finished: boolean) {
-  const row = rows.get(name) ?? new RankingAccumulator(name);
-  row.apply(pointsFor, pointsAgainst, finished);
-  rows.set(name, row);
 }
