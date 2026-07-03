@@ -2,12 +2,16 @@ import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { render } from '../common/view';
 import { safeNext } from '../common/controller-utils';
+import { RateLimitService } from '../common/rate-limit.service';
 import { UserRole } from '../types';
 import { AuthService } from './auth.service';
 
 @Controller()
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly rateLimit: RateLimitService,
+  ) {}
 
   @Get('/login')
   loginPage(@Req() req: Request, @Res() res: Response) {
@@ -17,8 +21,19 @@ export class AuthController {
 
   @Post('/login')
   async login(@Req() req: Request, @Res() res: Response, @Body() body: { username: string; password: string; role: UserRole; next?: string }) {
+    const limitKey = `login:${clientIp(req)}:${String(body.username || '').trim().toLowerCase()}`;
+    const limit = this.rateLimit.consume(limitKey, { max: 8 });
+    if (!limit.allowed) {
+      return render(res.status(429), 'login', {
+        error: `Thử lại sau ${limit.retryAfterSeconds} giây`,
+        next: body.next || '',
+        username: body.username || '',
+        role: body.role || 'ADMIN',
+      });
+    }
     try {
       req.session.user = await this.auth.login(body.username || '', body.password || '', body.role || 'ADMIN');
+      this.rateLimit.reset(limitKey);
       return res.redirect(safeNext(body.next) || '/');
     } catch (error) {
       return render(res, 'login', { error: error instanceof Error ? error.message : 'Đăng nhập thất bại', next: body.next || '', username: body.username || '', role: body.role || 'ADMIN' });
@@ -29,4 +44,11 @@ export class AuthController {
   logout(@Req() req: Request, @Res() res: Response) {
     req.session.destroy(() => res.redirect('/login'));
   }
+}
+
+function clientIp(req: Request) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (Array.isArray(forwarded)) return forwarded[0] || req.ip;
+  if (forwarded) return forwarded.split(',')[0].trim();
+  return req.ip;
 }

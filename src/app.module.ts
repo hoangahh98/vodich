@@ -22,12 +22,40 @@ import { TournamentScheduleController } from './tournaments/tournament-schedule.
 import { ExternalRegistrationController } from './tournaments/external-registration.controller';
 import { MatchGateway } from './tournaments/match.gateway';
 import { TeamService } from './teams/team.service';
+import { TeamCrudService } from './teams/team-crud.service';
+import { TeamDetailService } from './teams/team-detail.service';
+import { TeamExpenseService } from './teams/team-expense.service';
+import { TeamFundService } from './teams/team-fund.service';
+import { TeamMemberService } from './teams/team-member.service';
 import { TeamController } from './teams/team.controller';
 import { LocalsMiddleware } from './common/locals.middleware';
+import { RateLimitService } from './common/rate-limit.service';
 
 @Module({
   controllers: [AuthController, HealthController, HomeController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, AdminController],
-  providers: [PrismaService, AuthService, LogService, PlayersService, AdminService, TournamentService, TournamentCrudService, TournamentDetailService, TournamentDetailViewModelBuilder, TournamentKnockoutService, TournamentRegistrationService, TournamentScheduleService, TeamService, MatchGateway, LocalsMiddleware],
+  providers: [
+    PrismaService,
+    AuthService,
+    LogService,
+    PlayersService,
+    AdminService,
+    TournamentService,
+    TournamentCrudService,
+    TournamentDetailService,
+    TournamentDetailViewModelBuilder,
+    TournamentKnockoutService,
+    TournamentRegistrationService,
+    TournamentScheduleService,
+    TeamService,
+    TeamCrudService,
+    TeamDetailService,
+    TeamExpenseService,
+    TeamFundService,
+    TeamMemberService,
+    MatchGateway,
+    LocalsMiddleware,
+    RateLimitService,
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

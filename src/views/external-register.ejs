@@ -4,10 +4,11 @@
     <img class="login-logo" src="/uploads/logo.png" alt="Logo Vô địch">
     <h1>Đăng ký giải</h1>
     <p class="muted"><%= tournament.name %></p>
+    <% if (typeof error !== 'undefined') { %><div class="badge badge-danger mb"><%= error %></div><% } %>
     <form method="post">
-      <div class="mb"><label>Họ tên</label><input name="displayName" required></div>
-      <div class="mb"><label>Email</label><input name="email" type="email" required></div>
-      <div class="mb"><label>Trình độ</label><select name="skillLevel"><option value="">Chưa chọn trình</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
+      <div class="mb"><label>Họ tên</label><input name="displayName" value="<%= typeof form !== 'undefined' ? form.displayName || '' : '' %>" required></div>
+      <div class="mb"><label>Email</label><input name="email" type="email" value="<%= typeof form !== 'undefined' ? form.email || '' : '' %>" required></div>
+      <div class="mb"><label>Trình độ</label><select name="skillLevel"><option value="">Chưa chọn trình</option><% ['A','B','C','D'].forEach((level) => { %><option value="<%= level %>" <%= typeof form !== 'undefined' && form.skillLevel === level ? 'selected' : '' %>><%= level %></option><% }) %></select></div>
       <button class="btn btn-success" style="width:100%" data-loading-text="Đang đăng ký...">Đăng ký</button>
     </form>
   </section>

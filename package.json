@@ -7,6 +7,7 @@
     "build": "nest build",
     "test": "npm run build && node --test test/*.test.js",
     "test:e2e": "npm run build && node scripts/run-e2e.js",
+    "seed:e2e": "node scripts/seed-e2e.js",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",

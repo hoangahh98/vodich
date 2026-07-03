@@ -1,21 +1,18 @@
-const { spawn } = require('node:child_process');
+const { spawn, spawnSync } = require('node:child_process');
 
 const port = process.env.E2E_PORT || '3100';
 const baseURL = process.env.E2E_BASE_URL || `http://127.0.0.1:${port}`;
+const hasE2eDatabase = Boolean(process.env.E2E_DATABASE_URL);
+
+if (hasE2eDatabase) {
+  const seed = spawnSync(process.execPath, ['scripts/seed-e2e.js'], { env: process.env, stdio: 'inherit', windowsHide: true });
+  if (seed.status !== 0) process.exit(seed.status || 1);
+}
 
 const server = process.env.E2E_BASE_URL
   ? null
   : spawn(process.execPath, ['dist/main.js'], {
-      env: {
-        ...process.env,
-        DISABLE_APP_LOGS: 'true',
-        DISABLE_HTTP_LOGS: 'true',
-        PORT: port,
-        REDIS_URL: '',
-        REQUIRE_REDIS: 'false',
-        SKIP_ADMIN_BOOTSTRAP: 'true',
-        SKIP_PRISMA_CONNECT: 'true',
-      },
+      env: serverEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
@@ -64,4 +61,28 @@ async function waitForHealth() {
 
 function cleanup() {
   if (server && server.exitCode === null) server.kill();
+}
+
+function serverEnv() {
+  const env = {
+    ...process.env,
+    DISABLE_APP_LOGS: 'true',
+    DISABLE_HTTP_LOGS: 'true',
+    PORT: port,
+    REDIS_URL: '',
+    REQUIRE_REDIS: 'false',
+  };
+
+  if (hasE2eDatabase) {
+    env.DATABASE_URL = process.env.E2E_DATABASE_URL;
+    env.APP_ADMIN_USERNAME = 'e2e_admin';
+    env.APP_ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD || '123456789';
+    env.SKIP_ADMIN_BOOTSTRAP = 'false';
+    delete env.SKIP_PRISMA_CONNECT;
+    return env;
+  }
+
+  env.SKIP_ADMIN_BOOTSTRAP = 'true';
+  env.SKIP_PRISMA_CONNECT = 'true';
+  return env;
 }

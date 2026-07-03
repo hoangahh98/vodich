@@ -1,207 +1,69 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma.service';
-import { parseMoney } from '../common/money';
-import { TeamMonthReportBuilder } from './team-month-report';
+import { Injectable } from '@nestjs/common';
+import { TeamCrudService } from './team-crud.service';
+import { TeamDetailService } from './team-detail.service';
+import { TeamExpenseService } from './team-expense.service';
+import { TeamFundService } from './team-fund.service';
+import { TeamMemberService } from './team-member.service';
 
 @Injectable()
 export class TeamService {
-  private readonly monthReportBuilder = new TeamMonthReportBuilder();
+  constructor(
+    private readonly crud: TeamCrudService,
+    private readonly detail: TeamDetailService,
+    private readonly expenses: TeamExpenseService,
+    private readonly fund: TeamFundService,
+    private readonly members: TeamMemberService,
+  ) {}
 
-  constructor(private readonly prisma: PrismaService) {}
-
-  async list() {
-    const [teams, memberCounts] = await Promise.all([
-      this.prisma.teamClub.findMany({ orderBy: { id: 'desc' } }),
-      this.prisma.teamMember.groupBy({
-        by: ['teamId'],
-        where: { active: true },
-        _count: { _all: true },
-      }),
-    ]);
-    const countByTeamId = new Map(memberCounts.map((item) => [item.teamId.toString(), item._count._all]));
-    return teams.map((team) => ({
-      ...team,
-      activeMemberCount: countByTeamId.get(team.id.toString()) || 0,
-    }));
+  list() {
+    return this.crud.list();
   }
 
   create(name: string, description?: string) {
-    return this.prisma.teamClub.create({ data: { name: name.trim(), description: description?.trim() || null } });
+    return this.crud.create(name, description);
   }
 
   updateTeam(id: bigint, name: string, description?: string) {
-    return this.prisma.teamClub.update({
-      where: { id },
-      data: { name: name.trim(), description: cleanText(description), updatedAt: new Date() },
-    });
+    return this.crud.updateTeam(id, name, description);
   }
 
-  async detail(id: bigint) {
-    return this.detailForMonth(id, new Date().toISOString().slice(0, 7));
+  detailForMonth(id: bigint, month: string) {
+    return this.detail.detailForMonth(id, month);
   }
 
-  async detailForMonth(id: bigint, month: string) {
-    const fundMonth = monthDate(month);
-    const previousMonthBalance = await this.previousMonthBalance(id, fundMonth);
-    const [team, members, players, fund, expenses] = await Promise.all([
-      this.prisma.teamClub.findUniqueOrThrow({ where: { id } }),
-      this.prisma.teamMember.findMany({
-        where: { teamId: id, active: true },
-        include: { player: true, payments: { where: { fundMonth } } },
-        orderBy: { id: 'asc' },
-      }),
-      this.prisma.player.findMany({ orderBy: { displayName: 'asc' } }),
-      this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId: id, fundMonth } } }),
-      this.prisma.teamExpense.findMany({ where: { teamId: id, expenseMonth: fundMonth }, orderBy: [{ expenseDate: 'desc' }, { id: 'desc' }] }),
-    ]);
-    const report = this.monthReportBuilder.build({ members, players, fund, expenses, previousMonthBalance });
-    return { team, members: report.members, players: report.players, fund, expenses, selectedMonth: month, finance: report.finance, emailList: report.emailList };
+  detailCurrentMonth(id: bigint) {
+    return this.detail.detail(id);
   }
 
-  async addMember(teamId: bigint, playerId: bigint, memberType: string, notes?: string, month?: string) {
-    const normalizedMemberType = normalizeMemberType(memberType);
-    const member = await this.prisma.teamMember.upsert({
-      where: { teamId_playerId: { teamId, playerId } },
-      update: { active: true, memberType: normalizedMemberType, notes: cleanText(notes) },
-      create: { teamId, playerId, memberType: normalizedMemberType, notes: cleanText(notes) },
-    });
-    const fundMonth = monthDate(month);
-    const fund = await this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth } } });
-    if (fund && normalizedMemberType === 'FIXED') {
-      await this.prisma.teamMemberPayment.upsert({
-        where: { memberId_fundMonth: { memberId: member.id, fundMonth: fund.fundMonth } },
-        update: { paidAmount: Number(fund.monthlyFee), paymentStatus: 'UNPAID' },
-        create: { memberId: member.id, fundMonth: fund.fundMonth, paidAmount: Number(fund.monthlyFee), paymentStatus: 'UNPAID' },
-      });
-    }
-    return member;
+  addMember(teamId: bigint, playerId: bigint, memberType: string, notes?: string, month?: string) {
+    return this.members.addMember(teamId, playerId, memberType, notes, month);
   }
 
-  async addMembers(teamId: bigint, playerIds: bigint[], memberType: string, notes?: string, month?: string) {
-    const uniqueIds = [...new Set(playerIds.map((id) => id.toString()))].map((id) => BigInt(id));
-    for (const playerId of uniqueIds) {
-      await this.addMember(teamId, playerId, memberType, notes, month);
-    }
-    return uniqueIds.length;
+  addMembers(teamId: bigint, playerIds: bigint[], memberType: string, notes?: string, month?: string) {
+    return this.members.addMembers(teamId, playerIds, memberType, notes, month);
   }
 
-  async updateMember(teamId: bigint, memberId: bigint, memberType: string, notes?: string) {
-    const result = await this.prisma.teamMember.updateMany({
-      where: { id: memberId, teamId },
-      data: { memberType: normalizeMemberType(memberType), notes: cleanText(notes) },
-    });
-    if (!result.count) throw new NotFoundException('Không tìm thấy thành viên trong đội');
-    return result;
+  updateMember(teamId: bigint, memberId: bigint, memberType: string, notes?: string) {
+    return this.members.updateMember(teamId, memberId, memberType, notes);
   }
 
-  async removeMember(teamId: bigint, memberId: bigint) {
-    const result = await this.prisma.teamMember.updateMany({
-      where: { id: memberId, teamId },
-      data: { active: false },
-    });
-    if (!result.count) throw new NotFoundException('Không tìm thấy thành viên trong đội');
-    return result;
+  removeMember(teamId: bigint, memberId: bigint) {
+    return this.members.removeMember(teamId, memberId);
   }
 
-  async setFund(teamId: bigint, month: string, monthlyFee: string, courtCost: string, previousBalance?: string, notes?: string) {
-    const fundMonth = monthDate(month);
-    const fee = parseMoney(monthlyFee);
-    const resolvedPreviousBalance = hasMoneyValue(previousBalance) ? parseMoney(previousBalance) : await this.previousMonthBalance(teamId, fundMonth);
-    const fund = await this.prisma.teamMonthFund.upsert({
-      where: { teamId_fundMonth: { teamId, fundMonth } },
-      update: { monthlyFee: fee, courtCost: parseMoney(courtCost), previousBalance: resolvedPreviousBalance, notes: notes?.trim() || null },
-      create: { teamId, fundMonth, monthlyFee: fee, courtCost: parseMoney(courtCost), previousBalance: resolvedPreviousBalance, notes: notes?.trim() || null },
-    });
-    const fixedMembers = await this.prisma.teamMember.findMany({ where: { teamId, active: true, memberType: 'FIXED' } });
-    await this.prisma.$transaction(
-      fixedMembers.map((member) =>
-        this.prisma.teamMemberPayment.upsert({
-          where: { memberId_fundMonth: { memberId: member.id, fundMonth } },
-          update: { paidAmount: fee },
-          create: { memberId: member.id, fundMonth, paidAmount: fee, paymentStatus: 'UNPAID' },
-        }),
-      ),
-    );
-    return fund;
+  setFund(teamId: bigint, month: string, monthlyFee: string, courtCost: string, previousBalance?: string, notes?: string) {
+    return this.fund.setFund(teamId, month, monthlyFee, courtCost, previousBalance, notes);
   }
 
-  async updatePayments(teamId: bigint, month: string, body: Record<string, string>) {
-    const fundMonth = monthDate(month);
-    const memberIds = Object.keys(body)
-      .filter((key) => key.startsWith('amount_'))
-      .map((key) => BigInt(key.replace('amount_', '')));
-    const validMembers = await this.prisma.teamMember.findMany({
-      where: { teamId, id: { in: memberIds } },
-      select: { id: true },
-    });
-    const validMemberIds = new Set(validMembers.map((member) => member.id.toString()));
-    const updates = Object.entries(body)
-      .filter(([key]) => key.startsWith('amount_'))
-      .filter(([key]) => validMemberIds.has(key.replace('amount_', '')))
-      .flatMap(([key, amount]) => {
-        const memberId = BigInt(key.replace('amount_', ''));
-        const memberType = body[`memberType_${memberId}`];
-        return [
-          ...(memberType ? [this.prisma.teamMember.update({ where: { id: memberId }, data: { memberType: normalizeMemberType(memberType) } })] : []),
-          this.prisma.teamMemberPayment.upsert({
-            where: { memberId_fundMonth: { memberId, fundMonth } },
-            update: { paidAmount: parseMoney(amount), paymentStatus: body[`status_${memberId}`] || 'UNPAID', notes: cleanText(body[`notes_${memberId}`]) },
-            create: { memberId, fundMonth, paidAmount: parseMoney(amount), paymentStatus: body[`status_${memberId}`] || 'UNPAID', notes: cleanText(body[`notes_${memberId}`]) },
-          }),
-        ];
-      });
-    return this.prisma.$transaction(updates);
+  updatePayments(teamId: bigint, month: string, body: Record<string, string>) {
+    return this.fund.updatePayments(teamId, month, body);
   }
 
   addExpense(teamId: bigint, month: string, expenseDate: string, content: string, amount: string, notes?: string) {
-    return this.prisma.teamExpense.create({
-      data: {
-        teamId,
-        expenseMonth: monthDate(month),
-        expenseDate: expenseDate ? new Date(`${expenseDate}T00:00:00Z`) : null,
-        content: content.trim(),
-        amount: parseMoney(amount),
-        notes: notes?.trim() || null,
-      },
-    });
+    return this.expenses.addExpense(teamId, month, expenseDate, content, amount, notes);
   }
 
-  async deleteExpense(teamId: bigint, id: bigint) {
-    const result = await this.prisma.teamExpense.deleteMany({ where: { id, teamId } });
-    if (!result.count) throw new NotFoundException('Không tìm thấy khoản chi trong đội');
-    return result;
+  deleteExpense(teamId: bigint, id: bigint) {
+    return this.expenses.deleteExpense(teamId, id);
   }
-
-  private async previousMonthBalance(teamId: bigint, fundMonth: Date) {
-    const previousMonth = addMonths(fundMonth, -1);
-    const [fund, payments, expenses] = await Promise.all([
-      this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth: previousMonth } } }),
-      this.prisma.teamMemberPayment.findMany({ where: { fundMonth: previousMonth, member: { teamId } } }),
-      this.prisma.teamExpense.findMany({ where: { teamId, expenseMonth: previousMonth } }),
-    ]);
-    if (!fund) return 0;
-    const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.paidAmount), 0);
-    const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-    return Number(fund.previousBalance || 0) + totalPaid - Number(fund.courtCost || 0) - totalExpense;
-  }
-}
-
-function monthDate(month?: string) {
-  return new Date(`${month || new Date().toISOString().slice(0, 7)}-01T00:00:00Z`);
-}
-
-function addMonths(date: Date, amount: number) {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + amount, 1));
-}
-
-function hasMoneyValue(value?: string) {
-  return value !== undefined && value !== null && String(value).trim() !== '';
-}
-
-function normalizeMemberType(value?: string) {
-  return value === 'GUEST' ? 'GUEST' : 'FIXED';
-}
-
-function cleanText(value?: string) {
-  return value && value.trim() ? value.trim() : null;
 }

@@ -1,14 +1,14 @@
 # Vô Địch Tool
 
-Ứng dụng quản lý giải đấu, thành viên, đội bóng, phân quyền, log hệ thống và tỉ số trực tiếp.
+Ứng dụng quản lý giải đấu pickleball, thành viên, đội bóng, phân quyền, log hệ thống và tỉ số trực tiếp.
 
 ## Công nghệ
 
-- Node.js runtime trên Render
-- NestJS + TypeScript
-- Prisma + Supabase Postgres
+- Node.js 20, NestJS, TypeScript
+- Prisma + PostgreSQL
 - EJS server-rendered UI
-- Socket.IO WebSocket cho cập nhật điểm tức thời
+- Socket.IO cho realtime scoring
+- Redis cho session/realtime khi chạy nhiều Render service
 
 ## Chạy local
 
@@ -18,47 +18,80 @@ npx prisma generate
 npm run start:dev
 ```
 
-Biến môi trường:
+Biến môi trường tối thiểu:
 
 ```env
 DATABASE_URL=postgresql://...
+SESSION_SECRET=replace-with-a-long-random-secret
 APP_ADMIN_USERNAME=admin
 APP_ADMIN_PASSWORD=123456789
-SESSION_SECRET=change-me
 REDIS_URL=redis://...
-REQUIRE_REDIS=true
+REQUIRE_REDIS=false
 ```
 
-`REQUIRE_REDIS=true` dÃ¹ng cho production nhiá»u Render service: náº¿u Redis thiáº¿u hoáº·c káº¿t ná»‘i lá»—i thÃ¬ app dá»«ng khá»Ÿi Ä‘á»™ng thay vÃ¬ fallback sang memory.
+## Biến môi trường production
 
-## Triển khai Render
+- `DATABASE_URL`: PostgreSQL connection string.
+- `SESSION_SECRET`: chuỗi bí mật dài để ký session cookie. Hai Render service dùng chung app phải dùng cùng giá trị này.
+- `REDIS_URL`: Redis URL dùng cho session/socket adapter khi chạy nhiều service.
+- `REQUIRE_REDIS`: đặt `true` trên production nhiều service để app fail-fast nếu Redis thiếu hoặc lỗi. Đặt `false` chỉ phù hợp khi chạy một service hoặc môi trường test.
+- `APP_ADMIN_USERNAME`: tài khoản admin gốc, mặc định `admin`.
+- `APP_ADMIN_PASSWORD`: mật khẩu admin gốc khi bootstrap lần đầu.
 
-Chọn **Web Service -> Runtime Node**.
+Biến chỉ nên dùng cho test/CI:
 
-Lệnh build:
+- `E2E_DATABASE_URL`: DB test riêng cho Playwright workflow thật. Không dùng production DB.
+- `E2E_ADMIN_PASSWORD`: mật khẩu seed admin e2e, mặc định `123456789`.
+- `SKIP_PRISMA_CONNECT=true`: chỉ dùng smoke test không DB.
+- `SKIP_ADMIN_BOOTSTRAP=true`: bỏ bootstrap admin trong test.
+- `DISABLE_APP_LOGS=true`, `DISABLE_HTTP_LOGS=true`: giảm log khi test.
+
+## Render
+
+Build command:
 
 ```bash
-npm install && npx prisma generate && npm run build
+npm ci && npx prisma migrate deploy && npx prisma generate && npm run build && npm prune --omit=dev && npm cache clean --force
 ```
 
-Lệnh chạy:
+Start command:
 
 ```bash
 npm run start:prod
 ```
 
-## Tính năng
+Khi chạy hai Render service cùng source và cùng DB, đặt cùng `DATABASE_URL`, `REDIS_URL`, `SESSION_SECRET`, `APP_ADMIN_USERNAME`, `APP_ADMIN_PASSWORD`, và đặt `REQUIRE_REDIS=true`.
 
-- Quản trị đăng nhập, quản trị gốc phân quyền tính năng cho quản trị khác.
-- Khách xem đăng nhập bằng email thành viên hoặc email đăng ký ngoài, mật khẩu mặc định `123456789`.
-- Quản lý thành viên, chống trùng email.
-- Tạo giải, chọn vòng tròn hoặc vòng bảng + loại trực tiếp.
-- Nếu chọn vòng bảng mới hiện cấu hình số đội vào vòng trong.
-- BXH vòng tròn hiển thị BXH thường; vòng bảng hiển thị `BXH - Bảng A/B/...`.
-- Lịch thi đấu cập nhật tức thời qua WebSocket, có trạng thái đang xử lý khi bấm thao tác.
-- Đăng ký ngoài cho giải và lưu riêng trong bảng đăng ký giải.
-- Bỏ giải/khôi phục.
-- Quản lý đội bóng, thành viên đội, cấu hình quỹ tháng.
-- Theo dõi log chỉ dành cho quản trị gốc, hiển thị giờ Việt Nam.
+## Test
 
-Các tính năng giải trí cũ đã bỏ.
+Unit/domain tests:
+
+```bash
+npm test
+```
+
+Browser smoke tests không cần DB:
+
+```bash
+npm run test:e2e
+```
+
+Browser tests có DB thật qua DB test riêng:
+
+```bash
+E2E_DATABASE_URL=postgresql://... npm run test:e2e
+```
+
+Runner sẽ seed dữ liệu e2e vào DB test và ghi `.e2e-state.json` cục bộ. File này đã được ignore.
+
+## Health checks
+
+- `/healthz`: app process sống.
+- `/readyz`: kiểm tra trạng thái sẵn sàng sâu hơn, gồm PostgreSQL và Redis khi production yêu cầu Redis.
+
+## Ghi chú kiến trúc
+
+- Controller giữ vai trò routing/render/redirect, nghiệp vụ chính nằm trong service theo domain.
+- `TournamentService` và `TeamService` là facade mỏng, các luồng lớn được tách thành service nhỏ để dễ maintain.
+- Event realtime được chuẩn hóa trong client/server modules để sau này nâng cấp Redis/socket adapter ít chạm code UI.
+- Rate limit form login và đăng ký ngoài đang dùng in-memory service để không tăng Redis commands; có thể thay implementation bằng Redis khi lưu lượng lớn hơn.
