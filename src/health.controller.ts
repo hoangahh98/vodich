@@ -1,6 +1,6 @@
 import { Controller, Get, Res } from '@nestjs/common';
 import { Response } from 'express';
-import { checkRedisReady } from './common/redis';
+import { checkRedisReady, getRedisFeatureStatuses } from './common/redis';
 import { PrismaService } from './prisma.service';
 
 @Controller()
@@ -31,9 +31,9 @@ export class HealthController {
 
   private async checkRedis() {
     try {
-      return await checkRedisReady();
+      return { ...(await checkRedisReady()), features: getRedisFeatureStatuses() };
     } catch (error) {
-      return { configured: true, ok: false, error: errorMessage(error) };
+      return { configured: true, ok: false, error: errorMessage(error), features: getRedisFeatureStatuses() };
     }
   }
 }

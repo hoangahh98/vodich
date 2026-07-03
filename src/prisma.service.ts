@@ -3,21 +3,35 @@ import { PrismaClient } from '@prisma/client';
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+  constructor() {
+    super({ datasources: { db: { url: runtimeDatabaseUrl() } } });
+  }
+
   async onModuleInit() {
     if (process.env.SKIP_PRISMA_CONNECT === 'true') return;
     await this.$connect();
-    await this.$executeRawUnsafe('ALTER TABLE "tournament" ADD COLUMN IF NOT EXISTS "end_time" TIMESTAMP(3)');
-    await this.$executeRawUnsafe('ALTER TABLE "tournament" ADD COLUMN IF NOT EXISTS "knockout_touch_score" INTEGER NOT NULL DEFAULT 15');
-    await this.$executeRawUnsafe('ALTER TABLE "tournament" ADD COLUMN IF NOT EXISTS "knockout_max_score" INTEGER NOT NULL DEFAULT 19');
-    await this.$executeRawUnsafe(`
-      ALTER TABLE "tournament"
-        ALTER COLUMN "prize_rate_1" TYPE DECIMAL(14, 2),
-        ALTER COLUMN "prize_rate_2" TYPE DECIMAL(14, 2),
-        ALTER COLUMN "prize_rate_3" TYPE DECIMAL(14, 2)
-    `);
   }
 
   async onModuleDestroy() {
     await this.$disconnect();
+  }
+}
+
+function runtimeDatabaseUrl() {
+  const rawUrl = process.env.DATABASE_URL;
+  if (!rawUrl) return rawUrl;
+
+  const defaultLimit = process.env.NODE_ENV === 'production' ? '3' : '';
+  const connectionLimit = process.env.DATABASE_CONNECTION_LIMIT || defaultLimit;
+  if (!connectionLimit) return rawUrl;
+
+  try {
+    const url = new URL(rawUrl);
+    if (!['postgres:', 'postgresql:'].includes(url.protocol)) return rawUrl;
+    if (!url.searchParams.has('connection_limit')) url.searchParams.set('connection_limit', connectionLimit);
+    if (!url.searchParams.has('pool_timeout')) url.searchParams.set('pool_timeout', process.env.DATABASE_POOL_TIMEOUT || '20');
+    return url.toString();
+  } catch {
+    return rawUrl;
   }
 }

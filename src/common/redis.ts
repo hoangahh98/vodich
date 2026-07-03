@@ -9,6 +9,12 @@ export interface RedisLogEntry {
   errorMessage?: string;
 }
 
+export interface RedisFeatureStatus {
+  enabled: boolean;
+  details?: string;
+  updatedAt: string;
+}
+
 export type AppRedisClient = ReturnType<typeof createClient> & {
   connect: () => Promise<unknown>;
   ping: () => Promise<string>;
@@ -19,6 +25,8 @@ export type AppRedisClient = ReturnType<typeof createClient> & {
 const redisUrl = process.env.REDIS_URL?.trim();
 const redisRequired = process.env.REQUIRE_REDIS?.trim().toLowerCase() === 'true';
 let redisLogSink: ((entry: RedisLogEntry) => void | Promise<void>) | undefined;
+let readyCache: { expiresAt: number; result: Awaited<ReturnType<typeof checkRedisReadyUncached>> } | undefined;
+const featureStatuses = new Map<string, RedisFeatureStatus>();
 
 export function setRedisLogSink(sink: (entry: RedisLogEntry) => void | Promise<void>) {
   redisLogSink = sink;
@@ -42,6 +50,14 @@ export function redisConnectionSummary() {
   }
 }
 
+export function setRedisFeatureStatus(feature: string, enabled: boolean, details = redisConnectionSummary()) {
+  featureStatuses.set(feature, { enabled, details, updatedAt: new Date().toISOString() });
+}
+
+export function getRedisFeatureStatuses() {
+  return Object.fromEntries(featureStatuses.entries());
+}
+
 export function createRedisClient(label: string): AppRedisClient | undefined {
   if (!redisUrl) return undefined;
   const client = createClient({
@@ -57,19 +73,27 @@ export function createRedisClient(label: string): AppRedisClient | undefined {
   return client;
 }
 
-export async function createConnectedRedisClient(label: string): Promise<AppRedisClient | undefined> {
+export async function createConnectedRedisClient(label: string, options: { logConnected?: boolean } = {}): Promise<AppRedisClient | undefined> {
   const client = createRedisClient(label);
   if (!client) return undefined;
   await client.connect();
-  recordRedisLog('INFO', `${label} connected`, redisConnectionSummary());
+  if (options.logConnected !== false) recordRedisLog('INFO', `${label} connected`, redisConnectionSummary());
   return client;
 }
 
-export async function checkRedisReady() {
+export async function checkRedisReady(cacheMs = 30000) {
+  const now = Date.now();
+  if (readyCache && readyCache.expiresAt > now) return readyCache.result;
+  const result = await checkRedisReadyUncached();
+  readyCache = { result, expiresAt: now + cacheMs };
+  return result;
+}
+
+async function checkRedisReadyUncached() {
   if (!isRedisConfigured()) {
     return { configured: false, required: isRedisRequired(), ok: !isRedisRequired(), details: redisConnectionSummary() };
   }
-  const client = await createConnectedRedisClient('health');
+  const client = await createConnectedRedisClient('health', { logConnected: false });
   try {
     const pong = await client?.ping();
     return { configured: true, required: isRedisRequired(), ok: pong === 'PONG', details: redisConnectionSummary() };

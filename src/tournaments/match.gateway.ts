@@ -2,7 +2,7 @@ import { ConnectedSocket, MessageBody, OnGatewayInit, SubscribeMessage, WebSocke
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Server, Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service';
-import { createConnectedRedisClient, createRedisClient, isRedisConfigured, isRedisRequired, recordRedisLog, redisConnectionSummary, requiredRedisError } from '../common/redis';
+import { createConnectedRedisClient, createRedisClient, isRedisConfigured, isRedisRequired, recordRedisLog, redisConnectionSummary, requiredRedisError, setRedisFeatureStatus } from '../common/redis';
 import { getSessionMiddleware } from '../common/session';
 import { PrismaService } from '../prisma.service';
 import { SOCKET_EVENTS, ScorePayload, teamRoom, tournamentRoom } from '../realtime/socket-events';
@@ -105,6 +105,7 @@ export class MatchGateway implements OnGatewayInit {
 
   private async configureRedisAdapter(server: Server) {
     if (!isRedisConfigured()) {
+      setRedisFeatureStatus('socketAdapter', false, 'REDIS_URL not configured');
       if (isRedisRequired()) throw requiredRedisError('REDIS_URL is not configured for socket adapter');
       return;
     }
@@ -118,9 +119,11 @@ export class MatchGateway implements OnGatewayInit {
       recordRedisLog('INFO', 'socket-sub connected', redisConnectionSummary());
       server.adapter(createAdapter(pubClient, subClient));
       recordRedisLog('INFO', 'socket adapter enabled', redisConnectionSummary());
+      setRedisFeatureStatus('socketAdapter', true);
     } catch (error) {
       const action = isRedisRequired() ? 'socket adapter failed' : 'socket adapter fallback to memory';
       recordRedisLog('ERROR', action, redisConnectionSummary(), error);
+      setRedisFeatureStatus('socketAdapter', false, action);
       await pubClient?.quit().catch(() => undefined);
       await subClient?.quit().catch(() => undefined);
       if (isRedisRequired()) throw requiredRedisError('socket adapter failed', error);

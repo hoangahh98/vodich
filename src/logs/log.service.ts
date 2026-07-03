@@ -14,6 +14,7 @@ export class LogService implements NestMiddleware {
     }
     const started = Date.now();
     res.on('finish', () => {
+      if (shouldSkipHttpLog(req, res)) return;
       this.record(req, res, Date.now() - started).catch(() => undefined);
     });
     next();
@@ -44,6 +45,13 @@ export class LogService implements NestMiddleware {
       },
     });
   }
+}
+
+function shouldSkipHttpLog(req: Request, res: Response) {
+  if (process.env.LOG_ALL_HTTP === 'true') return false;
+  if (req.path === '/healthz' || req.path === '/readyz' || req.path === '/favicon.ico' || req.path === '/manifest.json') return true;
+  if (req.method !== 'GET' || res.statusCode >= 400) return false;
+  return ['/css/', '/js/', '/icons/', '/uploads/'].some((prefix) => req.path.startsWith(prefix));
 }
 
 function safeParams(body: unknown): string {
