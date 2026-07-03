@@ -106,8 +106,10 @@ document.addEventListener('click', (event) => {
   if (link.target || link.hasAttribute('download') || href.startsWith('#') || href.startsWith('javascript:')) return;
   const url = new URL(link.href, window.location.href);
   if (url.origin !== window.location.origin) return;
-  showPageBusy(link.getAttribute('data-loading-text') || 'Đang mở...', 180);
+  event.preventDefault();
+  showPageBusy(link.getAttribute('data-loading-text') || 'Đang mở...', 0);
   if (link.classList.contains('btn')) setActionLoading(link, 'Đang mở...');
+  window.setTimeout(() => window.location.assign(url.href), 70);
 });
 
 document.addEventListener('input', (event) => {
@@ -260,7 +262,6 @@ const getTournamentSocket = (tournamentId) => {
     window.addEventListener('orientationchange', () => window.setTimeout(keepInViewport, 120));
     button.addEventListener('pointerdown', (event) => {
       if (!menu || event.button !== 0) return;
-      event.preventDefault();
       const rect = menu.getBoundingClientRect();
       dragState = {
         pointerId: event.pointerId,
@@ -276,7 +277,7 @@ const getTournamentSocket = (tournamentId) => {
       if (!menu || !dragState || dragState.pointerId !== event.pointerId) return;
       const dx = event.clientX - dragState.startX;
       const dy = event.clientY - dragState.startY;
-      if (Math.abs(dx) + Math.abs(dy) < 2) return;
+      if (Math.abs(dx) + Math.abs(dy) < 8) return;
       event.preventDefault();
       dragState.moved = true;
       menu.classList.add('is-dragging');
