@@ -304,6 +304,7 @@ export class AppController {
   async createTeam(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     const team = await this.teams.create(body.name, body.description);
+    this.matchGateway.emitTeamsUpdated('team-created');
     return res.redirect(`/teams/${team.id}`);
   }
 
@@ -327,6 +328,7 @@ export class AppController {
     const selected = Array.isArray(body.playerIds) ? body.playerIds : body.playerIds ? [body.playerIds] : body.playerId ? [String(body.playerId)] : [];
     const month = String(body.month || new Date().toISOString().slice(0, 7));
     await this.teams.addMembers(BigInt(id), selected.map((playerId) => BigInt(playerId)), String(body.memberType || 'FIXED'), String(body.notes || ''), month);
+    this.matchGateway.emitTeamUpdated(id, 'members');
     return res.redirect(`/teams/${id}/members?month=${month}`);
   }
 
@@ -334,6 +336,7 @@ export class AppController {
   async editTeamMember(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('memberId') memberId: string, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     await this.teams.updateMember(BigInt(teamId), BigInt(memberId), body.memberType || 'FIXED', body.notes);
+    this.matchGateway.emitTeamUpdated(teamId, 'members');
     return res.redirect(`/teams/${teamId}/members?month=${body.month || new Date().toISOString().slice(0, 7)}`);
   }
 
@@ -341,6 +344,7 @@ export class AppController {
   async deleteTeamMember(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('memberId') memberId: string, @Body('month') month: string) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     await this.teams.removeMember(BigInt(teamId), BigInt(memberId));
+    this.matchGateway.emitTeamUpdated(teamId, 'members');
     return res.redirect(`/teams/${teamId}/members?month=${month || new Date().toISOString().slice(0, 7)}`);
   }
 
@@ -348,6 +352,7 @@ export class AppController {
   async setTeamFund(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     await this.teams.setFund(BigInt(id), body.month, body.monthlyFee, body.courtCost, body.previousBalance, body.notes);
+    this.matchGateway.emitTeamUpdated(id, 'fund');
     return res.redirect(`/teams/${id}/overview?month=${body.month || new Date().toISOString().slice(0, 7)}`);
   }
 
@@ -356,6 +361,7 @@ export class AppController {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     await this.teams.updateTeam(BigInt(id), body.name, body.description);
     await this.teams.setFund(BigInt(id), body.month, body.monthlyFee, body.courtCost, body.previousBalance, body.notes);
+    this.matchGateway.emitTeamUpdated(id, 'settings');
     return res.redirect(`/teams/${id}/settings?month=${body.month || new Date().toISOString().slice(0, 7)}`);
   }
 
@@ -364,6 +370,7 @@ export class AppController {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     const month = body.month || new Date().toISOString().slice(0, 7);
     await this.teams.updatePayments(BigInt(id), month, body);
+    this.matchGateway.emitTeamUpdated(id, 'payments');
     return res.redirect(`/teams/${id}/members?month=${month}`);
   }
 
@@ -372,6 +379,7 @@ export class AppController {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     const month = body.month || new Date().toISOString().slice(0, 7);
     await this.teams.addExpense(BigInt(id), month, body.expenseDate, body.content, body.amount, body.notes);
+    this.matchGateway.emitTeamUpdated(id, 'expenses');
     return res.redirect(`/teams/${id}/overview?month=${month}`);
   }
 
@@ -379,6 +387,7 @@ export class AppController {
   async deleteTeamExpense(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('expenseId') expenseId: string, @Body('month') month: string) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     await this.teams.deleteExpense(BigInt(teamId), BigInt(expenseId));
+    this.matchGateway.emitTeamUpdated(teamId, 'expenses');
     return res.redirect(`/teams/${teamId}/overview?month=${month || new Date().toISOString().slice(0, 7)}`);
   }
 

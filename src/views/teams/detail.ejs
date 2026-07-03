@@ -2,7 +2,7 @@
 <%- include('../partials/topbar') %>
 <% const currentEmail = String(currentUser?.email || currentUser?.username || '').toLowerCase(); %>
 <% const isMine = (member) => String(member.player.email || '').toLowerCase() === currentEmail; %>
-<main class="app-shell team-detail-shell">
+<main class="app-shell team-detail-shell" data-team-id="<%= team.id %>">
   <section class="feature-hero p mb">
     <div class="flex between center">
       <div>

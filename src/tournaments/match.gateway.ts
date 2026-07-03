@@ -25,9 +25,23 @@ export class MatchGateway implements OnGatewayInit {
     this.server.to(`tournament:${String(tournamentId)}`).emit('tournamentUpdated', { tournamentId: String(tournamentId), reason });
   }
 
+  emitTeamUpdated(teamId: string | bigint, reason = 'updated') {
+    this.server.to(`team:${String(teamId)}`).emit('teamUpdated', { teamId: String(teamId), reason });
+    this.emitTeamsUpdated(reason);
+  }
+
+  emitTeamsUpdated(reason = 'updated') {
+    this.server.emit('teamsUpdated', { reason });
+  }
+
   @SubscribeMessage('joinTournament')
   join(@MessageBody() tournamentId: string, @ConnectedSocket() socket: Socket) {
     socket.join(`tournament:${tournamentId}`);
+  }
+
+  @SubscribeMessage('joinTeam')
+  joinTeam(@MessageBody() teamId: string, @ConnectedSocket() socket: Socket) {
+    socket.join(`team:${teamId}`);
   }
 
   @SubscribeMessage('score')

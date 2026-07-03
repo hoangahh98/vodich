@@ -119,14 +119,30 @@ document.addEventListener('input', (event) => {
   input.value = digits ? Number(digits).toLocaleString('en-US') : '';
 });
 
+const getAppSocket = () => {
+  if (typeof io === 'undefined') return null;
+  if (!window.vodichSocket) window.vodichSocket = io();
+  return window.vodichSocket;
+};
+
 const getTournamentSocket = (tournamentId) => {
-  if (typeof io === 'undefined' || !tournamentId) return null;
-  if (!window.tournamentSocket) window.tournamentSocket = io();
+  const socket = getAppSocket();
+  if (!socket || !tournamentId) return null;
   if (window.joinedTournamentId !== String(tournamentId)) {
-    window.tournamentSocket.emit('joinTournament', String(tournamentId));
+    socket.emit('joinTournament', String(tournamentId));
     window.joinedTournamentId = String(tournamentId);
   }
-  return window.tournamentSocket;
+  return socket;
+};
+
+const getTeamSocket = (teamId) => {
+  const socket = getAppSocket();
+  if (!socket || !teamId) return null;
+  if (window.joinedTeamId !== String(teamId)) {
+    socket.emit('joinTeam', String(teamId));
+    window.joinedTeamId = String(teamId);
+  }
+  return socket;
 };
 
 (() => {
@@ -387,6 +403,31 @@ const getTournamentSocket = (tournamentId) => {
   if (!socket) return;
   let reloadTimer = null;
   socket.on('tournamentUpdated', () => {
+    window.clearTimeout(reloadTimer);
+    reloadTimer = window.setTimeout(() => window.location.reload(), 300);
+  });
+})();
+
+(() => {
+  const shell = document.querySelector('[data-team-id]');
+  if (!shell) return;
+  const socket = getTeamSocket(shell.dataset.teamId);
+  if (!socket) return;
+  let reloadTimer = null;
+  socket.on('teamUpdated', (payload) => {
+    if (String(payload?.teamId || '') !== String(shell.dataset.teamId)) return;
+    window.clearTimeout(reloadTimer);
+    reloadTimer = window.setTimeout(() => window.location.reload(), 300);
+  });
+})();
+
+(() => {
+  const shell = document.querySelector('[data-teams-index]');
+  if (!shell) return;
+  const socket = getAppSocket();
+  if (!socket) return;
+  let reloadTimer = null;
+  socket.on('teamsUpdated', () => {
     window.clearTimeout(reloadTimer);
     reloadTimer = window.setTimeout(() => window.location.reload(), 300);
   });
