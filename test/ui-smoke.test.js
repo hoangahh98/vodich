@@ -197,11 +197,14 @@ test('travel views render dashboard and finance detail without overflow-prone pl
   const summary = {
     totalSpent: 200,
     totalCollectedDisplay: 100,
-    averageSpent: 200,
+    totalAdvanced: 50,
     balance: -100,
     memberSpent: new Map([['1', 200]]),
+    memberPaidTotal: new Map([['1', 50]]),
+    memberAdvanced: new Map([['1', 50]]),
     memberDebt: new Map([['1', 100]]),
     actualCollected: new Map([['1', 100]]),
+    balances: new Map([['1', -100]]),
     paymentSuggestions: [],
   };
   const dashboard = await renderView('travel/index.ejs', {
@@ -231,6 +234,8 @@ test('travel views render dashboard and finance detail without overflow-prone pl
   assert.match(dashboard, /🌴/);
   assert.match(detail, /data-travel-trip-id="1"/);
   assert.match(detail, /travel-expense-form/);
+  assert.match(detail, /Tổng ứng trước/);
+  assert.match(detail, /Đã trả/);
   assert.match(detail, /🌴/);
   assert.match(home, /pickleball-icon/);
   assert.match(home, /\/score-reader/);

@@ -21,14 +21,15 @@ export type TravelSummary = {
   totalSpent: number;
   totalCollected: number;
   totalCollectedDisplay: number;
+  totalAdvanced: number;
   balance: number;
-  averageSpent: number;
   memberSpent: Map<string, number>;
   memberPaidTotal: Map<string, number>;
   memberCollected: Map<string, number>;
   actualCollected: Map<string, number>;
   memberDebt: Map<string, number>;
   memberAdvanced: Map<string, number>;
+  balances: Map<string, number>;
   paidEnoughTargets: Map<string, number>;
   paymentSuggestions: TravelPaymentSuggestion[];
 };
@@ -97,14 +98,15 @@ export class TravelSummaryBuilder {
       totalSpent,
       totalCollected: [...effectiveCollected.values()].reduce((total, amount) => total + amount, 0),
       totalCollectedDisplay: [...memberCollected.values()].reduce((total, amount) => total + amount, 0),
+      totalAdvanced: [...memberAdvanced.values()].reduce((total, amount) => total + amount, 0),
       balance: [...memberCollected.values()].reduce((total, amount) => total + amount, 0) - totalSpent,
-      averageSpent: members.length ? Math.round(totalSpent / members.length) : 0,
       memberSpent,
       memberPaidTotal,
       memberCollected,
       actualCollected,
       memberDebt,
       memberAdvanced,
+      balances,
       paidEnoughTargets,
       paymentSuggestions: paymentSuggestions(balances, memberNames),
     };

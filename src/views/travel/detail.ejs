@@ -15,10 +15,10 @@
   </section>
 
   <div class="grid finance-grid mb">
-    <div class="metric-card blue"><span>Tổng chi</span><strong><%= formatMoney(summary.totalSpent) %>đ</strong><small><%= expenses.length %> khoản chi</small></div>
-    <div class="metric-card green"><span>Đã thu</span><strong><%= formatMoney(summary.totalCollectedDisplay) %>đ</strong><small>Tính cả người đã trả tiền</small></div>
-    <div class="metric-card orange"><span>Bình quân</span><strong><%= formatMoney(summary.averageSpent) %>đ</strong><small>Mỗi thành viên</small></div>
-    <div class="metric-card <%= summary.balance >= 0 ? 'gold' : 'red' %>"><span>Cân đối</span><strong><%= formatMoney(summary.balance) %>đ</strong><small><%= summary.balance >= 0 ? 'Dư/đủ quỹ' : 'Còn thiếu' %></small></div>
+    <div class="metric-card blue"><span>Tổng thu</span><strong><%= formatMoney(summary.totalCollectedDisplay) %>đ</strong><small><%= members.length %> người</small></div>
+    <div class="metric-card green"><span>Tổng ứng trước</span><strong><%= formatMoney(summary.totalAdvanced) %>đ</strong><small>Thành viên đã trả hộ</small></div>
+    <div class="metric-card red"><span>Tổng chi</span><strong><%= formatMoney(summary.totalSpent) %>đ</strong><small><%= expenses.length %> khoản chi</small></div>
+    <div class="metric-card <%= summary.balance >= 0 ? 'gold' : 'red' %>"><span>Còn lại</span><strong><%= formatMoney(summary.balance) %>đ</strong><small><%= summary.balance >= 0 ? 'Dư/đủ quỹ' : 'Còn thiếu' %></small></div>
   </div>
 
   <% if (isTravelAdmin) { %>
@@ -63,13 +63,28 @@
         <form method="post" action="/travel/trips/<%= trip.id %>/collections">
           <div class="travel-table-wrap">
             <table class="travel-table">
-              <thead><tr><th>Thành viên</th><th>Phần chi</th><th>Đã thu</th><th>Còn thiếu</th><th>Ghi chú</th></tr></thead>
+              <thead><tr><th>Thành viên</th><th>Email xem</th><th>Đã thu</th><th>Đã trả</th><th>Ứng trước</th><th>Còn thiếu</th><th>Ghi chú</th></tr></thead>
               <tbody>
                 <% members.forEach((member) => { const key = member.id.toString(); const isTreasurer = String(trip.treasurerMemberId || '') === key; %>
-                  <tr>
+                  <tr class="<%= (summary.balances.get(key) || 0) >= 0 ? 'sufficient-row' : 'insufficient-row' %>">
                     <td><strong><%= member.name %></strong><% if (isTreasurer) { %><br><span class="badge">Thủ quỹ</span><% } %></td>
-                    <td><%= formatMoney(summary.memberSpent.get(key) || 0) %>đ</td>
-                    <td><input class="money-input" name="collection_<%= key %>" value="<%= formatMoney(summary.actualCollected ? summary.actualCollected.get(key) : (member.collections[0]?.amount || 0)) %>" <%= isTreasurer ? 'readonly' : '' %>></td>
+                    <td><span class="muted"><%= member.email || 'Chưa có' %></span></td>
+                    <td>
+                      <% const memberSpent = summary.memberSpent.get(key) || 0; const memberPaid = summary.memberPaidTotal.get(key) || 0; const actualCollected = summary.actualCollected ? summary.actualCollected.get(key) || 0 : Number(member.collections[0]?.amount || 0); %>
+                      <% if (isTreasurer) { %>
+                        <input type="hidden" name="collection_<%= key %>" value="<%= formatMoney(memberSpent) %>">
+                        <input class="money-input" value="<%= formatMoney(memberSpent) %>" readonly>
+                        <small class="muted">Tự tính theo phần cần đóng của thủ quỹ.</small>
+                      <% } else if (memberPaid >= memberSpent && memberSpent > 0) { %>
+                        <input type="hidden" name="collection_<%= key %>" value="<%= formatMoney(actualCollected) %>">
+                        <input class="money-input" value="<%= formatMoney(actualCollected) %>" readonly>
+                        <small class="text-success">Đã trả chi tiêu đủ phần phải đóng.</small>
+                      <% } else { %>
+                        <input class="money-input" name="collection_<%= key %>" value="<%= formatMoney(actualCollected) %>">
+                      <% } %>
+                    </td>
+                    <td><strong><%= formatMoney(memberPaid) %>đ</strong></td>
+                    <td><strong class="text-success"><%= formatMoney(summary.memberAdvanced.get(key) || 0) %>đ</strong></td>
                     <td><strong class="<%= (summary.memberDebt.get(key) || 0) > 0 ? 'text-danger' : 'text-success' %>"><%= formatMoney(summary.memberDebt.get(key) || 0) %>đ</strong></td>
                     <td><input name="collectionNote_<%= key %>" value="<%= member.collections[0]?.note || '' %>"></td>
                   </tr>
@@ -96,6 +111,28 @@
         </div>
         <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm khoản chi</button>
       </form>
+    </section>
+  <% } %>
+
+  <% if (!isTravelAdmin) { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">👥</span><h2 class="section-title">Thành viên</h2></div></div>
+      <div class="travel-table-wrap">
+        <table class="travel-table">
+          <thead><tr><th>Thành viên</th><th>Đã thu</th><th>Đã trả</th><th>Ứng trước</th><th>Còn thiếu</th></tr></thead>
+          <tbody>
+            <% members.forEach((member) => { const key = member.id.toString(); const isTreasurer = String(trip.treasurerMemberId || '') === key; %>
+              <tr class="<%= String(viewerMemberId || '') === key ? 'mine-row' : '' %>">
+                <td><strong><%= member.name %></strong><% if (isTreasurer) { %><br><span class="badge">Thủ quỹ</span><% } %></td>
+                <td><%= formatMoney(isTreasurer ? (summary.memberSpent.get(key) || 0) : (summary.actualCollected.get(key) || 0)) %>đ</td>
+                <td><strong><%= formatMoney(summary.memberPaidTotal.get(key) || 0) %>đ</strong></td>
+                <td><strong class="text-success"><%= formatMoney(summary.memberAdvanced.get(key) || 0) %>đ</strong></td>
+                <td><strong class="<%= (summary.memberDebt.get(key) || 0) > 0 ? 'text-danger' : 'text-success' %>"><%= formatMoney(summary.memberDebt.get(key) || 0) %>đ</strong></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
     </section>
   <% } %>
 

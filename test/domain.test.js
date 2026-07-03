@@ -128,6 +128,9 @@ test('TravelSummaryBuilder balances paid expenses, collections, and transfer sug
   assert.equal(summary.memberSpent.get('1'), 100);
   assert.equal(summary.memberSpent.get('3'), 190);
   assert.equal(summary.memberAdvanced.get('1'), 200);
+  assert.equal(summary.totalAdvanced, 200);
+  assert.equal(summary.totalCollectedDisplay, 290);
+  assert.equal(summary.balance, -100);
   assert.equal(summary.memberDebt.get('3'), 100);
   assert.deepEqual(summary.paymentSuggestions[0], {
     fromMemberId: '3',
