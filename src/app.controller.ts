@@ -333,14 +333,14 @@ export class AppController {
   @Post('/teams/:teamId/members/:memberId/edit')
   async editTeamMember(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('memberId') memberId: string, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
-    await this.teams.updateMember(BigInt(memberId), body.memberType || 'FIXED', body.notes);
+    await this.teams.updateMember(BigInt(teamId), BigInt(memberId), body.memberType || 'FIXED', body.notes);
     return res.redirect(`/teams/${teamId}/members?month=${body.month || new Date().toISOString().slice(0, 7)}`);
   }
 
   @Post('/teams/:teamId/members/:memberId/delete')
   async deleteTeamMember(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('memberId') memberId: string, @Body('month') month: string) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
-    await this.teams.removeMember(BigInt(memberId));
+    await this.teams.removeMember(BigInt(teamId), BigInt(memberId));
     return res.redirect(`/teams/${teamId}/members?month=${month || new Date().toISOString().slice(0, 7)}`);
   }
 
@@ -363,7 +363,7 @@ export class AppController {
   async updateTeamPayments(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
     const month = body.month || new Date().toISOString().slice(0, 7);
-    await this.teams.updatePayments(month, body);
+    await this.teams.updatePayments(BigInt(id), month, body);
     return res.redirect(`/teams/${id}/members?month=${month}`);
   }
 
@@ -378,7 +378,7 @@ export class AppController {
   @Post('/teams/:teamId/expenses/:expenseId/delete')
   async deleteTeamExpense(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('expenseId') expenseId: string, @Body('month') month: string) {
     if (!requireFeature(req, res, this.auth, 'TEAMS', true)) return;
-    await this.teams.deleteExpense(BigInt(expenseId));
+    await this.teams.deleteExpense(BigInt(teamId), BigInt(expenseId));
     return res.redirect(`/teams/${teamId}/overview?month=${month || new Date().toISOString().slice(0, 7)}`);
   }
 
