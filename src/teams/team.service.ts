@@ -48,16 +48,19 @@ export class TeamService {
     const monthlyFee = Number(fund?.monthlyFee || 0);
     const rows = members.map((member) => {
       const payment = member.payments[0];
-      const paidAmount = Number(payment?.paidAmount || (member.memberType === 'FIXED' ? monthlyFee : 0));
       const expectedAmount = member.memberType === 'FIXED' ? monthlyFee : 0;
+      const paymentStatus = payment?.paymentStatus || 'UNPAID';
+      const enteredAmount = payment ? Number(payment.paidAmount || 0) : expectedAmount;
+      const paidAmount = paymentStatus === 'PAID' ? enteredAmount : 0;
       return {
         ...member,
         payment,
         expectedAmount,
         paidAmount,
-        paymentStatus: payment?.paymentStatus || 'UNPAID',
+        enteredAmount,
+        paymentStatus,
         feeNotes: payment?.notes || '',
-        difference: member.memberType === 'FIXED' ? paidAmount - expectedAmount : 0,
+        difference: paidAmount - expectedAmount,
         typeLabel: member.memberType === 'FIXED' ? 'Cố định' : 'Vãng lai',
       };
     });
@@ -67,6 +70,7 @@ export class TeamService {
     const courtCost = Number(fund?.courtCost || 0);
     const previousBalance = fund ? Number(fund.previousBalance || 0) : previousMonthBalance;
     const totalDue = rows.reduce((sum, member) => sum + member.expectedAmount, 0);
+    const totalMissing = rows.reduce((sum, member) => sum + Math.max(0, member.expectedAmount - member.paidAmount), 0);
     const fixedCount = rows.filter((member) => member.memberType === 'FIXED').length;
     const paidCount = rows.filter((member) => member.paymentStatus === 'PAID').length;
     const activePlayerIds = new Set(rows.map((member) => member.playerId.toString()));
@@ -79,7 +83,7 @@ export class TeamService {
       totalDonate,
       totalExpense,
       totalDue,
-      totalMissing: Math.max(0, totalDue - totalPaid),
+      totalMissing,
       balance: previousBalance + totalPaid - courtCost - totalExpense,
       memberCount: rows.length,
       fixedCount,

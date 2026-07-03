@@ -81,7 +81,7 @@
                   <tr>
                     <td class="sticky-col"><strong><%= member.player.displayName %></strong><br><span class="muted"><%= member.typeLabel %></span></td>
                     <td><select name="memberType_<%= member.id %>"><option value="FIXED" <%= member.memberType === 'FIXED' ? 'selected' : '' %>>Cố định</option><option value="GUEST" <%= member.memberType === 'GUEST' ? 'selected' : '' %>>Vãng lai</option></select></td>
-                    <td><input class="money-input" name="amount_<%= member.id %>" value="<%= formatMoney(member.paidAmount) %>"></td>
+                    <td><input class="money-input" name="amount_<%= member.id %>" value="<%= formatMoney(member.enteredAmount) %>"></td>
                     <td><select class="payment-status-select" name="status_<%= member.id %>"><option value="UNPAID" <%= member.paymentStatus !== 'PAID' ? 'selected' : '' %>>✕</option><option value="PAID" <%= member.paymentStatus === 'PAID' ? 'selected' : '' %>>✓</option></select></td>
                     <td><input name="notes_<%= member.id %>" value="<%= member.feeNotes %>" placeholder="Ghi chú"></td>
                   </tr>
