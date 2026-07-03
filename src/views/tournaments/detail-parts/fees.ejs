@@ -1,0 +1,10 @@
+  <% if (section === 'fees') { %>
+    <section class="card-lite p"><div class="section-heading mb"><div><span class="feature-icon">💳</span><h2 class="section-title">Danh sách đóng phí</h2><p class="muted">Dòng xanh là đủ phí, dòng vàng là còn thiếu.</p></div></div>
+      <% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/payments"><% } %>
+      <div class="table-wrap"><table><thead><tr><th>Tên</th><th>Số tiền</th><th>Trạng thái</th></tr></thead><tbody>
+        <% registrations.forEach((r) => { const feeAmount = Number(r.paidAmount || 0) > 0 ? Number(r.paidAmount) : minimumFee; const mine = String(r.player ? r.player.email : r.externalEmail || '').toLowerCase() === currentEmail; %><tr class="<%= feeAmount >= minimumFee ? 'sufficient-row' : 'insufficient-row' %> <%= mine ? 'mine-row' : '' %>"><td><strong><%= r.player ? r.player.displayName : r.externalName %></strong></td><% if (currentUser.role === 'ADMIN') { %><td><input class="money-input" name="amount_<%= r.id %>" value="<%= formatMoney(feeAmount) %>"></td><td><select class="payment-status-select" name="status_<%= r.id %>"><option value="UNPAID" <%= r.paymentStatus === 'UNPAID' ? 'selected' : '' %>>✕</option><option value="PAID" <%= r.paymentStatus === 'PAID' ? 'selected' : '' %>>✓</option></select></td><% } else { %><td><%= formatMoney(feeAmount) %>đ</td><td><span class="payment-mark <%= r.paymentStatus === 'PAID' ? 'paid' : 'unpaid' %>"><%= r.paymentStatus === 'PAID' ? '✓' : '✕' %></span></td><% } %></tr><% }) %>
+      </tbody></table></div>
+      <% if (currentUser.role === 'ADMIN') { %><div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu tất cả</button></div></form><% } %>
+    </section>
+  <% } %>
+

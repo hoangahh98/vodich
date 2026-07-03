@@ -1,0 +1,54 @@
+  <section class="feature-hero p mb">
+    <div class="flex between center">
+      <div>
+        <h1><%= tournament.name %></h1>
+        <div class="muted strong-muted">📍 <%= tournament.venue || 'Chưa có địa điểm' %> · Lệ phí <%= formatMoney(minimumFee) %>đ/người · <%= tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng + loại trực tiếp' : 'Vòng tròn' %></div>
+      </div>
+      <div class="hero-actions">
+        <% if (currentUser.role === 'ADMIN') { %>
+          <div class="hero-action-buttons">
+            <button class="btn btn-sm btn-primary" type="button" data-open-modal="emailModal">Get Email</button>
+            <button class="btn btn-sm btn-success" type="button" data-open-modal="contentModal">Content mẫu</button>
+          </div>
+        <% } %>
+        <div class="feature-hero-art">🏆</div>
+      </div>
+    </div>
+    <% if (currentUser.role === 'ADMIN') { %>
+      <textarea id="emailListText" class="hidden"><%= [...registrations, ...(reserveRegistrations || [])].map((r) => r.player ? r.player.email : r.externalEmail).filter(Boolean).join('; ') %></textarea>
+    <% } %>
+  </section>
+  <% if (currentUser.role === 'ADMIN') { %>
+    <div id="emailModal" class="score-modal hidden" aria-hidden="true">
+      <div class="score-modal-backdrop" data-close-modal="emailModal"></div>
+      <div class="score-modal-panel" role="dialog" aria-modal="true">
+        <div class="score-modal-head"><div><h3>Danh sách email</h3><small>Copy email thành viên trong giải</small></div><button class="btn btn-sm" type="button" data-close-modal="emailModal">Đóng</button></div>
+        <div class="score-modal-body">
+          <textarea id="emailModalText" rows="8"><%= [...registrations, ...(reserveRegistrations || [])].map((r) => r.player ? r.player.email : r.externalEmail).filter(Boolean).join('; ') %></textarea>
+          <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="emailModalText">Copy email</button></div>
+        </div>
+      </div>
+    </div>
+    <div id="contentModal" class="score-modal hidden" aria-hidden="true">
+      <div class="score-modal-backdrop" data-close-modal="contentModal"></div>
+      <div class="score-modal-panel" role="dialog" aria-modal="true">
+        <div class="score-modal-head"><div><h3>Content mẫu</h3><small>Copy gửi cho thành viên</small></div><button class="btn btn-sm" type="button" data-close-modal="contentModal">Đóng</button></div>
+        <div class="score-modal-body">
+          <textarea id="contentSampleText" rows="10">Xin chào Anh/Chị,
+
+Chào mừng Anh/Chị đến với giải đấu "<%= tournament.name %>" tại <%= tournament.venue || 'địa điểm sẽ được cập nhật' %>.
+
+Link xem thông tin giải:
+<%= tournamentLink %>
+<% if (tournament.externalRegistrationEnabled) { %>
+
+Các vận động viên tham gia giải đăng ký tại link <%= externalLink %>
+<% } %>
+
+BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra thuận lợi.</textarea>
+          <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="contentSampleText">Copy nội dung</button></div>
+        </div>
+      </div>
+    </div>
+  <% } %>
+

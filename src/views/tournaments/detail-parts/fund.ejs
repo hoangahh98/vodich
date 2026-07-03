@@ -1,0 +1,39 @@
+  <% if (section === 'fund') { %>
+    <section class="card-lite p">
+      <div class="section-heading mb"><div><span class="feature-icon">🏆</span><h2 class="section-title">Quỹ giải thưởng</h2><p class="muted">Tổng hợp chi phí, tiền đã thu và quỹ thưởng thực tế.</p></div></div>
+      <div class="grid finance-grid mb">
+        <div class="metric-card blue"><span>💰 Tổng thu</span><strong><%= formatMoney(totalPaid) %>đ</strong><small><%= registrations.length %> thành viên chính thức</small></div>
+        <div class="metric-card green"><span>✅ Lệ phí/người</span><strong><%= formatMoney(minimumFee) %>đ</strong><small>Dựa trên <%= formatMoney(totalCost) %>đ chi phí</small></div>
+        <div class="metric-card orange"><span>⚠️ Còn thiếu</span><strong><%= formatMoney(missingFee) %>đ</strong><small><%= unpaidCount %> người đang ở trạng thái ✕</small></div>
+        <div class="metric-card gold"><span>🏆 Quỹ thưởng</span><strong><%= formatMoney(prizeFund) %>đ</strong><small>Đã thu - sân/ăn/khác</small></div>
+      </div>
+      <div class="grid team-admin-grid">
+        <div class="card-lite">
+          <div class="card-hdr warn">🏆 Cơ cấu giải thưởng</div>
+          <div class="p">
+            <div class="prize-row"><span>🥇 Nhất</span><strong><%= formatMoney(prize1) %>đ</strong></div>
+            <div class="prize-row"><span>🥈 Nhì</span><strong><%= formatMoney(prize2) %>đ</strong></div>
+            <div class="prize-row"><span>🥉 Ba</span><strong><%= formatMoney(prize3) %>đ</strong></div>
+            <p class="muted mt"><%= manualPrize ? 'Đang đặt thưởng thủ công' : `Tỷ lệ hiện tại: ${formatMoney(tournament.prizeRate1)}% / ${formatMoney(tournament.prizeRate2)}% / ${formatMoney(tournament.prizeRate3)}%` %></p>
+          </div>
+        </div>
+        <div class="card-lite">
+          <div class="card-hdr green">👑 Top đóng góp</div>
+          <div class="p">
+            <% if (topDonors.length) { topDonors.forEach((donor, index) => { %>
+              <div class="prize-row"><span><%= ['🥇','🥈','🥉'][index] %> <%= donor.name %></span><strong>+<%= formatMoney(donor.amount) %>đ</strong></div>
+            <% }) } else { %>
+              <p class="muted text-center">Chưa có ai đóng vượt mức lệ phí.</p>
+            <% } %>
+          </div>
+        </div>
+      </div>
+      <div class="grid module-grid mt">
+        <div class="cost-card">🏟️<span>Sân bãi</span><strong><%= formatMoney(tournament.courtCost) %>đ</strong></div>
+        <div class="cost-card">🥤<span>Ăn uống</span><strong><%= formatMoney(tournament.foodCost) %>đ</strong></div>
+        <div class="cost-card">🎁<span>Ngân sách thưởng gốc</span><strong><%= formatMoney(tournament.prizeCost) %>đ</strong></div>
+        <div class="cost-card">🧾<span>Khác</span><strong><%= formatMoney(tournament.otherCost) %>đ</strong></div>
+      </div>
+    </section>
+  <% } %>
+

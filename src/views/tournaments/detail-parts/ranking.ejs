@@ -1,0 +1,16 @@
+  <% if (section === 'ranking') { %>
+    <section class="card-lite p ranking-live"><div class="section-heading mb"><div><span class="feature-icon">📊</span><h2 class="section-title">Bảng xếp hạng</h2><p class="muted">Theo dõi số trận, điểm và hiệu số sau mỗi trận.</p></div></div>
+      <% if (!rankingGroups.length) { %><p class="muted">Chưa có trận thi đấu để tính xếp hạng.</p><% } %>
+      <div class="ranking-board-list">
+        <% rankingGroups.forEach((group) => { %>
+          <div class="ranking-board">
+            <div class="ranking-board-title"><span>🏅</span><strong><%= tournament.format === 'ROUND_ROBIN' ? 'Bảng xếp hạng' : `Bảng xếp hạng ${group.groupName}` %></strong></div>
+            <div class="table-wrap ranking-table"><table><thead><tr><th>#</th><th>Đội</th><th>Trận</th><th class="text-success">W</th><th class="text-danger">L</th><th>Điểm</th><th>Hiệu số</th></tr></thead><tbody>
+              <% group.rows.forEach((row, index) => { const rank = index + 1; const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %> <%= isMine(row.teamName) ? 'mine-row' : '' %>"><td><%= rankLabel %></td><td><strong class="ranking-team-name"><% String(row.teamName).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.rankingPoints %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
+            </tbody></table></div>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+  <% } %>
+

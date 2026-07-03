@@ -1,62 +1,35 @@
 import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
-import { blankToNull, requireFeature } from '../common/controller-utils';
+import { requireFeature } from '../common/controller-utils';
 import { render } from '../common/view';
-import { PrismaService } from '../prisma.service';
+import { PlayersService } from './players.service';
 
 @Controller()
 export class PlayersController {
   constructor(
-    private readonly prisma: PrismaService,
+    private readonly playersService: PlayersService,
     private readonly auth: AuthService,
   ) {}
 
   @Get('/players')
   async players(@Req() req: Request, @Res() res: Response) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
-    const players = await this.prisma.player.findMany({ orderBy: { displayName: 'asc' } });
+    const players = await this.playersService.list();
     return render(res, 'players/index', { players });
   }
 
   @Post('/players')
   async createPlayer(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
-    await this.prisma.player.upsert({
-      where: { email: body.email.trim().toLowerCase() },
-      update: {
-        displayName: body.displayName.trim(),
-        skillLevel: blankToNull(body.skillLevel),
-        notes: blankToNull(body.notes),
-      },
-      create: {
-        displayName: body.displayName.trim(),
-        email: body.email.trim().toLowerCase(),
-        skillLevel: blankToNull(body.skillLevel),
-        notes: blankToNull(body.notes),
-      },
-    });
+    await this.playersService.upsert(body);
     return res.redirect('/players');
   }
 
   @Post('/players/bulk')
   async updatePlayers(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
-    const ids = Object.keys(body)
-      .filter((key) => key.startsWith('displayName_'))
-      .map((key) => BigInt(key.replace('displayName_', '')));
-    const updates = ids.map((id) =>
-      this.prisma.player.update({
-        where: { id },
-        data: {
-          displayName: String(body[`displayName_${id}`] || '').trim(),
-          email: String(body[`email_${id}`] || '').trim().toLowerCase(),
-          skillLevel: blankToNull(body[`skillLevel_${id}`]),
-          notes: blankToNull(body[`notes_${id}`]),
-        },
-      }),
-    );
-    if (updates.length) await this.prisma.$transaction(updates);
+    await this.playersService.bulkUpdate(body);
     return res.redirect('/players');
   }
 }
