@@ -1,17 +1,25 @@
-import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { ConnectedSocket, MessageBody, OnGatewayInit, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { AuthService } from '../auth/auth.service';
+import { sessionMiddleware } from '../common/session';
 import { PrismaService } from '../prisma.service';
+import { CurrentUser } from '../types';
 import { TournamentService } from './tournament.service';
 
 @WebSocketGateway({ cors: false })
-export class MatchGateway {
+export class MatchGateway implements OnGatewayInit {
   @WebSocketServer()
   server!: Server;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly tournaments: TournamentService,
+    private readonly auth: AuthService,
   ) {}
+
+  afterInit(server: Server) {
+    server.engine.use(sessionMiddleware as unknown as (req: unknown, res: unknown, next: (err?: unknown) => void) => void);
+  }
 
   emitTournamentUpdated(tournamentId: string | bigint, reason = 'updated') {
     this.server.to(`tournament:${String(tournamentId)}`).emit('tournamentUpdated', { tournamentId: String(tournamentId), reason });
@@ -23,12 +31,20 @@ export class MatchGateway {
   }
 
   @SubscribeMessage('score')
-  async score(@MessageBody() body: { tournamentId: string; matchId: string; scoreA: number; scoreB: number; servingTeam?: string; scoreOrder?: number }) {
+  async score(
+    @MessageBody() body: { tournamentId: string; matchId: string; scoreA: number; scoreB: number; servingTeam?: string; scoreOrder?: number },
+    @ConnectedSocket() socket: Socket,
+  ) {
+    if (!(await this.canUpdateScore(socket))) {
+      socket.emit('scoreRejected', { message: 'Không có quyền ghi điểm' });
+      return;
+    }
     const match = await this.prisma.matchGame.findUnique({
       where: { id: BigInt(body.matchId) },
       include: { tournament: true },
     });
     if (!match) return;
+    const tournamentId = match.tournamentId;
     let scoreA = Math.max(0, Number(body.scoreA) || 0);
     let scoreB = Math.max(0, Number(body.scoreB) || 0);
     const isKnockout = match.stage !== 'Vòng bảng' && match.stage !== 'Vòng tròn';
@@ -54,10 +70,18 @@ export class MatchGateway {
         updatedAt: new Date(),
       },
     });
-    this.server.to(`tournament:${body.tournamentId}`).emit('scoreUpdated', stringifyBigInt(updated));
+    this.server.to(`tournament:${String(tournamentId)}`).emit('scoreUpdated', stringifyBigInt(updated));
     if (status === 'FINISHED' && (await this.tournaments.syncKnockout(match.tournamentId))) {
-      this.emitTournamentUpdated(body.tournamentId, 'knockout');
+      this.emitTournamentUpdated(tournamentId, 'knockout');
     }
+  }
+
+  private async canUpdateScore(socket: Socket): Promise<boolean> {
+    const request = socket.request as typeof socket.request & { session?: { user?: CurrentUser } };
+    const user = request.session?.user;
+    if (!user || user.role !== 'ADMIN') return false;
+    const featureSet = await this.auth.featureSet(user);
+    return this.auth.can(user, 'TOURNAMENTS', featureSet);
   }
 }
 

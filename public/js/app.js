@@ -660,6 +660,9 @@ const getTournamentSocket = (tournamentId) => {
       setStatus('Đã tự lưu', 'text-success');
     }
   });
+  socket.on('scoreRejected', (payload) => {
+    setStatus(payload?.message || 'Không lưu được điểm', 'text-danger');
+  });
   list.addEventListener('click', (event) => {
     const row = event.target.closest('[data-match-id]');
     if (row) openModal(row);
