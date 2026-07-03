@@ -46,7 +46,10 @@
     window.addEventListener('resize', scheduleKeepInViewport);
     window.addEventListener('orientationchange', scheduleKeepInViewport);
     button.addEventListener('pointerdown', (event) => {
-      if (!menu || event.button !== 0) return;
+      if (!menu || (event.pointerType === 'mouse' && event.button !== 0)) return;
+      event.stopPropagation();
+      window.clearTimeout(closeTimer);
+      window.clearTimeout(keepTimer);
       const rect = menu.getBoundingClientRect();
       dragState = {
         pointerId: event.pointerId,
@@ -55,7 +58,9 @@
         left: rect.left,
         top: rect.top,
         moved: false,
+        wasOpen: menu.classList.contains('open'),
       };
+      closeMenu();
       button.setPointerCapture?.(event.pointerId);
     });
     button.addEventListener('pointermove', (event) => {
@@ -72,20 +77,25 @@
     button.addEventListener('pointerup', (event) => {
       if (!menu || !dragState || dragState.pointerId !== event.pointerId) return;
       const moved = dragState.moved;
+      const wasOpen = dragState.wasOpen;
       dragState = null;
       menu.classList.remove('is-dragging');
+      button.releasePointerCapture?.(event.pointerId);
       const rect = menu.getBoundingClientRect();
       window.localStorage.setItem(storageKey, JSON.stringify({ left: rect.left, top: rect.top }));
+      event.preventDefault();
+      event.stopPropagation();
+      suppressClick = true;
+      button.dataset.justDragged = 'true';
       if (moved) {
-        event.preventDefault();
-        event.stopPropagation();
-        suppressClick = true;
-        button.dataset.justDragged = 'true';
-        window.setTimeout(() => {
-          suppressClick = false;
-          delete button.dataset.justDragged;
-        }, 180);
+        closeMenu();
+      } else if (!wasOpen) {
+        menu.classList.add('open');
       }
+      window.setTimeout(() => {
+        suppressClick = false;
+        delete button.dataset.justDragged;
+      }, 180);
     });
     button.addEventListener('pointercancel', () => {
       resetInteraction();

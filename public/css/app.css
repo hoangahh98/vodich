@@ -187,14 +187,17 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .player-name-cell { display: grid; gap: 7px; }
 .player-name-cell input[type="email"] { color: var(--muted); }
 .permissions-shell { max-width: 1320px; }
-.permission-create-form { display: grid; grid-template-columns: minmax(220px, 1.1fr) minmax(220px, 1.1fr) minmax(180px, .9fr) auto; gap: 12px; align-items: end; }
-.permission-create-action { min-width: 150px; }
+.permission-create-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: end; }
+.permission-create-action { grid-column: 1 / -1; width: 180px; max-width: 100%; min-width: 0; }
 .permission-create-action .btn { width: 100%; }
 .permission-admin-list { display: grid; gap: 14px; }
 .permission-admin-card { border: 1px solid #cfe2ff; border-radius: 10px; padding: 14px; background: #f8fbff; display: grid; gap: 14px; }
 .permission-admin-info { display: grid; grid-template-columns: repeat(3, minmax(180px, 1fr)); gap: 12px; }
 .permission-feature-grid { display: grid; grid-template-columns: repeat(4, minmax(130px, 1fr)); gap: 10px; }
 .permission-feature-grid .option-card { min-height: 52px; }
+.log-table-wrap { max-height: 72vh; overflow: auto; border-radius: 10px; }
+.log-table { min-width: 980px; }
+.log-table thead th { position: sticky; top: 0; z-index: 2; }
 .team-detail-shell { max-width: 1280px; }
 .team-expense-form { display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(120px, 160px) auto; gap: 12px; align-items: end; }
 .team-expense-form .expense-date, .team-expense-form .expense-content, .team-expense-form .expense-amount { grid-column: span 1; min-width: 0; }
