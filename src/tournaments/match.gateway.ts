@@ -1,7 +1,9 @@
 import { ConnectedSocket, MessageBody, OnGatewayInit, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
+import { createAdapter } from '@socket.io/redis-adapter';
 import { Server, Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service';
-import { sessionMiddleware } from '../common/session';
+import { createConnectedRedisClient, createRedisClient, isRedisConfigured } from '../common/redis';
+import { getSessionMiddleware } from '../common/session';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
 import { TournamentService } from './tournament.service';
@@ -17,8 +19,10 @@ export class MatchGateway implements OnGatewayInit {
     private readonly auth: AuthService,
   ) {}
 
-  afterInit(server: Server) {
+  async afterInit(server: Server) {
+    const sessionMiddleware = await getSessionMiddleware();
     server.engine.use(sessionMiddleware as unknown as (req: unknown, res: unknown, next: (err?: unknown) => void) => void);
+    await this.configureRedisAdapter(server);
   }
 
   emitTournamentUpdated(tournamentId: string | bigint, reason = 'updated') {
@@ -96,6 +100,24 @@ export class MatchGateway implements OnGatewayInit {
     if (!user || user.role !== 'ADMIN') return false;
     const featureSet = await this.auth.featureSet(user);
     return this.auth.can(user, 'TOURNAMENTS', featureSet);
+  }
+
+  private async configureRedisAdapter(server: Server) {
+    if (!isRedisConfigured()) return;
+    let pubClient: Awaited<ReturnType<typeof createConnectedRedisClient>>;
+    let subClient: ReturnType<typeof createRedisClient>;
+    try {
+      pubClient = await createConnectedRedisClient('socket-pub');
+      subClient = createRedisClient('socket-sub');
+      if (!pubClient || !subClient) return;
+      await subClient.connect();
+      server.adapter(createAdapter(pubClient, subClient));
+      console.log('[socket] using Redis adapter');
+    } catch (error) {
+      console.error(`[socket] Redis adapter unavailable, using in-memory adapter: ${error instanceof Error ? error.message : String(error)}`);
+      await pubClient?.quit().catch(() => undefined);
+      await subClient?.quit().catch(() => undefined);
+    }
   }
 }
 

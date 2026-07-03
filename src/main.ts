@@ -4,7 +4,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import * as helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
-import { sessionMiddleware } from './common/session';
+import { getSessionMiddleware } from './common/session';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -13,7 +13,7 @@ async function bootstrap() {
       contentSecurityPolicy: false,
     }),
   );
-  app.use(sessionMiddleware);
+  app.use(await getSessionMiddleware());
   app.useStaticAssets(join(__dirname, '..', 'public'));
   app.setBaseViewsDir(join(__dirname, 'views'));
   app.setViewEngine('ejs');
