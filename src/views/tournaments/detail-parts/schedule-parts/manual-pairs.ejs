@@ -1,0 +1,21 @@
+<% if (currentUser.role === 'ADMIN' && tournament.playType === 'DOUBLES' && registrations.length >= 2) { %>
+  <details class="manual-pair-box mb">
+    <summary>Ghép đội thủ công</summary>
+    <form method="post" action="/tournaments/<%= tournament.id %>/manual-schedule" data-confirm="Ghép đội thủ công sẽ xóa các trận và tỷ số hiện tại. Tiếp tục?">
+      <% const pairCount = Math.floor(registrations.length / 2); %>
+      <input type="hidden" name="pairCount" value="<%= pairCount %>">
+      <div class="grid manual-pair-grid">
+        <% for (let i = 1; i <= pairCount; i++) { %>
+          <div class="manual-pair-card">
+            <strong>Đội <%= i %></strong>
+            <div class="row">
+              <div class="col-6"><select class="manual-pair-select" name="teamA_<%= i %>" data-manual-pair-select><option value="">Thành viên 1</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
+              <div class="col-6"><select class="manual-pair-select" name="teamB_<%= i %>" data-manual-pair-select><option value="">Thành viên 2</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
+            </div>
+          </div>
+        <% } %>
+      </div>
+      <div class="mt"><button class="btn btn-primary" data-loading-text="Đang tạo...">Tạo trận từ đội đã ghép</button></div>
+    </form>
+  </details>
+<% } %>

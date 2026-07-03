@@ -1,0 +1,26 @@
+<section class="form-section">
+  <h2 class="section-title mb">🧩 Thể thức thi đấu</h2>
+  <div class="segmented">
+    <label><input type="radio" name="format" value="ROUND_ROBIN" <%= tournament?.format !== 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Vòng tròn</label>
+    <label><input type="radio" name="format" value="GROUP_KNOCKOUT" <%= tournament?.format === 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Đánh bảng + vòng trong</label>
+  </div>
+  <div id="knockoutQualifierField" class="mt">
+    <input type="hidden" name="knockoutQualifierCount" id="knockoutQualifierCount" value="<%= tournament?.knockoutQualifierCount || 2 %>">
+    <div class="knockout-option-grid">
+      <div>
+        <label class="option-card"><input type="checkbox" id="knockoutFinal" data-value="2" data-min-teams="4" checked> Chung kết <small>Lấy 2 đội</small></label>
+      </div>
+      <div>
+        <label class="option-card"><input type="checkbox" id="knockoutSemi" data-value="4" data-min-teams="8" <%= (tournament?.knockoutQualifierCount || 2) >= 4 ? 'checked' : '' %>> Bán kết <small>Lấy 4 đội</small></label>
+      </div>
+      <div>
+        <label class="option-card"><input type="checkbox" id="knockoutQuarter" data-value="8" data-min-teams="16" <%= (tournament?.knockoutQualifierCount || 2) >= 8 ? 'checked' : '' %>> Tứ kết <small>Lấy 8 đội</small></label>
+      </div>
+    </div>
+    <p class="muted">Chỉ hiện cấu hình vòng trong khi chọn đánh bảng. Vòng tròn vẫn giữ bảng xếp hạng bình thường.</p>
+    <div class="row mt">
+      <div class="col-6"><label>Chạm điểm vòng trong</label><input type="number" name="knockoutTouchScore" value="<%= tournament?.knockoutTouchScore || 15 %>" min="1"></div>
+      <div class="col-6"><label>Max điểm vòng trong</label><input type="number" name="knockoutMaxScore" value="<%= tournament?.knockoutMaxScore || 19 %>" min="1"></div>
+    </div>
+  </div>
+</section>

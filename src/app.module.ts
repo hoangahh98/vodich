@@ -14,6 +14,7 @@ import { TournamentCrudService } from './tournaments/tournament-crud.service';
 import { TournamentDetailService } from './tournaments/tournament-detail.service';
 import { TournamentDetailViewModelBuilder } from './tournaments/tournament-detail-view-model';
 import { TournamentKnockoutService } from './tournaments/tournament-knockout.service';
+import { TournamentPaymentService } from './tournaments/tournament-payment.service';
 import { TournamentRegistrationService } from './tournaments/tournament-registration.service';
 import { TournamentScheduleService } from './tournaments/tournament-schedule.service';
 import { TournamentController } from './tournaments/tournament.controller';
@@ -44,6 +45,7 @@ import { RateLimitService } from './common/rate-limit.service';
     TournamentDetailService,
     TournamentDetailViewModelBuilder,
     TournamentKnockoutService,
+    TournamentPaymentService,
     TournamentRegistrationService,
     TournamentScheduleService,
     TeamService,

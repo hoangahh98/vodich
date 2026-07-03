@@ -1,167 +1,28 @@
-  <% if (section === 'schedule') { %>
-    <section class="card-lite p">
-      <div class="section-heading mb"><div><span class="feature-icon">🗓️</span><h2 class="section-title">Thi đấu</h2><p class="muted"><% if (tournament.format === 'GROUP_KNOCKOUT') { %>Vào vòng trong: <%= tournament.knockoutQualifierCount %> đội<% } else { %>Bấm vào thẻ trận để mở màn ghi điểm.<% } %></p></div><% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">Chia trận</button></form><% } %></div>
-      <% if (currentUser.role === 'ADMIN' && tournament.playType === 'DOUBLES' && registrations.length >= 2) { %>
-        <details class="manual-pair-box mb">
-          <summary>Ghép đội thủ công</summary>
-          <form method="post" action="/tournaments/<%= tournament.id %>/manual-schedule" data-confirm="Ghép đội thủ công sẽ xóa các trận và tỷ số hiện tại. Tiếp tục?">
-            <% const pairCount = Math.floor(registrations.length / 2); %>
-            <input type="hidden" name="pairCount" value="<%= pairCount %>">
-            <div class="grid manual-pair-grid">
-              <% for (let i = 1; i <= pairCount; i++) { %>
-                <div class="manual-pair-card">
-                  <strong>Đội <%= i %></strong>
-                  <div class="row">
-                    <div class="col-6"><select class="manual-pair-select" name="teamA_<%= i %>" data-manual-pair-select><option value="">Thành viên 1</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
-                    <div class="col-6"><select class="manual-pair-select" name="teamB_<%= i %>" data-manual-pair-select><option value="">Thành viên 2</option><% registrations.forEach((r) => { const name = r.player ? r.player.displayName : r.externalName; %><option value="<%= name %>"><%= name %></option><% }) %></select></div>
-                  </div>
-                </div>
-              <% } %>
-            </div>
-            <div class="mt"><button class="btn btn-primary" data-loading-text="Đang tạo...">Tạo trận từ đội đã ghép</button></div>
-          </form>
-        </details>
-      <% } %>
-      <div id="matchList" data-tournament-id="<%= tournament.id %>" data-touch-score="<%= tournament.touchScore || 11 %>" data-max-score="<%= tournament.maxScore || 15 %>" data-knockout-touch-score="<%= tournament.knockoutTouchScore || 15 %>" data-knockout-max-score="<%= tournament.knockoutMaxScore || 19 %>">
-        <%
-          const roundMap = new Map();
-          matches.forEach((match) => {
-            const list = roundMap.get(match.roundNumber) || [];
-            list.push(match);
-            roundMap.set(match.roundNumber, list);
-          });
-          const roundTitle = (round, list) => {
-            const stage = list.find((item) => item.stage !== 'Vòng bảng' && item.stage !== 'Vòng tròn')?.stage;
-            if (stage) return `🏆 ${stage.toUpperCase()}`;
-            if (round === 100) return '🏆 TỨ KẾT';
-            if (round === 101) return '🏆 BÁN KẾT';
-            if (round === 102) return '🏆 CHUNG KẾT';
-            return tournament.format === 'GROUP_KNOCKOUT' ? `🔄 LƯỢT ${round}` : `🔄 VÒNG ${round}`;
-          };
-        %>
-        <% if (!matches.length) { %>
-          <div class="text-center py-4">
-            <p class="muted mb">Chưa có trận thi đấu. Bấm bên trên để tự động chia trận.</p>
-            <% if (currentUser.role === 'ADMIN') { %>
-              <form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">⚡ TỰ ĐỘNG CHIA TRẬN</button></form>
-            <% } %>
-          </div>
-        <% } %>
-        <% if (tournament.format === 'GROUP_KNOCKOUT' && groupBoards && groupBoards.length) { %>
-          <div class="mb-4">
-            <div class="vong-header rounded px-3 py-2 mb-3 fw-bold text-success">📋 DANH SÁCH BẢNG ĐẤU</div>
-            <div class="grid group-grid">
-              <% groupBoards.forEach((group) => { %>
-                <div class="group-board">
-                  <div class="group-board-title">Bảng <%= group.groupName %></div>
-                  <% group.teams.forEach((team) => { %>
-                    <div class="group-team-row <%= isMine(team) ? 'mine-row' : '' %>"><strong class="team-name"><% String(team).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %></strong></div>
-                  <% }) %>
-                </div>
-              <% }) %>
-            </div>
-          </div>
-        <% } %>
-        <% Array.from(roundMap.entries()).forEach(([round, roundMatches]) => { 
-          const doneCount = roundMatches.filter((item) => item.status === 'FINISHED').length;
-          const courtMap = new Map();
-          roundMatches.forEach((match) => {
-            const list = courtMap.get(match.courtNumber) || [];
-            list.push(match);
-            courtMap.set(match.courtNumber, list);
-          });
-          const courts = Array.from(courtMap.entries());
-        %>
-          <div class="mb-4" data-round-block>
-            <div class="vong-header rounded px-3 py-2 mb-3 fw-bold text-primary">
-              <%= roundTitle(round, roundMatches) %> — <%= roundMatches.length %> trận
-              <small class="text-muted fw-normal ms-2">(<span data-done-count><%= doneCount %></span> đã xong)</small>
-            </div>
-            <div class="grid courts-grid">
-              <% courts.forEach(([court, courtMatches]) => { %>
-                <div class="court-column">
-                  <div class="border rounded p-2 h-100" style="border-color:#0d6efd44!important;">
-                    <div class="text-center fw-bold small text-primary mb-2">🏟️ SÂN <%= court %></div>
-                    <% courtMatches.forEach((m) => { const knockout = m.stage !== 'Vòng bảng' && m.stage !== 'Vòng tròn'; const done = m.status === 'FINISHED'; %>
-                      <div class="tran-card rounded p-2 mb-2 <%= done ? 'da-xong' : '' %> <%= knockout ? 'knockout' : '' %> <%= isMine(m.teamA) || isMine(m.teamB) ? 'mine-card' : '' %>" tabindex="0" data-match-id="<%= m.id %>" data-team-a="<%= m.teamA %>" data-team-b="<%= m.teamB %>" data-score-a="<%= m.scoreA %>" data-score-b="<%= m.scoreB %>" data-score-order="<%= m.scoreOrder || 2 %>" data-serving-team="<%= m.servingTeam || 'A' %>" data-knockout="<%= knockout ? 'true' : 'false' %>">
-                        <div class="match-meta">
-                          <% if (m.stage === 'Vòng bảng') { %>
-                            <span class="badge bg-success">Lượt <%= round %></span>
-                            <span class="badge bg-info text-dark">Bảng <%= m.groupName || 'A' %></span>
-                          <% } else if (knockout) { %>
-                            <span class="badge bg-danger"><%= m.stage %></span>
-                          <% } else { %>
-                            <span class="badge bg-primary">Vòng <%= round %></span>
-                          <% } %>
-                          <span class="badge bg-secondary">Sân <%= court %></span>
-                        </div>
-                        <div class="match-grid">
-                          <div class="team-name">
-                            <% String(m.teamA).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %>
-                          </div>
-                          <div class="score-section">
-                            <span class="badge <%= done ? 'bg-success' : 'bg-primary' %> px-2 py-1 score-pill">
-                              <span class="score-a"><%= m.scoreA %></span> – <span class="score-b"><%= m.scoreB %></span> - <span class="score-order"><%= m.scoreOrder || 2 %></span>
-                            </span>
-                            <span class="badge <%= done ? 'bg-success' : 'bg-secondary' %> match-status"><%= done ? 'Đã xong' : 'Đang đánh' %></span>
-                            <% if (currentUser.role === 'ADMIN') { %><small class="muted">Bấm thẻ để ghi điểm</small><% } %>
-                          </div>
-                          <div class="team-name text-end">
-                            <% String(m.teamB).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %>
-                          </div>
-                        </div>
-                      </div>
-                    <% }) %>
-                  </div>
-                </div>
-              <% }) %>
-            </div>
-          </div>
-        <% }) %>
-      </div>
-    </section>
-    <% if (currentUser.role === 'ADMIN') { %>
-      <div id="scoreModal" class="score-modal hidden" aria-hidden="true">
-        <div class="score-modal-backdrop" data-score-close></div>
-        <div class="score-modal-panel" role="dialog" aria-modal="true">
-          <div class="score-modal-head">
-            <div><h3>Ghi điểm trận đấu</h3><small>Tự lưu khi thay đổi điểm</small></div>
-            <button type="button" class="btn btn-sm" data-score-close data-loading-text="Đang đóng...">Đóng</button>
-          </div>
-          <div class="score-modal-body">
-            <div class="score-sides">
-              <div class="score-side" id="scoreSideA" data-serving-side="A">
-                <strong id="scoreTeamA"></strong>
-                <div class="score-step-row">
-                  <button type="button" class="btn score-step-btn" data-score-target="A" data-score-delta="-1">-</button>
-                  <div id="scoreInputA" class="live-score-number">0</div>
-                  <button type="button" class="btn btn-primary score-step-btn" data-score-target="A" data-score-delta="1">+</button>
-                </div>
-              </div>
-              <div class="score-divider">-</div>
-              <div class="score-side" id="scoreSideB" data-serving-side="B">
-                <strong id="scoreTeamB"></strong>
-                <div class="score-step-row">
-                  <button type="button" class="btn score-step-btn" data-score-target="B" data-score-delta="-1">-</button>
-                  <div id="scoreInputB" class="live-score-number">0</div>
-                  <button type="button" class="btn btn-success score-step-btn" data-score-target="B" data-score-delta="1">+</button>
-                </div>
-              </div>
-            </div>
-            <div class="score-options">
-              <span>Đội đang giao</span>
-              <button type="button" class="btn btn-sm" data-serving-select="A">Đội A</button>
-              <button type="button" class="btn btn-sm" data-serving-select="B">Đội B</button>
-            </div>
-            <div class="score-options">
-              <span>Thứ tự đánh</span>
-              <button type="button" class="btn btn-sm" data-score-order-select="1">1</button>
-              <button type="button" class="btn btn-sm" data-score-order-select="2">2</button>
-            </div>
-            <div id="scoreSaveStatus" class="score-save-status muted">Chưa thay đổi</div>
-          </div>
-        </div>
-      </div>
-    <% } %>
-  <% } %>
-
+<% if (section === 'schedule') { %>
+  <section class="card-lite p">
+    <%- include('schedule-parts/header') %>
+    <%- include('schedule-parts/manual-pairs') %>
+    <div id="matchList" data-tournament-id="<%= tournament.id %>" data-touch-score="<%= tournament.touchScore || 11 %>" data-max-score="<%= tournament.maxScore || 15 %>" data-knockout-touch-score="<%= tournament.knockoutTouchScore || 15 %>" data-knockout-max-score="<%= tournament.knockoutMaxScore || 19 %>">
+      <%
+        const roundMap = new Map();
+        matches.forEach((match) => {
+          const list = roundMap.get(match.roundNumber) || [];
+          list.push(match);
+          roundMap.set(match.roundNumber, list);
+        });
+        const roundTitle = (round, list) => {
+          const stage = list.find((item) => item.stage !== 'Vòng bảng' && item.stage !== 'Vòng tròn')?.stage;
+          if (stage) return `🏆 ${stage.toUpperCase()}`;
+          if (round === 100) return '🏆 TỨ KẾT';
+          if (round === 101) return '🏆 BÁN KẾT';
+          if (round === 102) return '🏆 CHUNG KẾT';
+          return tournament.format === 'GROUP_KNOCKOUT' ? `🔄 LƯỢT ${round}` : `🔄 VÒNG ${round}`;
+        };
+      %>
+      <%- include('schedule-parts/empty-state') %>
+      <%- include('schedule-parts/group-boards') %>
+      <%- include('schedule-parts/round-list', { roundMap, roundTitle }) %>
+    </div>
+  </section>
+  <%- include('schedule-parts/score-modal') %>
+<% } %>

@@ -1,0 +1,29 @@
+<% if (section === 'overview') { %>
+  <section class="grid finance-grid mb">
+    <div class="metric-card blue"><span>💰 Tổng thu</span><strong><%= formatMoney(finance.totalPaid) %>đ</strong><small>Còn <%= finance.fixedUnpaidCount %> người cố định chưa đóng</small></div>
+    <div class="metric-card green"><span>🎁 Tổng donate</span><strong>+<%= formatMoney(finance.totalDonate) %>đ</strong><small>Vượt mức <%= formatMoney(finance.monthlyFee) %>đ/người</small></div>
+    <div class="metric-card orange"><span>🏟️ Tiền sân</span><strong><%= formatMoney(finance.courtCost) %>đ</strong><small>Dư trước <%= formatMoney(finance.previousBalance) %>đ</small></div>
+    <div class="metric-card gold"><span>🧾 Quỹ còn lại</span><strong><%= formatMoney(finance.balance) %>đ</strong><small>= Dư + Thu - Sân - Chi</small></div>
+  </section>
+
+  <section class="card-lite mb">
+    <div class="card-hdr blue"><span>🧾 Các khoản chi tháng <%= selectedMonth %></span><span><%= formatMoney(finance.totalExpense) %>đ</span></div>
+    <div class="p">
+      <% if (currentUser.role === 'ADMIN') { %>
+        <form class="team-expense-form mb" method="post" action="/teams/<%= team.id %>/expenses">
+          <input type="hidden" name="month" value="<%= selectedMonth %>">
+          <div class="expense-date"><label>Ngày chi</label><input type="date" name="expenseDate" required></div>
+          <div class="expense-content"><label>Nội dung</label><input name="content" placeholder="Uống nước, bóng..." required></div>
+          <div class="expense-amount"><label>Số tiền</label><input class="money-input" name="amount" required></div>
+          <div class="expense-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
+        </form>
+      <% } %>
+      <div class="table-wrap team-frozen-wrap"><table><thead><tr><th>Ngày</th><th>Nội dung</th><th>Tiền</th><th></th></tr></thead><tbody>
+        <% expenses.forEach((expense) => { %>
+          <tr><td><%= expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('vi-VN') : '-' %></td><td><strong><%= expense.content %></strong><% if (expense.notes) { %><br><span class="muted"><%= expense.notes %></span><% } %></td><td><strong><%= formatMoney(expense.amount) %>đ</strong></td><td class="text-right"><% if (currentUser.role === 'ADMIN') { %><form method="post" action="/teams/<%= team.id %>/expenses/<%= expense.id %>/delete" data-confirm="Xóa khoản chi này?"><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xóa...">Xóa</button></form><% } %></td></tr>
+        <% }) %>
+        <% if (!expenses.length) { %><tr><td colspan="4" class="muted text-center">Chưa có khoản chi nào trong tháng.</td></tr><% } %>
+      </tbody></table></div>
+    </div>
+  </section>
+<% } %>

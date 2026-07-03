@@ -2,6 +2,7 @@
   const { clearActionLoading, getTournamentSocket, setActionLoading, socketEvents = {} } = window.Vodich || {};
   const rules = window.VodichScoreRules || {};
   const speech = window.VodichScoreSpeech || {};
+  const dom = window.VodichScoreboardDom || {};
   const list = document.getElementById('matchList');
   if (!list || typeof getTournamentSocket !== 'function') return;
 
@@ -36,7 +37,6 @@
   let speakTimer = null;
 
   const activeRules = () => (activeRow?.dataset.knockout === 'true' ? config.knockout : config.group);
-  const formatTeam = (name) => String(name || '').split(' / ').join('\n');
 
   const setStatus = (text, className = 'muted') => {
     if (!saveStatus) return;
@@ -50,48 +50,12 @@
     scoreValueB.textContent = String(state.scoreB);
     scoreSideA?.classList.toggle('serving-team', state.servingTeam === 'A');
     scoreSideB?.classList.toggle('serving-team', state.servingTeam === 'B');
-    document.querySelectorAll('[data-score-target]').forEach((button) => { button.disabled = false; });
-    document.querySelectorAll('[data-serving-select]').forEach((button) => {
-      button.classList.toggle('btn-primary', button.dataset.servingSelect === state.servingTeam);
-    });
-    document.querySelectorAll('[data-score-order-select]').forEach((button) => {
-      button.classList.toggle('btn-primary', Number(button.dataset.scoreOrderSelect) === state.scoreOrder);
-    });
-  };
-
-  const updateRoundDoneCount = (row) => {
-    const roundBlock = row.closest('[data-round-block]');
-    const doneCountEl = roundBlock?.querySelector('[data-done-count]');
-    if (!roundBlock || !doneCountEl) return;
-    doneCountEl.textContent = String(roundBlock.querySelectorAll('.tran-card.da-xong').length);
-  };
-
-  const applyRow = (row, match) => {
-    row.dataset.scoreA = String(match.scoreA);
-    row.dataset.scoreB = String(match.scoreB);
-    row.dataset.scoreOrder = String(match.scoreOrder || 2);
-    row.dataset.servingTeam = match.servingTeam || 'A';
-    row.querySelector('.score-a').textContent = match.scoreA;
-    row.querySelector('.score-b').textContent = match.scoreB;
-    row.querySelector('.score-order').textContent = match.scoreOrder || 2;
-
-    const finished = match.status === 'FINISHED';
-    const scorePill = row.querySelector('.score-pill');
-    scorePill?.classList.toggle('bg-success', finished);
-    scorePill?.classList.toggle('bg-primary', !finished);
-
-    const statusEl = row.querySelector('.match-status');
-    statusEl.textContent = finished ? 'Đã xong' : match.status === 'PLAYING' ? 'Đang đánh' : 'Chưa đánh';
-    statusEl.classList.toggle('bg-success', finished);
-    statusEl.classList.toggle('bg-secondary', !finished);
-
-    row.classList.toggle('da-xong', finished);
-    updateRoundDoneCount(row);
+    dom.bindOptionState?.(state);
   };
 
   const optimisticRow = () => {
     if (!activeRow) return;
-    applyRow(activeRow, {
+    dom.applyRow?.(activeRow, {
       scoreA: state.scoreA,
       scoreB: state.scoreB,
       scoreOrder: state.scoreOrder,
@@ -151,8 +115,8 @@
       scoreOrder: Number.parseInt(row.dataset.scoreOrder || '2', 10) === 1 ? 1 : 2,
       servingTeam: row.dataset.servingTeam === 'B' ? 'B' : 'A',
     };
-    scoreTeamA.textContent = formatTeam(row.dataset.teamA);
-    scoreTeamB.textContent = formatTeam(row.dataset.teamB);
+    scoreTeamA.textContent = dom.formatTeam?.(row.dataset.teamA) || row.dataset.teamA;
+    scoreTeamB.textContent = dom.formatTeam?.(row.dataset.teamB) || row.dataset.teamB;
     setStatus('Chưa thay đổi');
     renderModal();
     modal.classList.remove('hidden');
@@ -187,7 +151,7 @@
   socket.on(socketEvents.SCORE_UPDATED || 'scoreUpdated', (match) => {
     const row = list.querySelector(`[data-match-id="${match.id}"]`);
     if (!row) return;
-    applyRow(row, match);
+    dom.applyRow?.(row, match);
     if (activeRow === row) {
       state = {
         scoreA: Number(match.scoreA) || 0,

@@ -9,82 +9,11 @@
     <% if (typeof error !== 'undefined') { %><div class="alert-lite warn mb"><%= error %></div><% } %>
     <form class="tournament-form" method="post" action="<%= action %>" data-prize-total-paid="<%= editPrizeTotalPaid %>">
       <input type="hidden" name="returnSection" value="<%= typeof returnSection !== 'undefined' ? returnSection : 'settings' %>">
-      <section class="form-section">
-        <h2 class="section-title mb">📝 Thông tin giải</h2>
-        <div class="row">
-          <div class="col-12"><label>Tên giải <span class="text-danger">*</span></label><input name="name" value="<%= tournament?.name || '' %>" required></div>
-          <div class="col-12"><label>Địa điểm</label><input name="venue" value="<%= tournament?.venue || '' %>"></div>
-          <div class="col-6"><label>Thời gian bắt đầu</label><input type="datetime-local" name="startTime" value="<%= tournament?.startTime ? new Date(tournament.startTime).toISOString().slice(0,16) : '' %>"></div>
-          <div class="col-6"><label>Thời gian kết thúc</label><input type="datetime-local" name="endTime" value="<%= tournament?.endTime ? new Date(tournament.endTime).toISOString().slice(0,16) : '' %>"></div>
-          <div class="col-6"><label>Số sân</label><input type="number" name="courtCount" value="<%= tournament?.courtCount || 1 %>" min="1"></div>
-          <div class="col-6"><label>Số thành viên</label><input type="number" name="expectedPlayers" value="<%= tournament?.expectedPlayers || 10 %>" min="1"></div>
-          <div class="col-12"><label>Loại đấu</label><select name="playType"><option value="SINGLES" <%= tournament?.playType !== 'DOUBLES' ? 'selected' : '' %>>Thi đơn</option><option value="DOUBLES" <%= tournament?.playType === 'DOUBLES' ? 'selected' : '' %>>Thi đôi</option></select></div>
-        </div>
-      </section>
-
-      <section class="form-section">
-        <h2 class="section-title mb">🧩 Thể thức thi đấu</h2>
-        <div class="segmented">
-          <label><input type="radio" name="format" value="ROUND_ROBIN" <%= tournament?.format !== 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Vòng tròn</label>
-          <label><input type="radio" name="format" value="GROUP_KNOCKOUT" <%= tournament?.format === 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Đánh bảng + vòng trong</label>
-        </div>
-        <div id="knockoutQualifierField" class="mt">
-          <input type="hidden" name="knockoutQualifierCount" id="knockoutQualifierCount" value="<%= tournament?.knockoutQualifierCount || 2 %>">
-          <div class="knockout-option-grid">
-            <div>
-              <label class="option-card"><input type="checkbox" id="knockoutFinal" data-value="2" data-min-teams="4" checked> Chung kết <small>Lấy 2 đội</small></label>
-            </div>
-            <div>
-              <label class="option-card"><input type="checkbox" id="knockoutSemi" data-value="4" data-min-teams="8" <%= (tournament?.knockoutQualifierCount || 2) >= 4 ? 'checked' : '' %>> Bán kết <small>Lấy 4 đội</small></label>
-            </div>
-            <div>
-              <label class="option-card"><input type="checkbox" id="knockoutQuarter" data-value="8" data-min-teams="16" <%= (tournament?.knockoutQualifierCount || 2) >= 8 ? 'checked' : '' %>> Tứ kết <small>Lấy 8 đội</small></label>
-            </div>
-          </div>
-          <p class="muted">Chỉ hiện cấu hình vòng trong khi chọn đánh bảng. Vòng tròn vẫn giữ bảng xếp hạng bình thường.</p>
-          <div class="row mt">
-            <div class="col-6"><label>Chạm điểm vòng trong</label><input type="number" name="knockoutTouchScore" value="<%= tournament?.knockoutTouchScore || 15 %>" min="1"></div>
-            <div class="col-6"><label>Max điểm vòng trong</label><input type="number" name="knockoutMaxScore" value="<%= tournament?.knockoutMaxScore || 19 %>" min="1"></div>
-          </div>
-        </div>
-      </section>
-
-      <section class="form-section">
-        <h2 class="section-title mb">🎯 Điểm và chi phí</h2>
-        <div class="row">
-          <div class="col-6"><label>Chạm điểm</label><input type="number" name="touchScore" value="<%= tournament?.touchScore || 11 %>" min="1"></div>
-          <div class="col-6"><label>Max điểm</label><input type="number" name="maxScore" value="<%= tournament?.maxScore || 15 %>" min="1"></div>
-          <div class="col-6"><label>Sân bãi</label><input class="money-input" name="courtCost" value="<%= tournament ? formatMoney(tournament.courtCost) : '0' %>"></div>
-          <div class="col-6"><label>Ăn uống</label><input class="money-input" name="foodCost" value="<%= tournament ? formatMoney(tournament.foodCost) : '0' %>"></div>
-          <div class="col-6"><label>Giải thưởng</label><input class="money-input" name="prizeCost" value="<%= tournament ? formatMoney(tournament.prizeCost) : '0' %>"></div>
-          <div class="col-6"><label>Khác</label><input class="money-input" name="otherCost" value="<%= tournament ? formatMoney(tournament.otherCost) : '0' %>"></div>
-          <div class="col-12 checkbox-line"><label><input type="checkbox" name="externalRegistrationEnabled" <%= tournament?.externalRegistrationEnabled ? 'checked' : '' %>> Cho phép đăng ký ngoài</label></div>
-        </div>
-      </section>
-
-      <section class="form-section">
-        <% const isManualPrize = tournament && (Number(tournament.prizeRate1) > 100 || Number(tournament.prizeRate2) > 100 || Number(tournament.prizeRate3) > 100); %>
-        <h2 class="section-title mb">🏆 Cài đặt giải thưởng</h2>
-        <div class="alert-lite info mb" data-prize-fund-box>
-          Quỹ thưởng hiện có: <strong data-prize-fund><%= formatMoney(editPrizeFund) %>đ</strong>.
-          <span data-manual-prize-summary class="<%= isManualPrize ? '' : 'hidden' %>">Đang nhập thủ công: <strong data-manual-prize-total>0đ</strong>, còn lại <strong data-manual-prize-left><%= formatMoney(editPrizeFund) %>đ</strong>.</span>
-          <div class="mt" data-manual-prize-suggestion>Gợi ý thủ công: Nhất <strong data-prize-suggest="1">0đ</strong>, Nhì <strong data-prize-suggest="2">0đ</strong>, Ba <strong data-prize-suggest="3">0đ</strong>. <button class="btn btn-sm" type="button" data-fill-prize-suggestion>Dùng gợi ý</button></div>
-        </div>
-        <div class="segmented mb">
-          <label><input type="radio" name="prizeMode" value="percent" <%= !isManualPrize ? 'checked' : '' %>> Theo tỷ lệ phần trăm</label>
-          <label><input type="radio" name="prizeMode" value="manual" <%= isManualPrize ? 'checked' : '' %>> Nhập tiền thưởng thủ công</label>
-        </div>
-        <div class="row prize-config-grid" id="prizeConfigFields">
-          <div class="prize-config-col"><label data-prize-label="1">Giải 1 (%)</label><input class="money-input" name="prizeRate1" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate1) : '50' %>"></div>
-          <div class="prize-config-col"><label data-prize-label="2">Giải 2 (%)</label><input class="money-input" name="prizeRate2" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate2) : '30' %>"></div>
-          <div class="prize-config-col"><label data-prize-label="3">Giải 3 (%)</label><input class="money-input" name="prizeRate3" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate3) : '20' %>"></div>
-        </div>
-        <p class="muted mt">Nếu chọn thủ công, nhập số tiền cụ thể cho từng giải. Nếu chọn tỷ lệ, nhập phần trăm.</p>
-      </section>
-      <div class="form-actions">
-        <button class="btn btn-success btn-lg" data-loading-text="<%= tournament ? 'Đang lưu...' : 'Đang tạo...' %>">💾 <%= tournament ? 'Lưu thay đổi' : 'Tạo giải' %></button>
-        <a class="btn btn-lg" href="<%= tournament ? `/tournaments/${tournament.id}/${typeof returnSection !== 'undefined' ? returnSection : 'settings'}` : '/tournaments' %>">Hủy</a>
-      </div>
+      <%- include('form-parts/basic') %>
+      <%- include('form-parts/format') %>
+      <%- include('form-parts/costs') %>
+      <%- include('form-parts/prizes') %>
+      <%- include('form-parts/actions') %>
     </form>
   </section>
 </main>

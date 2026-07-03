@@ -5,6 +5,7 @@ import { minimumFeeForTournament } from './tournament-money';
 import { TournamentCrudService } from './tournament-crud.service';
 import { TournamentDetailService } from './tournament-detail.service';
 import { TournamentKnockoutService } from './tournament-knockout.service';
+import { TournamentPaymentService } from './tournament-payment.service';
 import { TournamentRegistrationService } from './tournament-registration.service';
 import { TournamentScheduleService } from './tournament-schedule.service';
 
@@ -14,6 +15,7 @@ export class TournamentService {
     private readonly crud: TournamentCrudService,
     private readonly detailService: TournamentDetailService,
     private readonly knockout: TournamentKnockoutService,
+    private readonly payments: TournamentPaymentService,
     private readonly registrations: TournamentRegistrationService,
     private readonly schedule: TournamentScheduleService,
   ) {}
@@ -67,11 +69,11 @@ export class TournamentService {
   }
 
   updatePayment(registrationId: bigint, amount: string, status: string) {
-    return this.registrations.updatePayment(registrationId, amount, status);
+    return this.payments.updatePayment(registrationId, amount, status);
   }
 
   updatePayments(body: Record<string, string>) {
-    return this.registrations.updatePayments(body);
+    return this.payments.updatePayments(body);
   }
 
   withdraw(registrationId: bigint) {

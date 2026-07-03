@@ -1,0 +1,15 @@
+<% if (tournament.format === 'GROUP_KNOCKOUT' && groupBoards && groupBoards.length) { %>
+  <div class="mb-4">
+    <div class="vong-header rounded px-3 py-2 mb-3 fw-bold text-success">📋 DANH SÁCH BẢNG ĐẤU</div>
+    <div class="grid group-grid">
+      <% groupBoards.forEach((group) => { %>
+        <div class="group-board">
+          <div class="group-board-title">Bảng <%= group.groupName %></div>
+          <% group.teams.forEach((team) => { %>
+            <div class="group-team-row <%= isMine(team) ? 'mine-row' : '' %>"><strong class="team-name"><% String(team).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %></strong></div>
+          <% }) %>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+<% } %>

@@ -1,0 +1,43 @@
+<% if (currentUser.role === 'ADMIN') { %>
+  <div id="scoreModal" class="score-modal hidden" aria-hidden="true">
+    <div class="score-modal-backdrop" data-score-close></div>
+    <div class="score-modal-panel" role="dialog" aria-modal="true">
+      <div class="score-modal-head">
+        <div><h3>Ghi điểm trận đấu</h3><small>Tự lưu khi thay đổi điểm</small></div>
+        <button type="button" class="btn btn-sm" data-score-close data-loading-text="Đang đóng...">Đóng</button>
+      </div>
+      <div class="score-modal-body">
+        <div class="score-sides">
+          <div class="score-side" id="scoreSideA" data-serving-side="A">
+            <strong id="scoreTeamA"></strong>
+            <div class="score-step-row">
+              <button type="button" class="btn score-step-btn" data-score-target="A" data-score-delta="-1">-</button>
+              <div id="scoreInputA" class="live-score-number">0</div>
+              <button type="button" class="btn btn-primary score-step-btn" data-score-target="A" data-score-delta="1">+</button>
+            </div>
+          </div>
+          <div class="score-divider">-</div>
+          <div class="score-side" id="scoreSideB" data-serving-side="B">
+            <strong id="scoreTeamB"></strong>
+            <div class="score-step-row">
+              <button type="button" class="btn score-step-btn" data-score-target="B" data-score-delta="-1">-</button>
+              <div id="scoreInputB" class="live-score-number">0</div>
+              <button type="button" class="btn btn-success score-step-btn" data-score-target="B" data-score-delta="1">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="score-options">
+          <span>Đội đang giao</span>
+          <button type="button" class="btn btn-sm" data-serving-select="A">Đội A</button>
+          <button type="button" class="btn btn-sm" data-serving-select="B">Đội B</button>
+        </div>
+        <div class="score-options">
+          <span>Thứ tự đánh</span>
+          <button type="button" class="btn btn-sm" data-score-order-select="1">1</button>
+          <button type="button" class="btn btn-sm" data-score-order-select="2">2</button>
+        </div>
+        <div id="scoreSaveStatus" class="score-save-status muted">Chưa thay đổi</div>
+      </div>
+    </div>
+  </div>
+<% } %>

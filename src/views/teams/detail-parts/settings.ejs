@@ -1,0 +1,32 @@
+<% if (section === 'settings') { %>
+  <section class="card-lite p tournament-edit-card">
+    <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt đội bóng</h2><p class="muted">Sửa thông tin đội và cấu hình quỹ tháng.</p></div></div>
+    <% if (currentUser.role === 'ADMIN') { %>
+      <form class="tournament-form" method="post" action="/teams/<%= team.id %>/settings">
+        <input type="hidden" name="month" value="<%= selectedMonth %>">
+        <section class="form-section">
+          <h2 class="section-title mb">👥 Thông tin đội</h2>
+          <div class="row">
+            <div class="col-12"><label>Tên đội bóng</label><input name="name" value="<%= team.name %>" required></div>
+            <div class="col-12"><label>Ghi chú đội</label><textarea name="description" rows="3"><%= team.description || '' %></textarea></div>
+          </div>
+        </section>
+        <section class="form-section">
+          <h2 class="section-title mb">💰 Quỹ tháng <%= selectedMonth %></h2>
+          <div class="row">
+            <div class="col-6"><label>Mức phí tháng / người</label><input class="money-input" name="monthlyFee" value="<%= formatMoney(finance.monthlyFee) %>"></div>
+            <div class="col-6"><label>Tiền sân tháng này</label><input class="money-input" name="courtCost" value="<%= formatMoney(finance.courtCost) %>"></div>
+            <div class="col-6"><label>Tiền sân còn lại tháng trước</label><input class="money-input" name="previousBalance" value="<%= formatMoney(finance.previousBalance) %>"><small class="muted">Tháng trước còn lại <%= formatMoney(finance.previousMonthBalance) %>đ. Nếu để trống, hệ thống tự dùng số này.</small></div>
+            <div class="col-6"><label>Ghi chú tháng</label><input name="notes" value="<%= fund?.notes || '' %>"></div>
+          </div>
+        </section>
+        <div class="form-actions"><button class="btn btn-success btn-lg" data-loading-text="Đang lưu...">Lưu thay đổi</button><a class="btn btn-lg" href="/teams/<%= team.id %>/overview?month=<%= selectedMonth %>">Hủy</a></div>
+      </form>
+    <% } else { %>
+      <div class="grid team-summary-grid">
+        <div class="cost-card">👥<span>Tên đội</span><strong><%= team.name %></strong></div>
+        <div class="cost-card">📝<span>Ghi chú</span><strong><%= team.description || '-' %></strong></div>
+      </div>
+    <% } %>
+  </section>
+<% } %>

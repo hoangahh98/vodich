@@ -71,6 +71,7 @@ test('score rules and scoreboard modal enforce serving-side scoring', async ({ p
   });
   await page.addScriptTag({ path: path.join(root, 'public/js/score-rules.js') });
   await page.addScriptTag({ path: path.join(root, 'public/js/score-speech.js') });
+  await page.addScriptTag({ path: path.join(root, 'public/js/scoreboard-dom.js') });
   await page.addScriptTag({ path: path.join(root, 'public/js/scoreboard.js') });
 
   await page.locator('[data-match-id="1"]').click();

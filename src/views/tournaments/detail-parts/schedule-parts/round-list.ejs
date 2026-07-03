@@ -1,0 +1,56 @@
+<% Array.from(roundMap.entries()).forEach(([round, roundMatches]) => { 
+  const doneCount = roundMatches.filter((item) => item.status === 'FINISHED').length;
+  const courtMap = new Map();
+  roundMatches.forEach((match) => {
+    const list = courtMap.get(match.courtNumber) || [];
+    list.push(match);
+    courtMap.set(match.courtNumber, list);
+  });
+  const courts = Array.from(courtMap.entries());
+%>
+  <div class="mb-4" data-round-block>
+    <div class="vong-header rounded px-3 py-2 mb-3 fw-bold text-primary">
+      <%= roundTitle(round, roundMatches) %> — <%= roundMatches.length %> trận
+      <small class="text-muted fw-normal ms-2">(<span data-done-count><%= doneCount %></span> đã xong)</small>
+    </div>
+    <div class="grid courts-grid">
+      <% courts.forEach(([court, courtMatches]) => { %>
+        <div class="court-column">
+          <div class="border rounded p-2 h-100" style="border-color:#0d6efd44!important;">
+            <div class="text-center fw-bold small text-primary mb-2">🏟️ SÂN <%= court %></div>
+            <% courtMatches.forEach((m) => { const knockout = m.stage !== 'Vòng bảng' && m.stage !== 'Vòng tròn'; const done = m.status === 'FINISHED'; %>
+              <div class="tran-card rounded p-2 mb-2 <%= done ? 'da-xong' : '' %> <%= knockout ? 'knockout' : '' %> <%= isMine(m.teamA) || isMine(m.teamB) ? 'mine-card' : '' %>" tabindex="0" data-match-id="<%= m.id %>" data-team-a="<%= m.teamA %>" data-team-b="<%= m.teamB %>" data-score-a="<%= m.scoreA %>" data-score-b="<%= m.scoreB %>" data-score-order="<%= m.scoreOrder || 2 %>" data-serving-team="<%= m.servingTeam || 'A' %>" data-knockout="<%= knockout ? 'true' : 'false' %>">
+                <div class="match-meta">
+                  <% if (m.stage === 'Vòng bảng') { %>
+                    <span class="badge bg-success">Lượt <%= round %></span>
+                    <span class="badge bg-info text-dark">Bảng <%= m.groupName || 'A' %></span>
+                  <% } else if (knockout) { %>
+                    <span class="badge bg-danger"><%= m.stage %></span>
+                  <% } else { %>
+                    <span class="badge bg-primary">Vòng <%= round %></span>
+                  <% } %>
+                  <span class="badge bg-secondary">Sân <%= court %></span>
+                </div>
+                <div class="match-grid">
+                  <div class="team-name">
+                    <% String(m.teamA).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %>
+                  </div>
+                  <div class="score-section">
+                    <span class="badge <%= done ? 'bg-success' : 'bg-primary' %> px-2 py-1 score-pill">
+                      <span class="score-a"><%= m.scoreA %></span> – <span class="score-b"><%= m.scoreB %></span> - <span class="score-order"><%= m.scoreOrder || 2 %></span>
+                    </span>
+                    <span class="badge <%= done ? 'bg-success' : 'bg-secondary' %> match-status"><%= done ? 'Đã xong' : 'Đang đánh' %></span>
+                    <% if (currentUser.role === 'ADMIN') { %><small class="muted">Bấm thẻ để ghi điểm</small><% } %>
+                  </div>
+                  <div class="team-name text-end">
+                    <% String(m.teamB).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %>
+                  </div>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+<% }) %>

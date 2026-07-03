@@ -1,0 +1,12 @@
+<% if (currentUser.role === 'ADMIN') { %>
+  <div id="teamEmailModal" class="score-modal hidden" aria-hidden="true">
+    <div class="score-modal-backdrop" data-close-modal="teamEmailModal"></div>
+    <div class="score-modal-panel" role="dialog" aria-modal="true">
+      <div class="score-modal-head"><div><h3>Danh sách email</h3><small>Copy email thành viên đội bóng</small></div><button class="btn btn-sm" type="button" data-close-modal="teamEmailModal">Đóng</button></div>
+      <div class="score-modal-body">
+        <textarea id="teamEmailListText" rows="6" readonly><%= emailList %></textarea>
+        <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamEmailListText">Copy email</button></div>
+      </div>
+    </div>
+  </div>
+<% } %>

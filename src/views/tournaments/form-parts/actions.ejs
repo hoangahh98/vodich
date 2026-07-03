@@ -1,0 +1,4 @@
+<div class="form-actions">
+  <button class="btn btn-success btn-lg" data-loading-text="<%= tournament ? 'Đang lưu...' : 'Đang tạo...' %>">💾 <%= tournament ? 'Lưu thay đổi' : 'Tạo giải' %></button>
+  <a class="btn btn-lg" href="<%= tournament ? `/tournaments/${tournament.id}/${typeof returnSection !== 'undefined' ? returnSection : 'settings'}` : '/tournaments' %>">Hủy</a>
+</div>

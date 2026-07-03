@@ -1,0 +1,67 @@
+<% if (section === 'members') { %>
+  <section class="card-lite p">
+    <div class="section-heading mb">
+      <div><span class="feature-icon">👥</span><h2 class="section-title">Thành viên và đóng phí</h2><p class="muted">Danh sách đóng phí nằm ngay trong mục thành viên.</p></div>
+      <% if (currentUser.role === 'ADMIN' && members.length) { %><button class="btn btn-sm btn-outline" type="button" data-open-modal="teamEmailModal">Get Email</button><% } %>
+    </div>
+    <% if (currentUser.role === 'ADMIN') { %>
+      <form class="registration-panel mb" method="post" action="/teams/<%= team.id %>/members" data-require-checked="playerIds">
+        <input type="hidden" name="month" value="<%= selectedMonth %>">
+        <div class="player-check-list team-member-picker mb" data-team-member-picker>
+          <% players.forEach((p) => { %>
+            <label><input type="checkbox" name="playerIds" value="<%= p.id %>"><span><strong><%= p.displayName %></strong><small><%= p.email %> · <%= p.skillLevel || 'Chưa chọn trình' %></small></span></label>
+          <% }) %>
+          <% if (!players.length) { %><div class="muted p">Không còn thành viên nào để thêm vào đội này.</div><% } %>
+        </div>
+        <div class="flex between center gap team-member-actions">
+          <span class="muted" data-team-member-count>Đã chọn 0 thành viên</span>
+          <div class="flex gap">
+            <select name="memberType" class="team-member-type"><option value="FIXED">Cố định</option><option value="GUEST">Vãng lai</option></select>
+            <input name="notes" placeholder="Ghi chú">
+            <button class="btn btn-primary" data-loading-text="Đang thêm...">Thêm đã chọn</button>
+          </div>
+        </div>
+      </form>
+
+      <% if (members.length) { %>
+        <details class="team-fee-edit mb">
+          <summary>✏️ Cập nhật phí tất cả thành viên</summary>
+          <form method="post" action="/teams/<%= team.id %>/payments">
+            <input type="hidden" name="month" value="<%= selectedMonth %>">
+            <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-fee-edit-table"><thead><tr><th class="sticky-col">Thành viên</th><th>Loại</th><th>Số tiền</th><th>Trạng thái</th><th>Ghi chú phí</th></tr></thead><tbody>
+              <% members.forEach((member) => { %>
+                <tr>
+                  <td class="sticky-col"><strong><%= member.player.displayName %></strong><br><span class="muted"><%= member.typeLabel %></span></td>
+                  <td><select name="memberType_<%= member.id %>"><option value="FIXED" <%= member.memberType === 'FIXED' ? 'selected' : '' %>>Cố định</option><option value="GUEST" <%= member.memberType === 'GUEST' ? 'selected' : '' %>>Vãng lai</option></select></td>
+                  <td><input class="money-input" name="amount_<%= member.id %>" value="<%= formatMoney(member.enteredAmount) %>"></td>
+                  <td><select class="payment-status-select" name="status_<%= member.id %>"><option value="UNPAID" <%= member.paymentStatus !== 'PAID' ? 'selected' : '' %>>✕</option><option value="PAID" <%= member.paymentStatus === 'PAID' ? 'selected' : '' %>>✓</option></select></td>
+                  <td><input name="notes_<%= member.id %>" value="<%= member.feeNotes %>" placeholder="Ghi chú"></td>
+                </tr>
+              <% }) %>
+            </tbody></table></div>
+            <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu tất cả (<%= members.length %> thành viên)</button></div>
+          </form>
+        </details>
+      <% } %>
+    <% } %>
+
+    <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-member-fee-list"><thead><tr><th class="sticky-col">Tên</th><th>Loại</th><th>Tiền đóng</th><th>Trạng thái</th><th>Donate/thiếu</th></tr></thead><tbody>
+      <% members.forEach((member) => { %>
+        <tr class="<%= isMine(member) ? 'mine-row' : '' %> <%= member.paymentStatus === 'PAID' ? 'sufficient-row' : 'insufficient-row' %>">
+          <td class="sticky-col"><strong><%= member.player.displayName %></strong><% if (member.notes) { %><br><span class="muted"><%= member.notes %></span><% } %></td>
+          <td><span class="badge <%= member.memberType === 'GUEST' ? 'bg-info text-dark' : 'bg-success' %>"><%= member.typeLabel %></span></td>
+          <td><strong><%= formatMoney(member.paidAmount) %>đ</strong></td>
+          <td><span class="payment-mark <%= member.paymentStatus === 'PAID' ? 'paid' : 'unpaid' %>"><%= member.paymentStatus === 'PAID' ? '✓' : '✕' %></span></td>
+          <td>
+            <% if (member.memberType === 'GUEST') { %><span class="muted">-</span>
+            <% } else if (member.difference > 0) { %><span class="badge bg-success">+<%= formatMoney(member.difference) %>đ donate</span>
+            <% } else if (member.difference === 0 && finance.monthlyFee > 0) { %><span class="badge bg-primary">Đủ phí</span>
+            <% } else { %><span class="badge bg-danger">Thiếu <%= formatMoney(Math.abs(member.difference)) %>đ</span><% } %>
+            <% if (member.feeNotes) { %><br><span class="muted"><%= member.feeNotes %></span><% } %>
+          </td>
+        </tr>
+      <% }) %>
+      <% if (!members.length) { %><tr><td colspan="5" class="muted text-center">Chưa có thành viên nào trong đội.</td></tr><% } %>
+    </tbody></table></div>
+  </section>
+<% } %>

@@ -1,0 +1,8 @@
+<% if (!matches.length) { %>
+  <div class="text-center py-4">
+    <p class="muted mb">Chưa có trận thi đấu. Bấm bên trên để tự động chia trận.</p>
+    <% if (currentUser.role === 'ADMIN') { %>
+      <form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">⚡ TỰ ĐỘNG CHIA TRẬN</button></form>
+    <% } %>
+  </div>
+<% } %>
