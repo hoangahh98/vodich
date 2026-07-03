@@ -13,6 +13,32 @@
         <div><span class="muted">Điểm</span><br><strong>Vòng bảng: chạm <%= tournament.touchScore %>, max <%= tournament.maxScore %><% if (tournament.format === 'GROUP_KNOCKOUT') { %><br>Vòng trong: chạm <%= tournament.knockoutTouchScore || 15 %>, max <%= tournament.knockoutMaxScore || 19 %><% } %></strong></div>
         <div><span class="muted">Đăng ký ngoài</span><br><strong><%= tournament.externalRegistrationEnabled ? 'Đang mở' : 'Đang tắt' %></strong></div>
       </div>
+      <% if (currentUser.role === 'ADMIN') { %>
+        <section class="form-section mt">
+          <div class="section-heading mb"><div><span class="feature-icon">🔐</span><h2 class="section-title">Phân quyền admin</h2><p class="muted">Admin được cấp quyền sẽ xem và quản lý giải này.</p></div></div>
+          <div class="grid module-grid mb">
+            <div><span class="muted">Người tạo</span><br><strong><%= tournament.ownerAdmin?.displayName || tournament.ownerAdmin?.username || 'Admin gốc / dữ liệu cũ' %></strong></div>
+            <div><span class="muted">Đang được phân quyền</span><br><strong><%= tournament.permissions?.length || 0 %> admin</strong></div>
+          </div>
+          <% if (admins && admins.length) { %>
+            <form class="permission-create-form mb" method="post" action="/tournaments/<%= tournament.id %>/permissions">
+              <div><label>Thêm admin</label><select name="adminId" required><% admins.forEach((admin) => { %><option value="<%= admin.id %>"><%= admin.displayName %> (<%= admin.username %>)</option><% }) %></select></div>
+              <div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm quyền</button></div>
+            </form>
+          <% } %>
+          <div class="permission-admin-list">
+            <% (tournament.permissions || []).forEach((permission) => { %>
+              <div class="permission-admin-card">
+                <div class="flex between center gap">
+                  <div><strong><%= permission.admin.displayName %></strong><br><span class="muted"><%= permission.admin.username %></span></div>
+                  <form method="post" action="/tournaments/<%= tournament.id %>/permissions/<%= permission.id %>/delete" data-confirm="Gỡ quyền admin này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang gỡ...">Gỡ quyền</button></form>
+                </div>
+              </div>
+            <% }) %>
+            <% if (!(tournament.permissions || []).length) { %><div class="alert-lite info">Chưa cấp quyền cho admin nào.</div><% } %>
+          </div>
+        </section>
+      <% } %>
       <div class="mt flex gap">
         <a class="btn btn-primary" href="/tournaments/<%= tournament.id %>/edit?returnSection=<%= section %>">Sửa cấu hình giải</a>
         <% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/delete" data-confirm="Xóa giải này và toàn bộ dữ liệu liên quan?"><button class="btn btn-danger" data-loading-text="Đang xóa...">Xóa giải</button></form><% } %>

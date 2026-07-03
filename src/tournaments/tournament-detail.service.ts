@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { rootAdminUsername } from '../common/admin-scope';
 import { GroupBoard, RankingGroup, TournamentRankingCalculator } from './tournament-ranking';
 
 @Injectable()
@@ -9,8 +10,11 @@ export class TournamentDetailService {
   constructor(private readonly prisma: PrismaService) {}
 
   async detail(tournamentId: bigint) {
-    const [tournament, registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, groupBoards] = await Promise.all([
-      this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } }),
+    const tournament = await this.prisma.tournament.findUniqueOrThrow({
+      where: { id: tournamentId },
+      include: { ownerAdmin: true, permissions: { include: { admin: true }, orderBy: { id: 'asc' } } },
+    });
+    const [registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, groupBoards, admins] = await Promise.all([
       this.prisma.tournamentRegistration.findMany({
         where: { tournamentId, status: 'ACTIVE' },
         include: { player: true },
@@ -30,8 +34,9 @@ export class TournamentDetailService {
       this.prisma.matchGame.findMany({ where: { tournamentId }, orderBy: [{ roundNumber: 'asc' }, { courtNumber: 'asc' }, { id: 'asc' }] }),
       this.rankings(tournamentId),
       this.groupBoards(tournamentId),
+      this.availableAdmins(tournamentId, tournament.ownerAdminId),
     ]);
-    return { tournament, registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, groupBoards };
+    return { tournament, registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, groupBoards, admins };
   }
 
   async groupBoards(tournamentId: bigint): Promise<GroupBoard[]> {
@@ -48,5 +53,17 @@ export class TournamentDetailService {
       orderBy: [{ groupName: 'asc' }, { roundNumber: 'asc' }, { courtNumber: 'asc' }],
     });
     return this.rankingCalculator.rankings(matches);
+  }
+
+  private availableAdmins(tournamentId: bigint, ownerAdminId?: bigint | null) {
+    return this.prisma.appUser.findMany({
+      where: {
+        role: 'ADMIN',
+        username: { not: rootAdminUsername() },
+        id: { notIn: [ownerAdminId || 0n] },
+        tournamentPermissions: { none: { tournamentId } },
+      },
+      orderBy: [{ displayName: 'asc' }, { username: 'asc' }],
+    });
   }
 }

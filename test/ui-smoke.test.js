@@ -128,6 +128,49 @@ test('tournament schedule view keeps score modal and registration copy contract'
   assert.match(html, /https:\/\/render\.example\/external-register\/1/);
 });
 
+test('tournament create and edit forms render prize settings', async () => {
+  const common = commonLocals('/tournaments/new');
+  const createHtml = await renderView('tournaments/form.ejs', {
+    ...common,
+    tournament: null,
+    action: '/tournaments',
+    prizeTotalPaid: 0,
+  });
+  const editHtml = await renderView('tournaments/form.ejs', {
+    ...common,
+    tournament: {
+      id: 1n,
+      name: 'Test Cup',
+      venue: 'Court 1',
+      expectedPlayers: 4,
+      courtCount: 2,
+      courtCost: 100,
+      foodCost: 50,
+      prizeCost: 200,
+      otherCost: 20,
+      prizeRate1: 50,
+      prizeRate2: 30,
+      prizeRate3: 20,
+      format: 'ROUND_ROBIN',
+      playType: 'SINGLES',
+      touchScore: 11,
+      maxScore: 15,
+      knockoutTouchScore: 15,
+      knockoutMaxScore: 19,
+      knockoutQualifierCount: 2,
+      externalRegistrationEnabled: false,
+    },
+    action: '/tournaments/1/edit',
+    returnSection: 'settings',
+    prizeTotalPaid: 500,
+  });
+
+  assert.match(createHtml, /data-prize-fund/);
+  assert.match(createHtml, /Tạo giải|Táº¡o giáº£i/);
+  assert.match(editHtml, /data-manual-prize-suggestion/);
+  assert.match(editHtml, /\/tournaments\/1\/edit/);
+});
+
 test('external registration flow views render form and success login link', async () => {
   const form = await renderView('external-register.ejs', {
     tournament: { id: 1n, name: 'Test Cup' },

@@ -32,6 +32,10 @@ export class TournamentService {
     return this.crud.canView(user, tournamentId);
   }
 
+  canManage(user: CurrentUser, tournamentId: bigint) {
+    return this.crud.canManage(user, tournamentId);
+  }
+
   minimumFee(tournament: Tournament): number {
     return minimumFeeForTournament(tournament);
   }
@@ -48,8 +52,8 @@ export class TournamentService {
     return this.detailService.detail(tournamentId);
   }
 
-  create(form: Record<string, unknown>) {
-    return this.crud.create(form);
+  create(form: Record<string, unknown>, user: CurrentUser) {
+    return this.crud.create(form, user);
   }
 
   update(id: bigint, form: Record<string, unknown>) {
@@ -122,5 +126,17 @@ export class TournamentService {
 
   prizeFundForForm(tournamentId: bigint, form: Record<string, unknown>) {
     return this.crud.prizeFundForForm(tournamentId, form);
+  }
+
+  availableAdmins(tournamentId: bigint, ownerAdminId?: bigint | null) {
+    return this.crud.availableAdmins(tournamentId, ownerAdminId);
+  }
+
+  addPermission(tournamentId: bigint, adminId: bigint) {
+    return this.crud.addPermission(tournamentId, adminId);
+  }
+
+  removePermission(permissionId: bigint) {
+    return this.crud.removePermission(permissionId);
   }
 }

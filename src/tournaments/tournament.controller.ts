@@ -34,7 +34,7 @@ export class TournamentController {
   async createTournament(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, unknown>) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     try {
-      const tournament = await this.tournaments.create(body);
+      const tournament = await this.tournaments.create(body, req.session.user!);
       return res.redirect(`/tournaments/${tournament.id}/players`);
     } catch (error) {
       return render(res, 'tournaments/form', {
@@ -50,6 +50,7 @@ export class TournamentController {
   async editTournament(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     const tournamentId = BigInt(id);
+    if (!(await this.tournaments.canManage(req.session.user!, tournamentId))) return forbidden(res);
     const tournament = await this.tournaments.findTournament(tournamentId);
     const returnSection = String(req.query.returnSection || 'settings');
     const prizeTotalPaid = await this.tournaments.prizeTotalPaid(tournamentId);
@@ -60,6 +61,7 @@ export class TournamentController {
   async updateTournament(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
     const tournamentId = BigInt(id);
+    if (!(await this.tournaments.canManage(req.session.user!, tournamentId))) return forbidden(res);
     try {
       await this.tournaments.update(tournamentId, body);
       this.matchGateway.emitTournamentUpdated(id, 'tournament');
@@ -80,8 +82,30 @@ export class TournamentController {
   @Post('/tournaments/:id/delete')
   async deleteTournament(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
-    await this.tournaments.delete(BigInt(id));
+    const tournamentId = BigInt(id);
+    if (!(await this.tournaments.canManage(req.session.user!, tournamentId))) return forbidden(res);
+    await this.tournaments.delete(tournamentId);
     return res.redirect('/tournaments');
+  }
+
+  @Post('/tournaments/:id/permissions')
+  async addPermission(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('adminId') adminId: string) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    const tournamentId = BigInt(id);
+    if (!(await this.tournaments.canManage(req.session.user!, tournamentId))) return forbidden(res);
+    await this.tournaments.addPermission(tournamentId, BigInt(adminId));
+    this.matchGateway.emitTournamentUpdated(id, 'permission-added');
+    return res.redirect(`/tournaments/${id}/settings`);
+  }
+
+  @Post('/tournaments/:tournamentId/permissions/:permissionId/delete')
+  async removePermission(@Req() req: Request, @Res() res: Response, @Param('tournamentId') tournamentId: string, @Param('permissionId') permissionId: string) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    const id = BigInt(tournamentId);
+    if (!(await this.tournaments.canManage(req.session.user!, id))) return forbidden(res);
+    await this.tournaments.removePermission(BigInt(permissionId));
+    this.matchGateway.emitTournamentUpdated(tournamentId, 'permission-deleted');
+    return res.redirect(`/tournaments/${tournamentId}/settings`);
   }
 
   @Get('/tournaments/:id/:section')
@@ -103,4 +127,8 @@ export class TournamentController {
       minimumFee,
     });
   }
+}
+
+function forbidden(res: Response) {
+  return res.status(403).render('error', { message: 'Không có quyền' });
 }

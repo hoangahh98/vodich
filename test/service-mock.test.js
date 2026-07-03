@@ -20,22 +20,25 @@ test('TournamentCrudService creates normalized tournament payload', async () => 
     },
   });
 
-  await service.create({
-    name: '  Test Cup  ',
-    venue: ' Court 1 ',
-    expectedPlayers: '6',
-    playType: 'DOUBLES',
-    format: 'GROUP_KNOCKOUT',
-    knockoutQualifierCount: '8',
-    courtCost: '1,000',
-    foodCost: '500',
-    prizeCost: '300',
-    otherCost: '200',
-    prizeRate1: '70',
-    prizeRate2: '40',
-    prizeRate3: '10',
-    externalRegistrationEnabled: 'on',
-  });
+  await service.create(
+    {
+      name: '  Test Cup  ',
+      venue: ' Court 1 ',
+      expectedPlayers: '6',
+      playType: 'DOUBLES',
+      format: 'GROUP_KNOCKOUT',
+      knockoutQualifierCount: '8',
+      courtCost: '1,000',
+      foodCost: '500',
+      prizeCost: '300',
+      otherCost: '200',
+      prizeRate1: '70',
+      prizeRate2: '40',
+      prizeRate3: '10',
+      externalRegistrationEnabled: 'on',
+    },
+    { id: '9', email: 'subadmin', displayName: 'Sub Admin', role: 'ADMIN' },
+  );
 
   assert.equal(createdData.name, 'Test Cup');
   assert.equal(createdData.venue, 'Court 1');
@@ -45,6 +48,7 @@ test('TournamentCrudService creates normalized tournament payload', async () => 
   assert.equal(createdData.prizeRate2, 30);
   assert.equal(createdData.prizeRate3, 0);
   assert.equal(createdData.externalRegistrationEnabled, true);
+  assert.equal(createdData.ownerAdminId, 9n);
 });
 
 test('TournamentPaymentService bulk update uses minimum fee when amount is blank', async () => {

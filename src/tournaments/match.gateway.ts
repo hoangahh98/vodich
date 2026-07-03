@@ -68,7 +68,7 @@ export class MatchGateway implements OnGatewayInit {
     @MessageBody() body: ScorePayload,
     @ConnectedSocket() socket: Socket,
   ) {
-    if (!(await this.canUpdateScore(socket))) {
+    if (!(await this.canUpdateScore(socket, BigInt(0)))) {
       socket.emit(SOCKET_EVENTS.SCORE_REJECTED, { message: 'Không có quyền ghi điểm' });
       return;
     }
@@ -77,6 +77,10 @@ export class MatchGateway implements OnGatewayInit {
       include: { tournament: true },
     });
     if (!match) return;
+    if (!(await this.canUpdateScore(socket, match.tournamentId))) {
+      socket.emit(SOCKET_EVENTS.SCORE_REJECTED, { message: 'Không có quyền ghi điểm' });
+      return;
+    }
     const tournamentId = match.tournamentId;
     let scoreA = Math.max(0, Number(body.scoreA) || 0);
     let scoreB = Math.max(0, Number(body.scoreB) || 0);
@@ -109,12 +113,14 @@ export class MatchGateway implements OnGatewayInit {
     }
   }
 
-  private async canUpdateScore(socket: Socket): Promise<boolean> {
+  private async canUpdateScore(socket: Socket, tournamentId: bigint): Promise<boolean> {
     const request = socket.request as typeof socket.request & { session?: { user?: CurrentUser } };
     const user = request.session?.user;
     if (!user || user.role !== 'ADMIN') return false;
     const featureSet = await this.auth.featureSet(user);
-    return this.auth.can(user, 'TOURNAMENTS', featureSet);
+    const hasFeature = this.auth.can(user, 'TOURNAMENTS', featureSet);
+    if (!hasFeature || tournamentId === 0n) return hasFeature;
+    return this.tournaments.canManage(user, tournamentId);
   }
 
   private async configureRedisAdapter(server: Server) {

@@ -1,6 +1,6 @@
 <% if (section === 'settings') { %>
   <section class="card-lite p tournament-edit-card">
-    <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt đội bóng</h2><p class="muted">Sửa thông tin đội và cấu hình quỹ tháng.</p></div></div>
+    <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt đội bóng</h2><p class="muted">Sửa thông tin đội, cấu hình quỹ tháng và phân quyền admin.</p></div></div>
     <% if (currentUser.role === 'ADMIN') { %>
       <form class="tournament-form" method="post" action="/teams/<%= team.id %>/settings">
         <input type="hidden" name="month" value="<%= selectedMonth %>">
@@ -22,6 +22,30 @@
         </section>
         <div class="form-actions"><button class="btn btn-success btn-lg" data-loading-text="Đang lưu...">Lưu thay đổi</button><a class="btn btn-lg" href="/teams/<%= team.id %>/overview?month=<%= selectedMonth %>">Hủy</a></div>
       </form>
+      <section class="form-section">
+        <h2 class="section-title mb">🔐 Phân quyền admin</h2>
+        <div class="grid module-grid mb">
+          <div><span class="muted">Người tạo</span><br><strong><%= team.ownerAdmin?.displayName || team.ownerAdmin?.username || 'Admin gốc / dữ liệu cũ' %></strong></div>
+          <div><span class="muted">Đang được phân quyền</span><br><strong><%= team.permissions?.length || 0 %> admin</strong></div>
+        </div>
+        <% if (admins && admins.length) { %>
+          <form class="permission-create-form mb" method="post" action="/teams/<%= team.id %>/permissions">
+            <div><label>Thêm admin</label><select name="adminId" required><% admins.forEach((admin) => { %><option value="<%= admin.id %>"><%= admin.displayName %> (<%= admin.username %>)</option><% }) %></select></div>
+            <div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm quyền</button></div>
+          </form>
+        <% } %>
+        <div class="permission-admin-list">
+          <% (team.permissions || []).forEach((permission) => { %>
+            <div class="permission-admin-card">
+              <div class="flex between center gap">
+                <div><strong><%= permission.admin.displayName %></strong><br><span class="muted"><%= permission.admin.username %></span></div>
+                <form method="post" action="/teams/<%= team.id %>/permissions/<%= permission.id %>/delete" data-confirm="Gỡ quyền admin này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang gỡ...">Gỡ quyền</button></form>
+              </div>
+            </div>
+          <% }) %>
+          <% if (!(team.permissions || []).length) { %><div class="alert-lite info">Chưa cấp quyền cho admin nào.</div><% } %>
+        </div>
+      </section>
     <% } else { %>
       <div class="grid team-summary-grid">
         <div class="cost-card">👥<span>Tên đội</span><strong><%= team.name %></strong></div>

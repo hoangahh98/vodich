@@ -16,6 +16,10 @@ model AppUser {
   createdAt    DateTime @default(now()) @map("created_at")
 
   permissions       AdminFeaturePermission[]
+  ownedTournaments  Tournament[]              @relation("TournamentOwner")
+  tournamentPermissions TournamentPermission[]
+  ownedTeams        TeamClub[]                @relation("TeamClubOwner")
+  teamPermissions   TeamClubPermission[]
   ownedTravelTrips  TravelTrip[]             @relation("TravelTripOwner")
   travelPermissions TravelTripPermission[]
 
@@ -71,13 +75,29 @@ model Tournament {
   prizeRate2                  Decimal   @default(30) @map("prize_rate_2") @db.Decimal(14, 2)
   prizeRate3                  Decimal   @default(20) @map("prize_rate_3") @db.Decimal(14, 2)
   externalRegistrationEnabled Boolean   @default(false) @map("external_registration_enabled")
+  ownerAdminId                BigInt?   @map("owner_admin_id")
   createdAt                   DateTime  @default(now()) @map("created_at")
   updatedAt                   DateTime  @default(now()) @map("updated_at")
 
+  ownerAdmin    AppUser?                 @relation("TournamentOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
   registrations TournamentRegistration[]
   matches       MatchGame[]
+  permissions   TournamentPermission[]
 
   @@map("tournament")
+}
+
+model TournamentPermission {
+  id           BigInt   @id @default(autoincrement())
+  tournamentId BigInt   @map("tournament_id")
+  adminId      BigInt   @map("admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  admin      AppUser    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, adminId])
+  @@map("tournament_permission")
 }
 
 model TournamentRegistration {
@@ -128,14 +148,30 @@ model TeamClub {
   id          BigInt   @id @default(autoincrement())
   name        String   @db.VarChar(255)
   description String?
+  ownerAdminId BigInt? @map("owner_admin_id")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @default(now()) @map("updated_at")
 
+  ownerAdmin AppUser? @relation("TeamClubOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
   members  TeamMember[]
   funds    TeamMonthFund[]
   expenses TeamExpense[]
+  permissions TeamClubPermission[]
 
   @@map("team_club")
+}
+
+model TeamClubPermission {
+  id        BigInt   @id @default(autoincrement())
+  teamId    BigInt   @map("team_id")
+  adminId   BigInt   @map("admin_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  team  TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  admin AppUser  @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, adminId])
+  @@map("team_club_permission")
 }
 
 model TeamMember {

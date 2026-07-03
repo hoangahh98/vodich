@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { rootAdminUsername } from '../common/admin-scope';
 import { PrismaService } from '../prisma.service';
 import { TeamMonthReportBuilder } from './team-month-report';
 import { addMonths, monthDate } from './team-utils';
@@ -16,8 +17,11 @@ export class TeamDetailService {
   async detailForMonth(id: bigint, month: string) {
     const fundMonth = monthDate(month);
     const previousMonthBalance = await this.previousMonthBalance(id, fundMonth);
-    const [team, members, players, fund, expenses] = await Promise.all([
-      this.prisma.teamClub.findUniqueOrThrow({ where: { id } }),
+    const team = await this.prisma.teamClub.findUniqueOrThrow({
+      where: { id },
+      include: { ownerAdmin: true, permissions: { include: { admin: true }, orderBy: { id: 'asc' } } },
+    });
+    const [members, players, fund, expenses, admins] = await Promise.all([
       this.prisma.teamMember.findMany({
         where: { teamId: id, active: true },
         include: { player: true, payments: { where: { fundMonth } } },
@@ -26,9 +30,10 @@ export class TeamDetailService {
       this.prisma.player.findMany({ orderBy: { displayName: 'asc' } }),
       this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId: id, fundMonth } } }),
       this.prisma.teamExpense.findMany({ where: { teamId: id, expenseMonth: fundMonth }, orderBy: [{ expenseDate: 'desc' }, { id: 'desc' }] }),
+      this.availableAdmins(id, team.ownerAdminId),
     ]);
     const report = this.monthReportBuilder.build({ members, players, fund, expenses, previousMonthBalance });
-    return { team, members: report.members, players: report.players, fund, expenses, selectedMonth: month, finance: report.finance, emailList: report.emailList };
+    return { team, members: report.members, players: report.players, fund, expenses, admins, selectedMonth: month, finance: report.finance, emailList: report.emailList };
   }
 
   async previousMonthBalance(teamId: bigint, fundMonth: Date) {
@@ -42,5 +47,17 @@ export class TeamDetailService {
     const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.paidAmount), 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
     return Number(fund.previousBalance || 0) + totalPaid - Number(fund.courtCost || 0) - totalExpense;
+  }
+
+  private availableAdmins(teamId: bigint, ownerAdminId?: bigint | null) {
+    return this.prisma.appUser.findMany({
+      where: {
+        role: 'ADMIN',
+        username: { not: rootAdminUsername() },
+        id: { notIn: [ownerAdminId || 0n] },
+        teamPermissions: { none: { teamId } },
+      },
+      orderBy: [{ displayName: 'asc' }, { username: 'asc' }],
+    });
   }
 }

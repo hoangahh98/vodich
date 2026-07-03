@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Tournament } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
+import { isRootAdmin, rootAdminUsername } from '../common/admin-scope';
 import { buildTournamentData, normalizePrizes, operatingCostFromForm } from './tournament-form';
 import { minimumFeeForTournament } from './tournament-money';
 
@@ -12,7 +13,10 @@ export class TournamentCrudService {
   async listFor(user: CurrentUser) {
     const tournaments =
       user.role === 'ADMIN'
-        ? await this.prisma.tournament.findMany({ orderBy: { id: 'desc' } })
+        ? await this.prisma.tournament.findMany({
+            where: isRootAdmin(user) ? {} : this.adminTournamentWhere(user),
+            orderBy: { id: 'desc' },
+          })
         : await this.clientTournaments(user.email);
     if (!tournaments.length) return [];
 
@@ -47,7 +51,7 @@ export class TournamentCrudService {
   }
 
   async canView(user: CurrentUser, tournamentId: bigint) {
-    if (user.role === 'ADMIN') return true;
+    if (user.role === 'ADMIN') return this.canManage(user, tournamentId);
     return (
       (await this.prisma.tournamentRegistration.count({
         where: {
@@ -62,6 +66,16 @@ export class TournamentCrudService {
     );
   }
 
+  async canManage(user: CurrentUser, tournamentId: bigint) {
+    if (user.role !== 'ADMIN') return false;
+    if (isRootAdmin(user)) return true;
+    return (
+      (await this.prisma.tournament.count({
+        where: { id: tournamentId, ...this.adminTournamentWhere(user) },
+      })) > 0
+    );
+  }
+
   findTournament(tournamentId: bigint) {
     return this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
   }
@@ -70,9 +84,9 @@ export class TournamentCrudService {
     return this.prisma.tournament.delete({ where: { id: tournamentId } });
   }
 
-  create(form: Record<string, unknown>) {
+  create(form: Record<string, unknown>, user: CurrentUser) {
     return this.prisma.tournament.create({
-      data: buildTournamentData(form, normalizePrizes(form, 0)),
+      data: { ...buildTournamentData(form, normalizePrizes(form, 0)), ownerAdminId: BigInt(user.id) },
     });
   }
 
@@ -98,5 +112,30 @@ export class TournamentCrudService {
   async prizeFundForForm(tournamentId: bigint, form: Record<string, unknown>): Promise<number> {
     const totalPaid = await this.prizeTotalPaid(tournamentId);
     return Math.max(0, totalPaid - operatingCostFromForm(form));
+  }
+
+  async availableAdmins(tournamentId: bigint, ownerAdminId?: bigint | null) {
+    return this.prisma.appUser.findMany({
+      where: {
+        role: 'ADMIN',
+        username: { not: rootAdminUsername() },
+        id: { notIn: [ownerAdminId || 0n] },
+        tournamentPermissions: { none: { tournamentId } },
+      },
+      orderBy: [{ displayName: 'asc' }, { username: 'asc' }],
+    });
+  }
+
+  addPermission(tournamentId: bigint, adminId: bigint) {
+    return this.prisma.tournamentPermission.create({ data: { tournamentId, adminId } });
+  }
+
+  removePermission(permissionId: bigint) {
+    return this.prisma.tournamentPermission.delete({ where: { id: permissionId } });
+  }
+
+  private adminTournamentWhere(user: CurrentUser) {
+    const adminId = BigInt(user.id);
+    return { OR: [{ ownerAdminId: adminId }, { permissions: { some: { adminId } } }] };
   }
 }

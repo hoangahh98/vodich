@@ -16,6 +16,7 @@ export class TournamentScheduleController {
   @Post('/tournaments/:id/generate-schedule')
   async generateSchedule(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    if (!(await this.tournaments.canManage(req.session.user!, BigInt(id)))) return forbidden(res);
     await this.tournaments.generateSchedule(BigInt(id));
     this.matchGateway.emitTournamentUpdated(id, 'schedule');
     return res.redirect(`/tournaments/${id}/schedule`);
@@ -24,11 +25,16 @@ export class TournamentScheduleController {
   @Post('/tournaments/:id/manual-schedule')
   async manualSchedule(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    if (!(await this.tournaments.canManage(req.session.user!, BigInt(id)))) return forbidden(res);
     const teams = normalizeManualTeams(body);
     await this.tournaments.generateManualSchedule(BigInt(id), teams);
     this.matchGateway.emitTournamentUpdated(id, 'schedule');
     return res.redirect(`/tournaments/${id}/schedule`);
   }
+}
+
+function forbidden(res: Response) {
+  return res.status(403).render('error', { message: 'Không có quyền' });
 }
 
 function normalizeManualTeams(body: Record<string, string>) {

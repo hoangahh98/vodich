@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { CurrentUser } from '../types';
 import { TeamCrudService } from './team-crud.service';
 import { TeamDetailService } from './team-detail.service';
 import { TeamExpenseService } from './team-expense.service';
@@ -15,16 +16,20 @@ export class TeamService {
     private readonly members: TeamMemberService,
   ) {}
 
-  list() {
-    return this.crud.list();
+  list(user: CurrentUser) {
+    return this.crud.list(user);
   }
 
-  create(name: string, description?: string) {
-    return this.crud.create(name, description);
+  create(user: CurrentUser, name: string, description?: string) {
+    return this.crud.create(user, name, description);
   }
 
   updateTeam(id: bigint, name: string, description?: string) {
     return this.crud.updateTeam(id, name, description);
+  }
+
+  canManage(user: CurrentUser, teamId: bigint) {
+    return this.crud.canManage(user, teamId);
   }
 
   detailForMonth(id: bigint, month: string) {
@@ -65,5 +70,13 @@ export class TeamService {
 
   deleteExpense(teamId: bigint, id: bigint) {
     return this.expenses.deleteExpense(teamId, id);
+  }
+
+  addPermission(teamId: bigint, adminId: bigint) {
+    return this.crud.addPermission(teamId, adminId);
+  }
+
+  removePermission(permissionId: bigint) {
+    return this.crud.removePermission(permissionId);
   }
 }
