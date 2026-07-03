@@ -379,4 +379,9 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .team-expense-form .expense-date input { width: 132px; height: 38px; }
   .team-expense-form label { font-size: 13px; }
   .team-expense-form input, .team-expense-form .btn { min-height: 38px; padding: 7px 9px; }
+  .player-create-form { grid-template-columns: minmax(180px, 1.15fr) minmax(220px, 1.25fr) minmax(96px, .55fr) minmax(86px, auto); gap: 8px; }
+  .player-create-form > div:nth-child(4) { grid-column: 1 / 4; }
+  .player-create-action { grid-column: 4; grid-row: 1 / 3; align-self: end; width: 100%; min-width: 86px; }
+  .player-create-form label { font-size: 13px; }
+  .player-create-form input, .player-create-form select, .player-create-form .btn { min-height: 38px; padding: 7px 9px; }
 }
