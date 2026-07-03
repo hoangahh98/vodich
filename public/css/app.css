@@ -97,6 +97,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .between { justify-content: space-between; }
 .center { align-items: center; }
 .gap { gap: 10px; }
+.copy-field { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: stretch; }
+.copy-field input { min-width: 0; }
 .mb { margin-bottom: 14px; }
 .mt { margin-top: 14px; }
 .p { padding: 16px; }

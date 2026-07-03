@@ -61,6 +61,10 @@ Chào mừng Anh/Chị đến với giải đấu "<%= tournament.name %>" tại
 
 Link xem thông tin giải:
 <%= tournamentLink %>
+<% if (tournament.externalRegistrationEnabled) { %>
+
+Các vận động viên tham gia giải đăng ký tại link <%= externalLink %>
+<% } %>
 
 BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra thuận lợi.</textarea>
           <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="contentSampleText">Copy nội dung</button></div>
@@ -72,7 +76,7 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
   <% if (section === 'players') { %>
     <section class="card-lite p">
       <div class="section-heading mb"><div><span class="feature-icon">👥</span><h2 class="section-title">Thành viên</h2><p class="muted">Quản lý chính thức, dự bị và thao tác nhiều người một lúc.</p></div><span class="badge"><%= registrations.length %>/<%= tournament.expectedPlayers %></span></div>
-      <% if (currentUser.role === 'ADMIN' && tournament.externalRegistrationEnabled) { %><div class="card-lite p mb"><strong>Link đăng ký ngoài</strong><input value="<%= externalLink %>" readonly></div><% } %>
+      <% if (currentUser.role === 'ADMIN' && tournament.externalRegistrationEnabled) { %><div class="card-lite p mb"><strong>Link đăng ký ngoài</strong><div class="copy-field mt"><input id="externalRegistrationLink" value="<%= externalLink %>" readonly><button class="btn btn-primary" type="button" data-copy-target="externalRegistrationLink">Copy</button></div></div><% } %>
       <% if (currentUser.role === 'ADMIN') { %>
         <form id="addTournamentPlayersForm" class="mb" method="post" action="/tournaments/<%= tournament.id %>/registrations">
           <% const usedPlayerIds = new Set([...registrations, ...(reserveRegistrations || []), ...withdrawnRegistrations].map((r) => r.playerId && r.playerId.toString()).filter(Boolean)); %>
