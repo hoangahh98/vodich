@@ -1,24 +1,5 @@
 <%- include('../partials/head', { title: tournament.name }) %>
 <%- include('../partials/topbar') %>
-<% const paymentLabels = { PAID: 'Đã đóng', UNPAID: 'Chưa đóng' }; %>
-<% const slotsLeft = Math.max(0, tournament.expectedPlayers - registrations.length); %>
-<% const totalCost = Number(tournament.courtCost) + Number(tournament.foodCost) + Number(tournament.prizeCost) + Number(tournament.otherCost); %>
-<% const totalPaid = registrations.reduce((sum, r) => sum + Number(r.paidAmount || 0), 0); %>
-<% const totalExpected = registrations.length * minimumFee; %>
-<% const unpaidCount = registrations.filter((r) => r.paymentStatus !== 'PAID').length; %>
-<% const missingFee = unpaidCount * minimumFee; %>
-<% const operatingCost = Number(tournament.courtCost) + Number(tournament.foodCost) + Number(tournament.otherCost); %>
-<% const prizeFund = Math.max(0, totalPaid - operatingCost); %>
-<% const manualPrize = Number(tournament.prizeRate1) > 100 || Number(tournament.prizeRate2) > 100 || Number(tournament.prizeRate3) > 100; %>
-<% const prizeRateTotal = Number(tournament.prizeRate1) + Number(tournament.prizeRate2) + Number(tournament.prizeRate3) || 100; %>
-<% const prize1 = manualPrize ? Number(tournament.prizeRate1) : prizeFund * Number(tournament.prizeRate1) / prizeRateTotal; %>
-<% const prize2 = manualPrize ? Number(tournament.prizeRate2) : prizeFund * Number(tournament.prizeRate2) / prizeRateTotal; %>
-<% const prize3 = manualPrize ? Number(tournament.prizeRate3) : prizeFund * Number(tournament.prizeRate3) / prizeRateTotal; %>
-<% const topDonors = registrations.map((r) => ({ name: r.player ? r.player.displayName : r.externalName, amount: Math.max(0, Number(r.paidAmount || 0) - minimumFee) })).filter((item) => item.amount > 0).sort((a, b) => b.amount - a.amount).slice(0, 3); %>
-<% const currentEmail = String(currentUser?.email || currentUser?.username || '').toLowerCase(); %>
-<% const myNames = new Set([...registrations, ...(reserveRegistrations || []), ...withdrawnRegistrations].filter((r) => String(r.player ? r.player.email : r.externalEmail || '').toLowerCase() === currentEmail).map((r) => r.player ? r.player.displayName : r.externalName).filter(Boolean)); %>
-<% const isMine = (name) => [...myNames].some((myName) => String(name || '').includes(myName)); %>
-<% const detailContext = { paymentLabels, slotsLeft, totalCost, totalPaid, totalExpected, unpaidCount, missingFee, operatingCost, prizeFund, manualPrize, prizeRateTotal, prize1, prize2, prize3, topDonors, currentEmail, myNames, isMine }; %>
 <main class="app-shell" data-tournament-id="<%= tournament.id %>">
   <%- include('detail-parts/hero', detailContext) %>
   <%- include('detail-parts/players', detailContext) %>

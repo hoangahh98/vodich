@@ -1,12 +1,17 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
 import { PrismaService } from '../prisma.service';
+import { httpAction } from './log-action';
 
 @Injectable()
 export class LogService implements NestMiddleware {
   constructor(private readonly prisma: PrismaService) {}
 
   use(req: Request, res: Response, next: NextFunction) {
+    if (process.env.DISABLE_HTTP_LOGS === 'true') {
+      next();
+      return;
+    }
     const started = Date.now();
     res.on('finish', () => {
       this.record(req, res, Date.now() - started).catch(() => undefined);
@@ -23,7 +28,7 @@ export class LogService implements NestMiddleware {
         createdAt: new Date(),
         level,
         category: 'HTTP',
-        action: `${req.method} ${req.path}`,
+        action: httpAction(req),
         method: req.method,
         path: req.path,
         queryString: req.url.includes('?') ? req.url.split('?').slice(1).join('?') : null,

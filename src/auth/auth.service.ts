@@ -13,6 +13,7 @@ export class AuthService implements OnModuleInit {
   constructor(private readonly prisma: PrismaService) {}
 
   async onModuleInit() {
+    if (process.env.SKIP_ADMIN_BOOTSTRAP === 'true') return;
     const existing = await this.prisma.appUser.findUnique({ where: { username: this.rootUsername } });
     if (!existing) {
       await this.prisma.appUser.create({

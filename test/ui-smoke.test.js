@@ -4,6 +4,8 @@ const path = require('node:path');
 const test = require('node:test');
 const vm = require('node:vm');
 const ejs = require('ejs');
+const { normalizedPath } = require('../dist/logs/log-action');
+const { TournamentDetailViewModelBuilder } = require('../dist/tournaments/tournament-detail-view-model');
 
 const root = path.join(__dirname, '..');
 
@@ -22,9 +24,8 @@ function commonLocals(route = '/') {
 }
 
 function tournamentLocals(section) {
-  return {
-    ...commonLocals(`/tournaments/1/${section}`),
-    section,
+  const common = commonLocals(`/tournaments/1/${section}`);
+  const detail = {
     tournament: {
       id: 1n,
       name: 'Test Cup',
@@ -84,9 +85,23 @@ function tournamentLocals(section) {
     ],
     rankingGroups: [{ groupName: 'A', rows: [{ teamName: 'An / Binh', played: 0, won: 0, lost: 0, rankingPoints: 0, pointDiff: 0 }] }],
     groupBoards: [{ groupName: 'A', teams: ['An / Binh', 'Cuong / Dung'] }],
-    minimumFee: 100,
+  };
+  const minimumFee = 100;
+  const builder = new TournamentDetailViewModelBuilder();
+  const detailContext = builder.build({
+    currentUser: common.currentUser,
+    detail,
     externalLink: 'https://render.example/external-register/1',
+    minimumFee,
     tournamentLink: 'https://render.example/tournaments/1/players',
+  });
+  return {
+    ...common,
+    ...detail,
+    ...detailContext,
+    detailContext,
+    minimumFee,
+    section,
   };
 }
 
@@ -140,6 +155,15 @@ test('tournament route controllers stay split by workflow', () => {
     const source = fs.readFileSync(path.join(root, file), 'utf8');
     for (const route of routes) assert.match(source, new RegExp(escapeRegExp(route)));
   }
+});
+
+test('viewport disables mobile zoom and log paths are normalized', async () => {
+  const html = await renderView('partials/head.ejs', { title: 'Test' });
+
+  assert.match(html, /maximum-scale=1/);
+  assert.match(html, /user-scalable=no/);
+  assert.equal(normalizedPath('/tournaments/123/players'), '/tournaments/:id/players');
+  assert.equal(normalizedPath('/external-register/456'), '/external-register/:id');
 });
 
 test('score rules clamp and finish status are reusable outside scoreboard UI', () => {

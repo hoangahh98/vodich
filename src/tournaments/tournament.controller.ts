@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
 import { requireFeature, safeTournamentSection } from '../common/controller-utils';
 import { render } from '../common/view';
+import { TournamentDetailViewModelBuilder } from './tournament-detail-view-model';
 import { MatchGateway } from './match.gateway';
 import { TournamentService } from './tournament.service';
 
@@ -10,6 +11,7 @@ import { TournamentService } from './tournament.service';
 export class TournamentController {
   constructor(
     private readonly auth: AuthService,
+    private readonly detailViewModel: TournamentDetailViewModelBuilder,
     private readonly tournaments: TournamentService,
     private readonly matchGateway: MatchGateway,
   ) {}
@@ -89,12 +91,16 @@ export class TournamentController {
     const tournamentId = BigInt(id);
     if (!(await this.tournaments.canView(user, tournamentId))) return res.status(403).render('error', { message: 'Không có quyền' });
     const detail = await this.tournaments.detail(tournamentId);
+    const minimumFee = this.tournaments.minimumFee(detail.tournament);
+    const externalLink = `${req.protocol}://${req.get('host')}/external-register/${id}`;
+    const tournamentLink = `${req.protocol}://${req.get('host')}/tournaments/${id}/players`;
+    const viewModel = this.detailViewModel.build({ currentUser: user, detail, externalLink, minimumFee, tournamentLink });
     return render(res, 'tournaments/detail', {
       section,
       ...detail,
-      minimumFee: this.tournaments.minimumFee(detail.tournament),
-      externalLink: `${req.protocol}://${req.get('host')}/external-register/${id}`,
-      tournamentLink: `${req.protocol}://${req.get('host')}/tournaments/${id}/players`,
+      ...viewModel,
+      detailContext: viewModel,
+      minimumFee,
     });
   }
 }

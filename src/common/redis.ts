@@ -11,6 +11,7 @@ export interface RedisLogEntry {
 
 export type AppRedisClient = ReturnType<typeof createClient> & {
   connect: () => Promise<unknown>;
+  ping: () => Promise<string>;
   quit: () => Promise<unknown>;
   on: (event: string, listener: (error: unknown) => void) => AppRedisClient;
 };
@@ -62,6 +63,19 @@ export async function createConnectedRedisClient(label: string): Promise<AppRedi
   await client.connect();
   recordRedisLog('INFO', `${label} connected`, redisConnectionSummary());
   return client;
+}
+
+export async function checkRedisReady() {
+  if (!isRedisConfigured()) {
+    return { configured: false, required: isRedisRequired(), ok: !isRedisRequired(), details: redisConnectionSummary() };
+  }
+  const client = await createConnectedRedisClient('health');
+  try {
+    const pong = await client?.ping();
+    return { configured: true, required: isRedisRequired(), ok: pong === 'PONG', details: redisConnectionSummary() };
+  } finally {
+    await client?.quit().catch(() => undefined);
+  }
 }
 
 export function recordRedisLog(level: RedisLogLevel, action: string, details?: string, error?: unknown) {

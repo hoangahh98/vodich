@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
   async onModuleInit() {
+    if (process.env.SKIP_PRISMA_CONNECT === 'true') return;
     await this.$connect();
     await this.$executeRawUnsafe('ALTER TABLE "tournament" ADD COLUMN IF NOT EXISTS "end_time" TIMESTAMP(3)');
     await this.$executeRawUnsafe('ALTER TABLE "tournament" ADD COLUMN IF NOT EXISTS "knockout_touch_score" INTEGER NOT NULL DEFAULT 15');
