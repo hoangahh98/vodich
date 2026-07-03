@@ -11,4 +11,11 @@ export class HomeController {
     if (!user) return;
     return render(res, 'home');
   }
+
+  @Get(['/score-reader', '/doc-diem-giao-luu'])
+  scoreReader(@Req() req: Request, @Res() res: Response) {
+    const user = requireUser(req, res);
+    if (!user) return;
+    return render(res, 'score-reader');
+  }
 }

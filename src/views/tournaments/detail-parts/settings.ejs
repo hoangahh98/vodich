@@ -14,7 +14,7 @@
         <div><span class="muted">Đăng ký ngoài</span><br><strong><%= tournament.externalRegistrationEnabled ? 'Đang mở' : 'Đang tắt' %></strong></div>
       </div>
       <% if (currentUser.role === 'ADMIN') { %>
-        <section class="form-section mt">
+        <section class="form-section mt settings-permission-section">
           <div class="section-heading mb"><div><span class="feature-icon">🔐</span><h2 class="section-title">Phân quyền admin</h2><p class="muted">Admin được cấp quyền sẽ xem và quản lý giải này.</p></div></div>
           <div class="grid module-grid mb">
             <div><span class="muted">Người tạo</span><br><strong><%= tournament.ownerAdmin?.displayName || tournament.ownerAdmin?.username || 'Admin gốc / dữ liệu cũ' %></strong></div>
@@ -39,7 +39,7 @@
           </div>
         </section>
       <% } %>
-      <div class="mt flex gap">
+      <div class="mt flex gap settings-action-row">
         <a class="btn btn-primary" href="/tournaments/<%= tournament.id %>/edit?returnSection=<%= section %>">Sửa cấu hình giải</a>
         <% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/delete" data-confirm="Xóa giải này và toàn bộ dữ liệu liên quan?"><button class="btn btn-danger" data-loading-text="Đang xóa...">Xóa giải</button></form><% } %>
       </div>

@@ -1,0 +1,56 @@
+<%- include('partials/head', { title: 'Đọc điểm' }) %>
+<%- include('partials/topbar') %>
+<main class="app-shell score-reader-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>🔊 Đọc điểm giao lưu</h1>
+        <div class="muted strong-muted">Bộ đọc điểm độc lập, dùng được cho admin và VĐV.</div>
+      </div>
+      <div class="feature-hero-art">🔊</div>
+    </div>
+  </section>
+
+  <section class="card-lite p score-reader-tool" data-score-reader>
+    <div class="score-reader-settings mb">
+      <div><label>Đội A</label><input id="readerTeamAName" maxlength="40" value="Đội A"></div>
+      <div><label>Đội B</label><input id="readerTeamBName" maxlength="40" value="Đội B"></div>
+      <div><label>Chạm</label><input id="readerTouchScore" type="number" min="1" max="99" value="11"></div>
+      <div><label>Max</label><input id="readerMaxScore" type="number" min="1" max="99" value="15"></div>
+    </div>
+
+    <div class="score-reader-board mb">
+      <section class="score-reader-team serving" id="readerTeamACard" data-reader-team="A">
+        <strong id="readerTeamALabel">Đội A</strong>
+        <div id="readerScoreA" class="score-reader-value">0</div>
+        <div class="score-reader-controls">
+          <button class="btn btn-danger" type="button" data-reader-team="A" data-reader-delta="-1">-</button>
+          <button class="btn btn-success" type="button" data-reader-team="A" data-reader-delta="1">+</button>
+        </div>
+      </section>
+      <section class="score-reader-team" id="readerTeamBCard" data-reader-team="B">
+        <strong id="readerTeamBLabel">Đội B</strong>
+        <div id="readerScoreB" class="score-reader-value">0</div>
+        <div class="score-reader-controls">
+          <button class="btn btn-danger" type="button" data-reader-team="B" data-reader-delta="-1">-</button>
+          <button class="btn btn-success" type="button" data-reader-team="B" data-reader-delta="1">+</button>
+        </div>
+      </section>
+    </div>
+
+    <div class="score-reader-actions">
+      <div class="score-reader-order">
+        <button class="btn btn-primary" type="button" data-reader-order="1">Tay 1</button>
+        <button class="btn" type="button" data-reader-order="2">Tay 2</button>
+      </div>
+      <div class="score-reader-command">
+        <button class="btn btn-primary" id="readerSpeakScore" type="button">🔊 Đọc lại</button>
+        <button class="btn btn-danger" id="readerResetScore" type="button">Đặt lại</button>
+      </div>
+    </div>
+    <div id="readerStatus" class="score-save-status muted">Sẵn sàng</div>
+  </section>
+</main>
+<script src="/js/score-speech.js"></script>
+<script src="/js/score-reader.js"></script>
+<%- include('partials/bottom-menu') %>

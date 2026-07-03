@@ -233,6 +233,16 @@ test('travel views render dashboard and finance detail without overflow-prone pl
   assert.match(detail, /travel-expense-form/);
   assert.match(detail, /🌴/);
   assert.match(home, /pickleball-icon/);
+  assert.match(home, /\/score-reader/);
+});
+
+test('score reader renders for standalone friendly scoring', async () => {
+  const html = await renderView('score-reader.ejs', commonLocals('/score-reader'));
+
+  assert.match(html, /data-score-reader/);
+  assert.match(html, /id="readerScoreA"/);
+  assert.match(html, /data-reader-order="2"/);
+  assert.match(html, /\/js\/score-reader\.js/);
 });
 
 test('tournament route controllers stay split by workflow', () => {

@@ -281,6 +281,22 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .score-options { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .score-options span { font-weight: 800; color: var(--muted); }
 .score-save-status { text-align: center; margin-top: 14px; font-weight: 700; }
+.settings-permission-section { margin-bottom: 26px; }
+.settings-action-row { padding-top: 8px; border-top: 1px solid #eef2f7; }
+.score-reader-shell { max-width: 980px; }
+.score-reader-tool { display: grid; gap: 12px; }
+.score-reader-settings { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) 110px 110px; gap: 12px; align-items: end; }
+.score-reader-board { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.score-reader-team { border: 2px solid #dee2e6; border-radius: 10px; padding: 16px; min-height: 260px; display: grid; grid-template-rows: auto 1fr auto; align-items: center; text-align: center; cursor: pointer; background: #fff; transition: border-color .15s, box-shadow .15s, opacity .15s; }
+.score-reader-team.serving { border-color: #198754; box-shadow: 0 0 0 4px rgba(25,135,84,.14); background: #f4fff8; }
+.score-reader-team:not(.serving) { opacity: .72; }
+.score-reader-team strong { font-size: 18px; overflow-wrap: anywhere; }
+.score-reader-value { font-size: clamp(64px, 13vw, 124px); line-height: 1; font-weight: 900; color: #111827; }
+.score-reader-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.score-reader-controls .btn { min-height: 58px; font-size: 28px; font-weight: 900; padding: 0; }
+.score-reader-actions { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.score-reader-order, .score-reader-command { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.score-reader-order .btn, .score-reader-command .btn { min-width: 112px; }
 .group-board { border: 1px solid #19875455; border-radius: 8px; overflow: hidden; background: #fff; }
 .group-board-title { background: #d1f2dc; color: #0f5132; font-weight: 800; text-align: center; padding: 6px 8px; border-bottom: 1px solid #19875455; }
 .group-team-row { padding: 6px 10px; border-bottom: 1px solid #e9ecef; font-size: .86rem; font-weight: 600; }
@@ -362,6 +378,12 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .section-heading p { margin-left: 0; }
   .feature-hero-art { width: 58px; height: 58px; font-size: 32px; }
   .score-sides { grid-template-columns: 1fr; }
+  .score-reader-settings { grid-template-columns: 1fr 1fr; }
+  .score-reader-board { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .score-reader-team { min-height: 220px; padding: 12px 10px; }
+  .score-reader-controls { gap: 8px; }
+  .score-reader-controls .btn { min-height: 52px; font-size: 24px; }
+  .score-reader-order .btn, .score-reader-command .btn { min-width: 96px; }
   .score-divider { display: none; }
   .form-actions { grid-template-columns: 1fr; }
   .manual-pair-grid { grid-template-columns: 1fr; }
