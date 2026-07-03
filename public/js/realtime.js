@@ -1,4 +1,5 @@
 (() => {
+  const events = window.Vodich?.socketEvents || {};
   const shell = document.querySelector('[data-tournament-id]');
   let ranking = document.querySelector('.ranking-live');
   if (!shell || !ranking) return;
@@ -18,28 +19,30 @@
       }
     }, 250);
   };
-  socket.on('scoreUpdated', refreshRanking);
+  socket.on(events.SCORE_UPDATED || 'scoreUpdated', refreshRanking);
 })();
 
 (() => {
+  const events = window.Vodich?.socketEvents || {};
   const shell = document.querySelector('[data-tournament-id]');
   if (!shell) return;
   const socket = window.Vodich?.getTournamentSocket?.(shell.dataset.tournamentId);
   if (!socket) return;
   let reloadTimer = null;
-  socket.on('tournamentUpdated', () => {
+  socket.on(events.TOURNAMENT_UPDATED || 'tournamentUpdated', () => {
     window.clearTimeout(reloadTimer);
     reloadTimer = window.setTimeout(() => window.location.reload(), 300);
   });
 })();
 
 (() => {
+  const events = window.Vodich?.socketEvents || {};
   const shell = document.querySelector('[data-team-id]');
   if (!shell) return;
   const socket = window.Vodich?.getTeamSocket?.(shell.dataset.teamId);
   if (!socket) return;
   let reloadTimer = null;
-  socket.on('teamUpdated', (payload) => {
+  socket.on(events.TEAM_UPDATED || 'teamUpdated', (payload) => {
     if (String(payload?.teamId || '') !== String(shell.dataset.teamId)) return;
     window.clearTimeout(reloadTimer);
     reloadTimer = window.setTimeout(() => window.location.reload(), 300);
@@ -47,12 +50,13 @@
 })();
 
 (() => {
+  const events = window.Vodich?.socketEvents || {};
   const shell = document.querySelector('[data-teams-index]');
   if (!shell) return;
   const socket = window.Vodich?.getAppSocket?.();
   if (!socket) return;
   let reloadTimer = null;
-  socket.on('teamsUpdated', () => {
+  socket.on(events.TEAMS_UPDATED || 'teamsUpdated', () => {
     window.clearTimeout(reloadTimer);
     reloadTimer = window.setTimeout(() => window.location.reload(), 300);
   });

@@ -124,12 +124,22 @@ const getAppSocket = () => {
   if (!window.vodichSocket) window.vodichSocket = io();
   return window.vodichSocket;
 };
+const socketEvents = Object.freeze({
+  JOIN_TOURNAMENT: 'joinTournament',
+  JOIN_TEAM: 'joinTeam',
+  SCORE: 'score',
+  SCORE_UPDATED: 'scoreUpdated',
+  SCORE_REJECTED: 'scoreRejected',
+  TOURNAMENT_UPDATED: 'tournamentUpdated',
+  TEAM_UPDATED: 'teamUpdated',
+  TEAMS_UPDATED: 'teamsUpdated',
+});
 
 const getTournamentSocket = (tournamentId) => {
   const socket = getAppSocket();
   if (!socket || !tournamentId) return null;
   if (window.joinedTournamentId !== String(tournamentId)) {
-    socket.emit('joinTournament', String(tournamentId));
+    socket.emit(socketEvents.JOIN_TOURNAMENT, String(tournamentId));
     window.joinedTournamentId = String(tournamentId);
   }
   return socket;
@@ -139,7 +149,7 @@ const getTeamSocket = (teamId) => {
   const socket = getAppSocket();
   if (!socket || !teamId) return null;
   if (window.joinedTeamId !== String(teamId)) {
-    socket.emit('joinTeam', String(teamId));
+    socket.emit(socketEvents.JOIN_TEAM, String(teamId));
     window.joinedTeamId = String(teamId);
   }
   return socket;
@@ -153,6 +163,7 @@ window.Vodich = {
   getTeamSocket,
   getTournamentSocket,
   setActionLoading,
+  socketEvents,
 };
 
 (() => {

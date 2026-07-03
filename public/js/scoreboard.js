@@ -1,5 +1,5 @@
 (() => {
-  const { clearActionLoading, getTournamentSocket, setActionLoading } = window.Vodich || {};
+  const { clearActionLoading, getTournamentSocket, setActionLoading, socketEvents = {} } = window.Vodich || {};
   const list = document.getElementById('matchList');
   if (!list || typeof getTournamentSocket !== 'function') return;
   const tournamentId = list.dataset.tournamentId;
@@ -152,7 +152,7 @@
     window.clearTimeout(saveTimer);
     setStatus('Đang tự lưu...', 'text-primary');
     saveTimer = window.setTimeout(() => {
-      socket.emit('score', payload);
+      socket.emit(socketEvents.SCORE || 'score', payload);
       setStatus('Đã gửi điểm', 'text-success');
     }, 350);
   };
@@ -191,7 +191,7 @@
     scheduleSpeak(0);
     saveScore();
   };
-  socket.on('scoreUpdated', (match) => {
+  socket.on(socketEvents.SCORE_UPDATED || 'scoreUpdated', (match) => {
     const row = list.querySelector(`[data-match-id="${match.id}"]`);
     if (!row) return;
     applyRow(row, match);
@@ -204,7 +204,7 @@
       setStatus('Đã tự lưu', 'text-success');
     }
   });
-  socket.on('scoreRejected', (payload) => {
+  socket.on(socketEvents.SCORE_REJECTED || 'scoreRejected', (payload) => {
     setStatus(payload?.message || 'Không lưu được điểm', 'text-danger');
   });
   list.addEventListener('click', (event) => {

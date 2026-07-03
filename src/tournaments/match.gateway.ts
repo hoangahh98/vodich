@@ -5,6 +5,7 @@ import { AuthService } from '../auth/auth.service';
 import { createConnectedRedisClient, createRedisClient, isRedisConfigured, recordRedisLog, redisConnectionSummary } from '../common/redis';
 import { getSessionMiddleware } from '../common/session';
 import { PrismaService } from '../prisma.service';
+import { SOCKET_EVENTS, ScorePayload, teamRoom, tournamentRoom } from '../realtime/socket-events';
 import { CurrentUser } from '../types';
 import { TournamentService } from './tournament.service';
 
@@ -26,35 +27,35 @@ export class MatchGateway implements OnGatewayInit {
   }
 
   emitTournamentUpdated(tournamentId: string | bigint, reason = 'updated') {
-    this.server.to(`tournament:${String(tournamentId)}`).emit('tournamentUpdated', { tournamentId: String(tournamentId), reason });
+    this.server.to(tournamentRoom(tournamentId)).emit(SOCKET_EVENTS.TOURNAMENT_UPDATED, { tournamentId: String(tournamentId), reason });
   }
 
   emitTeamUpdated(teamId: string | bigint, reason = 'updated') {
-    this.server.to(`team:${String(teamId)}`).emit('teamUpdated', { teamId: String(teamId), reason });
+    this.server.to(teamRoom(teamId)).emit(SOCKET_EVENTS.TEAM_UPDATED, { teamId: String(teamId), reason });
     this.emitTeamsUpdated(reason);
   }
 
   emitTeamsUpdated(reason = 'updated') {
-    this.server.emit('teamsUpdated', { reason });
+    this.server.emit(SOCKET_EVENTS.TEAMS_UPDATED, { reason });
   }
 
-  @SubscribeMessage('joinTournament')
+  @SubscribeMessage(SOCKET_EVENTS.JOIN_TOURNAMENT)
   join(@MessageBody() tournamentId: string, @ConnectedSocket() socket: Socket) {
-    socket.join(`tournament:${tournamentId}`);
+    socket.join(tournamentRoom(tournamentId));
   }
 
-  @SubscribeMessage('joinTeam')
+  @SubscribeMessage(SOCKET_EVENTS.JOIN_TEAM)
   joinTeam(@MessageBody() teamId: string, @ConnectedSocket() socket: Socket) {
-    socket.join(`team:${teamId}`);
+    socket.join(teamRoom(teamId));
   }
 
-  @SubscribeMessage('score')
+  @SubscribeMessage(SOCKET_EVENTS.SCORE)
   async score(
-    @MessageBody() body: { tournamentId: string; matchId: string; scoreA: number; scoreB: number; servingTeam?: string; scoreOrder?: number },
+    @MessageBody() body: ScorePayload,
     @ConnectedSocket() socket: Socket,
   ) {
     if (!(await this.canUpdateScore(socket))) {
-      socket.emit('scoreRejected', { message: 'Không có quyền ghi điểm' });
+      socket.emit(SOCKET_EVENTS.SCORE_REJECTED, { message: 'Không có quyền ghi điểm' });
       return;
     }
     const match = await this.prisma.matchGame.findUnique({
@@ -88,7 +89,7 @@ export class MatchGateway implements OnGatewayInit {
         updatedAt: new Date(),
       },
     });
-    this.server.to(`tournament:${String(tournamentId)}`).emit('scoreUpdated', stringifyBigInt(updated));
+    this.server.to(tournamentRoom(tournamentId)).emit(SOCKET_EVENTS.SCORE_UPDATED, stringifyBigInt(updated));
     if (status === 'FINISHED' && (await this.tournaments.syncKnockout(match.tournamentId))) {
       this.emitTournamentUpdated(tournamentId, 'knockout');
     }
