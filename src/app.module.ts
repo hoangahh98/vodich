@@ -25,15 +25,19 @@ import { MatchGateway } from './tournaments/match.gateway';
 import { TeamService } from './teams/team.service';
 import { TeamCrudService } from './teams/team-crud.service';
 import { TeamDetailService } from './teams/team-detail.service';
+import { TeamExpenseController } from './teams/team-expense.controller';
 import { TeamExpenseService } from './teams/team-expense.service';
+import { TeamFundController } from './teams/team-fund.controller';
 import { TeamFundService } from './teams/team-fund.service';
+import { TeamMemberController } from './teams/team-member.controller';
 import { TeamMemberService } from './teams/team-member.service';
 import { TeamController } from './teams/team.controller';
 import { LocalsMiddleware } from './common/locals.middleware';
 import { RateLimitService } from './common/rate-limit.service';
+import { FeatureGuard } from './common/feature.guard';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, AdminController],
   providers: [
     PrismaService,
     AuthService,
@@ -57,6 +61,7 @@ import { RateLimitService } from './common/rate-limit.service';
     MatchGateway,
     LocalsMiddleware,
     RateLimitService,
+    FeatureGuard,
   ],
 })
 export class AppModule implements NestModule {

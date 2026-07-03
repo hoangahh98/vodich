@@ -14,15 +14,19 @@ export class TournamentCrudService {
       user.role === 'ADMIN'
         ? await this.prisma.tournament.findMany({ orderBy: { id: 'desc' } })
         : await this.clientTournaments(user.email);
-    return Promise.all(
-      tournaments.map(async (tournament) => ({
-        tournament,
-        activeCount: await this.prisma.tournamentRegistration.count({
-          where: { tournamentId: tournament.id, status: 'ACTIVE' },
-        }),
-        minimumFee: minimumFeeForTournament(tournament),
-      })),
-    );
+    if (!tournaments.length) return [];
+
+    const counts = await this.prisma.tournamentRegistration.groupBy({
+      by: ['tournamentId'],
+      where: { tournamentId: { in: tournaments.map((tournament) => tournament.id) }, status: 'ACTIVE' },
+      _count: { _all: true },
+    });
+    const countByTournamentId = new Map(counts.map((item) => [item.tournamentId.toString(), item._count._all]));
+    return tournaments.map((tournament) => ({
+      tournament,
+      activeCount: countByTournamentId.get(tournament.id.toString()) || 0,
+      minimumFee: minimumFeeForTournament(tournament),
+    }));
   }
 
   async clientTournaments(email: string): Promise<Tournament[]> {

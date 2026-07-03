@@ -1,6 +1,10 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
+const bcrypt = require('bcryptjs');
 
+const { AdminService } = require('../dist/admin/admin.service');
+const { AuthService } = require('../dist/auth/auth.service');
+const { TeamFundService } = require('../dist/teams/team-fund.service');
 const { TournamentCrudService } = require('../dist/tournaments/tournament-crud.service');
 const { TournamentPaymentService } = require('../dist/tournaments/tournament-payment.service');
 const { TournamentRegistrationService } = require('../dist/tournaments/tournament-registration.service');
@@ -89,4 +93,98 @@ test('TournamentRegistrationService external registration normalizes email and r
   assert.equal(upsertPayload.create.externalName, 'Guest Player');
   assert.equal(upsertPayload.create.source, 'EXTERNAL');
   assert.equal(upsertPayload.create.status, 'RESERVE');
+});
+
+test('AuthService logs in admin and client with normalized identities', async () => {
+  const adminHash = await bcrypt.hash('secret', 4);
+  const auth = new AuthService({
+    appUser: {
+      findUnique: async ({ where }) => (where.username === 'admin' ? { id: 1n, username: 'admin', displayName: 'Root', role: 'ADMIN', passwordHash: adminHash } : null),
+    },
+    player: {
+      findUnique: async ({ where }) => (where.email === 'player@test.local' ? { id: 2n, email: 'player@test.local', displayName: 'Player' } : null),
+    },
+    tournamentRegistration: {
+      findFirst: async () => null,
+    },
+    adminFeaturePermission: {
+      findMany: async () => [],
+    },
+  });
+
+  const admin = await auth.login(' ADMIN ', 'secret', 'ADMIN');
+  const client = await auth.login(' PLAYER@Test.Local ', '123456789', 'CLIENT');
+
+  assert.equal(admin.email, 'admin');
+  assert.equal(admin.role, 'ADMIN');
+  assert.equal(client.email, 'player@test.local');
+  assert.equal(client.role, 'CLIENT');
+});
+
+test('AdminService saves delegated admin profile and filtered permissions in one transaction', async () => {
+  const operations = [];
+  const adminService = new AdminService({
+    appUser: {
+      update: (payload) => {
+        operations.push(['update', payload]);
+        return payload;
+      },
+    },
+    adminFeaturePermission: {
+      deleteMany: (payload) => {
+        operations.push(['deleteMany', payload]);
+        return payload;
+      },
+      createMany: (payload) => {
+        operations.push(['createMany', payload]);
+        return payload;
+      },
+    },
+    $transaction: async (items) => items,
+  });
+
+  await adminService.savePermissions({
+    username_5: ' SubAdmin ',
+    displayName_5: ' Sub Admin ',
+    password_5: '',
+    features_5: ['TEAMS', 'INVALID'],
+  });
+
+  assert.equal(operations[0][1].data.username, 'subadmin');
+  assert.equal(operations[0][1].data.displayName, 'Sub Admin');
+  assert.deepEqual(operations[2][1].data, [{ adminId: 5n, feature: 'TEAMS' }]);
+});
+
+test('TeamFundService sets fund and seeds fixed member payments from previous balance', async () => {
+  let fundPayload;
+  const paymentUpserts = [];
+  const service = new TeamFundService(
+    { previousMonthBalance: async () => 250000 },
+    {
+      teamMonthFund: {
+        upsert: async (payload) => {
+          fundPayload = payload;
+          return payload.create;
+        },
+      },
+      teamMember: {
+        findMany: async () => [{ id: 10n }, { id: 11n }],
+      },
+      teamMemberPayment: {
+        upsert: (payload) => {
+          paymentUpserts.push(payload);
+          return payload;
+        },
+      },
+      $transaction: async (items) => items,
+    },
+  );
+
+  await service.setFund(1n, '2026-07', '100,000', '300,000', '', ' July fund ');
+
+  assert.equal(fundPayload.create.previousBalance, 250000);
+  assert.equal(fundPayload.create.monthlyFee, 100000);
+  assert.equal(fundPayload.create.notes, 'July fund');
+  assert.equal(paymentUpserts.length, 2);
+  assert.equal(paymentUpserts[0].create.paidAmount, 100000);
 });
