@@ -1,5 +1,14 @@
 import { createClient } from 'redis';
 
+export type RedisLogLevel = 'INFO' | 'WARN' | 'ERROR';
+
+export interface RedisLogEntry {
+  level: RedisLogLevel;
+  action: string;
+  details?: string;
+  errorMessage?: string;
+}
+
 export type AppRedisClient = ReturnType<typeof createClient> & {
   connect: () => Promise<unknown>;
   quit: () => Promise<unknown>;
@@ -7,9 +16,24 @@ export type AppRedisClient = ReturnType<typeof createClient> & {
 };
 
 const redisUrl = process.env.REDIS_URL?.trim();
+let redisLogSink: ((entry: RedisLogEntry) => void | Promise<void>) | undefined;
+
+export function setRedisLogSink(sink: (entry: RedisLogEntry) => void | Promise<void>) {
+  redisLogSink = sink;
+}
 
 export function isRedisConfigured() {
   return !!redisUrl;
+}
+
+export function redisConnectionSummary() {
+  if (!redisUrl) return 'REDIS_URL not configured';
+  try {
+    const url = new URL(redisUrl);
+    return `${url.protocol}//${url.hostname}:${url.port || defaultPort(url.protocol)}`;
+  } catch {
+    return 'REDIS_URL configured but invalid URL format';
+  }
 }
 
 export function createRedisClient(label: string): AppRedisClient | undefined {
@@ -22,7 +46,7 @@ export function createRedisClient(label: string): AppRedisClient | undefined {
     },
   }) as AppRedisClient;
   client.on('error', (error) => {
-    console.error(`[redis:${label}] ${error instanceof Error ? error.message : String(error)}`);
+    recordRedisLog('ERROR', `${label} error`, redisConnectionSummary(), error);
   });
   return client;
 }
@@ -31,6 +55,19 @@ export async function createConnectedRedisClient(label: string): Promise<AppRedi
   const client = createRedisClient(label);
   if (!client) return undefined;
   await client.connect();
-  console.log(`[redis:${label}] connected`);
+  recordRedisLog('INFO', `${label} connected`, redisConnectionSummary());
   return client;
+}
+
+export function recordRedisLog(level: RedisLogLevel, action: string, details?: string, error?: unknown) {
+  const errorMessage = error instanceof Error ? `${error.name}: ${error.message}` : error ? String(error) : undefined;
+  const line = `[redis] ${level} ${action}${details ? ` (${details})` : ''}${errorMessage ? ` - ${errorMessage}` : ''}`;
+  if (level === 'ERROR') console.error(line);
+  else if (level === 'WARN') console.warn(line);
+  else console.log(line);
+  redisLogSink?.({ level, action, details, errorMessage })?.catch?.(() => undefined);
+}
+
+function defaultPort(protocol: string) {
+  return protocol === 'rediss:' ? '6380' : '6379';
 }

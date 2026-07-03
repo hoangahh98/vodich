@@ -4,6 +4,7 @@
   const levelLabels = { ERROR: 'Lỗi', WARN: 'Cảnh báo', INFO: 'Thông tin', ALL: 'Tất cả' };
   const roleLabels = { ADMIN: 'Quản trị', CLIENT: 'Khách xem' };
   const categoryLabels = { HTTP: 'Truy cập' };
+  categoryLabels.REDIS = 'Redis';
 %>
 <main class="app-shell">
   <section class="card-lite p mb"><div class="flex between center"><div><h1>Theo dõi log hệ thống</h1><p class="muted">Thời gian hiển thị theo giờ Việt Nam.</p></div><div class="flex gap"><% levels.forEach((item) => { %><a class="btn btn-sm <%= level === item ? 'btn-primary' : '' %>" href="/logs?level=<%= item %>"><%= levelLabels[item] || item %></a><% }) %></div></div></section>

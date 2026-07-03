@@ -1,7 +1,7 @@
 import * as session from 'express-session';
 import { RedisStore } from 'connect-redis';
 import { RequestHandler } from 'express';
-import { createConnectedRedisClient, isRedisConfigured } from './redis';
+import { createConnectedRedisClient, isRedisConfigured, recordRedisLog, redisConnectionSummary } from './redis';
 
 const sessionMaxAge = 12 * 60 * 60 * 1000;
 let sessionMiddlewarePromise: Promise<RequestHandler> | undefined;
@@ -28,11 +28,13 @@ async function createSessionMiddleware() {
           prefix: 'vodich:sess:',
           ttl: Math.floor(sessionMaxAge / 1000),
         });
-        console.log('[session] using Redis store');
+        recordRedisLog('INFO', 'session store enabled', redisConnectionSummary());
       }
     } catch (error) {
-      console.error(`[session] Redis unavailable, falling back to memory store: ${error instanceof Error ? error.message : String(error)}`);
+      recordRedisLog('ERROR', 'session store fallback to memory', redisConnectionSummary(), error);
     }
+  } else {
+    recordRedisLog('WARN', 'session store using memory', redisConnectionSummary());
   }
 
   return session(options);

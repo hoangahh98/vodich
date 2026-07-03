@@ -2,7 +2,7 @@ import { ConnectedSocket, MessageBody, OnGatewayInit, SubscribeMessage, WebSocke
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Server, Socket } from 'socket.io';
 import { AuthService } from '../auth/auth.service';
-import { createConnectedRedisClient, createRedisClient, isRedisConfigured } from '../common/redis';
+import { createConnectedRedisClient, createRedisClient, isRedisConfigured, recordRedisLog, redisConnectionSummary } from '../common/redis';
 import { getSessionMiddleware } from '../common/session';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
@@ -111,10 +111,11 @@ export class MatchGateway implements OnGatewayInit {
       subClient = createRedisClient('socket-sub');
       if (!pubClient || !subClient) return;
       await subClient.connect();
+      recordRedisLog('INFO', 'socket-sub connected', redisConnectionSummary());
       server.adapter(createAdapter(pubClient, subClient));
-      console.log('[socket] using Redis adapter');
+      recordRedisLog('INFO', 'socket adapter enabled', redisConnectionSummary());
     } catch (error) {
-      console.error(`[socket] Redis adapter unavailable, using in-memory adapter: ${error instanceof Error ? error.message : String(error)}`);
+      recordRedisLog('ERROR', 'socket adapter fallback to memory', redisConnectionSummary(), error);
       await pubClient?.quit().catch(() => undefined);
       await subClient?.quit().catch(() => undefined);
     }
