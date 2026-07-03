@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { MatchGame, Tournament } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
-import { parseMoney, roundUpToStep } from '../common/money';
+import { parseMoney } from '../common/money';
 import { GroupBoard, RankingGroup, TournamentRankingCalculator } from './tournament-ranking';
+import { minimumFeeForTournament } from './tournament-money';
+import { TournamentRegistrationService } from './tournament-registration.service';
 import { TournamentScheduleBuilder, finishedStageWinners, knockoutSeeds } from './tournament-schedule';
 
 @Injectable()
@@ -11,7 +13,10 @@ export class TournamentService {
   private readonly rankingCalculator = new TournamentRankingCalculator();
   private readonly scheduleBuilder = new TournamentScheduleBuilder();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly registrations: TournamentRegistrationService,
+  ) {}
 
   async listFor(user: CurrentUser) {
     const tournaments =
@@ -63,9 +68,7 @@ export class TournamentService {
   }
 
   minimumFee(tournament: Tournament): number {
-    const total =
-      Number(tournament.courtCost) + Number(tournament.foodCost) + Number(tournament.prizeCost) + Number(tournament.otherCost);
-    return roundUpToStep(total / Math.max(1, tournament.expectedPlayers));
+    return minimumFeeForTournament(tournament);
   }
 
   async create(form: Record<string, unknown>) {
@@ -129,167 +132,44 @@ export class TournamentService {
     });
   }
 
-  async registerPlayer(tournamentId: bigint, playerId: bigint) {
-    return this.registerPlayers(tournamentId, [playerId]);
+  registerPlayer(tournamentId: bigint, playerId: bigint) {
+    return this.registrations.registerPlayer(tournamentId, playerId);
   }
 
-  async registerPlayers(tournamentId: bigint, playerIds: bigint[]) {
-    const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
-    const uniqueIds = [...new Set(playerIds.map((id) => id.toString()))].map((id) => BigInt(id));
-    const players = await this.prisma.player.findMany({ where: { id: { in: uniqueIds } }, orderBy: { displayName: 'asc' } });
-    const activeCount = await this.prisma.tournamentRegistration.count({ where: { tournamentId, status: 'ACTIVE' } });
-    let slotsLeft = Math.max(0, tournament.expectedPlayers - activeCount);
-    let reserveCount = 0;
-    for (const player of players) {
-      const status = slotsLeft > 0 ? 'ACTIVE' : 'RESERVE';
-      if (status === 'ACTIVE') slotsLeft--;
-      if (status === 'RESERVE') reserveCount++;
-      await this.prisma.tournamentRegistration.upsert({
-        where: { tournamentId_playerId: { tournamentId, playerId: player.id } },
-        update: { status, withdrawnAt: null, paidAmount: this.minimumFee(tournament) },
-        create: {
-          tournamentId,
-          playerId: player.id,
-          skillLevel: player.skillLevel,
-          source: 'INTERNAL',
-          status,
-          paidAmount: this.minimumFee(tournament),
-          paymentStatus: 'UNPAID',
-        },
-      });
-    }
-    return { added: players.length, reserveCount };
+  registerPlayers(tournamentId: bigint, playerIds: bigint[]) {
+    return this.registrations.registerPlayers(tournamentId, playerIds);
   }
 
-  async registerExternal(tournamentId: bigint, displayName: string, email: string, skillLevel?: string) {
-    const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
-    if (!tournament.externalRegistrationEnabled) throw new Error('Giải chưa mở đăng ký ngoài');
-    const normalizedEmail = email.trim().toLowerCase();
-    const existingPlayer = await this.prisma.player.findUnique({ where: { email: normalizedEmail } });
-    const activeCount = await this.prisma.tournamentRegistration.count({ where: { tournamentId, status: 'ACTIVE' } });
-    const status = activeCount < tournament.expectedPlayers ? 'ACTIVE' : 'RESERVE';
-    if (existingPlayer) {
-      return this.prisma.tournamentRegistration.upsert({
-        where: { tournamentId_playerId: { tournamentId, playerId: existingPlayer.id } },
-        update: { status, withdrawnAt: null, skillLevel: blankToNull(skillLevel) || existingPlayer.skillLevel },
-        create: {
-          tournamentId,
-          playerId: existingPlayer.id,
-          skillLevel: blankToNull(skillLevel) || existingPlayer.skillLevel,
-          source: 'INTERNAL',
-          status,
-          paidAmount: this.minimumFee(tournament),
-          paymentStatus: 'UNPAID',
-        },
-        include: { player: true },
-      });
-    }
-    return this.prisma.tournamentRegistration.upsert({
-      where: { tournamentId_externalEmail: { tournamentId, externalEmail: normalizedEmail } },
-      update: { status, withdrawnAt: null, externalName: displayName.trim(), skillLevel: blankToNull(skillLevel) },
-      create: {
-        tournamentId,
-        externalName: displayName.trim(),
-        externalEmail: normalizedEmail,
-        skillLevel: blankToNull(skillLevel),
-        source: 'EXTERNAL',
-        status,
-        paidAmount: this.minimumFee(tournament),
-        paymentStatus: 'UNPAID',
-      },
-      include: { player: true },
-    });
+  registerExternal(tournamentId: bigint, displayName: string, email: string, skillLevel?: string) {
+    return this.registrations.registerExternal(tournamentId, displayName, email, skillLevel);
   }
 
-  async updatePayment(registrationId: bigint, amount: string, status: string) {
-    await this.prisma.tournamentRegistration.update({
-      where: { id: registrationId },
-      data: { paidAmount: parseMoney(amount), paymentStatus: status },
-    });
+  updatePayment(registrationId: bigint, amount: string, status: string) {
+    return this.registrations.updatePayment(registrationId, amount, status);
   }
 
-  async updatePayments(body: Record<string, string>) {
-    const ids = Object.keys(body)
-      .filter((key) => key.startsWith('amount_'))
-      .map((key) => BigInt(key.replace('amount_', '')));
-    const registrations = await this.prisma.tournamentRegistration.findMany({
-      where: { id: { in: ids } },
-      include: { tournament: true },
-    });
-    const registrationMap = new Map(registrations.map((registration) => [registration.id.toString(), registration]));
-    const updates = Object.entries(body)
-      .filter(([key]) => key.startsWith('amount_'))
-      .map(([key, amount]) => {
-        const id = BigInt(key.replace('amount_', ''));
-        const parsedAmount = parseMoney(amount);
-        const registration = registrationMap.get(id.toString());
-        return this.prisma.tournamentRegistration.update({
-          where: { id },
-          data: {
-            paidAmount: parsedAmount || (registration ? this.minimumFee(registration.tournament) : 0),
-            paymentStatus: body[`status_${id}`] || 'UNPAID',
-          },
-        });
-      });
-    if (!updates.length) return [];
-    return this.prisma.$transaction(updates);
+  updatePayments(body: Record<string, string>) {
+    return this.registrations.updatePayments(body);
   }
 
-  async withdraw(registrationId: bigint) {
-    await this.prisma.tournamentRegistration.update({
-      where: { id: registrationId },
-      data: { status: 'WITHDRAWN', withdrawnAt: new Date() },
-    });
+  withdraw(registrationId: bigint) {
+    return this.registrations.withdraw(registrationId);
   }
 
-  async restore(registrationId: bigint) {
-    const registration = await this.prisma.tournamentRegistration.findUniqueOrThrow({
-      where: { id: registrationId },
-      include: { tournament: true },
-    });
-    const activeCount = await this.prisma.tournamentRegistration.count({
-      where: { tournamentId: registration.tournamentId, status: 'ACTIVE' },
-    });
-    await this.prisma.tournamentRegistration.update({
-      where: { id: registrationId },
-      data: {
-        status: activeCount < registration.tournament.expectedPlayers ? 'ACTIVE' : 'RESERVE',
-        withdrawnAt: null,
-        paidAmount: Number(registration.paidAmount || 0) > 0 ? registration.paidAmount : this.minimumFee(registration.tournament),
-      },
-    });
+  restore(registrationId: bigint) {
+    return this.registrations.restore(registrationId);
   }
 
-  async deleteRegistration(registrationId: bigint) {
-    await this.prisma.tournamentRegistration.delete({ where: { id: registrationId } });
+  deleteRegistration(registrationId: bigint) {
+    return this.registrations.deleteRegistration(registrationId);
   }
 
-  async updateRegistrationSkill(registrationId: bigint, skillLevel: string) {
-    await this.prisma.tournamentRegistration.update({
-      where: { id: registrationId },
-      data: { skillLevel: blankToNull(skillLevel) },
-    });
+  updateRegistrationSkill(registrationId: bigint, skillLevel: string) {
+    return this.registrations.updateRegistrationSkill(registrationId, skillLevel);
   }
 
-  async bulkRegistrations(registrationIds: bigint[], action: string) {
-    const ids = [...new Set(registrationIds.map((id) => id.toString()))].map((id) => BigInt(id));
-    if (!ids.length) return;
-    if (action === 'delete') {
-      await this.prisma.tournamentRegistration.deleteMany({ where: { id: { in: ids } } });
-      return;
-    }
-    if (action === 'withdraw') {
-      await this.prisma.tournamentRegistration.updateMany({
-        where: { id: { in: ids } },
-        data: { status: 'WITHDRAWN', withdrawnAt: new Date() },
-      });
-      return;
-    }
-    if (action === 'restore') {
-      for (const id of ids) {
-        await this.restore(id);
-      }
-    }
+  bulkRegistrations(registrationIds: bigint[], action: string) {
+    return this.registrations.bulkRegistrations(registrationIds, action);
   }
 
   async generateSchedule(tournamentId: bigint) {
@@ -437,8 +317,4 @@ function normalizePrizes(form: Record<string, unknown>, availablePrizeFund: numb
 function prizeValue(value: unknown, fallback: number) {
   if (value === null || value === undefined || String(value).trim() === '') return fallback;
   return parseMoney(value) || 0;
-}
-
-function blankToNull(value?: string) {
-  return value && value.trim() ? value.trim() : null;
 }

@@ -7,6 +7,7 @@ import { AdminController } from './admin/admin.controller';
 import { HomeController } from './home.controller';
 import { PlayersController } from './players/players.controller';
 import { TournamentService } from './tournaments/tournament.service';
+import { TournamentRegistrationService } from './tournaments/tournament-registration.service';
 import { TournamentController } from './tournaments/tournament.controller';
 import { MatchGateway } from './tournaments/match.gateway';
 import { TeamService } from './teams/team.service';
@@ -15,7 +16,7 @@ import { LocalsMiddleware } from './common/locals.middleware';
 
 @Module({
   controllers: [AuthController, HomeController, PlayersController, TournamentController, TeamController, AdminController],
-  providers: [PrismaService, AuthService, LogService, TournamentService, TeamService, MatchGateway, LocalsMiddleware],
+  providers: [PrismaService, AuthService, LogService, TournamentService, TournamentRegistrationService, TeamService, MatchGateway, LocalsMiddleware],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
