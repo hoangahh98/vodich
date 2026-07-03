@@ -42,6 +42,10 @@
             </div>
           </div>
           <p class="muted">Chỉ hiện cấu hình vòng trong khi chọn đánh bảng. Vòng tròn vẫn giữ bảng xếp hạng bình thường.</p>
+          <div class="row mt">
+            <div class="col-6"><label>Chạm điểm vòng trong</label><input type="number" name="knockoutTouchScore" value="<%= tournament?.knockoutTouchScore || 15 %>" min="1"></div>
+            <div class="col-6"><label>Max điểm vòng trong</label><input type="number" name="knockoutMaxScore" value="<%= tournament?.knockoutMaxScore || 19 %>" min="1"></div>
+          </div>
         </div>
       </section>
 

@@ -184,7 +184,7 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
           </form>
         </details>
       <% } %>
-      <div id="matchList" data-tournament-id="<%= tournament.id %>" data-touch-score="<%= tournament.touchScore || 11 %>" data-max-score="<%= tournament.maxScore || 15 %>">
+      <div id="matchList" data-tournament-id="<%= tournament.id %>" data-touch-score="<%= tournament.touchScore || 11 %>" data-max-score="<%= tournament.maxScore || 15 %>" data-knockout-touch-score="<%= tournament.knockoutTouchScore || 15 %>" data-knockout-max-score="<%= tournament.knockoutMaxScore || 19 %>">
         <%
           const roundMap = new Map();
           matches.forEach((match) => {
@@ -245,7 +245,7 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
                   <div class="border rounded p-2 h-100" style="border-color:#0d6efd44!important;">
                     <div class="text-center fw-bold small text-primary mb-2">🏟️ SÂN <%= court %></div>
                     <% courtMatches.forEach((m) => { const knockout = m.stage !== 'Vòng bảng' && m.stage !== 'Vòng tròn'; const done = m.status === 'FINISHED'; %>
-                      <div class="tran-card rounded p-2 mb-2 <%= done ? 'da-xong' : '' %> <%= knockout ? 'knockout' : '' %> <%= isMine(m.teamA) || isMine(m.teamB) ? 'mine-card' : '' %>" tabindex="0" data-match-id="<%= m.id %>" data-team-a="<%= m.teamA %>" data-team-b="<%= m.teamB %>" data-score-a="<%= m.scoreA %>" data-score-b="<%= m.scoreB %>" data-score-order="<%= m.scoreOrder || 2 %>" data-serving-team="<%= m.servingTeam || 'A' %>">
+                      <div class="tran-card rounded p-2 mb-2 <%= done ? 'da-xong' : '' %> <%= knockout ? 'knockout' : '' %> <%= isMine(m.teamA) || isMine(m.teamB) ? 'mine-card' : '' %>" tabindex="0" data-match-id="<%= m.id %>" data-team-a="<%= m.teamA %>" data-team-b="<%= m.teamB %>" data-score-a="<%= m.scoreA %>" data-score-b="<%= m.scoreB %>" data-score-order="<%= m.scoreOrder || 2 %>" data-serving-team="<%= m.servingTeam || 'A' %>" data-knockout="<%= knockout ? 'true' : 'false' %>">
                         <div class="match-meta">
                           <% if (m.stage === 'Vòng bảng') { %>
                             <span class="badge bg-success">Lượt <%= round %></span>
@@ -349,7 +349,7 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
         <div><span class="muted">Số thành viên dự kiến</span><br><strong><%= tournament.expectedPlayers %></strong></div>
         <div><span class="muted">Loại đấu</span><br><strong><%= tournament.playType === 'DOUBLES' ? 'Thi đôi' : 'Thi đơn' %></strong></div>
         <div><span class="muted">Thể thức</span><br><strong><%= tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng + loại trực tiếp' : 'Vòng tròn' %></strong></div>
-        <div><span class="muted">Điểm</span><br><strong>Chạm <%= tournament.touchScore %>, max <%= tournament.maxScore %></strong></div>
+        <div><span class="muted">Điểm</span><br><strong>Vòng bảng: chạm <%= tournament.touchScore %>, max <%= tournament.maxScore %><% if (tournament.format === 'GROUP_KNOCKOUT') { %><br>Vòng trong: chạm <%= tournament.knockoutTouchScore || 15 %>, max <%= tournament.knockoutMaxScore || 19 %><% } %></strong></div>
         <div><span class="muted">Đăng ký ngoài</span><br><strong><%= tournament.externalRegistrationEnabled ? 'Đang mở' : 'Đang tắt' %></strong></div>
       </div>
       <div class="mt flex gap">

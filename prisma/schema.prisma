@@ -57,6 +57,8 @@ model Tournament {
   knockoutQualifierCount      Int      @default(4) @map("knockout_qualifier_count")
   touchScore                  Int      @default(11) @map("touch_score")
   maxScore                    Int      @default(15) @map("max_score")
+  knockoutTouchScore          Int      @default(15) @map("knockout_touch_score")
+  knockoutMaxScore            Int      @default(19) @map("knockout_max_score")
   courtCost                   Decimal  @default(0) @map("court_cost") @db.Decimal(14, 2)
   foodCost                    Decimal  @default(0) @map("food_cost") @db.Decimal(14, 2)
   prizeCost                   Decimal  @default(0) @map("prize_cost") @db.Decimal(14, 2)

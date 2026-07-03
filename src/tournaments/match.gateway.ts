@@ -31,8 +31,9 @@ export class MatchGateway {
     if (!match) return;
     let scoreA = Math.max(0, Number(body.scoreA) || 0);
     let scoreB = Math.max(0, Number(body.scoreB) || 0);
-    const touchScore = Math.max(1, match.tournament.touchScore || 11);
-    const maxScore = Math.max(1, match.tournament.maxScore || 15);
+    const isKnockout = match.stage !== 'Vòng bảng' && match.stage !== 'Vòng tròn';
+    const touchScore = Math.max(1, isKnockout ? match.tournament.knockoutTouchScore || 15 : match.tournament.touchScore || 11);
+    const maxScore = Math.max(1, isKnockout ? match.tournament.knockoutMaxScore || 19 : match.tournament.maxScore || 15);
     const maxAllowed = (opponentScore: number) => {
       if (opponentScore >= touchScore - 1) return Math.min(opponentScore + 2, maxScore);
       return Math.min(touchScore, maxScore);

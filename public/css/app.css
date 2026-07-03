@@ -53,6 +53,9 @@ a { color: inherit; }
 .btn.loading, button.loading { opacity: .75; pointer-events: none; position: relative; }
 .btn.loading::after, button.loading::after { content: ""; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .65s linear infinite; }
 form[aria-busy="true"] { opacity: .78; }
+.page-busy-toast { position: fixed; left: 50%; top: 72px; transform: translateX(-50%); z-index: 100; display: none; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 999px; background: #111827; color: #fff; font-weight: 800; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.page-busy-toast::before { content: ""; width: 14px; height: 14px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .65s linear infinite; }
+body.page-busy .page-busy-toast { display: inline-flex; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .form-control, .form-select, input, select, textarea { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; min-height: 44px; background: #fff; font-family: inherit; font-size: 15px; }
 input[type="date"], input[type="month"] { width: 100%; min-width: 0; max-width: 100%; height: 44px; line-height: 20px; }

@@ -19,6 +19,16 @@ const setActionLoading = (button, fallback = 'Đang xử lý...') => {
   button.classList.add('loading');
   button.setAttribute('aria-busy', 'true');
 };
+const showPageBusy = (text = 'Đang xử lý...') => {
+  let toast = document.querySelector('.page-busy-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.className = 'page-busy-toast';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = text;
+  document.body.classList.add('page-busy');
+};
 
 document.addEventListener('submit', (event) => {
   const form = event.target;
@@ -61,6 +71,7 @@ document.addEventListener('submit', (event) => {
   const button = event.submitter instanceof HTMLButtonElement ? event.submitter : form.querySelector('button[type="submit"], button:not([type])');
   form.dataset.submitting = 'true';
   form.setAttribute('aria-busy', 'true');
+  showPageBusy(button?.getAttribute('data-loading-text') || 'Đang xử lý...');
   if (!button) return;
   setActionLoading(button);
   form.querySelectorAll('button').forEach((item) => {
@@ -69,11 +80,16 @@ document.addEventListener('submit', (event) => {
 });
 
 document.addEventListener('click', (event) => {
+  if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
   const target = event.target instanceof Element ? event.target : null;
-  const link = target?.closest('a.btn[href]');
+  const link = target?.closest('a[href]');
   if (!(link instanceof HTMLAnchorElement)) return;
-  if (link.target || link.href.startsWith('javascript:') || link.getAttribute('href')?.startsWith('#')) return;
-  setActionLoading(link, 'Đang mở...');
+  const href = link.getAttribute('href') || '';
+  if (link.target || link.hasAttribute('download') || href.startsWith('#') || href.startsWith('javascript:')) return;
+  const url = new URL(link.href, window.location.href);
+  if (url.origin !== window.location.origin) return;
+  showPageBusy(link.getAttribute('data-loading-text') || 'Đang mở...');
+  if (link.classList.contains('btn')) setActionLoading(link, 'Đang mở...');
 });
 
 document.addEventListener('input', (event) => {
@@ -420,8 +436,10 @@ const getTournamentSocket = (tournamentId) => {
   const tournamentId = list.dataset.tournamentId;
   const socket = getTournamentSocket(tournamentId);
   if (!socket) return;
-  const touchScore = Number.parseInt(list.dataset.touchScore || '11', 10) || 11;
-  const maxScore = Number.parseInt(list.dataset.maxScore || '15', 10) || 15;
+  const groupTouchScore = Number.parseInt(list.dataset.touchScore || '11', 10) || 11;
+  const groupMaxScore = Number.parseInt(list.dataset.maxScore || '15', 10) || 15;
+  const knockoutTouchScore = Number.parseInt(list.dataset.knockoutTouchScore || '15', 10) || 15;
+  const knockoutMaxScore = Number.parseInt(list.dataset.knockoutMaxScore || '19', 10) || 19;
   const modal = document.getElementById('scoreModal');
   const scoreTeamA = document.getElementById('scoreTeamA');
   const scoreTeamB = document.getElementById('scoreTeamB');
@@ -436,7 +454,11 @@ const getTournamentSocket = (tournamentId) => {
   let servingTeam = 'A';
   let scoreOrder = 2;
   let saveTimer = null;
+  const activeRules = () => (activeRow?.dataset.knockout === 'true'
+    ? { touchScore: knockoutTouchScore, maxScore: knockoutMaxScore }
+    : { touchScore: groupTouchScore, maxScore: groupMaxScore });
   const maxAllowedScore = (opponentScore) => {
+    const { touchScore, maxScore } = activeRules();
     if (opponentScore >= touchScore - 1) return Math.min(opponentScore + 2, maxScore);
     return Math.min(touchScore, maxScore);
   };
@@ -465,6 +487,7 @@ const getTournamentSocket = (tournamentId) => {
   const teamSpeechName = (name) => String(name || '').replace(/\s*\/\s*/g, ' và ');
   const winnerName = () => {
     if (!activeRow || scoreA === scoreB) return '';
+    const { touchScore, maxScore } = activeRules();
     const high = Math.max(scoreA, scoreB);
     const diff = Math.abs(scoreA - scoreB);
     if (!(high >= maxScore || (high >= touchScore && diff >= 2))) return '';
@@ -542,6 +565,7 @@ const getTournamentSocket = (tournamentId) => {
   };
   const optimisticRow = () => {
     if (!activeRow) return;
+    const { touchScore, maxScore } = activeRules();
     const high = Math.max(scoreA, scoreB);
     const diff = Math.abs(scoreA - scoreB);
     const status = high >= maxScore || (high >= touchScore && diff >= 2 && scoreA !== scoreB) ? 'FINISHED' : 'PLAYING';
