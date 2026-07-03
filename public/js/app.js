@@ -19,7 +19,15 @@ const setActionLoading = (button, fallback = 'Đang xử lý...') => {
   button.classList.add('loading');
   button.setAttribute('aria-busy', 'true');
 };
-const showPageBusy = (text = 'Đang xử lý...') => {
+const clearActionLoading = (item) => {
+  item.classList.remove('loading');
+  item.removeAttribute('aria-busy');
+  if (item.dataset.originalText) item.textContent = item.dataset.originalText;
+};
+let pageBusyTimer = null;
+const showPageBusy = (text = 'Đang xử lý...', delay = 120) => {
+  window.clearTimeout(pageBusyTimer);
+  pageBusyTimer = window.setTimeout(() => {
   let toast = document.querySelector('.page-busy-toast');
   if (!toast) {
     toast = document.createElement('div');
@@ -28,13 +36,13 @@ const showPageBusy = (text = 'Đang xử lý...') => {
   }
   toast.textContent = text;
   document.body.classList.add('page-busy');
+  }, delay);
 };
 const clearPageBusy = () => {
+  window.clearTimeout(pageBusyTimer);
   document.body.classList.remove('page-busy');
   document.querySelectorAll('.loading[aria-busy="true"]').forEach((item) => {
-    item.classList.remove('loading');
-    item.removeAttribute('aria-busy');
-    if (item.dataset.originalText) item.textContent = item.dataset.originalText;
+    clearActionLoading(item);
   });
 };
 window.addEventListener('pageshow', clearPageBusy);
@@ -81,7 +89,7 @@ document.addEventListener('submit', (event) => {
   const button = event.submitter instanceof HTMLButtonElement ? event.submitter : form.querySelector('button[type="submit"], button:not([type])');
   form.dataset.submitting = 'true';
   form.setAttribute('aria-busy', 'true');
-  showPageBusy(button?.getAttribute('data-loading-text') || 'Đang xử lý...');
+  showPageBusy(button?.getAttribute('data-loading-text') || 'Đang xử lý...', 0);
   if (!button) return;
   setActionLoading(button);
   form.querySelectorAll('button').forEach((item) => {
@@ -98,7 +106,7 @@ document.addEventListener('click', (event) => {
   if (link.target || link.hasAttribute('download') || href.startsWith('#') || href.startsWith('javascript:')) return;
   const url = new URL(link.href, window.location.href);
   if (url.origin !== window.location.origin) return;
-  showPageBusy(link.getAttribute('data-loading-text') || 'Đang mở...');
+  showPageBusy(link.getAttribute('data-loading-text') || 'Đang mở...', 180);
   if (link.classList.contains('btn')) setActionLoading(link, 'Đang mở...');
 });
 
@@ -252,6 +260,7 @@ const getTournamentSocket = (tournamentId) => {
     window.addEventListener('orientationchange', () => window.setTimeout(keepInViewport, 120));
     button.addEventListener('pointerdown', (event) => {
       if (!menu || event.button !== 0) return;
+      event.preventDefault();
       const rect = menu.getBoundingClientRect();
       dragState = {
         pointerId: event.pointerId,
@@ -267,7 +276,8 @@ const getTournamentSocket = (tournamentId) => {
       if (!menu || !dragState || dragState.pointerId !== event.pointerId) return;
       const dx = event.clientX - dragState.startX;
       const dy = event.clientY - dragState.startY;
-      if (Math.abs(dx) + Math.abs(dy) < 5) return;
+      if (Math.abs(dx) + Math.abs(dy) < 2) return;
+      event.preventDefault();
       dragState.moved = true;
       menu.classList.add('is-dragging');
       closeMenu();
@@ -286,6 +296,10 @@ const getTournamentSocket = (tournamentId) => {
         button.dataset.justDragged = 'true';
         window.setTimeout(() => delete button.dataset.justDragged, 0);
       }
+    });
+    button.addEventListener('pointercancel', () => {
+      dragState = null;
+      menu?.classList.remove('is-dragging');
     });
     button.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -544,15 +558,19 @@ const getTournamentSocket = (tournamentId) => {
     scoreValueB.textContent = String(scoreB);
     scoreSideA?.classList.toggle('serving-team', servingTeam === 'A');
     scoreSideB?.classList.toggle('serving-team', servingTeam === 'B');
-    document.querySelectorAll('[data-score-target]').forEach((button) => {
-      button.disabled = button.dataset.scoreTarget !== servingTeam;
-    });
+    document.querySelectorAll('[data-score-target]').forEach((button) => { button.disabled = false; });
     document.querySelectorAll('[data-serving-select]').forEach((button) => {
       button.classList.toggle('btn-primary', button.dataset.servingSelect === servingTeam);
     });
     document.querySelectorAll('[data-score-order-select]').forEach((button) => {
       button.classList.toggle('btn-primary', Number(button.dataset.scoreOrderSelect) === scoreOrder);
     });
+  };
+  const updateRoundDoneCount = (row) => {
+    const roundBlock = row.closest('[data-round-block]');
+    const doneCountEl = roundBlock?.querySelector('[data-done-count]');
+    if (!roundBlock || !doneCountEl) return;
+    doneCountEl.textContent = String(roundBlock.querySelectorAll('.tran-card.da-xong').length);
   };
   const applyRow = (row, match) => {
     row.dataset.scoreA = String(match.scoreA);
@@ -572,6 +590,7 @@ const getTournamentSocket = (tournamentId) => {
     statusEl.classList.toggle('bg-success', match.status === 'FINISHED');
     statusEl.classList.toggle('bg-secondary', match.status !== 'FINISHED');
     row.classList.toggle('da-xong', match.status === 'FINISHED');
+    updateRoundDoneCount(row);
   };
   const optimisticRow = () => {
     if (!activeRow) return;
@@ -610,10 +629,15 @@ const getTournamentSocket = (tournamentId) => {
   const closeModal = () => {
     modal?.classList.add('hidden');
     modal?.setAttribute('aria-hidden', 'true');
+    document.querySelectorAll('[data-score-close].loading').forEach(clearActionLoading);
     activeRow = null;
   };
   const stepScore = (side, delta) => {
-    if (!activeRow || side !== servingTeam) return;
+    if (!activeRow) return;
+    if (side !== servingTeam) {
+      setStatus('Chỉ đội đang giao được ghi điểm. Muốn đổi đội giao phải ở tay 2.', 'text-danger');
+      return;
+    }
     if (side === 'A') scoreA = Math.max(0, scoreA + delta);
     if (side === 'B') scoreB = Math.max(0, scoreB + delta);
     [scoreA, scoreB] = clampScores(scoreA, scoreB);
@@ -646,7 +670,10 @@ const getTournamentSocket = (tournamentId) => {
     event.preventDefault();
     openModal(row);
   });
-  document.querySelectorAll('[data-score-close]').forEach((item) => item.addEventListener('click', closeModal));
+  document.querySelectorAll('[data-score-close]').forEach((item) => item.addEventListener('click', () => {
+    if (item instanceof HTMLButtonElement) setActionLoading(item, 'Đang đóng...');
+    window.setTimeout(closeModal, 60);
+  }));
   document.querySelectorAll('[data-serving-select], [data-serving-side]').forEach((item) => {
     item.addEventListener('click', (event) => {
       const clicked = event.target instanceof Element ? event.target : null;

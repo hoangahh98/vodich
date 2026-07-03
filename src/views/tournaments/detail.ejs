@@ -234,10 +234,10 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
           });
           const courts = Array.from(courtMap.entries());
         %>
-          <div class="mb-4">
+          <div class="mb-4" data-round-block>
             <div class="vong-header rounded px-3 py-2 mb-3 fw-bold text-primary">
               <%= roundTitle(round, roundMatches) %> — <%= roundMatches.length %> trận
-              <small class="text-muted fw-normal ms-2">(<%= doneCount %> đã xong)</small>
+              <small class="text-muted fw-normal ms-2">(<span data-done-count><%= doneCount %></span> đã xong)</small>
             </div>
             <div class="grid courts-grid">
               <% courts.forEach(([court, courtMatches]) => { %>
@@ -288,7 +288,7 @@ BTC rất mong Anh/Chị có mặt đúng giờ để giải đấu diễn ra th
         <div class="score-modal-panel" role="dialog" aria-modal="true">
           <div class="score-modal-head">
             <div><h3>Ghi điểm trận đấu</h3><small>Tự lưu khi thay đổi điểm</small></div>
-            <button type="button" class="btn btn-sm" data-score-close>Đóng</button>
+            <button type="button" class="btn btn-sm" data-score-close data-loading-text="Đang đóng...">Đóng</button>
           </div>
           <div class="score-modal-body">
             <div class="score-sides">

@@ -195,8 +195,10 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .bottom-menu.open .bottom-menu-inner { display: grid; }
 .bottom-menu a { padding: 14px 16px; text-align: left; text-decoration: none; color: var(--muted); font-weight: 800; font-size: 14px; }
 .bottom-menu a.active { color: var(--brand); background: #e7f1ff; border-left: 4px solid var(--brand); }
-.mobile-menu-toggle { display: grid; place-items: center; border: 0; background: #0d6efd; color: #fff; width: 58px; height: 58px; border-radius: 999px; font-size: 28px; box-shadow: 0 8px 24px rgba(13,110,253,.35); }
+.mobile-menu-toggle { position: relative; display: grid; place-items: center; border: 0; background: #0d6efd; color: #fff; width: 58px; height: 58px; border-radius: 999px; font-size: 28px; box-shadow: 0 8px 24px rgba(13,110,253,.35); cursor: grab; }
+.mobile-menu-toggle::before { content: ""; position: absolute; inset: -12px; border-radius: 999px; }
 .bottom-menu.is-dragging { transition: none; }
+.bottom-menu.is-dragging .mobile-menu-toggle { cursor: grabbing; }
 .mobile-menu-toggle { touch-action: none; user-select: none; }
 .match-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; background: #fff; }
 .match-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-weight: 700; }
@@ -241,7 +243,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .score-side strong { white-space: pre-line; color: var(--ink); min-height: 40px; }
 .score-side.serving-team { border-color: #ffc107; background: #fff8dc; }
 .score-step-row { display: flex; align-items: center; justify-content: center; gap: 10px; }
-.score-step-btn { width: 46px; height: 46px; font-size: 24px; font-weight: 800; padding: 0; }
+.score-step-btn { width: 56px; height: 56px; font-size: 26px; font-weight: 800; padding: 0; }
 .live-score-number { min-width: 72px; height: 56px; border: 1px solid var(--line); border-radius: 10px; display: grid; place-items: center; font-size: 32px; font-weight: 900; background: #fff; }
 .score-divider { font-size: 34px; color: var(--muted); font-weight: 900; }
 .score-options { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
