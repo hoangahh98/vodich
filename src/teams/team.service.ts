@@ -1,9 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { parseMoney } from '../common/money';
+import { TeamMonthReportBuilder } from './team-month-report';
 
 @Injectable()
 export class TeamService {
+  private readonly monthReportBuilder = new TeamMonthReportBuilder();
+
   constructor(private readonly prisma: PrismaService) {}
 
   async list() {
@@ -51,57 +54,8 @@ export class TeamService {
       this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId: id, fundMonth } } }),
       this.prisma.teamExpense.findMany({ where: { teamId: id, expenseMonth: fundMonth }, orderBy: [{ expenseDate: 'desc' }, { id: 'desc' }] }),
     ]);
-    const monthlyFee = Number(fund?.monthlyFee || 0);
-    const rows = members.map((member) => {
-      const payment = member.payments[0];
-      const expectedAmount = member.memberType === 'FIXED' ? monthlyFee : 0;
-      const paymentStatus = payment?.paymentStatus || 'UNPAID';
-      const enteredAmount = payment ? Number(payment.paidAmount || 0) : expectedAmount;
-      const paidAmount = paymentStatus === 'PAID' ? enteredAmount : 0;
-      return {
-        ...member,
-        payment,
-        expectedAmount,
-        paidAmount,
-        enteredAmount,
-        paymentStatus,
-        feeNotes: payment?.notes || '',
-        difference: paidAmount - expectedAmount,
-        typeLabel: member.memberType === 'FIXED' ? 'Cố định' : 'Vãng lai',
-      };
-    }).sort((a, b) => memberTypeOrder(a.memberType) - memberTypeOrder(b.memberType) || a.player.displayName.localeCompare(b.player.displayName, 'vi'));
-    const totalPaid = rows.reduce((sum, member) => sum + member.paidAmount, 0);
-    const totalDonate = rows.reduce((sum, member) => sum + Math.max(0, member.paidAmount - member.expectedAmount), 0);
-    const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-    const courtCost = Number(fund?.courtCost || 0);
-    const previousBalance = fund ? Number(fund.previousBalance || 0) : previousMonthBalance;
-    const totalDue = rows.reduce((sum, member) => sum + member.expectedAmount, 0);
-    const totalMissing = rows.reduce((sum, member) => sum + Math.max(0, member.expectedAmount - member.paidAmount), 0);
-    const fixedCount = rows.filter((member) => member.memberType === 'FIXED').length;
-    const paidCount = rows.filter((member) => member.paymentStatus === 'PAID').length;
-    const fixedUnpaidCount = rows.filter((member) => member.memberType === 'FIXED' && member.paymentStatus !== 'PAID').length;
-    const activePlayerIds = new Set(rows.map((member) => member.playerId.toString()));
-    const finance = {
-      monthlyFee,
-      courtCost,
-      previousBalance,
-      previousMonthBalance,
-      totalPaid,
-      totalDonate,
-      totalExpense,
-      totalDue,
-      totalMissing,
-      balance: previousBalance + totalPaid - courtCost - totalExpense,
-      memberCount: rows.length,
-      fixedCount,
-      fixedUnpaidCount,
-      guestCount: rows.length - fixedCount,
-      paidCount,
-      unpaidCount: rows.length - paidCount,
-    };
-    const availablePlayers = players.filter((player) => !activePlayerIds.has(player.id.toString()));
-    const emailList = rows.map((member) => member.player.email).filter(Boolean).join('; ');
-    return { team, members: rows, players: availablePlayers, fund, expenses, selectedMonth: month, finance, emailList };
+    const report = this.monthReportBuilder.build({ members, players, fund, expenses, previousMonthBalance });
+    return { team, members: report.members, players: report.players, fund, expenses, selectedMonth: month, finance: report.finance, emailList: report.emailList };
   }
 
   async addMember(teamId: bigint, playerId: bigint, memberType: string, notes?: string, month?: string) {
@@ -246,10 +200,6 @@ function hasMoneyValue(value?: string) {
 
 function normalizeMemberType(value?: string) {
   return value === 'GUEST' ? 'GUEST' : 'FIXED';
-}
-
-function memberTypeOrder(value?: string) {
-  return value === 'GUEST' ? 1 : 0;
 }
 
 function cleanText(value?: string) {
