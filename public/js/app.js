@@ -29,6 +29,16 @@ const showPageBusy = (text = 'Đang xử lý...') => {
   toast.textContent = text;
   document.body.classList.add('page-busy');
 };
+const clearPageBusy = () => {
+  document.body.classList.remove('page-busy');
+  document.querySelectorAll('.loading[aria-busy="true"]').forEach((item) => {
+    item.classList.remove('loading');
+    item.removeAttribute('aria-busy');
+    if (item.dataset.originalText) item.textContent = item.dataset.originalText;
+  });
+};
+window.addEventListener('pageshow', clearPageBusy);
+window.addEventListener('pagehide', () => document.body.classList.remove('page-busy'));
 
 document.addEventListener('submit', (event) => {
   const form = event.target;

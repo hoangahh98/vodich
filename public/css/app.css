@@ -106,7 +106,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .text-success { color: var(--success); }
 .text-danger { color: var(--danger); }
 .metric { display: block; font-size: 26px; margin: 8px 0 2px; }
-.month-filter { flex: 0 0 150px; width: 150px; min-width: 0; max-width: 100%; overflow: hidden; }
+.month-filter { flex: 0 0 170px; width: 170px; min-width: 0; max-width: 100%; }
 .month-filter input { width: 100%; min-width: 0; max-width: 100%; }
 .checkbox-line label { display: flex; align-items: center; gap: 8px; margin: 0; }
 .checkbox-line input { width: auto; min-height: auto; }
@@ -286,7 +286,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .prize-config-col input { min-width: 0; }
   .flex.between.center { align-items: flex-start; flex-direction: column; }
   .feature-hero .flex.between.center { width: 100%; }
-  .month-filter { align-self: flex-start; flex: 0 0 150px; width: 150px; max-width: 100%; }
+  .month-filter { align-self: flex-start; flex: 0 0 170px; width: 170px; max-width: 100%; }
   .section-heading, .bulk-toolbar { align-items: flex-start; flex-direction: column; }
   .section-heading p { margin-left: 0; }
   .feature-hero-art { width: 58px; height: 58px; font-size: 32px; }
@@ -342,12 +342,11 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 @media (max-height: 520px) and (orientation: landscape) {
   .app-shell { margin-top: 12px; padding: 0 10px; }
   .feature-hero { padding: 10px; }
-  .feature-hero .flex.between.center { display: grid; grid-template-columns: minmax(0, 1fr) 124px; align-items: start; gap: 10px; }
+  .feature-hero .flex.between.center { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 8px; }
   .feature-hero .flex.between.center > div { min-width: 0; }
   .feature-hero h1 { margin: 0 0 4px; font-size: 22px; }
-  .month-filter { justify-self: end; flex: 0 0 112px; min-width: 0; width: 112px; max-width: 100%; overflow: hidden; }
-  .month-filter input[type="month"] { width: 112px; height: 38px; min-height: 38px; padding: 7px 4px; font-size: 12px; appearance: none; -webkit-appearance: none; }
-  .month-filter input[type="month"]::-webkit-calendar-picker-indicator { width: 12px; margin: 0; padding: 0; }
+  .month-filter { justify-self: start; flex: 0 0 160px; min-width: 0; width: 160px; max-width: 100%; }
+  .month-filter input[type="month"] { width: 160px; height: 38px; min-height: 38px; padding: 7px 8px; font-size: 13px; border-radius: 8px; }
   .team-expense-form { grid-template-columns: 132px minmax(0, 1fr) minmax(110px, 140px) minmax(82px, auto); gap: 8px; }
   .team-expense-form .expense-date { width: 132px; max-width: 100%; }
   .team-expense-form .expense-date input { width: 132px; height: 38px; }
