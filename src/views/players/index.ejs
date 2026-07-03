@@ -1,28 +1,50 @@
 <%- include('../partials/head', { title: 'Thành viên' }) %>
 <%- include('../partials/topbar') %>
-<main class="app-shell">
+<main class="app-shell players-shell">
   <div class="flex between center mb">
     <h1>Quản lý thành viên</h1>
     <a class="btn" href="/">Trang chủ</a>
   </div>
+
   <section class="card-lite p mb">
-    <form class="row" method="post" action="/players">
-      <div class="col-3"><input name="displayName" placeholder="Họ tên" required></div>
-      <div class="col-3"><input name="email" type="email" placeholder="Email" required></div>
-      <div class="col-2"><select name="skillLevel"><option value="">Chưa chọn trình</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
-      <div class="col-3"><input name="notes" placeholder="Ghi chú"></div>
-      <div class="col-1"><button class="btn btn-success" data-loading-text="...">Thêm</button></div>
+    <form class="player-create-form" method="post" action="/players">
+      <div><label>Họ tên</label><input name="displayName" placeholder="Nguyễn Văn A" required></div>
+      <div><label>Email</label><input name="email" type="email" placeholder="email@example.com" required></div>
+      <div><label>Trình</label><select name="skillLevel"><option value="">Chưa chọn trình</option><option>A</option><option>B</option><option>C</option><option>D</option></select></div>
+      <div><label>Ghi chú</label><input name="notes" placeholder="Ghi chú thêm"></div>
+      <div class="player-create-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
     </form>
   </section>
-  <section class="card-lite table-wrap">
-    <table>
-      <thead><tr><th>Tên</th><th>Email</th><th>Trình</th><th>Ghi chú</th></tr></thead>
-      <tbody>
-        <% players.forEach((p) => { %>
-          <tr><td><strong><%= p.displayName %></strong></td><td class="muted"><%= p.email %></td><td><span class="badge"><%= p.skillLevel || '-' %></span></td><td><%= p.notes || '' %></td></tr>
-        <% }) %>
-      </tbody>
-    </table>
+
+  <section class="card-lite p">
+    <div class="section-heading mb">
+      <div><span class="feature-icon">👥</span><h2 class="section-title">Danh sách thành viên</h2><p class="muted">Sửa trực tiếp nhiều người rồi lưu một lần.</p></div>
+      <span class="badge"><%= players.length %> thành viên</span>
+    </div>
+    <form method="post" action="/players/bulk">
+      <div class="players-table-wrap">
+        <table class="players-edit-table">
+          <thead>
+            <tr><th>Họ tên / Email</th><th>Trình</th><th>Ghi chú</th></tr>
+          </thead>
+          <tbody>
+            <% players.forEach((p) => { %>
+              <tr>
+                <td>
+                  <div class="player-name-cell">
+                    <input name="displayName_<%= p.id %>" value="<%= p.displayName %>" placeholder="Họ tên" required>
+                    <input name="email_<%= p.id %>" type="email" value="<%= p.email %>" placeholder="Email" required>
+                  </div>
+                </td>
+                <td><select name="skillLevel_<%= p.id %>"><option value="" <%= !p.skillLevel ? 'selected' : '' %>>Chưa chọn</option><% ['A','B','C','D'].forEach((level) => { %><option value="<%= level %>" <%= p.skillLevel === level ? 'selected' : '' %>><%= level %></option><% }) %></select></td>
+                <td><input name="notes_<%= p.id %>" value="<%= p.notes || '' %>" placeholder="Ghi chú"></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu thay đổi</button></div>
+    </form>
   </section>
 </main>
 <%- include('../partials/bottom-menu') %>

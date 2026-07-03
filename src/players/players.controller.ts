@@ -38,4 +38,25 @@ export class PlayersController {
     });
     return res.redirect('/players');
   }
+
+  @Post('/players/bulk')
+  async updatePlayers(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    const ids = Object.keys(body)
+      .filter((key) => key.startsWith('displayName_'))
+      .map((key) => BigInt(key.replace('displayName_', '')));
+    const updates = ids.map((id) =>
+      this.prisma.player.update({
+        where: { id },
+        data: {
+          displayName: String(body[`displayName_${id}`] || '').trim(),
+          email: String(body[`email_${id}`] || '').trim().toLowerCase(),
+          skillLevel: blankToNull(body[`skillLevel_${id}`]),
+          notes: blankToNull(body[`notes_${id}`]),
+        },
+      }),
+    );
+    if (updates.length) await this.prisma.$transaction(updates);
+    return res.redirect('/players');
+  }
 }
