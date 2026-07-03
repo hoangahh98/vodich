@@ -438,9 +438,13 @@ export class AppController {
     const user = requireUser(req, res);
     if (!user || !this.auth.isRoot(user)) return res.status(403).render('error', { message: 'Chỉ admin gốc được xem log' });
     const level = String(req.query.level || 'ERROR');
-    const where = level === 'ALL' ? {} : { level };
+    const category = String(req.query.category || 'ALL');
+    const where = {
+      ...(level === 'ALL' ? {} : { level }),
+      ...(category === 'ALL' ? {} : { category }),
+    };
     const logs = await this.prisma.appLog.findMany({ where, orderBy: { createdAt: 'desc' }, take: 200 });
-    return render(res, 'logs/index', { logs, level, levels: ['ERROR', 'WARN', 'INFO', 'ALL'] });
+    return render(res, 'logs/index', { logs, level, levels: ['ERROR', 'WARN', 'INFO', 'ALL'], category, categories: ['ALL', 'HTTP', 'REDIS'] });
   }
 
   @Get('/travel')
