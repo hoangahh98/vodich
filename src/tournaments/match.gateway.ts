@@ -1,13 +1,17 @@
 import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { PrismaService } from '../prisma.service';
+import { TournamentService } from './tournament.service';
 
 @WebSocketGateway({ cors: false })
 export class MatchGateway {
   @WebSocketServer()
   server!: Server;
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly tournaments: TournamentService,
+  ) {}
 
   emitTournamentUpdated(tournamentId: string | bigint, reason = 'updated') {
     this.server.to(`tournament:${String(tournamentId)}`).emit('tournamentUpdated', { tournamentId: String(tournamentId), reason });
@@ -50,6 +54,9 @@ export class MatchGateway {
       },
     });
     this.server.to(`tournament:${body.tournamentId}`).emit('scoreUpdated', stringifyBigInt(updated));
+    if (status === 'FINISHED' && (await this.tournaments.syncKnockout(match.tournamentId))) {
+      this.emitTournamentUpdated(body.tournamentId, 'knockout');
+    }
   }
 }
 

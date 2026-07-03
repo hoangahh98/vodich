@@ -73,6 +73,7 @@ export class TeamService {
     const totalMissing = rows.reduce((sum, member) => sum + Math.max(0, member.expectedAmount - member.paidAmount), 0);
     const fixedCount = rows.filter((member) => member.memberType === 'FIXED').length;
     const paidCount = rows.filter((member) => member.paymentStatus === 'PAID').length;
+    const fixedUnpaidCount = rows.filter((member) => member.memberType === 'FIXED' && member.paymentStatus !== 'PAID').length;
     const activePlayerIds = new Set(rows.map((member) => member.playerId.toString()));
     const finance = {
       monthlyFee,
@@ -87,6 +88,7 @@ export class TeamService {
       balance: previousBalance + totalPaid - courtCost - totalExpense,
       memberCount: rows.length,
       fixedCount,
+      fixedUnpaidCount,
       guestCount: rows.length - fixedCount,
       paidCount,
       unpaidCount: rows.length - paidCount,

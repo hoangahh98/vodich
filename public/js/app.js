@@ -184,9 +184,64 @@ const getTournamentSocket = (tournamentId) => {
   document.querySelectorAll('[data-menu-toggle]').forEach((button) => {
     const menu = button.closest('.bottom-menu');
     let closeTimer = null;
+    let dragState = null;
     const closeMenu = () => menu?.classList.remove('open');
+    const storageKey = 'vodichBottomMenuPosition';
+    const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+    const applyPosition = (left, top) => {
+      if (!menu) return;
+      const rect = menu.getBoundingClientRect();
+      const nextLeft = clamp(left, 8, window.innerWidth - rect.width - 8);
+      const nextTop = clamp(top, 8, window.innerHeight - rect.height - 8);
+      menu.style.left = `${nextLeft}px`;
+      menu.style.top = `${nextTop}px`;
+      menu.style.right = 'auto';
+      menu.style.bottom = 'auto';
+    };
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(storageKey) || 'null');
+      if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) applyPosition(saved.left, saved.top);
+    } catch (_) {}
+    button.addEventListener('pointerdown', (event) => {
+      if (!menu || event.button !== 0) return;
+      const rect = menu.getBoundingClientRect();
+      dragState = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        left: rect.left,
+        top: rect.top,
+        moved: false,
+      };
+      button.setPointerCapture?.(event.pointerId);
+    });
+    button.addEventListener('pointermove', (event) => {
+      if (!menu || !dragState || dragState.pointerId !== event.pointerId) return;
+      const dx = event.clientX - dragState.startX;
+      const dy = event.clientY - dragState.startY;
+      if (Math.abs(dx) + Math.abs(dy) < 5) return;
+      dragState.moved = true;
+      menu.classList.add('is-dragging');
+      closeMenu();
+      applyPosition(dragState.left + dx, dragState.top + dy);
+    });
+    button.addEventListener('pointerup', (event) => {
+      if (!menu || !dragState || dragState.pointerId !== event.pointerId) return;
+      const moved = dragState.moved;
+      dragState = null;
+      menu.classList.remove('is-dragging');
+      const rect = menu.getBoundingClientRect();
+      window.localStorage.setItem(storageKey, JSON.stringify({ left: rect.left, top: rect.top }));
+      if (moved) {
+        event.preventDefault();
+        event.stopPropagation();
+        button.dataset.justDragged = 'true';
+        window.setTimeout(() => delete button.dataset.justDragged, 0);
+      }
+    });
     button.addEventListener('click', (event) => {
       event.stopPropagation();
+      if (button.dataset.justDragged === 'true') return;
       const menu = button.closest('.bottom-menu');
       menu?.classList.toggle('open');
     });

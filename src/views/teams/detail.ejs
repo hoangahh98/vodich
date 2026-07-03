@@ -18,7 +18,7 @@
 
   <% if (section === 'overview') { %>
     <section class="grid finance-grid mb">
-      <div class="metric-card blue"><span>💰 Tổng thu</span><strong><%= formatMoney(finance.totalPaid) %>đ</strong><small><%= finance.memberCount %> thành viên</small></div>
+      <div class="metric-card blue"><span>💰 Tổng thu</span><strong><%= formatMoney(finance.totalPaid) %>đ</strong><small>Còn <%= finance.fixedUnpaidCount %> người cố định chưa đóng</small></div>
       <div class="metric-card green"><span>🎁 Tổng donate</span><strong>+<%= formatMoney(finance.totalDonate) %>đ</strong><small>Vượt mức <%= formatMoney(finance.monthlyFee) %>đ/người</small></div>
       <div class="metric-card orange"><span>🏟️ Tiền sân</span><strong><%= formatMoney(finance.courtCost) %>đ</strong><small>Dư trước <%= formatMoney(finance.previousBalance) %>đ</small></div>
       <div class="metric-card gold"><span>🧾 Quỹ còn lại</span><strong><%= formatMoney(finance.balance) %>đ</strong><small>= Dư + Thu - Sân - Chi</small></div>
