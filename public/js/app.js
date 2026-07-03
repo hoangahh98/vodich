@@ -12,6 +12,13 @@ const prizeSuggestion = (prizeFund) => {
   const second = Math.floor(prizeFund * 0.3);
   return [first, second, Math.max(0, prizeFund - first - second)];
 };
+const setActionLoading = (button, fallback = 'Đang xử lý...') => {
+  if (!button || button.classList.contains('loading')) return;
+  button.dataset.originalText = button.textContent || '';
+  button.textContent = button.getAttribute('data-loading-text') || fallback;
+  button.classList.add('loading');
+  button.setAttribute('aria-busy', 'true');
+};
 
 document.addEventListener('submit', (event) => {
   const form = event.target;
@@ -55,12 +62,18 @@ document.addEventListener('submit', (event) => {
   form.dataset.submitting = 'true';
   form.setAttribute('aria-busy', 'true');
   if (!button) return;
-  button.dataset.originalText = button.textContent || '';
-  button.textContent = button.getAttribute('data-loading-text') || 'Đang xử lý...';
-  button.classList.add('loading');
+  setActionLoading(button);
   form.querySelectorAll('button').forEach((item) => {
     if (item !== button) item.disabled = true;
   });
+});
+
+document.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const link = target?.closest('a.btn[href]');
+  if (!(link instanceof HTMLAnchorElement)) return;
+  if (link.target || link.href.startsWith('javascript:') || link.getAttribute('href')?.startsWith('#')) return;
+  setActionLoading(link, 'Đang mở...');
 });
 
 document.addEventListener('input', (event) => {
