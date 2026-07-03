@@ -1,0 +1,70 @@
+<%- include('../partials/head', { title: 'Gợi ý du lịch' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell travel-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap"><div><h1>🧭 Gợi ý du lịch</h1><div class="muted strong-muted">Lưu địa danh, quán ăn, cà phê, khách sạn và điểm vui chơi để tái sử dụng cho các chuyến sau.</div></div><div class="feature-hero-art">🧭</div></div>
+  </section>
+
+  <div class="grid travel-admin-grid mb">
+    <section class="card-lite p">
+      <div class="section-heading mb"><div><span class="feature-icon">📍</span><h2 class="section-title">Địa danh</h2></div></div>
+      <form class="travel-people-form" method="post" action="/travel/suggestions/destinations">
+        <div><label>Tên địa danh</label><input name="name" required placeholder="Ví dụ: Đà Nẵng"></div>
+        <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button>
+      </form>
+    </section>
+    <section class="card-lite p">
+      <div class="section-heading mb"><div><span class="feature-icon">➕</span><h2 class="section-title">Thêm gợi ý</h2></div></div>
+      <form class="travel-suggestion-form" method="post" action="/travel/suggestions">
+        <div><label>Địa danh</label><select name="destinationId" required><% destinations.forEach((destination) => { %><option value="<%= destination.id %>"><%= destination.name %></option><% }) %></select></div>
+        <div><label>Loại</label><select name="category"><% categories.forEach((category) => { %><option value="<%= category %>"><%= category %></option><% }) %></select></div>
+        <div><label>Tên</label><input name="name" required></div>
+        <div><label>Địa chỉ</label><input name="address"></div>
+        <div><label>Điện thoại</label><input name="phone"></div>
+        <div><label>Giờ mở cửa</label><input name="openingHours"></div>
+        <div class="travel-suggestion-wide"><label>Mô tả</label><textarea name="description" rows="2"></textarea></div>
+        <div><label>Google Maps</label><input name="mapUrl"></div>
+        <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm gợi ý</button>
+      </form>
+    </section>
+  </div>
+
+  <section class="card-lite p mb">
+    <form class="travel-filter-form" method="get" action="/travel/suggestions">
+      <select name="destinationId"><option value="">Tất cả địa danh</option><% destinations.forEach((destination) => { %><option value="<%= destination.id %>" <%= String(selectedDestinationId || '') === String(destination.id) ? 'selected' : '' %>><%= destination.name %></option><% }) %></select>
+      <select name="category"><option value="">Tất cả loại</option><% categories.forEach((category) => { %><option value="<%= category %>" <%= selectedCategory === category ? 'selected' : '' %>><%= category %></option><% }) %></select>
+      <button class="btn btn-primary">Lọc</button>
+    </form>
+  </section>
+
+  <section class="card-lite p">
+    <div class="grid travel-place-grid">
+      <% suggestions.forEach((suggestion) => { %>
+        <div class="travel-place-card">
+          <div class="travel-place-icon"><%= suggestion.category === 'Quán ăn ngon' ? '🍜' : suggestion.category === 'Cà phê đẹp' ? '☕' : suggestion.category === 'Khách sạn tốt' ? '🏨' : suggestion.category === 'Vui chơi' ? '🎡' : suggestion.category === 'Thể thao' ? '🏃' : '🧭' %></div>
+          <div>
+            <span class="badge"><%= suggestion.destination.name %> · <%= suggestion.category %></span>
+            <h3><%= suggestion.name %></h3>
+            <p class="muted"><%= suggestion.address || suggestion.description || 'Chưa có mô tả' %></p>
+            <details class="travel-edit-expense">
+              <summary>Sửa</summary>
+              <form method="post" action="/travel/suggestions/<%= suggestion.id %>/edit" class="travel-suggestion-form compact">
+                <select name="destinationId"><% destinations.forEach((destination) => { %><option value="<%= destination.id %>" <%= String(suggestion.destinationId) === String(destination.id) ? 'selected' : '' %>><%= destination.name %></option><% }) %></select>
+                <select name="category"><% categories.forEach((category) => { %><option value="<%= category %>" <%= suggestion.category === category ? 'selected' : '' %>><%= category %></option><% }) %></select>
+                <input name="name" value="<%= suggestion.name %>" required>
+                <input name="address" value="<%= suggestion.address %>" placeholder="Địa chỉ">
+                <input name="phone" value="<%= suggestion.phone %>" placeholder="Điện thoại">
+                <input name="openingHours" value="<%= suggestion.openingHours %>" placeholder="Giờ mở cửa">
+                <textarea name="description" rows="2"><%= suggestion.description %></textarea>
+                <input name="mapUrl" value="<%= suggestion.mapUrl %>" placeholder="Google Maps">
+                <div class="team-action-cell"><button class="btn btn-sm btn-success" data-loading-text="Đang lưu...">Lưu</button><button class="btn btn-sm btn-danger" formaction="/travel/suggestions/<%= suggestion.id %>/delete" data-confirm="Xóa gợi ý này?" data-loading-text="Đang xóa...">Xóa</button></div>
+              </form>
+            </details>
+          </div>
+        </div>
+      <% }) %>
+      <% if (!suggestions.length) { %><div class="alert-lite">Chưa có gợi ý phù hợp.</div><% } %>
+    </div>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

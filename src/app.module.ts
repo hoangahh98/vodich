@@ -34,12 +34,16 @@ import { TeamFundService } from './teams/team-fund.service';
 import { TeamMemberController } from './teams/team-member.controller';
 import { TeamMemberService } from './teams/team-member.service';
 import { TeamController } from './teams/team.controller';
+import { TravelController } from './travel/travel.controller';
+import { TravelFinanceController } from './travel/travel-finance.controller';
+import { TravelFinanceService } from './travel/travel-finance.service';
+import { TravelService } from './travel/travel.service';
 import { LocalsMiddleware } from './common/locals.middleware';
 import { RateLimitService } from './common/rate-limit.service';
 import { FeatureGuard } from './common/feature.guard';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, AdminController],
   providers: [
     PrismaService,
     AuthService,
@@ -60,6 +64,8 @@ import { FeatureGuard } from './common/feature.guard';
     TeamExpenseService,
     TeamFundService,
     TeamMemberService,
+    TravelService,
+    TravelFinanceService,
     MatchGateway,
     LocalsMiddleware,
     RateLimitService,

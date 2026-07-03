@@ -105,12 +105,15 @@ const getAppSocket = () => {
 const socketEvents = Object.freeze({
   JOIN_TOURNAMENT: 'joinTournament',
   JOIN_TEAM: 'joinTeam',
+  JOIN_TRAVEL_TRIP: 'joinTravelTrip',
   SCORE: 'score',
   SCORE_UPDATED: 'scoreUpdated',
   SCORE_REJECTED: 'scoreRejected',
   TOURNAMENT_UPDATED: 'tournamentUpdated',
   TEAM_UPDATED: 'teamUpdated',
   TEAMS_UPDATED: 'teamsUpdated',
+  TRAVEL_TRIP_UPDATED: 'travelTripUpdated',
+  TRAVEL_TRIPS_UPDATED: 'travelTripsUpdated',
 });
 
 const getTournamentSocket = (tournamentId) => {
@@ -133,12 +136,23 @@ const getTeamSocket = (teamId) => {
   return socket;
 };
 
+const getTravelTripSocket = (tripId) => {
+  const socket = getAppSocket();
+  if (!socket || !tripId) return null;
+  if (window.joinedTravelTripId !== String(tripId)) {
+    socket.emit(socketEvents.JOIN_TRAVEL_TRIP, String(tripId));
+    window.joinedTravelTripId = String(tripId);
+  }
+  return socket;
+};
+
 window.Vodich = {
   ...(window.Vodich || {}),
   clearActionLoading,
   formatMoneyValue,
   getAppSocket,
   getTeamSocket,
+  getTravelTripSocket,
   getTournamentSocket,
   parseMoneyValue,
   setActionLoading,

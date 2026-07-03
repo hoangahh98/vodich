@@ -5,7 +5,7 @@ import { AuthService } from '../auth/auth.service';
 import { createConnectedRedisClient, createRedisClient, isRedisConfigured, isRedisRequired, recordRedisLog, redisConnectionSummary, requiredRedisError, setRedisFeatureStatus } from '../common/redis';
 import { getSessionMiddleware } from '../common/session';
 import { PrismaService } from '../prisma.service';
-import { SOCKET_EVENTS, ScorePayload, teamRoom, tournamentRoom } from '../realtime/socket-events';
+import { SOCKET_EVENTS, ScorePayload, teamRoom, tournamentRoom, travelTripRoom } from '../realtime/socket-events';
 import { CurrentUser } from '../types';
 import { TournamentService } from './tournament.service';
 
@@ -39,6 +39,15 @@ export class MatchGateway implements OnGatewayInit {
     this.server.emit(SOCKET_EVENTS.TEAMS_UPDATED, { reason });
   }
 
+  emitTravelTripUpdated(tripId: string | bigint, reason = 'updated') {
+    this.server.to(travelTripRoom(tripId)).emit(SOCKET_EVENTS.TRAVEL_TRIP_UPDATED, { tripId: String(tripId), reason });
+    this.emitTravelTripsUpdated(reason);
+  }
+
+  emitTravelTripsUpdated(reason = 'updated') {
+    this.server.emit(SOCKET_EVENTS.TRAVEL_TRIPS_UPDATED, { reason });
+  }
+
   @SubscribeMessage(SOCKET_EVENTS.JOIN_TOURNAMENT)
   join(@MessageBody() tournamentId: string, @ConnectedSocket() socket: Socket) {
     socket.join(tournamentRoom(tournamentId));
@@ -47,6 +56,11 @@ export class MatchGateway implements OnGatewayInit {
   @SubscribeMessage(SOCKET_EVENTS.JOIN_TEAM)
   joinTeam(@MessageBody() teamId: string, @ConnectedSocket() socket: Socket) {
     socket.join(teamRoom(teamId));
+  }
+
+  @SubscribeMessage(SOCKET_EVENTS.JOIN_TRAVEL_TRIP)
+  joinTravelTrip(@MessageBody() tripId: string, @ConnectedSocket() socket: Socket) {
+    socket.join(travelTripRoom(tripId));
   }
 
   @SubscribeMessage(SOCKET_EVENTS.SCORE)

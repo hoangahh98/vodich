@@ -61,3 +61,30 @@
     reloadTimer = window.setTimeout(() => window.location.reload(), 300);
   });
 })();
+
+(() => {
+  const events = window.Vodich?.socketEvents || {};
+  const shell = document.querySelector('[data-travel-trip-id]');
+  if (!shell) return;
+  const socket = window.Vodich?.getTravelTripSocket?.(shell.dataset.travelTripId);
+  if (!socket) return;
+  let reloadTimer = null;
+  socket.on(events.TRAVEL_TRIP_UPDATED || 'travelTripUpdated', (payload) => {
+    if (String(payload?.tripId || '') !== String(shell.dataset.travelTripId)) return;
+    window.clearTimeout(reloadTimer);
+    reloadTimer = window.setTimeout(() => window.location.reload(), 300);
+  });
+})();
+
+(() => {
+  const events = window.Vodich?.socketEvents || {};
+  const shell = document.querySelector('[data-travel-index]');
+  if (!shell) return;
+  const socket = window.Vodich?.getAppSocket?.();
+  if (!socket) return;
+  let reloadTimer = null;
+  socket.on(events.TRAVEL_TRIPS_UPDATED || 'travelTripsUpdated', () => {
+    window.clearTimeout(reloadTimer);
+    reloadTimer = window.setTimeout(() => window.location.reload(), 300);
+  });
+})();

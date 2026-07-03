@@ -15,7 +15,9 @@ model AppUser {
   role         String   @db.VarChar(30)
   createdAt    DateTime @default(now()) @map("created_at")
 
-  permissions AdminFeaturePermission[]
+  permissions       AdminFeaturePermission[]
+  ownedTravelTrips  TravelTrip[]             @relation("TravelTripOwner")
+  travelPermissions TravelTripPermission[]
 
   @@map("app_user")
 }
@@ -40,35 +42,37 @@ model Player {
 
   registrations TournamentRegistration[]
   teamMembers   TeamMember[]
+  travelPeople  TravelPerson[]
+  travelMembers TravelTripMember[]
 
   @@map("player")
 }
 
 model Tournament {
-  id                          BigInt   @id @default(autoincrement())
-  name                        String   @db.VarChar(255)
-  venue                       String?  @db.VarChar(255)
+  id                          BigInt    @id @default(autoincrement())
+  name                        String    @db.VarChar(255)
+  venue                       String?   @db.VarChar(255)
   startTime                   DateTime? @map("start_time")
   endTime                     DateTime? @map("end_time")
-  courtCount                  Int      @default(1) @map("court_count")
-  expectedPlayers             Int      @default(10) @map("expected_players")
-  playType                    String   @default("SINGLES") @map("play_type") @db.VarChar(20)
-  format                      String   @default("ROUND_ROBIN") @db.VarChar(20)
-  knockoutQualifierCount      Int      @default(4) @map("knockout_qualifier_count")
-  touchScore                  Int      @default(11) @map("touch_score")
-  maxScore                    Int      @default(15) @map("max_score")
-  knockoutTouchScore          Int      @default(15) @map("knockout_touch_score")
-  knockoutMaxScore            Int      @default(19) @map("knockout_max_score")
-  courtCost                   Decimal  @default(0) @map("court_cost") @db.Decimal(14, 2)
-  foodCost                    Decimal  @default(0) @map("food_cost") @db.Decimal(14, 2)
-  prizeCost                   Decimal  @default(0) @map("prize_cost") @db.Decimal(14, 2)
-  otherCost                   Decimal  @default(0) @map("other_cost") @db.Decimal(14, 2)
-  prizeRate1                  Decimal  @default(50) @map("prize_rate_1") @db.Decimal(14, 2)
-  prizeRate2                  Decimal  @default(30) @map("prize_rate_2") @db.Decimal(14, 2)
-  prizeRate3                  Decimal  @default(20) @map("prize_rate_3") @db.Decimal(14, 2)
-  externalRegistrationEnabled Boolean  @default(false) @map("external_registration_enabled")
-  createdAt                   DateTime @default(now()) @map("created_at")
-  updatedAt                   DateTime @default(now()) @map("updated_at")
+  courtCount                  Int       @default(1) @map("court_count")
+  expectedPlayers             Int       @default(10) @map("expected_players")
+  playType                    String    @default("SINGLES") @map("play_type") @db.VarChar(20)
+  format                      String    @default("ROUND_ROBIN") @db.VarChar(20)
+  knockoutQualifierCount      Int       @default(4) @map("knockout_qualifier_count")
+  touchScore                  Int       @default(11) @map("touch_score")
+  maxScore                    Int       @default(15) @map("max_score")
+  knockoutTouchScore          Int       @default(15) @map("knockout_touch_score")
+  knockoutMaxScore            Int       @default(19) @map("knockout_max_score")
+  courtCost                   Decimal   @default(0) @map("court_cost") @db.Decimal(14, 2)
+  foodCost                    Decimal   @default(0) @map("food_cost") @db.Decimal(14, 2)
+  prizeCost                   Decimal   @default(0) @map("prize_cost") @db.Decimal(14, 2)
+  otherCost                   Decimal   @default(0) @map("other_cost") @db.Decimal(14, 2)
+  prizeRate1                  Decimal   @default(50) @map("prize_rate_1") @db.Decimal(14, 2)
+  prizeRate2                  Decimal   @default(30) @map("prize_rate_2") @db.Decimal(14, 2)
+  prizeRate3                  Decimal   @default(20) @map("prize_rate_3") @db.Decimal(14, 2)
+  externalRegistrationEnabled Boolean   @default(false) @map("external_registration_enabled")
+  createdAt                   DateTime  @default(now()) @map("created_at")
+  updatedAt                   DateTime  @default(now()) @map("updated_at")
 
   registrations TournamentRegistration[]
   matches       MatchGame[]
@@ -127,8 +131,8 @@ model TeamClub {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @default(now()) @map("updated_at")
 
-  members TeamMember[]
-  funds   TeamMonthFund[]
+  members  TeamMember[]
+  funds    TeamMonthFund[]
   expenses TeamExpense[]
 
   @@map("team_club")
@@ -143,8 +147,8 @@ model TeamMember {
   notes      String?
   createdAt  DateTime @default(now()) @map("created_at")
 
-  team   TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  player Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  team     TeamClub            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player   Player              @relation(fields: [playerId], references: [id], onDelete: Cascade)
   payments TeamMemberPayment[]
 
   @@unique([teamId, playerId])
@@ -181,15 +185,15 @@ model TeamMemberPayment {
 }
 
 model TeamExpense {
-  id          BigInt   @id @default(autoincrement())
-  teamId      BigInt   @map("team_id")
-  expenseMonth DateTime @map("expense_month") @db.Date
-  expenseDate DateTime? @map("expense_date") @db.Date
-  content     String   @db.VarChar(255)
-  amount      Decimal  @default(0) @db.Decimal(14, 2)
-  notes       String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @default(now()) @map("updated_at")
+  id           BigInt    @id @default(autoincrement())
+  teamId       BigInt    @map("team_id")
+  expenseMonth DateTime  @map("expense_month") @db.Date
+  expenseDate  DateTime? @map("expense_date") @db.Date
+  content      String    @db.VarChar(255)
+  amount       Decimal   @default(0) @db.Decimal(14, 2)
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @map("updated_at")
 
   team TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
@@ -197,23 +201,181 @@ model TeamExpense {
 }
 
 model AppLog {
-  id          BigInt   @id @default(autoincrement())
-  createdAt   DateTime @default(now()) @map("created_at")
-  level       String   @db.VarChar(20)
-  category    String   @db.VarChar(80)
-  action      String   @db.VarChar(255)
-  method      String?  @db.VarChar(12)
-  path        String?  @db.VarChar(500)
-  queryString String?  @map("query_string")
-  statusCode  Int?     @map("status_code")
-  durationMs  BigInt?  @map("duration_ms")
-  userId      BigInt?  @map("user_id")
-  username    String?  @db.VarChar(255)
-  userRole    String?  @map("user_role") @db.VarChar(30)
-  ipAddress   String?  @map("ip_address") @db.VarChar(120)
-  userAgent   String?  @map("user_agent") @db.VarChar(500)
-  details     String?
-  errorMessage String? @map("error_message")
+  id           BigInt   @id @default(autoincrement())
+  createdAt    DateTime @default(now()) @map("created_at")
+  level        String   @db.VarChar(20)
+  category     String   @db.VarChar(80)
+  action       String   @db.VarChar(255)
+  method       String?  @db.VarChar(12)
+  path         String?  @db.VarChar(500)
+  queryString  String?  @map("query_string")
+  statusCode   Int?     @map("status_code")
+  durationMs   BigInt?  @map("duration_ms")
+  userId       BigInt?  @map("user_id")
+  username     String?  @db.VarChar(255)
+  userRole     String?  @map("user_role") @db.VarChar(30)
+  ipAddress    String?  @map("ip_address") @db.VarChar(120)
+  userAgent    String?  @map("user_agent") @db.VarChar(500)
+  details      String?
+  errorMessage String?  @map("error_message")
 
   @@map("app_log")
+}
+
+model TravelDestination {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.VarChar(255)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  trips       TravelTrip[]
+  suggestions TravelSuggestion[]
+
+  @@map("travel_destination")
+}
+
+model TravelSuggestion {
+  id            BigInt   @id @default(autoincrement())
+  destinationId BigInt   @map("destination_id")
+  category      String   @db.VarChar(80)
+  name          String   @db.VarChar(255)
+  address       String   @default("")
+  phone         String   @default("") @db.VarChar(80)
+  openingHours  String   @default("") @map("opening_hours")
+  description   String   @default("")
+  mapUrl        String   @default("") @map("map_url")
+  sourceUrl     String   @default("") @map("source_url")
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  destination TravelDestination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+
+  @@unique([destinationId, category, name])
+  @@map("travel_suggestion")
+}
+
+model TravelPerson {
+  id           BigInt   @id @default(autoincrement())
+  name         String   @db.VarChar(255)
+  email        String   @default("") @db.VarChar(255)
+  playerId     BigInt?  @map("player_id")
+  ownerAdminId BigInt?  @map("owner_admin_id")
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  player  Player?            @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  members TravelTripMember[]
+
+  @@map("travel_person")
+}
+
+model TravelTrip {
+  id                BigInt   @id @default(autoincrement())
+  name              String   @db.VarChar(255)
+  description       String   @default("")
+  ownerAdminId      BigInt?  @map("owner_admin_id")
+  destinationId     BigInt?  @map("destination_id")
+  treasurerMemberId BigInt?  @unique @map("treasurer_member_id")
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+
+  ownerAdmin      AppUser?               @relation("TravelTripOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
+  destination     TravelDestination?     @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  treasurerMember TravelTripMember?      @relation("TravelTripTreasurer", fields: [treasurerMemberId], references: [id], onDelete: SetNull)
+  members         TravelTripMember[]     @relation("TravelTripMembers")
+  collections     TravelTripCollection[]
+  expenses        TravelTripExpense[]
+  permissions     TravelTripPermission[]
+
+  @@map("travel_trip")
+}
+
+model TravelTripPermission {
+  id        BigInt   @id @default(autoincrement())
+  tripId    BigInt   @map("trip_id")
+  adminId   BigInt   @map("admin_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  trip  TravelTrip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  admin AppUser    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, adminId])
+  @@map("travel_trip_permission")
+}
+
+model TravelTripMember {
+  id        BigInt   @id @default(autoincrement())
+  tripId    BigInt   @map("trip_id")
+  personId  BigInt?  @map("person_id")
+  playerId  BigInt?  @map("player_id")
+  name      String   @db.VarChar(255)
+  email     String   @default("") @db.VarChar(255)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  trip            TravelTrip               @relation("TravelTripMembers", fields: [tripId], references: [id], onDelete: Cascade)
+  person          TravelPerson?            @relation(fields: [personId], references: [id], onDelete: SetNull)
+  player          Player?                  @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  collections     TravelTripCollection[]
+  paidExpenses    TravelTripExpense[]      @relation("TravelExpensePayer")
+  privateExpenses TravelTripExpense[]      @relation("TravelExpensePrivateMember")
+  splits          TravelTripExpenseSplit[]
+  treasurerFor    TravelTrip?              @relation("TravelTripTreasurer")
+
+  @@map("travel_trip_member")
+}
+
+model TravelTripCollection {
+  id        BigInt   @id @default(autoincrement())
+  tripId    BigInt   @map("trip_id")
+  memberId  BigInt   @map("member_id")
+  amount    Decimal  @default(0) @db.Decimal(14, 2)
+  note      String   @default("")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  trip   TravelTrip       @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  member TravelTripMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, memberId])
+  @@map("travel_trip_collection")
+}
+
+model TravelTripExpense {
+  id              BigInt   @id @default(autoincrement())
+  tripId          BigInt   @map("trip_id")
+  spentDate       DateTime @default(now()) @map("spent_date") @db.Date
+  title           String   @db.VarChar(255)
+  amount          Decimal  @default(0) @db.Decimal(14, 2)
+  note            String   @default("")
+  splitMode       String   @default("SHARED") @map("split_mode") @db.VarChar(20)
+  privateMemberId BigInt?  @map("private_member_id")
+  paidByMemberId  BigInt?  @map("paid_by_member_id")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  trip          TravelTrip               @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  privateMember TravelTripMember?        @relation("TravelExpensePrivateMember", fields: [privateMemberId], references: [id], onDelete: SetNull)
+  paidByMember  TravelTripMember?        @relation("TravelExpensePayer", fields: [paidByMemberId], references: [id], onDelete: SetNull)
+  splits        TravelTripExpenseSplit[]
+
+  @@map("travel_trip_expense")
+}
+
+model TravelTripExpenseSplit {
+  id        BigInt  @id @default(autoincrement())
+  expenseId BigInt  @map("expense_id")
+  memberId  BigInt  @map("member_id")
+  amount    Decimal @default(0) @db.Decimal(14, 2)
+
+  expense TravelTripExpense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  member  TravelTripMember  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([expenseId, memberId])
+  @@map("travel_trip_expense_split")
 }

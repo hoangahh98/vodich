@@ -4,17 +4,17 @@
     <% const currentPath = path || '/'; %>
     <% if (currentPath === '/') { %>
       <% if (featureSet.has('TOURNAMENTS')) { %><a class="" href="/tournaments">🏆 Giải đấu</a><% } %>
-      <% if (featureSet.has('TEAMS')) { %><a class="" href="/teams">👥 Đội bóng</a><% } %>
-      <% if (featureSet.has('TRAVEL')) { %><a class="" href="/travel">🧳 Du lịch</a><% } %>
+      <% if (featureSet.has('TEAMS')) { %><a class="" href="/teams"><span class="pickleball-icon" aria-hidden="true"></span> Đội bóng</a><% } %>
+      <% if (featureSet.has('TRAVEL')) { %><a class="" href="/travel">🌴 Du lịch</a><% } %>
       <% if (featureSet.has('PERMISSIONS')) { %><a class="" href="/permissions">🔐 Phân quyền</a><% } %>
       <% if (isRoot) { %><a class="" href="/logs">📜 Log</a><% } %>
     <% } else if ((currentPath.startsWith('/tournaments') || currentPath.startsWith('/players')) && featureSet.has('TOURNAMENTS')) { %>
       <a class="<%= currentPath.startsWith('/tournaments') ? 'active' : '' %>" href="/tournaments">🏆 Giải đấu</a>
       <% if (currentUser && currentUser.role === 'ADMIN') { %><a class="<%= currentPath.startsWith('/players') ? 'active' : '' %>" href="/players">👥 Thành viên</a><% } %>
     <% } else if (currentPath.startsWith('/teams') && featureSet.has('TEAMS')) { %>
-      <a class="active" href="/teams">👥 Đội bóng</a>
+      <a class="active" href="/teams"><span class="pickleball-icon" aria-hidden="true"></span> Đội bóng</a>
     <% } else if (currentPath.startsWith('/travel') && featureSet.has('TRAVEL')) { %>
-      <a class="active" href="/travel">🧳 Du lịch</a>
+      <a class="active" href="/travel">🌴 Du lịch</a>
     <% } else if (currentPath.startsWith('/permissions') && featureSet.has('PERMISSIONS')) { %>
       <a class="active" href="/permissions">🔐 Phân quyền</a>
     <% } else if (currentPath.startsWith('/logs') && isRoot) { %>

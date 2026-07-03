@@ -1,4 +1,52 @@
 <%- include('../partials/head', { title: 'Du lịch' }) %>
 <%- include('../partials/topbar') %>
-<main class="app-shell"><section class="card-lite p"><h1>Du lịch</h1><p class="muted">Mục du lịch đã giữ menu và phân quyền, phần nghiệp vụ chi tiết sẽ dựng tiếp theo backup khi cần.</p></section></main>
+<main class="app-shell travel-shell" data-travel-index>
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>🌴 Du lịch</h1>
+        <div class="muted strong-muted">Quản lý chuyến đi, thành viên, thu tiền và chia khoản chi realtime.</div>
+      </div>
+      <div class="feature-hero-art">🌴</div>
+    </div>
+  </section>
+
+  <% if (currentUser.role === 'ADMIN') { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">➕</span><h2 class="section-title">Tạo chuyến đi</h2></div></div>
+      <form class="travel-trip-form" method="post" action="/travel/trips">
+        <div><label>Tên chuyến</label><input name="name" required placeholder="Ví dụ: Hạ Long cuối tuần"></div>
+        <div><label>Địa danh có sẵn</label><select name="destinationId"><option value="">Chọn sau</option><% destinations.forEach((destination) => { %><option value="<%= destination.id %>"><%= destination.name %></option><% }) %></select></div>
+        <div><label>Địa danh mới</label><input name="destinationName" placeholder="Nếu chưa có trong danh sách"></div>
+        <div><label>Ghi chú</label><input name="description" placeholder="Lịch trình, khách sạn, xe cộ..."></div>
+        <div class="travel-trip-action"><button class="btn btn-success" data-loading-text="Đang tạo...">Tạo chuyến</button></div>
+      </form>
+    </section>
+    <div class="travel-subnav mb">
+      <a class="btn btn-sm" href="/travel/people">👥 Danh bạ du lịch</a>
+      <a class="btn btn-sm" href="/travel/suggestions">🧭 Gợi ý địa danh</a>
+    </div>
+  <% } %>
+
+  <% if (!trips.length) { %>
+    <section class="card-lite p text-center"><h2>Chưa có chuyến đi</h2><p class="muted">Tạo chuyến đầu tiên để bắt đầu theo dõi thu chi.</p></section>
+  <% } else { %>
+    <div class="grid travel-trip-grid">
+      <% trips.forEach((trip) => { const totalSpent = trip.expenses.reduce((sum, expense) => sum + Number(expense.amount), 0); %>
+        <a class="card-lite module-card travel-trip-card" href="/travel/trips/<%= trip.id %>">
+          <div class="travel-card-image"><span>🌴</span></div>
+          <div class="travel-card-body">
+            <h3><%= trip.name %></h3>
+            <p class="muted"><%= trip.description || 'Chưa có ghi chú' %></p>
+            <div class="travel-card-meta">
+              <span>📍 <%= trip.destination?.name || 'Chưa chọn địa danh' %></span>
+              <span>👥 <%= trip.members.length %> thành viên</span>
+              <span>💸 <%= formatMoney(totalSpent) %>đ</span>
+            </div>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+  <% } %>
+</main>
 <%- include('../partials/bottom-menu') %>

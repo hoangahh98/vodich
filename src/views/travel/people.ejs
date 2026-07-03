@@ -1,0 +1,35 @@
+<%- include('../partials/head', { title: 'Danh bạ du lịch' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell travel-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap"><div><h1>👥 Danh bạ du lịch</h1><div class="muted strong-muted">Danh sách người hay đi cùng, dùng để thêm nhanh vào chuyến đi.</div></div><div class="feature-hero-art">👥</div></div>
+  </section>
+  <section class="card-lite p mb">
+    <form class="travel-people-form" method="post" action="/travel/people">
+      <div><label>Họ tên</label><input name="name" required></div>
+      <div><label>Email</label><input name="email" type="email" placeholder="Để người đó đăng nhập xem thu chi"></div>
+      <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button>
+    </form>
+  </section>
+  <section class="card-lite p">
+    <div class="travel-table-wrap">
+      <table class="travel-table">
+        <thead><tr><th>Thành viên</th><th>Email</th><th>Tài khoản xem</th><th>Thao tác</th></tr></thead>
+        <tbody>
+          <% people.forEach((person) => { %>
+            <tr>
+              <form method="post" action="/travel/people/<%= person.id %>/edit">
+                <td><input name="name" value="<%= person.name %>" required></td>
+                <td><input name="email" type="email" value="<%= person.email %>"></td>
+                <td><%= person.player ? 'Đã gắn' : 'Chưa gắn' %></td>
+                <td class="team-action-cell"><button class="btn btn-sm" data-loading-text="Đang lưu...">Lưu</button><button class="btn btn-sm btn-danger" formaction="/travel/people/<%= person.id %>/delete" data-confirm="Xóa khỏi danh bạ?" data-loading-text="Đang xóa...">Xóa</button></td>
+              </form>
+            </tr>
+          <% }) %>
+          <% if (!people.length) { %><tr><td colspan="4" class="text-center muted">Chưa có thành viên.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

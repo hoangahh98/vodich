@@ -4,6 +4,8 @@ const test = require('node:test');
 const { TournamentRankingCalculator } = require('../dist/tournaments/tournament-ranking');
 const { TournamentScheduleBuilder } = require('../dist/tournaments/tournament-schedule');
 const { TeamMonthReportBuilder } = require('../dist/teams/team-month-report');
+const { splitEvenly } = require('../dist/travel/travel-money');
+const { TravelSummaryBuilder } = require('../dist/travel/travel-summary');
 
 test('TournamentRankingCalculator ranks finished matches and keeps pending matches out of totals', () => {
   const calculator = new TournamentRankingCalculator();
@@ -106,4 +108,32 @@ test('TeamMonthReportBuilder calculates finance summary and fixed member orderin
     report.players.map((player) => player.displayName),
     ['Dung'],
   );
+});
+
+test('TravelSummaryBuilder balances paid expenses, collections, and transfer suggestions', () => {
+  const builder = new TravelSummaryBuilder();
+  const members = [
+    { id: 1n, name: 'An', collections: [{ amount: 0 }] },
+    { id: 2n, name: 'Binh', collections: [{ amount: 100 }] },
+    { id: 3n, name: 'Cuong', collections: [{ amount: 0 }] },
+  ];
+  const expenses = [
+    { amount: 300, paidByMemberId: 1n, splits: splitEvenly(300, [1n, 2n, 3n]) },
+    { amount: 90, paidByMemberId: 3n, splits: [{ memberId: 3n, amount: 90 }] },
+  ];
+
+  const summary = builder.build(members, expenses, null);
+
+  assert.equal(summary.totalSpent, 390);
+  assert.equal(summary.memberSpent.get('1'), 100);
+  assert.equal(summary.memberSpent.get('3'), 190);
+  assert.equal(summary.memberAdvanced.get('1'), 200);
+  assert.equal(summary.memberDebt.get('3'), 100);
+  assert.deepEqual(summary.paymentSuggestions[0], {
+    fromMemberId: '3',
+    fromName: 'Cuong',
+    toMemberId: '1',
+    toName: 'An',
+    amount: 100,
+  });
 });

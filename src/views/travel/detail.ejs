@@ -1,0 +1,166 @@
+<%- include('../partials/head', { title: trip.name }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell travel-shell" data-travel-trip-id="<%= trip.id %>">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>🌴 <%= trip.name %></h1>
+        <div class="muted strong-muted">📍 <%= trip.destination?.name || 'Chưa chọn địa danh' %> · 👥 <%= members.length %> thành viên · 💸 <%= formatMoney(summary.totalSpent) %>đ</div>
+      </div>
+      <div class="hero-actions">
+        <% if (isTravelAdmin) { %><form method="post" action="/travel/trips/<%= trip.id %>/delete" data-confirm="Xóa chuyến đi này?"><button class="btn btn-danger" data-loading-text="Đang xóa...">Xóa</button></form><% } %>
+        <div class="feature-hero-art">🌴</div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid finance-grid mb">
+    <div class="metric-card blue"><span>Tổng chi</span><strong><%= formatMoney(summary.totalSpent) %>đ</strong><small><%= expenses.length %> khoản chi</small></div>
+    <div class="metric-card green"><span>Đã thu</span><strong><%= formatMoney(summary.totalCollectedDisplay) %>đ</strong><small>Tính cả người đã trả tiền</small></div>
+    <div class="metric-card orange"><span>Bình quân</span><strong><%= formatMoney(summary.averageSpent) %>đ</strong><small>Mỗi thành viên</small></div>
+    <div class="metric-card <%= summary.balance >= 0 ? 'gold' : 'red' %>"><span>Cân đối</span><strong><%= formatMoney(summary.balance) %>đ</strong><small><%= summary.balance >= 0 ? 'Dư/đủ quỹ' : 'Còn thiếu' %></small></div>
+  </div>
+
+  <% if (isTravelAdmin) { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cấu hình chuyến</h2></div></div>
+      <form class="travel-trip-form" method="post" action="/travel/trips/<%= trip.id %>/edit">
+        <div><label>Tên chuyến</label><input name="name" value="<%= trip.name %>" required></div>
+        <div><label>Địa danh có sẵn</label><select name="destinationId"><option value="">Chọn sau</option><% destinations.forEach((destination) => { %><option value="<%= destination.id %>" <%= String(trip.destinationId || '') === String(destination.id) ? 'selected' : '' %>><%= destination.name %></option><% }) %></select></div>
+        <div><label>Địa danh mới</label><input name="destinationName" placeholder="Tạo nhanh nếu chưa có"></div>
+        <div><label>Ghi chú</label><input name="description" value="<%= trip.description %>"></div>
+        <div class="travel-trip-action"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu</button></div>
+      </form>
+    </section>
+
+    <div class="grid travel-admin-grid mb">
+      <section class="card-lite p">
+        <div class="section-heading mb"><div><span class="feature-icon">👥</span><h2 class="section-title">Thành viên</h2></div></div>
+        <form class="travel-member-form mb" method="post" action="/travel/trips/<%= trip.id %>/members">
+          <div><label>Chọn từ danh bạ</label><select name="personId"><option value="">Thêm nhanh bên dưới</option><% availablePeople.forEach((person) => { %><option value="<%= person.id %>"><%= person.name %><%= person.email ? ' - ' + person.email : '' %></option><% }) %></select></div>
+          <div><label>Tên nhanh</label><input name="name" placeholder="Tên thành viên"></div>
+          <div><label>Email</label><input name="email" type="email" placeholder="Để người đó xem được"></div>
+          <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button>
+        </form>
+        <div class="travel-member-list">
+          <% members.forEach((member) => { const key = member.id.toString(); %>
+            <form class="travel-member-row" method="post" action="/travel/trips/<%= trip.id %>/members/<%= member.id %>/edit">
+              <div><input name="name" value="<%= member.name %>" required></div>
+              <div><input name="email" type="email" value="<%= member.email %>" placeholder="Email"></div>
+              <button class="btn btn-sm" data-loading-text="Đang lưu...">Lưu</button>
+              <button class="btn btn-sm btn-danger" formaction="/travel/trips/<%= trip.id %>/members/<%= member.id %>/delete" data-confirm="Xóa thành viên này?" data-loading-text="Đang xóa...">Xóa</button>
+            </form>
+          <% }) %>
+        </div>
+      </section>
+
+      <section class="card-lite p">
+        <div class="section-heading mb"><div><span class="feature-icon">💰</span><h2 class="section-title">Thu tiền</h2></div></div>
+        <form method="post" action="/travel/trips/<%= trip.id %>/treasurer" class="travel-treasurer-form mb">
+          <div><label>Thủ quỹ</label><select name="treasurerMemberId"><option value="">Chưa chọn</option><% members.forEach((member) => { %><option value="<%= member.id %>" <%= String(trip.treasurerMemberId || '') === String(member.id) ? 'selected' : '' %>><%= member.name %></option><% }) %></select></div>
+          <button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu thủ quỹ</button>
+        </form>
+        <form method="post" action="/travel/trips/<%= trip.id %>/collections">
+          <div class="travel-table-wrap">
+            <table class="travel-table">
+              <thead><tr><th>Thành viên</th><th>Phần chi</th><th>Đã thu</th><th>Còn thiếu</th><th>Ghi chú</th></tr></thead>
+              <tbody>
+                <% members.forEach((member) => { const key = member.id.toString(); const isTreasurer = String(trip.treasurerMemberId || '') === key; %>
+                  <tr>
+                    <td><strong><%= member.name %></strong><% if (isTreasurer) { %><br><span class="badge">Thủ quỹ</span><% } %></td>
+                    <td><%= formatMoney(summary.memberSpent.get(key) || 0) %>đ</td>
+                    <td><input class="money-input" name="collection_<%= key %>" value="<%= formatMoney(summary.actualCollected ? summary.actualCollected.get(key) : (member.collections[0]?.amount || 0)) %>" <%= isTreasurer ? 'readonly' : '' %>></td>
+                    <td><strong class="<%= (summary.memberDebt.get(key) || 0) > 0 ? 'text-danger' : 'text-success' %>"><%= formatMoney(summary.memberDebt.get(key) || 0) %>đ</strong></td>
+                    <td><input name="collectionNote_<%= key %>" value="<%= member.collections[0]?.note || '' %>"></td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <div class="form-actions"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu tiền thu</button><button class="btn btn-primary" formaction="/travel/trips/<%= trip.id %>/collections/paid-enough" data-confirm="Cập nhật thu đủ theo phần chi hiện tại?">Thu đủ</button></div>
+        </form>
+      </section>
+    </div>
+
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">🧾</span><h2 class="section-title">Thêm khoản chi</h2></div></div>
+      <form class="travel-expense-form" method="post" action="/travel/trips/<%= trip.id %>/expenses">
+        <div><label>Ngày chi</label><input type="date" name="spentDate" value="<%= today %>"></div>
+        <div><label>Nội dung</label><select name="title"><% expenseCategories.forEach((category) => { %><option value="<%= category %>"><%= category %></option><% }) %></select></div>
+        <div><label>Số tiền</label><input class="money-input" name="amount" placeholder="0"></div>
+        <div><label>Người trả</label><select name="paidByMemberId" required><% members.forEach((member) => { %><option value="<%= member.id %>" <%= String(trip.treasurerMemberId || '') === String(member.id) ? 'selected' : '' %>><%= member.name %></option><% }) %></select></div>
+        <div><label>Kiểu chia</label><select name="splitMode" data-travel-split-mode><option value="SHARED">Chia đều</option><option value="PRIVATE">Chi riêng</option></select></div>
+        <div class="travel-expense-note"><label>Ghi chú</label><input name="note" placeholder="Tên khách sạn, quán ăn, địa chỉ..."></div>
+        <div class="travel-private-grid" data-travel-private-grid>
+          <% members.forEach((member) => { %><label><span><%= member.name %></span><input class="money-input" name="privateSplit_<%= member.id %>" placeholder="0"></label><% }) %>
+        </div>
+        <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm khoản chi</button>
+      </form>
+    </section>
+  <% } %>
+
+  <% if (summary.paymentSuggestions.length) { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">🔁</span><h2 class="section-title">Gợi ý chuyển tiền</h2></div></div>
+      <div class="grid travel-suggestion-payments">
+        <% summary.paymentSuggestions.forEach((item) => { %><div class="alert-lite"><strong><%= item.fromName %></strong> chuyển <strong><%= formatMoney(item.amount) %>đ</strong> cho <strong><%= item.toName %></strong></div><% }) %>
+      </div>
+    </section>
+  <% } %>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">📋</span><h2 class="section-title">Bảng khoản chi</h2></div><span class="badge"><%= expenses.length %> khoản</span></div>
+    <div class="travel-table-wrap">
+      <table class="travel-table travel-expense-table">
+        <thead><tr><th>Khoản chi</th><th>Người trả</th><th>Tổng</th><% members.forEach((member) => { %><th><%= member.name %></th><% }) %><% if (isTravelAdmin) { %><th>Thao tác</th><% } %></tr></thead>
+        <tbody>
+          <% expenses.forEach((expense) => { const splitMap = new Map(expense.splits.map((split) => [split.memberId.toString(), Number(split.amount)])); %>
+            <tr>
+              <td><strong><%= expense.title %></strong><br><span class="muted"><%= expense.spentDate ? new Date(expense.spentDate).toLocaleDateString('vi-VN') : '-' %> · <%= expense.note || 'Không ghi chú' %></span></td>
+              <td><%= expense.paidByMember?.name || '-' %></td>
+              <td><strong><%= formatMoney(expense.amount) %>đ</strong></td>
+              <% members.forEach((member) => { const key = member.id.toString(); %><td class="<%= String(viewerMemberId || '') === key ? 'mine-row' : '' %>"><%= formatMoney(splitMap.get(key) || 0) %>đ</td><% }) %>
+              <% if (isTravelAdmin) { %>
+                <td>
+                  <details class="travel-edit-expense">
+                    <summary>Sửa</summary>
+                    <form method="post" action="/travel/trips/<%= trip.id %>/expenses/<%= expense.id %>/edit">
+                      <div class="travel-edit-grid">
+                        <input type="date" name="spentDate" value="<%= expense.spentDate ? new Date(expense.spentDate).toISOString().slice(0,10) : today %>">
+                        <select name="title"><% expenseCategories.forEach((category) => { %><option value="<%= category %>" <%= expense.title === category ? 'selected' : '' %>><%= category %></option><% }) %></select>
+                        <input class="money-input" name="amount" value="<%= formatMoney(expense.amount) %>">
+                        <select name="paidByMemberId"><% members.forEach((member) => { %><option value="<%= member.id %>" <%= String(expense.paidByMemberId || '') === String(member.id) ? 'selected' : '' %>><%= member.name %></option><% }) %></select>
+                        <input name="note" value="<%= expense.note %>" placeholder="Ghi chú">
+                      </div>
+                      <div class="travel-split-edit-grid">
+                        <% members.forEach((member) => { const key = member.id.toString(); %><label><span><%= member.name %></span><input class="money-input" name="split_<%= key %>" value="<%= formatMoney(splitMap.get(key) || 0) %>"></label><% }) %>
+                      </div>
+                      <div class="team-action-cell mt"><button class="btn btn-sm btn-success" data-loading-text="Đang lưu...">Lưu</button><button class="btn btn-sm btn-danger" formaction="/travel/trips/<%= trip.id %>/expenses/<%= expense.id %>/delete" data-confirm="Xóa khoản chi này?" data-loading-text="Đang xóa...">Xóa</button></div>
+                    </form>
+                  </details>
+                </td>
+              <% } %>
+            </tr>
+          <% }) %>
+          <% if (!expenses.length) { %><tr><td colspan="<%= 4 + members.length %>" class="text-center muted">Chưa có khoản chi.</td></tr><% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <% if (trip.destination && destinationSuggestions.length) { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">🧭</span><h2 class="section-title">Gợi ý tại <%= trip.destination.name %></h2></div></div>
+      <div class="grid travel-place-grid">
+        <% destinationSuggestions.forEach((suggestion) => { %>
+          <div class="travel-place-card">
+            <div class="travel-place-icon"><%= suggestion.category === 'Quán ăn ngon' ? '🍜' : suggestion.category === 'Cà phê đẹp' ? '☕' : suggestion.category === 'Khách sạn tốt' ? '🏨' : suggestion.category === 'Vui chơi' ? '🎡' : suggestion.category === 'Thể thao' ? '🏃' : '🧭' %></div>
+            <div><span class="badge"><%= suggestion.category %></span><h3><%= suggestion.name %></h3><p class="muted"><%= suggestion.address || suggestion.description || 'Chưa có mô tả' %></p></div>
+          </div>
+        <% }) %>
+      </div>
+    </section>
+  <% } %>
+</main>
+<script src="/js/travel.js"></script>
+<%- include('../partials/bottom-menu') %>

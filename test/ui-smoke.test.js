@@ -16,7 +16,7 @@ function renderView(viewPath, locals) {
 function commonLocals(route = '/') {
   return {
     currentUser: { role: 'ADMIN', displayName: 'Admin', email: 'admin@test' },
-    featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'PERMISSIONS']),
+    featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'TRAVEL', 'PERMISSIONS']),
     isRoot: true,
     path: route,
     formatMoney: (value) => String(Math.round(Number(value) || 0)),
@@ -141,6 +141,55 @@ test('external registration flow views render form and success login link', asyn
   });
   assert.match(success, /guest%40test/);
   assert.match(success, /next=/);
+});
+
+test('travel views render dashboard and finance detail without overflow-prone placeholders', async () => {
+  const member = {
+    id: 1n,
+    name: 'An',
+    email: 'an@test',
+    collections: [{ amount: 100, note: 'ok' }],
+    player: { email: 'an@test' },
+  };
+  const summary = {
+    totalSpent: 200,
+    totalCollectedDisplay: 100,
+    averageSpent: 200,
+    balance: -100,
+    memberSpent: new Map([['1', 200]]),
+    memberDebt: new Map([['1', 100]]),
+    actualCollected: new Map([['1', 100]]),
+    paymentSuggestions: [],
+  };
+  const dashboard = await renderView('travel/index.ejs', {
+    ...commonLocals('/travel'),
+    trips: [{ id: 1n, name: 'Trip', description: 'Note', destination: { name: 'Đà Nẵng' }, members: [member], expenses: [{ amount: 200 }] }],
+    destinations: [{ id: 1n, name: 'Đà Nẵng' }],
+  });
+  const home = await renderView('home.ejs', commonLocals('/'));
+  const detail = await renderView('travel/detail.ejs', {
+    ...commonLocals('/travel/trips/1'),
+    trip: { id: 1n, name: 'Trip', description: 'Note', destinationId: 1n, destination: { name: 'Đà Nẵng' }, treasurerMemberId: 1n, permissions: [] },
+    members: [member],
+    expenses: [{ id: 1n, title: 'Ẩm thực', amount: 200, note: 'Bữa tối', spentDate: new Date(), paidByMemberId: 1n, paidByMember: member, splits: [{ memberId: 1n, amount: 200 }] }],
+    availablePeople: [],
+    admins: [],
+    destinations: [{ id: 1n, name: 'Đà Nẵng' }],
+    destinationSuggestions: [{ id: 1n, category: 'Quán ăn ngon', name: 'Mì Quảng', address: 'Đà Nẵng', description: '', mapUrl: '' }],
+    summary,
+    viewerMemberId: null,
+    expenseCategories: ['Ẩm thực', 'Khác'],
+    suggestionCategories: ['Quán ăn ngon'],
+    isTravelAdmin: true,
+    today: '2026-07-03',
+  });
+
+  assert.match(dashboard, /data-travel-index/);
+  assert.match(dashboard, /🌴/);
+  assert.match(detail, /data-travel-trip-id="1"/);
+  assert.match(detail, /travel-expense-form/);
+  assert.match(detail, /🌴/);
+  assert.match(home, /pickleball-icon/);
 });
 
 test('tournament route controllers stay split by workflow', () => {
