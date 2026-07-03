@@ -1,0 +1,18 @@
+<%- include('../partials/head', { title: 'Du lịch' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell travel-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>🌴 Du lịch</h1>
+        <div class="muted strong-muted">Cơ sở dữ liệu du lịch chưa sẵn sàng.</div>
+      </div>
+      <div class="feature-hero-art">🌴</div>
+    </div>
+  </section>
+  <section class="card-lite p">
+    <h2>Cần chạy migration</h2>
+    <p class="muted">Render cần chạy build command có `npx prisma migrate deploy` để tạo bảng travel. Sau khi deploy xong, tải lại trang này.</p>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

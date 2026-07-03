@@ -5,6 +5,7 @@ import { FeatureGuard } from '../common/feature.guard';
 import { render } from '../common/view';
 import { MatchGateway } from '../tournaments/match.gateway';
 import { CurrentUser } from '../types';
+import { isTravelSchemaMissing } from './travel-errors';
 import { TravelFinanceService, travelExpenseCategories } from './travel-finance.service';
 import { TravelService, travelSuggestionCategories } from './travel.service';
 import { TravelSummaryBuilder } from './travel-summary';
@@ -24,8 +25,15 @@ export class TravelController {
   @Get('/travel')
   async index(@Req() req: Request, @Res() res: Response) {
     const user = req.session.user as CurrentUser;
-    const [trips, destinations] = await Promise.all([this.travel.listTrips(user), this.travel.destinations()]);
-    return render(res, 'travel/index', { trips, destinations });
+    try {
+      const [trips, destinations] = await Promise.all([this.travel.listTrips(user), this.travel.destinations()]);
+      return render(res, 'travel/index', { trips, destinations });
+    } catch (error) {
+      if (isTravelSchemaMissing(error)) {
+        return render(res.status(503), 'travel/setup');
+      }
+      throw error;
+    }
   }
 
   @Post('/travel/trips')
