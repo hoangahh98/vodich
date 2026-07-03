@@ -5,6 +5,7 @@
   "scripts": {
     "prebuild": "prisma generate",
     "build": "nest build",
+    "test": "npm run build && node --test test/*.test.js",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
