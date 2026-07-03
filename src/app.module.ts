@@ -11,13 +11,16 @@ import { PlayersService } from './players/players.service';
 import { TournamentService } from './tournaments/tournament.service';
 import { TournamentRegistrationService } from './tournaments/tournament-registration.service';
 import { TournamentController } from './tournaments/tournament.controller';
+import { TournamentRegistrationController } from './tournaments/tournament-registration.controller';
+import { TournamentScheduleController } from './tournaments/tournament-schedule.controller';
+import { ExternalRegistrationController } from './tournaments/external-registration.controller';
 import { MatchGateway } from './tournaments/match.gateway';
 import { TeamService } from './teams/team.service';
 import { TeamController } from './teams/team.controller';
 import { LocalsMiddleware } from './common/locals.middleware';
 
 @Module({
-  controllers: [AuthController, HomeController, PlayersController, TournamentController, TeamController, AdminController],
+  controllers: [AuthController, HomeController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, AdminController],
   providers: [PrismaService, AuthService, LogService, PlayersService, AdminService, TournamentService, TournamentRegistrationService, TeamService, MatchGateway, LocalsMiddleware],
 })
 export class AppModule implements NestModule {

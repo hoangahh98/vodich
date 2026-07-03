@@ -128,6 +128,32 @@ test('external registration flow views render form and success login link', asyn
   assert.match(success, /next=/);
 });
 
+test('tournament route controllers stay split by workflow', () => {
+  const controllerRoutes = {
+    'src/tournaments/tournament.controller.ts': ['/tournaments', '/tournaments/new', '/tournaments/:id/edit', '/tournaments/:id/delete', '/tournaments/:id/:section'],
+    'src/tournaments/tournament-registration.controller.ts': ['/tournaments/:id/registrations', '/tournaments/:id/registrations/bulk', '/tournaments/:id/payments', '/registrations/:id/skill'],
+    'src/tournaments/tournament-schedule.controller.ts': ['/tournaments/:id/generate-schedule', '/tournaments/:id/manual-schedule'],
+    'src/tournaments/external-registration.controller.ts': ['/external-register/:id'],
+  };
+
+  for (const [file, routes] of Object.entries(controllerRoutes)) {
+    const source = fs.readFileSync(path.join(root, file), 'utf8');
+    for (const route of routes) assert.match(source, new RegExp(escapeRegExp(route)));
+  }
+});
+
+test('score rules clamp and finish status are reusable outside scoreboard UI', () => {
+  const context = { window: {} };
+  vm.runInNewContext(fs.readFileSync(path.join(root, 'public/js/score-rules.js'), 'utf8'), context);
+  const rules = context.window.VodichScoreRules;
+
+  const clamped = rules.clampScores(50, 14, { touchScore: 11, maxScore: 15 });
+  assert.equal(clamped[0], 15);
+  assert.equal(clamped[1], 14);
+  assert.equal(rules.statusFor(15, 14, { touchScore: 11, maxScore: 15 }), 'FINISHED');
+  assert.equal(rules.statusFor(11, 10, { touchScore: 11, maxScore: 15 }), 'PLAYING');
+});
+
 test('floating menu can tap open, tap close, and drag directly', async () => {
   const { button, menu } = loadMenuScriptWithDomMock();
 
@@ -182,6 +208,10 @@ function loadMenuScriptWithDomMock() {
   });
 
   return { button, menu };
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 function dispatchPointer(element, type, options) {

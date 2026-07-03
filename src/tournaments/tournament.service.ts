@@ -71,6 +71,40 @@ export class TournamentService {
     return minimumFeeForTournament(tournament);
   }
 
+  findTournament(tournamentId: bigint) {
+    return this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
+  }
+
+  delete(tournamentId: bigint) {
+    return this.prisma.tournament.delete({ where: { id: tournamentId } });
+  }
+
+  async detail(tournamentId: bigint) {
+    const [tournament, registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, groupBoards] = await Promise.all([
+      this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } }),
+      this.prisma.tournamentRegistration.findMany({
+        where: { tournamentId, status: 'ACTIVE' },
+        include: { player: true },
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.tournamentRegistration.findMany({
+        where: { tournamentId, status: 'RESERVE' },
+        include: { player: true },
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.tournamentRegistration.findMany({
+        where: { tournamentId, status: 'WITHDRAWN' },
+        include: { player: true },
+        orderBy: { id: 'asc' },
+      }),
+      this.prisma.player.findMany({ orderBy: { displayName: 'asc' } }),
+      this.prisma.matchGame.findMany({ where: { tournamentId }, orderBy: [{ roundNumber: 'asc' }, { courtNumber: 'asc' }, { id: 'asc' }] }),
+      this.rankings(tournamentId),
+      this.groupBoards(tournamentId),
+    ]);
+    return { tournament, registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, groupBoards };
+  }
+
   async create(form: Record<string, unknown>) {
     const prizes = normalizePrizes(form, 0);
     return this.prisma.tournament.create({
