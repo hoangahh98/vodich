@@ -160,8 +160,12 @@
     });
   }
 
-  function slotForPlayer(team, playerNumber) {
-    return state.positions[team][1] === String(playerNumber) ? 1 : 2;
+  function playerAtSlot(team, slot) {
+    return state.positions[team][slot] || '1';
+  }
+
+  function otherPlayer(playerNumber) {
+    return String(playerNumber) === '1' ? '2' : '1';
   }
 
   function scoreText() {
@@ -270,8 +274,8 @@
       return;
     }
     state.servingTeam = team;
-    state.servingPlayer = '1';
-    state.scoreOrder = slotForPlayer(team, state.servingPlayer);
+    state.scoreOrder = 1;
+    state.servingPlayer = playerAtSlot(team, 1);
     state.firstServerActive = false;
     state.scoreHistory = [];
     render();
@@ -287,9 +291,17 @@
   });
   document.querySelectorAll('[data-reader-order]').forEach((button) => {
     button.addEventListener('click', () => {
-      state.scoreOrder = Number(button.dataset.readerOrder) === 1 ? 1 : 2;
-      state.servingPlayer = String(state.scoreOrder);
-      if (state.scoreOrder === 1) state.firstServerActive = false;
+      const nextOrder = Number(button.dataset.readerOrder) === 1 ? 1 : 2;
+      const previousOrder = state.scoreOrder;
+      state.scoreOrder = nextOrder;
+      if (nextOrder === 1) {
+        state.servingPlayer = playerAtSlot(state.servingTeam, 1);
+        state.firstServerActive = false;
+      } else if (!state.firstServerActive && previousOrder === 1) {
+        state.servingPlayer = otherPlayer(state.servingPlayer);
+      } else if (!state.firstServerActive) {
+        state.servingPlayer = otherPlayer(playerAtSlot(state.servingTeam, 1));
+      }
       state.scoreHistory = [];
       render();
       scheduleSpeak();
