@@ -17,6 +17,9 @@
     scoreA: 0,
     scoreB: 0,
     servingTeam: 'A',
+    servingPlayer: '1',
+    firstServerActive: true,
+    scoreHistory: [],
     scoreOrder: 2,
     touchScore: 11,
     maxScore: 15,
@@ -83,6 +86,10 @@
     state.scoreB = Math.min(Math.max(0, number(state.scoreB, 0)), state.maxScore);
     state.scoreOrder = state.scoreOrder === 1 ? 1 : 2;
     state.servingTeam = state.servingTeam === 'B' ? 'B' : 'A';
+    state.firstServerActive = state.firstServerActive === false ? false : state.servingTeam === 'A' && state.scoreOrder === 2;
+    state.servingPlayer = state.servingPlayer === '2' ? '2' : '1';
+    if (state.firstServerActive) state.servingPlayer = '1';
+    state.scoreHistory = Array.isArray(state.scoreHistory) ? state.scoreHistory.slice(-30) : [];
   }
 
   function winnerTeam() {
@@ -144,7 +151,7 @@
         if (!marker) return;
         const playerNumber = state.positions[team][slot];
         marker.textContent = playerName(team, playerNumber);
-        marker.classList.toggle('serving', state.servingTeam === team && String(state.scoreOrder) === playerNumber);
+        marker.classList.toggle('serving', state.servingTeam === team && String(state.servingPlayer) === playerNumber);
       });
     });
   }
@@ -196,10 +203,7 @@
       winRally(team);
       return;
     }
-    if (team === 'A') state.scoreA += delta;
-    if (team === 'B') state.scoreB += delta;
-    render();
-    scheduleSpeak();
+    rollbackScore(team);
   }
 
   function swapServingSide(team) {
@@ -213,9 +217,40 @@
       status(team === state.servingTeam ? 'Điểm đã chạm luật hiện tại.' : 'Chỉ đội đang giao được ăn điểm.', 'text-danger');
       return;
     }
+    state.scoreHistory.push(snapshot());
     if (team === 'A') state.scoreA += 1;
     if (team === 'B') state.scoreB += 1;
     swapServingSide(team);
+    render();
+    scheduleSpeak();
+  }
+
+  function snapshot() {
+    return {
+      scoreA: state.scoreA,
+      scoreB: state.scoreB,
+      servingTeam: state.servingTeam,
+      servingPlayer: state.servingPlayer,
+      firstServerActive: state.firstServerActive,
+      scoreOrder: state.scoreOrder,
+      positions: {
+        A: { 1: state.positions.A[1], 2: state.positions.A[2] },
+        B: { 1: state.positions.B[1], 2: state.positions.B[2] },
+      },
+    };
+  }
+
+  function rollbackScore(team) {
+    const last = state.scoreHistory[state.scoreHistory.length - 1];
+    if (last && state.servingTeam === team) {
+      state.scoreHistory.pop();
+      state = { ...state, ...last };
+      render();
+      scheduleSpeak();
+      return;
+    }
+    if (team === 'A') state.scoreA -= 1;
+    if (team === 'B') state.scoreB -= 1;
     render();
     scheduleSpeak();
   }
@@ -228,6 +263,9 @@
     }
     state.servingTeam = team;
     state.scoreOrder = 1;
+    state.servingPlayer = '1';
+    state.firstServerActive = false;
+    state.scoreHistory = [];
     render();
     scheduleSpeak();
   }
@@ -242,6 +280,9 @@
   document.querySelectorAll('[data-reader-order]').forEach((button) => {
     button.addEventListener('click', () => {
       state.scoreOrder = Number(button.dataset.readerOrder) === 1 ? 1 : 2;
+      state.servingPlayer = String(state.scoreOrder);
+      if (state.scoreOrder === 1) state.firstServerActive = false;
+      state.scoreHistory = [];
       render();
       scheduleSpeak();
     });
@@ -271,7 +312,7 @@
   });
   byId('readerSpeakScore')?.addEventListener('click', speak);
   byId('readerResetScore')?.addEventListener('click', () => {
-    state = { ...state, scoreA: 0, scoreB: 0, servingTeam: 'A', scoreOrder: 2, positions: { A: { 1: '1', 2: '2' }, B: { 1: '1', 2: '2' } } };
+    state = { ...state, scoreA: 0, scoreB: 0, servingTeam: 'A', servingPlayer: '1', firstServerActive: true, scoreHistory: [], scoreOrder: 2, positions: { A: { 1: '1', 2: '2' }, B: { 1: '1', 2: '2' } } };
     render();
     scheduleSpeak();
   });

@@ -223,6 +223,9 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .team-action-cell { display: flex; gap: 6px; align-items: center; }
 .team-action-cell form { margin: 0; }
 .bottom-menu { position: fixed; left: auto; right: 18px; bottom: 18px; z-index: 20; width: auto; background: transparent; border: 0; box-shadow: none; }
+@supports (height: 100svh) {
+  .bottom-menu { top: calc(100svh - 76px - env(safe-area-inset-bottom)); bottom: auto; }
+}
 .bottom-menu-inner { display: none; position: absolute; right: 0; bottom: 64px; min-width: 230px; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 14px 36px rgba(0,0,0,.18); overflow: hidden; grid-auto-flow: row; grid-auto-columns: auto; }
 .bottom-menu.open .bottom-menu-inner { display: grid; }
 .bottom-menu a { padding: 14px 16px; text-align: left; text-decoration: none; color: var(--muted); font-weight: 800; font-size: 14px; }
