@@ -270,6 +270,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .score-modal-head { background: #0d6efd; color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .score-modal-head h3 { margin: 0; }
 .score-modal-head small { color: rgba(255,255,255,.82); }
+.score-modal-head-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 .score-modal-body { padding: 18px; }
 .score-sides { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: center; text-align: center; }
 .score-side { border: 2px solid #e9ecef; border-radius: 10px; padding: 12px; cursor: pointer; min-height: 154px; display: flex; flex-direction: column; justify-content: space-between; }
@@ -281,6 +282,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .score-divider { font-size: 34px; color: var(--muted); font-weight: 900; }
 .score-options { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .score-options span { font-weight: 800; color: var(--muted); }
+.score-options [data-score-order-select] { min-width: 52px; min-height: 40px; font-size: 18px; font-weight: 900; }
 .score-save-status { text-align: center; margin-top: 14px; font-weight: 700; }
 .score-step-view { display: grid; gap: 14px; }
 .score-step-actions { display: flex; justify-content: flex-end; }
@@ -327,9 +329,11 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .score-reader-player-marker.slot-2.side-a { left: 16.5%; top: 32%; }
 .score-reader-player-marker.slot-1.side-b { left: 79.5%; top: 32%; }
 .score-reader-player-marker.slot-2.side-b { left: 79.5%; top: 70%; }
-.score-reader-actions { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.score-reader-actions { display: grid; grid-template-columns: minmax(280px, 1.4fr) minmax(220px, .8fr); align-items: stretch; justify-content: center; gap: 18px; }
 .score-reader-order, .score-reader-command { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
-.score-reader-order .btn, .score-reader-command .btn { min-width: 112px; }
+.score-reader-order .btn { flex: 1 1 140px; min-width: 140px; min-height: 64px; font-size: 20px; font-weight: 900; }
+.score-reader-command { align-items: center; }
+.score-reader-command .btn { min-width: 112px; min-height: 46px; }
 .group-board { border: 1px solid #19875455; border-radius: 8px; overflow: hidden; background: #fff; }
 .group-board-title { background: #d1f2dc; color: #0f5132; font-weight: 800; text-align: center; padding: 6px 8px; border-bottom: 1px solid #19875455; }
 .group-team-row { padding: 6px 10px; border-bottom: 1px solid #e9ecef; font-size: .86rem; font-weight: 600; }
@@ -422,7 +426,9 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .score-reader-controls { gap: 8px; }
   .score-reader-controls .btn { min-height: 52px; font-size: 24px; }
   .score-reader-player-marker { width: 30%; min-height: 34px; padding: 5px 7px; font-size: 12px; }
-  .score-reader-order .btn, .score-reader-command .btn { min-width: 96px; }
+  .score-reader-actions { grid-template-columns: 1fr; gap: 16px; }
+  .score-reader-order .btn { min-width: 130px; min-height: 64px; font-size: 20px; }
+  .score-reader-command .btn { min-width: 110px; min-height: 44px; }
   .score-divider { display: none; }
   .form-actions { grid-template-columns: 1fr; }
   .manual-pair-grid { grid-template-columns: 1fr; }

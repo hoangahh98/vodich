@@ -58,14 +58,30 @@
   let saveTimer = null;
   let speakTimer = null;
 
+  const canEditSetup = () => state.scoreA === 0 && state.scoreB === 0;
+
+  const updateSetupButton = () => {
+    if (!backToSetup) return;
+    const setupVisible = setupStep && !setupStep.classList.contains('hidden');
+    backToSetup.classList.toggle('hidden', !canEditSetup() || setupVisible);
+    backToSetup.disabled = !canEditSetup();
+  };
+
   const showSetupStep = () => {
+    if (!canEditSetup()) {
+      showPlayStep();
+      setStatus('Chỉ đổi tay khi điểm đang là 0-0.', 'text-danger');
+      return;
+    }
     setupStep?.classList.remove('hidden');
     playStep?.classList.add('hidden');
+    updateSetupButton();
   };
 
   const showPlayStep = () => {
     setupStep?.classList.add('hidden');
     playStep?.classList.remove('hidden');
+    updateSetupButton();
   };
 
   const activeRules = () => (activeRow?.dataset.knockout === 'true' ? config.knockout : config.group);
@@ -84,6 +100,8 @@
     scoreSideB?.classList.toggle('serving-team', state.servingTeam === 'B');
     dom.bindOptionState?.(state);
     renderCourt();
+    if (!canEditSetup() && setupStep && !setupStep.classList.contains('hidden')) showPlayStep();
+    updateSetupButton();
   };
 
   const setupKey = () => activeRow ? `vodichMatchScoreSetup:${tournamentId}:${activeRow.dataset.matchId}` : '';
@@ -258,7 +276,8 @@
     setStatus('Chưa thay đổi');
     renderPlayerSettings();
     renderModal();
-    showSetupStep();
+    if (canEditSetup()) showSetupStep();
+    else showPlayStep();
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
   };
@@ -401,6 +420,10 @@
   });
 
   backToSetup?.addEventListener('click', () => {
+    if (!canEditSetup()) {
+      setStatus('Chỉ đổi tay khi điểm đang là 0-0.', 'text-danger');
+      return;
+    }
     showSetupStep();
   });
 
