@@ -22,6 +22,10 @@
   };
 
   const modal = document.getElementById('scoreModal');
+  const setupStep = document.getElementById('scoreSetupStep');
+  const playStep = document.getElementById('scorePlayStep');
+  const setupContinue = document.getElementById('scoreSetupContinue');
+  const backToSetup = document.getElementById('scoreBackToSetup');
   const scoreTeamA = document.getElementById('scoreTeamA');
   const scoreTeamB = document.getElementById('scoreTeamB');
   const scoreValueA = document.getElementById('scoreInputA');
@@ -53,6 +57,16 @@
   let lastWinnerKey = '';
   let saveTimer = null;
   let speakTimer = null;
+
+  const showSetupStep = () => {
+    setupStep?.classList.remove('hidden');
+    playStep?.classList.add('hidden');
+  };
+
+  const showPlayStep = () => {
+    setupStep?.classList.add('hidden');
+    playStep?.classList.remove('hidden');
+  };
 
   const activeRules = () => (activeRow?.dataset.knockout === 'true' ? config.knockout : config.group);
 
@@ -244,9 +258,9 @@
     setStatus('Chưa thay đổi');
     renderPlayerSettings();
     renderModal();
+    showSetupStep();
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
-    scheduleSpeak(120);
   };
 
   const closeModal = () => {
@@ -377,6 +391,17 @@
     button.addEventListener('click', () => {
       stepScore(button.dataset.scoreTarget, Number.parseInt(button.dataset.scoreDelta || '0', 10) || 0);
     });
+  });
+
+  setupContinue?.addEventListener('click', () => {
+    saveSetup();
+    renderModal();
+    showPlayStep();
+    scheduleSpeak(120);
+  });
+
+  backToSetup?.addEventListener('click', () => {
+    showSetupStep();
   });
 
   ['A', 'B'].forEach((team) => {

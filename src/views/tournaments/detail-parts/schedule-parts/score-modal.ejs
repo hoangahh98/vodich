@@ -7,53 +7,59 @@
         <button type="button" class="btn btn-sm" data-score-close data-loading-text="Đang đóng...">Đóng</button>
       </div>
       <div class="score-modal-body">
-        <div class="score-sides">
-          <div class="score-side" id="scoreSideA" data-serving-side="A">
-            <strong id="scoreTeamA"></strong>
-            <div class="score-step-row">
-              <button type="button" class="btn score-step-btn" data-score-target="A" data-score-delta="-1">-</button>
-              <div id="scoreInputA" class="live-score-number">0</div>
-              <button type="button" class="btn btn-primary score-step-btn" data-score-target="A" data-score-delta="1">+</button>
+        <div id="scoreSetupStep" class="score-step-view">
+          <div class="match-player-settings">
+            <section class="match-player-card side-a">
+              <h4 id="matchTeamAPlayerTitle">Đội A</h4>
+              <div><label>Tay 1</label><select id="matchAPlayer1"></select></div>
+              <div><label>Tay 2</label><select id="matchAPlayer2"></select></div>
+            </section>
+            <section class="match-player-card side-b">
+              <h4 id="matchTeamBPlayerTitle">Đội B</h4>
+              <div><label>Tay 1</label><select id="matchBPlayer1"></select></div>
+              <div><label>Tay 2</label><select id="matchBPlayer2"></select></div>
+            </section>
+          </div>
+          <div class="score-step-actions"><button type="button" class="btn btn-primary btn-lg" id="scoreSetupContinue">Tiếp tục</button></div>
+        </div>
+        <div id="scorePlayStep" class="score-step-view hidden">
+          <div class="score-sides">
+            <div class="score-side" id="scoreSideA" data-serving-side="A">
+              <strong id="scoreTeamA"></strong>
+              <div class="score-step-row">
+                <button type="button" class="btn score-step-btn" data-score-target="A" data-score-delta="-1">-</button>
+                <div id="scoreInputA" class="live-score-number">0</div>
+                <button type="button" class="btn btn-primary score-step-btn" data-score-target="A" data-score-delta="1">+</button>
+              </div>
+            </div>
+            <div class="score-divider">-</div>
+            <div class="score-side" id="scoreSideB" data-serving-side="B">
+              <strong id="scoreTeamB"></strong>
+              <div class="score-step-row">
+                <button type="button" class="btn score-step-btn" data-score-target="B" data-score-delta="-1">-</button>
+                <div id="scoreInputB" class="live-score-number">0</div>
+                <button type="button" class="btn btn-success score-step-btn" data-score-target="B" data-score-delta="1">+</button>
+              </div>
             </div>
           </div>
-          <div class="score-divider">-</div>
-          <div class="score-side" id="scoreSideB" data-serving-side="B">
-            <strong id="scoreTeamB"></strong>
-            <div class="score-step-row">
-              <button type="button" class="btn score-step-btn" data-score-target="B" data-score-delta="-1">-</button>
-              <div id="scoreInputB" class="live-score-number">0</div>
-              <button type="button" class="btn btn-success score-step-btn" data-score-target="B" data-score-delta="1">+</button>
-            </div>
+          <div class="score-options">
+            <span>Đội đang giao</span>
+            <button type="button" class="btn btn-sm" data-serving-select="A">Đội A</button>
+            <button type="button" class="btn btn-sm" data-serving-select="B">Đội B</button>
           </div>
-        </div>
-        <div class="score-options">
-          <span>Đội đang giao</span>
-          <button type="button" class="btn btn-sm" data-serving-select="A">Đội A</button>
-          <button type="button" class="btn btn-sm" data-serving-select="B">Đội B</button>
-        </div>
-        <div class="score-options">
-          <span>Thứ tự đánh</span>
-          <button type="button" class="btn btn-sm" data-score-order-select="1">1</button>
-          <button type="button" class="btn btn-sm" data-score-order-select="2">2</button>
-        </div>
-        <div class="match-player-settings">
-          <section class="match-player-card side-a">
-            <h4 id="matchTeamAPlayerTitle">Đội A</h4>
-            <div><label>Tay 1</label><select id="matchAPlayer1"></select></div>
-            <div><label>Tay 2</label><select id="matchAPlayer2"></select></div>
-          </section>
-          <section class="match-player-card side-b">
-            <h4 id="matchTeamBPlayerTitle">Đội B</h4>
-            <div><label>Tay 1</label><select id="matchBPlayer1"></select></div>
-            <div><label>Tay 2</label><select id="matchBPlayer2"></select></div>
-          </section>
-        </div>
-        <div class="match-score-court" aria-label="Vị trí người chơi trên sân">
-          <img src="/uploads/san_pick.png" alt="Sơ đồ sân pickleball">
-          <div class="match-player-marker side-a slot-2" data-match-court-slot="A2"></div>
-          <div class="match-player-marker side-a slot-1" data-match-court-slot="A1"></div>
-          <div class="match-player-marker side-b slot-1" data-match-court-slot="B1"></div>
-          <div class="match-player-marker side-b slot-2" data-match-court-slot="B2"></div>
+          <div class="score-options">
+            <span>Thứ tự đánh</span>
+            <button type="button" class="btn btn-sm" data-score-order-select="1">1</button>
+            <button type="button" class="btn btn-sm" data-score-order-select="2">2</button>
+            <button type="button" class="btn btn-sm" id="scoreBackToSetup">Đổi tay</button>
+          </div>
+          <div class="match-score-court" aria-label="Vị trí người chơi trên sân">
+            <img src="/uploads/san_pick.png" alt="Sơ đồ sân pickleball">
+            <div class="match-player-marker side-a slot-2" data-match-court-slot="A2"></div>
+            <div class="match-player-marker side-a slot-1" data-match-court-slot="A1"></div>
+            <div class="match-player-marker side-b slot-1" data-match-court-slot="B1"></div>
+            <div class="match-player-marker side-b slot-2" data-match-court-slot="B2"></div>
+          </div>
         </div>
         <div id="scoreSaveStatus" class="score-save-status muted">Chưa thay đổi</div>
       </div>
