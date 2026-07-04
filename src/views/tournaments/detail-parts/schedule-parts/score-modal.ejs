@@ -36,6 +36,25 @@
           <button type="button" class="btn btn-sm" data-score-order-select="1">1</button>
           <button type="button" class="btn btn-sm" data-score-order-select="2">2</button>
         </div>
+        <div class="match-player-settings">
+          <section class="match-player-card side-a">
+            <h4 id="matchTeamAPlayerTitle">Đội A</h4>
+            <div><label>Tay 1</label><select id="matchAPlayer1"></select></div>
+            <div><label>Tay 2</label><select id="matchAPlayer2"></select></div>
+          </section>
+          <section class="match-player-card side-b">
+            <h4 id="matchTeamBPlayerTitle">Đội B</h4>
+            <div><label>Tay 1</label><select id="matchBPlayer1"></select></div>
+            <div><label>Tay 2</label><select id="matchBPlayer2"></select></div>
+          </section>
+        </div>
+        <div class="match-score-court" aria-label="Vị trí người chơi trên sân">
+          <img src="/uploads/san_pick.png" alt="Sơ đồ sân pickleball">
+          <div class="match-player-marker side-a slot-2" data-match-court-slot="A2"></div>
+          <div class="match-player-marker side-a slot-1" data-match-court-slot="A1"></div>
+          <div class="match-player-marker side-b slot-1" data-match-court-slot="B1"></div>
+          <div class="match-player-marker side-b slot-2" data-match-court-slot="B2"></div>
+        </div>
         <div id="scoreSaveStatus" class="score-save-status muted">Chưa thay đổi</div>
       </div>
     </div>

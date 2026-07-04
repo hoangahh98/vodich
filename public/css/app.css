@@ -282,6 +282,21 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .score-options { margin-top: 14px; display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
 .score-options span { font-weight: 800; color: var(--muted); }
 .score-save-status { text-align: center; margin-top: 14px; font-weight: 700; }
+.match-player-settings { display: grid; grid-template-columns: repeat(2, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
+.match-player-card { border: 1px solid var(--line); border-radius: 8px; padding: 12px; background: #fff; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.match-player-card h4 { grid-column: 1 / -1; margin: 0; font-size: 16px; font-weight: 900; color: #111827; overflow-wrap: anywhere; }
+.match-player-card.side-a { border-color: rgba(13,110,253,.28); background: #f8fbff; }
+.match-player-card.side-b { border-color: rgba(25,135,84,.28); background: #f8fff9; }
+.match-score-court { position: relative; overflow: hidden; border: 1px solid var(--line); border-radius: 8px; background: #fff8ef; margin-top: 14px; }
+.match-score-court img { display: block; width: 100%; height: auto; }
+.match-player-marker { position: absolute; width: min(25%, 170px); min-height: 38px; display: grid; place-items: center; padding: 6px 8px; border: 2px solid rgba(17,24,39,.16); border-radius: 8px; background: rgba(255,255,255,.9); color: #111827; font-weight: 900; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,.12); overflow-wrap: anywhere; transform: translate(-50%, -50%); }
+.match-player-marker.side-a { border-color: rgba(13,110,253,.42); }
+.match-player-marker.side-b { border-color: rgba(25,135,84,.42); }
+.match-player-marker.serving { border-color: #ffc107; background: #fff8dc; box-shadow: 0 0 0 4px rgba(255,193,7,.24), 0 8px 24px rgba(0,0,0,.12); }
+.match-player-marker.slot-1.side-a { left: 16.5%; top: 70%; }
+.match-player-marker.slot-2.side-a { left: 16.5%; top: 32%; }
+.match-player-marker.slot-1.side-b { left: 79.5%; top: 32%; }
+.match-player-marker.slot-2.side-b { left: 79.5%; top: 70%; }
 .settings-permission-section { margin-bottom: 26px; }
 .settings-action-row { padding-top: 8px; border-top: 1px solid #eef2f7; }
 .score-reader-shell { max-width: 980px; }
@@ -394,6 +409,9 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .section-heading p { margin-left: 0; }
   .feature-hero-art { width: 58px; height: 58px; font-size: 32px; }
   .score-sides { grid-template-columns: 1fr; }
+  .match-player-settings { grid-template-columns: 1fr; }
+  .match-player-card { grid-template-columns: 1fr; }
+  .match-player-marker { width: 30%; min-height: 32px; padding: 5px 7px; font-size: 12px; }
   .score-reader-settings { grid-template-columns: 1fr 1fr; }
   .score-reader-player-settings { grid-template-columns: 1fr; }
   .score-reader-player-card { grid-template-columns: 1fr; }

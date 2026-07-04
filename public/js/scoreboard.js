@@ -29,9 +29,27 @@
   const scoreSideA = document.getElementById('scoreSideA');
   const scoreSideB = document.getElementById('scoreSideB');
   const saveStatus = document.getElementById('scoreSaveStatus');
+  const playerRefs = {
+    A: {
+      title: document.getElementById('matchTeamAPlayerTitle'),
+      first: document.getElementById('matchAPlayer1'),
+      second: document.getElementById('matchAPlayer2'),
+    },
+    B: {
+      title: document.getElementById('matchTeamBPlayerTitle'),
+      first: document.getElementById('matchBPlayer1'),
+      second: document.getElementById('matchBPlayer2'),
+    },
+  };
+  const courtSlots = {
+    A1: document.querySelector('[data-match-court-slot="A1"]'),
+    A2: document.querySelector('[data-match-court-slot="A2"]'),
+    B1: document.querySelector('[data-match-court-slot="B1"]'),
+    B2: document.querySelector('[data-match-court-slot="B2"]'),
+  };
 
   let activeRow = null;
-  let state = { scoreA: 0, scoreB: 0, servingTeam: 'A', scoreOrder: 2 };
+  let state = { scoreA: 0, scoreB: 0, servingTeam: 'A', servingPlayer: '1', firstServerActive: true, scoreHistory: [], scoreOrder: 2, positions: { A: { 1: '1', 2: '2' }, B: { 1: '1', 2: '2' } } };
   let lastWinnerKey = '';
   let saveTimer = null;
   let speakTimer = null;
@@ -51,6 +69,96 @@
     scoreSideA?.classList.toggle('serving-team', state.servingTeam === 'A');
     scoreSideB?.classList.toggle('serving-team', state.servingTeam === 'B');
     dom.bindOptionState?.(state);
+    renderCourt();
+  };
+
+  const setupKey = () => activeRow ? `vodichMatchScoreSetup:${tournamentId}:${activeRow.dataset.matchId}` : '';
+
+  const teamNames = (teamText) => {
+    const names = String(teamText || '').split(/\s*\/\s*/).map((name) => name.trim()).filter(Boolean);
+    if (names.length >= 2) return names.slice(0, 2);
+    return [names[0] || 'Người chơi 1', 'Người chơi 2'];
+  };
+
+  const defaultSetup = (row) => ({
+    players: { A: teamNames(row.dataset.teamA), B: teamNames(row.dataset.teamB) },
+    positions: { A: { 1: '1', 2: '2' }, B: { 1: '1', 2: '2' } },
+  });
+
+  const loadSetup = (row) => {
+    try {
+      return { ...defaultSetup(row), ...JSON.parse(window.localStorage.getItem(`vodichMatchScoreSetup:${tournamentId}:${row.dataset.matchId}`) || '{}') };
+    } catch (_) {
+      return defaultSetup(row);
+    }
+  };
+
+  const saveSetup = () => {
+    const key = setupKey();
+    if (!key) return;
+    window.localStorage.setItem(key, JSON.stringify({ players: state.players, positions: state.positions }));
+  };
+
+  const playerName = (team, playerNumber) => state.players?.[team]?.[Number(playerNumber) - 1] || `Tay ${playerNumber}`;
+  const playerAtSlot = (team, slot) => state.positions?.[team]?.[slot] || '1';
+  const otherPlayer = (playerNumber) => String(playerNumber) === '1' ? '2' : '1';
+
+  const renderCourt = () => {
+    ['A', 'B'].forEach((team) => {
+      [1, 2].forEach((slot) => {
+        const marker = courtSlots[`${team}${slot}`];
+        if (!marker) return;
+        const playerNumber = playerAtSlot(team, slot);
+        marker.textContent = playerName(team, playerNumber);
+        marker.classList.toggle('serving', state.servingTeam === team && String(state.servingPlayer) === playerNumber);
+      });
+    });
+  };
+
+  const fillSelect = (select, names, value) => {
+    if (!select) return;
+    select.innerHTML = '';
+    names.forEach((name, index) => {
+      const option = document.createElement('option');
+      option.value = String(index + 1);
+      option.textContent = name;
+      option.selected = String(value) === option.value;
+      select.appendChild(option);
+    });
+  };
+
+  const renderPlayerSettings = () => {
+    ['A', 'B'].forEach((team) => {
+      const refs = playerRefs[team];
+      if (refs.title) refs.title.textContent = team === 'A' ? (activeRow?.dataset.teamA || 'Đội A') : (activeRow?.dataset.teamB || 'Đội B');
+      fillSelect(refs.first, state.players[team], playerAtSlot(team, 1));
+      fillSelect(refs.second, state.players[team], playerAtSlot(team, 2));
+    });
+  };
+
+  const normalizePositions = (team) => {
+    if (state.positions[team][1] === state.positions[team][2]) {
+      state.positions[team][2] = otherPlayer(state.positions[team][1]);
+    }
+  };
+
+  const snapshot = () => ({
+    scoreA: state.scoreA,
+    scoreB: state.scoreB,
+    servingTeam: state.servingTeam,
+    servingPlayer: state.servingPlayer,
+    firstServerActive: state.firstServerActive,
+    scoreOrder: state.scoreOrder,
+    positions: {
+      A: { 1: state.positions.A[1], 2: state.positions.A[2] },
+      B: { 1: state.positions.B[1], 2: state.positions.B[2] },
+    },
+  });
+
+  const swapServingSide = (team) => {
+    const first = state.positions[team][1];
+    state.positions[team][1] = state.positions[team][2];
+    state.positions[team][2] = first;
   };
 
   const optimisticRow = () => {
@@ -97,7 +205,14 @@
 
   const saveScore = () => {
     if (!activeRow) return;
-    const payload = { tournamentId, matchId: activeRow.dataset.matchId, ...state };
+    const payload = {
+      tournamentId,
+      matchId: activeRow.dataset.matchId,
+      scoreA: state.scoreA,
+      scoreB: state.scoreB,
+      servingTeam: state.servingTeam,
+      scoreOrder: state.scoreOrder,
+    };
     window.clearTimeout(saveTimer);
     setStatus('Đang tự lưu...', 'text-primary');
     saveTimer = window.setTimeout(() => {
@@ -114,10 +229,20 @@
       scoreB: Number.parseInt(row.dataset.scoreB || '0', 10) || 0,
       scoreOrder: Number.parseInt(row.dataset.scoreOrder || '2', 10) === 1 ? 1 : 2,
       servingTeam: row.dataset.servingTeam === 'B' ? 'B' : 'A',
+      servingPlayer: '1',
+      firstServerActive: (row.dataset.servingTeam === 'B' ? 'B' : 'A') === 'A' && (Number.parseInt(row.dataset.scoreOrder || '2', 10) !== 1),
+      scoreHistory: [],
+      ...loadSetup(row),
     };
+    if (state.firstServerActive) {
+      state.servingPlayer = playerAtSlot(state.servingTeam, 1);
+    } else {
+      state.servingPlayer = playerAtSlot(state.servingTeam, state.scoreOrder);
+    }
     scoreTeamA.textContent = dom.formatTeam?.(row.dataset.teamA) || row.dataset.teamA;
     scoreTeamB.textContent = dom.formatTeam?.(row.dataset.teamB) || row.dataset.teamB;
     setStatus('Chưa thay đổi');
+    renderPlayerSettings();
     renderModal();
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
@@ -138,13 +263,31 @@
       return;
     }
     const next = { ...state };
+    if (delta > 0) next.scoreHistory = [...(state.scoreHistory || []), snapshot()].slice(-30);
+    if (delta < 0) {
+      const last = state.scoreHistory?.[state.scoreHistory.length - 1];
+      if (last) {
+        state.scoreHistory.pop();
+        state = { ...state, ...last };
+        optimisticRow();
+        renderPlayerSettings();
+        renderModal();
+        scheduleSpeak(0);
+        saveSetup();
+        saveScore();
+        return;
+      }
+    }
     if (side === 'A') next.scoreA = Math.max(0, next.scoreA + delta);
     if (side === 'B') next.scoreB = Math.max(0, next.scoreB + delta);
     [next.scoreA, next.scoreB] = rules.clampScores?.(next.scoreA, next.scoreB, activeRules()) || [next.scoreA, next.scoreB];
     state = next;
+    if (delta > 0) swapServingSide(side);
     optimisticRow();
+    renderPlayerSettings();
     renderModal();
     scheduleSpeak(0);
+    saveSetup();
     saveScore();
   };
 
@@ -158,6 +301,11 @@
         scoreB: Number(match.scoreB) || 0,
         scoreOrder: Number(match.scoreOrder) === 1 ? 1 : 2,
         servingTeam: match.servingTeam === 'B' ? 'B' : 'A',
+        servingPlayer: state.servingPlayer,
+        firstServerActive: state.firstServerActive,
+        scoreHistory: state.scoreHistory || [],
+        players: state.players,
+        positions: state.positions,
       };
       renderModal();
       setStatus('Đã tự lưu', 'text-success');
@@ -197,11 +345,15 @@
         scheduleSpeak(0);
         return;
       }
+      const changedServingTeam = side !== state.servingTeam;
       state = {
         ...state,
         servingTeam: side === 'B' ? 'B' : 'A',
-        scoreOrder: activeRow.dataset.servingTeam !== side ? 1 : state.scoreOrder,
+        scoreOrder: changedServingTeam ? 1 : state.scoreOrder,
+        firstServerActive: false,
+        scoreHistory: [],
       };
+      if (changedServingTeam) state.servingPlayer = playerAtSlot(state.servingTeam, 1);
       optimisticRow();
       renderModal();
       scheduleSpeak(0);
@@ -211,7 +363,9 @@
 
   document.querySelectorAll('[data-score-order-select]').forEach((button) => {
     button.addEventListener('click', () => {
-      state = { ...state, scoreOrder: Number(button.dataset.scoreOrderSelect) === 1 ? 1 : 2 };
+      const nextOrder = Number(button.dataset.scoreOrderSelect) === 1 ? 1 : 2;
+      state = { ...state, scoreOrder: nextOrder, firstServerActive: nextOrder === 1 ? false : state.firstServerActive, scoreHistory: [] };
+      state.servingPlayer = nextOrder === 1 ? playerAtSlot(state.servingTeam, 1) : otherPlayer(playerAtSlot(state.servingTeam, 1));
       optimisticRow();
       renderModal();
       scheduleSpeak(0);
@@ -222,6 +376,26 @@
   document.querySelectorAll('[data-score-target]').forEach((button) => {
     button.addEventListener('click', () => {
       stepScore(button.dataset.scoreTarget, Number.parseInt(button.dataset.scoreDelta || '0', 10) || 0);
+    });
+  });
+
+  ['A', 'B'].forEach((team) => {
+    const refs = playerRefs[team];
+    refs.first?.addEventListener('change', () => {
+      state.positions[team][1] = refs.first.value;
+      normalizePositions(team);
+      if (state.servingTeam === team && state.scoreOrder === 1) state.servingPlayer = playerAtSlot(team, 1);
+      renderPlayerSettings();
+      renderModal();
+      saveSetup();
+    });
+    refs.second?.addEventListener('change', () => {
+      state.positions[team][2] = refs.second.value;
+      normalizePositions(team);
+      if (state.servingTeam === team && state.scoreOrder === 2 && !state.firstServerActive) state.servingPlayer = playerAtSlot(team, 2);
+      renderPlayerSettings();
+      renderModal();
+      saveSetup();
     });
   });
 })();
