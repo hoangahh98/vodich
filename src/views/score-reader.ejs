@@ -18,10 +18,16 @@
       <div><label>Max</label><input id="readerMaxScore" type="number" min="1" max="99" value="15"></div>
     </div>
     <div class="score-reader-player-settings mb">
-      <div><label>A người 1</label><input id="readerAPlayer1Name" maxlength="40" value="A người 1"></div>
-      <div><label>A người 2</label><input id="readerAPlayer2Name" maxlength="40" value="A người 2"></div>
-      <div><label>B người 1</label><input id="readerBPlayer1Name" maxlength="40" value="B người 1"></div>
-      <div><label>B người 2</label><input id="readerBPlayer2Name" maxlength="40" value="B người 2"></div>
+      <section class="score-reader-player-card side-a">
+        <h3 id="readerTeamAPlayerTitle">Đội A</h3>
+        <div><label>Người chơi 1</label><input id="readerAPlayer1Name" maxlength="40" value="A người 1"></div>
+        <div><label>Người chơi 2</label><input id="readerAPlayer2Name" maxlength="40" value="A người 2"></div>
+      </section>
+      <section class="score-reader-player-card side-b">
+        <h3 id="readerTeamBPlayerTitle">Đội B</h3>
+        <div><label>Người chơi 1</label><input id="readerBPlayer1Name" maxlength="40" value="B người 1"></div>
+        <div><label>Người chơi 2</label><input id="readerBPlayer2Name" maxlength="40" value="B người 2"></div>
+      </section>
     </div>
 
     <div class="score-reader-board mb">

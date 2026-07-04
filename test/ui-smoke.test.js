@@ -247,6 +247,9 @@ test('score reader renders for standalone friendly scoring', async () => {
   assert.match(html, /data-score-reader/);
   assert.match(html, /id="readerScoreA"/);
   assert.match(html, /\/uploads\/san_pick\.png/);
+  assert.match(html, /score-reader-player-card side-a/);
+  assert.match(html, /id="readerTeamAPlayerTitle"/);
+  assert.match(html, /id="readerTeamBPlayerTitle"/);
   assert.match(html, /id="readerAPlayer1Name"/);
   assert.match(html, /id="readerBPlayer2Name"/);
   assert.doesNotMatch(html, /id="readerWinRally"/);

@@ -38,6 +38,8 @@
     bPlayer2Name: byId('readerBPlayer2Name'),
     teamALabel: byId('readerTeamALabel'),
     teamBLabel: byId('readerTeamBLabel'),
+    teamAPlayerTitle: byId('readerTeamAPlayerTitle'),
+    teamBPlayerTitle: byId('readerTeamBPlayerTitle'),
     teamACard: byId('readerTeamACard'),
     teamBCard: byId('readerTeamBCard'),
     scoreA: byId('readerScoreA'),
@@ -122,6 +124,8 @@
     if (document.activeElement !== refs.bPlayer2Name) refs.bPlayer2Name.value = state.bPlayer2Name;
     refs.teamALabel.textContent = state.teamAName || 'Đội A';
     refs.teamBLabel.textContent = state.teamBName || 'Đội B';
+    refs.teamAPlayerTitle.textContent = state.teamAName || 'Đội A';
+    refs.teamBPlayerTitle.textContent = state.teamBName || 'Đội B';
     refs.scoreA.textContent = state.scoreA;
     refs.scoreB.textContent = state.scoreB;
     refs.touchScore.value = state.touchScore;
@@ -154,6 +158,10 @@
         marker.classList.toggle('serving', state.servingTeam === team && String(state.servingPlayer) === playerNumber);
       });
     });
+  }
+
+  function slotForPlayer(team, playerNumber) {
+    return state.positions[team][1] === String(playerNumber) ? 1 : 2;
   }
 
   function scoreText() {
@@ -262,8 +270,8 @@
       return;
     }
     state.servingTeam = team;
-    state.scoreOrder = 1;
     state.servingPlayer = '1';
+    state.scoreOrder = slotForPlayer(team, state.servingPlayer);
     state.firstServerActive = false;
     state.scoreHistory = [];
     render();
@@ -287,8 +295,14 @@
       scheduleSpeak();
     });
   });
-  bindNameInput(refs.teamAName, 'teamAName', 'Đội A', () => { refs.teamALabel.textContent = state.teamAName; });
-  bindNameInput(refs.teamBName, 'teamBName', 'Đội B', () => { refs.teamBLabel.textContent = state.teamBName; });
+  bindNameInput(refs.teamAName, 'teamAName', 'Đội A', () => {
+    refs.teamALabel.textContent = state.teamAName;
+    refs.teamAPlayerTitle.textContent = state.teamAName;
+  });
+  bindNameInput(refs.teamBName, 'teamBName', 'Đội B', () => {
+    refs.teamBLabel.textContent = state.teamBName;
+    refs.teamBPlayerTitle.textContent = state.teamBName;
+  });
   bindNameInput(refs.aPlayer1Name, 'aPlayer1Name', 'A người 1', renderCourt);
   bindNameInput(refs.aPlayer2Name, 'aPlayer2Name', 'A người 2', renderCourt);
   bindNameInput(refs.bPlayer1Name, 'bPlayer1Name', 'B người 1', renderCourt);
