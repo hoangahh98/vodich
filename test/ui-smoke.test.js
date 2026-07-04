@@ -238,7 +238,7 @@ test('travel views render dashboard and finance detail without overflow-prone pl
   assert.match(detail, /Đã trả/);
   assert.match(detail, /🌴/);
   assert.match(home, /pickleball-icon/);
-  assert.match(home, /\/score-reader/);
+  assert.doesNotMatch(home, /module-card" href="\/score-reader/);
 });
 
 test('score reader renders for standalone friendly scoring', async () => {
@@ -246,8 +246,16 @@ test('score reader renders for standalone friendly scoring', async () => {
 
   assert.match(html, /data-score-reader/);
   assert.match(html, /id="readerScoreA"/);
+  assert.match(html, /\/uploads\/san_pick\.png/);
+  assert.match(html, /id="readerAPlayer1Name"/);
+  assert.match(html, /id="readerBPlayer2Name"/);
+  assert.doesNotMatch(html, /id="readerWinRally"/);
+  assert.doesNotMatch(html, /id="readerLoseRally"/);
   assert.match(html, /data-reader-order="2"/);
   assert.match(html, /\/js\/score-reader\.js/);
+  assert.doesNotMatch(html, /\/socket\.io\/socket\.io\.js/);
+  assert.doesNotMatch(html, /\/js\/realtime\.js/);
+  assert.doesNotMatch(html, /feature-hero-art/);
 });
 
 test('tournament route controllers stay split by workflow', () => {
@@ -285,27 +293,21 @@ test('score rules clamp and finish status are reusable outside scoreboard UI', (
   assert.equal(rules.statusFor(11, 10, { touchScore: 11, maxScore: 15 }), 'PLAYING');
 });
 
-test('floating menu can tap open, tap close, and drag directly', async () => {
+test('floating menu opens and stays in a static position', async () => {
   const { button, menu } = loadMenuScriptWithDomMock();
+
+  dispatchClick(button);
+  assert.equal(menu.classList.contains('open'), true);
+
+  dispatchClick(button);
+  assert.equal(menu.classList.contains('open'), false);
 
   dispatchPointer(button, 'pointerdown', { pointerId: 1, clientX: 320, clientY: 320 });
   dispatchPointer(button, 'pointermove', { pointerId: 1, clientX: 360, clientY: 340 });
   dispatchPointer(button, 'pointerup', { pointerId: 1, clientX: 360, clientY: 340 });
-  dispatchClick(button);
-
   assert.equal(menu.classList.contains('open'), false);
-  assert.equal(menu.style.left, '340px');
-  assert.equal(menu.style.top, '320px');
-
-  dispatchPointer(button, 'pointerdown', { pointerId: 2, clientX: 360, clientY: 340 });
-  dispatchPointer(button, 'pointerup', { pointerId: 2, clientX: 360, clientY: 340 });
-  dispatchClick(button);
-  assert.equal(menu.classList.contains('open'), true);
-
-  dispatchPointer(button, 'pointerdown', { pointerId: 3, clientX: 360, clientY: 340 });
-  dispatchPointer(button, 'pointerup', { pointerId: 3, clientX: 360, clientY: 340 });
-  dispatchClick(button);
-  assert.equal(menu.classList.contains('open'), false);
+  assert.equal(menu.style.left || '', '');
+  assert.equal(menu.style.top || '', '');
 });
 
 function loadMenuScriptWithDomMock() {

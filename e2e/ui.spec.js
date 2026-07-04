@@ -10,7 +10,7 @@ test('login page disables mobile zoom', async ({ page }) => {
   expect(viewport).toContain('user-scalable=no');
 });
 
-test('floating menu opens and drags in a real browser', async ({ page }) => {
+test('floating menu opens and stays static in a real browser', async ({ page }) => {
   await page.setContent(`
     <nav class="bottom-menu">
       <button class="mobile-menu-toggle" type="button" data-menu-toggle>☰</button>
@@ -26,17 +26,19 @@ test('floating menu opens and drags in a real browser', async ({ page }) => {
   await page.mouse.click(10, 10);
   await expect(page.locator('.bottom-menu')).not.toHaveClass(/open/);
 
-  const box = await button.boundingBox();
-  expect(box).not.toBeNull();
+  const beforeBox = await button.boundingBox();
+  expect(beforeBox).not.toBeNull();
   await page.locator('[data-menu-toggle]').evaluate((element, point) => {
     element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, button: 0, clientX: point.x, clientY: point.y, pointerId: 7, pointerType: 'touch' }));
     element.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, button: 0, clientX: point.x - 80, clientY: point.y - 60, pointerId: 7, pointerType: 'touch' }));
     element.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, button: 0, clientX: point.x - 80, clientY: point.y - 60, pointerId: 7, pointerType: 'touch' }));
-  }, { x: box.x + box.width / 2, y: box.y + box.height / 2 });
+  }, { x: beforeBox.x + beforeBox.width / 2, y: beforeBox.y + beforeBox.height / 2 });
 
   await expect(page.locator('.bottom-menu')).not.toHaveClass(/open/);
-  const left = await page.locator('.bottom-menu').evaluate((element) => Number.parseFloat(element.style.left));
-  expect(left).toBeLessThan(box.x);
+  await expect(page.locator('.bottom-menu')).not.toHaveAttribute('style', /left|top/);
+  const afterBox = await button.boundingBox();
+  expect(afterBox.x).toBe(beforeBox.x);
+  expect(afterBox.y).toBe(beforeBox.y);
 });
 
 test('score rules and scoreboard modal enforce serving-side scoring', async ({ page }) => {

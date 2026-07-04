@@ -6,6 +6,14 @@
   const defaults = {
     teamAName: 'Đội A',
     teamBName: 'Đội B',
+    aPlayer1Name: 'A người 1',
+    aPlayer2Name: 'A người 2',
+    bPlayer1Name: 'B người 1',
+    bPlayer2Name: 'B người 2',
+    positions: {
+      A: { 1: '1', 2: '2' },
+      B: { 1: '1', 2: '2' },
+    },
     scoreA: 0,
     scoreB: 0,
     servingTeam: 'A',
@@ -21,6 +29,10 @@
   const refs = {
     teamAName: byId('readerTeamAName'),
     teamBName: byId('readerTeamBName'),
+    aPlayer1Name: byId('readerAPlayer1Name'),
+    aPlayer2Name: byId('readerAPlayer2Name'),
+    bPlayer1Name: byId('readerBPlayer1Name'),
+    bPlayer2Name: byId('readerBPlayer2Name'),
     teamALabel: byId('readerTeamALabel'),
     teamBLabel: byId('readerTeamBLabel'),
     teamACard: byId('readerTeamACard'),
@@ -30,18 +42,24 @@
     touchScore: byId('readerTouchScore'),
     maxScore: byId('readerMaxScore'),
     status: byId('readerStatus'),
+    courtSlots: {
+      A1: document.querySelector('[data-court-slot="A1"]'),
+      A2: document.querySelector('[data-court-slot="A2"]'),
+      B1: document.querySelector('[data-court-slot="B1"]'),
+      B2: document.querySelector('[data-court-slot="B2"]'),
+    },
   };
 
   function loadState() {
     try {
-      return { ...defaults, ...JSON.parse(window.localStorage.getItem(cacheKey) || '{}') };
+      return { ...defaults, ...JSON.parse(window.sessionStorage.getItem(cacheKey) || '{}') };
     } catch (_) {
       return { ...defaults };
     }
   }
 
   function saveState() {
-    window.localStorage.setItem(cacheKey, JSON.stringify(state));
+    window.sessionStorage.setItem(cacheKey, JSON.stringify(state));
   }
 
   function number(value, fallback) {
@@ -50,6 +68,15 @@
   }
 
   function clamp() {
+    state.positions = state.positions || { A: { 1: '1', 2: '2' }, B: { 1: '1', 2: '2' } };
+    state.positions.A = state.positions.A || { 1: '1', 2: '2' };
+    state.positions.B = state.positions.B || { 1: '1', 2: '2' };
+    state.positions.A[1] = state.positions.A[1] === '2' ? '2' : '1';
+    state.positions.A[2] = state.positions.A[2] === '1' ? '1' : '2';
+    state.positions.B[1] = state.positions.B[1] === '2' ? '2' : '1';
+    state.positions.B[2] = state.positions.B[2] === '1' ? '1' : '2';
+    if (state.positions.A[1] === state.positions.A[2]) state.positions.A[2] = state.positions.A[1] === '1' ? '2' : '1';
+    if (state.positions.B[1] === state.positions.B[2]) state.positions.B[2] = state.positions.B[1] === '1' ? '2' : '1';
     state.touchScore = Math.max(1, number(state.touchScore, 11));
     state.maxScore = Math.max(state.touchScore, number(state.maxScore, 15));
     state.scoreA = Math.min(Math.max(0, number(state.scoreA, 0)), state.maxScore);
@@ -80,8 +107,12 @@
 
   function render() {
     clamp();
-    refs.teamAName.value = state.teamAName;
-    refs.teamBName.value = state.teamBName;
+    if (document.activeElement !== refs.teamAName) refs.teamAName.value = state.teamAName;
+    if (document.activeElement !== refs.teamBName) refs.teamBName.value = state.teamBName;
+    if (document.activeElement !== refs.aPlayer1Name) refs.aPlayer1Name.value = state.aPlayer1Name;
+    if (document.activeElement !== refs.aPlayer2Name) refs.aPlayer2Name.value = state.aPlayer2Name;
+    if (document.activeElement !== refs.bPlayer1Name) refs.bPlayer1Name.value = state.bPlayer1Name;
+    if (document.activeElement !== refs.bPlayer2Name) refs.bPlayer2Name.value = state.bPlayer2Name;
     refs.teamALabel.textContent = state.teamAName || 'Đội A';
     refs.teamBLabel.textContent = state.teamBName || 'Đội B';
     refs.scoreA.textContent = state.scoreA;
@@ -97,7 +128,25 @@
     document.querySelectorAll('[data-reader-delta]').forEach((button) => {
       button.disabled = !canChange(button.dataset.readerTeam, Number(button.dataset.readerDelta));
     });
+    renderCourt();
     saveState();
+  }
+
+  function playerName(team, playerNumber) {
+    const key = `${team.toLowerCase()}Player${playerNumber}Name`;
+    return state[key] || `${team} người ${playerNumber}`;
+  }
+
+  function renderCourt() {
+    ['A', 'B'].forEach((team) => {
+      [1, 2].forEach((slot) => {
+        const marker = refs.courtSlots[`${team}${slot}`];
+        if (!marker) return;
+        const playerNumber = state.positions[team][slot];
+        marker.textContent = playerName(team, playerNumber);
+        marker.classList.toggle('serving', state.servingTeam === team && String(state.scoreOrder) === playerNumber);
+      });
+    });
   }
 
   function scoreText() {
@@ -143,8 +192,30 @@
       status(team === state.servingTeam ? 'Điểm đã chạm luật hiện tại.' : 'Chỉ đội đang giao được đổi điểm.', 'text-danger');
       return;
     }
+    if (delta > 0) {
+      winRally(team);
+      return;
+    }
     if (team === 'A') state.scoreA += delta;
     if (team === 'B') state.scoreB += delta;
+    render();
+    scheduleSpeak();
+  }
+
+  function swapServingSide(team) {
+    const first = state.positions[team][1];
+    state.positions[team][1] = state.positions[team][2];
+    state.positions[team][2] = first;
+  }
+
+  function winRally(team = state.servingTeam) {
+    if (!canChange(team, 1)) {
+      status(team === state.servingTeam ? 'Điểm đã chạm luật hiện tại.' : 'Chỉ đội đang giao được ăn điểm.', 'text-danger');
+      return;
+    }
+    if (team === 'A') state.scoreA += 1;
+    if (team === 'B') state.scoreB += 1;
+    swapServingSide(team);
     render();
     scheduleSpeak();
   }
@@ -175,14 +246,21 @@
       scheduleSpeak();
     });
   });
-  refs.teamAName.addEventListener('input', () => {
-    state.teamAName = refs.teamAName.value.trim() || 'Đội A';
-    render();
-  });
-  refs.teamBName.addEventListener('input', () => {
-    state.teamBName = refs.teamBName.value.trim() || 'Đội B';
-    render();
-  });
+  bindNameInput(refs.teamAName, 'teamAName', 'Đội A', () => { refs.teamALabel.textContent = state.teamAName; });
+  bindNameInput(refs.teamBName, 'teamBName', 'Đội B', () => { refs.teamBLabel.textContent = state.teamBName; });
+  bindNameInput(refs.aPlayer1Name, 'aPlayer1Name', 'A người 1', renderCourt);
+  bindNameInput(refs.aPlayer2Name, 'aPlayer2Name', 'A người 2', renderCourt);
+  bindNameInput(refs.bPlayer1Name, 'bPlayer1Name', 'B người 1', renderCourt);
+  bindNameInput(refs.bPlayer2Name, 'bPlayer2Name', 'B người 2', renderCourt);
+
+  function bindNameInput(input, key, fallback, afterInput) {
+    input.addEventListener('input', () => {
+      state[key] = input.value || fallback;
+      afterInput?.();
+      saveState();
+    });
+    input.addEventListener('blur', render);
+  }
   refs.touchScore.addEventListener('change', () => {
     state.touchScore = number(refs.touchScore.value, 11);
     render();
@@ -193,7 +271,7 @@
   });
   byId('readerSpeakScore')?.addEventListener('click', speak);
   byId('readerResetScore')?.addEventListener('click', () => {
-    state = { ...state, scoreA: 0, scoreB: 0, servingTeam: 'A', scoreOrder: 2 };
+    state = { ...state, scoreA: 0, scoreB: 0, servingTeam: 'A', scoreOrder: 2, positions: { A: { 1: '1', 2: '2' }, B: { 1: '1', 2: '2' } } };
     render();
     scheduleSpeak();
   });

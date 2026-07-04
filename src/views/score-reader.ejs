@@ -4,10 +4,9 @@
   <section class="feature-hero p mb">
     <div class="flex between center gap">
       <div>
-        <h1>🔊 Đọc điểm giao lưu</h1>
+        <h1>Đọc điểm giao lưu</h1>
         <div class="muted strong-muted">Bộ đọc điểm độc lập, dùng được cho admin và VĐV.</div>
       </div>
-      <div class="feature-hero-art">🔊</div>
     </div>
   </section>
 
@@ -17,6 +16,12 @@
       <div><label>Đội B</label><input id="readerTeamBName" maxlength="40" value="Đội B"></div>
       <div><label>Chạm</label><input id="readerTouchScore" type="number" min="1" max="99" value="11"></div>
       <div><label>Max</label><input id="readerMaxScore" type="number" min="1" max="99" value="15"></div>
+    </div>
+    <div class="score-reader-player-settings mb">
+      <div><label>A người 1</label><input id="readerAPlayer1Name" maxlength="40" value="A người 1"></div>
+      <div><label>A người 2</label><input id="readerAPlayer2Name" maxlength="40" value="A người 2"></div>
+      <div><label>B người 1</label><input id="readerBPlayer1Name" maxlength="40" value="B người 1"></div>
+      <div><label>B người 2</label><input id="readerBPlayer2Name" maxlength="40" value="B người 2"></div>
     </div>
 
     <div class="score-reader-board mb">
@@ -38,6 +43,14 @@
       </section>
     </div>
 
+    <div class="score-reader-court mb" aria-label="Vị trí người chơi trên sân">
+      <img src="/uploads/san_pick.png" alt="Sơ đồ sân pickleball">
+      <div class="score-reader-player-marker side-a slot-2" data-court-slot="A2"></div>
+      <div class="score-reader-player-marker side-a slot-1" data-court-slot="A1"></div>
+      <div class="score-reader-player-marker side-b slot-1" data-court-slot="B1"></div>
+      <div class="score-reader-player-marker side-b slot-2" data-court-slot="B2"></div>
+    </div>
+
     <div class="score-reader-actions">
       <div class="score-reader-order">
         <button class="btn btn-primary" type="button" data-reader-order="1">Tay 1</button>
@@ -53,4 +66,12 @@
 </main>
 <script src="/js/score-speech.js"></script>
 <script src="/js/score-reader.js"></script>
-<%- include('partials/bottom-menu') %>
+<nav class="bottom-menu">
+  <button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu">☰</button>
+  <div class="bottom-menu-inner">
+    <a class="active" href="/score-reader">🔊 Đọc điểm</a>
+  </div>
+</nav>
+<script src="/js/menu.js"></script>
+</body>
+</html>
