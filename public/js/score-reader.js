@@ -270,9 +270,9 @@
     scheduleSpeak();
   }
 
-  function changeServing(team) {
+  function changeServing(team, options = {}) {
     if (team === state.servingTeam) return;
-    if (state.scoreA === 0 && state.scoreB === 0 && !state.scoreHistory.length) {
+    if (options.firstServer && state.scoreA === 0 && state.scoreB === 0 && !state.scoreHistory.length) {
       state.servingTeam = team === 'B' ? 'B' : 'A';
       state.scoreOrder = 2;
       state.servingPlayer = playerAtSlot(state.servingTeam, 1);
@@ -296,7 +296,7 @@
 
   document.querySelectorAll('.score-reader-team[data-reader-team]').forEach((item) => item.addEventListener('click', () => changeServing(item.dataset.readerTeam)));
   document.querySelectorAll('[data-reader-serving-select]').forEach((button) => {
-    button.addEventListener('click', () => changeServing(button.dataset.readerServingSelect));
+    button.addEventListener('click', () => changeServing(button.dataset.readerServingSelect, { firstServer: true }));
   });
   document.querySelectorAll('[data-reader-delta]').forEach((button) => {
     button.addEventListener('click', (event) => {

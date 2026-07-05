@@ -374,7 +374,8 @@
       if (clicked?.closest('[data-score-target]')) return;
       const side = item.dataset.servingSelect || item.dataset.servingSide;
       if (!side || !activeRow) return;
-      if (side !== state.servingTeam && isInitialServeState()) {
+      const selectingFirstServer = Boolean(setupStep?.contains(item));
+      if (side !== state.servingTeam && selectingFirstServer && isInitialServeState()) {
         const nextServingTeam = side === 'B' ? 'B' : 'A';
         state = {
           ...state,

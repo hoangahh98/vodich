@@ -97,10 +97,16 @@ test('scoreboard can choose team B as first server at 0-0-2', async ({ page }) =
     </div>
     <div id="scoreModal" class="hidden" aria-hidden="true">
       <strong id="scoreTeamA"></strong><strong id="scoreTeamB"></strong>
+      <div id="scoreSetupStep">
+        <button data-serving-select="A"></button><button data-serving-select="B"></button>
+        <button id="scoreSetupContinue"></button>
+      </div>
+      <div id="scorePlayStep" class="hidden">
+        <button data-serving-select="A"></button><button data-serving-select="B"></button>
+      </div>
       <div id="scoreSideA" data-serving-side="A"><button data-score-target="A" data-score-delta="1">+</button></div>
       <div id="scoreSideB" data-serving-side="B"><button data-score-target="B" data-score-delta="1">+</button></div>
       <div id="scoreInputA">0</div><div id="scoreInputB">0</div>
-      <button data-serving-select="A"></button><button data-serving-select="B"></button>
       <button data-score-order-select="1"></button><button data-score-order-select="2"></button>
       <button data-score-close></button><div id="scoreSaveStatus"></div>
     </div>
@@ -120,11 +126,13 @@ test('scoreboard can choose team B as first server at 0-0-2', async ({ page }) =
   await page.addScriptTag({ path: path.join(root, 'public/js/scoreboard.js') });
 
   await page.locator('[data-match-id="1"]').click();
-  await page.locator('[data-serving-select="B"]').click();
+  await page.locator('#scoreSetupStep [data-serving-select="B"]').click();
   await expect(page.locator('.tran-card')).toHaveAttribute('data-serving-team', 'B');
   await expect(page.locator('.tran-card')).toHaveAttribute('data-score-order', '2');
+  await page.locator('#scoreSetupContinue').click();
+  await page.locator('#scorePlayStep [data-serving-select="A"]').click();
+  await expect(page.locator('.tran-card')).toHaveAttribute('data-serving-team', 'A');
+  await expect(page.locator('.tran-card')).toHaveAttribute('data-score-order', '1');
   await page.locator('[data-score-target="A"]').click();
-  await expect(page.locator('#scoreSaveStatus')).toContainText('Chỉ đội đang giao');
-  await page.locator('[data-score-target="B"]').click();
-  await expect(page.locator('#scoreInputB')).toHaveText('1');
+  await expect(page.locator('#scoreInputA')).toHaveText('1');
 });
