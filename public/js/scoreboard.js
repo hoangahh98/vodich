@@ -169,9 +169,10 @@
     });
   };
 
-  const normalizePositions = (team) => {
-    if (state.positions[team][1] === state.positions[team][2]) {
-      state.positions[team][2] = otherPlayer(state.positions[team][1]);
+  const normalizePositionAfterChange = (team, changedSlot) => {
+    const otherSlot = String(changedSlot) === '1' ? '2' : '1';
+    if (state.positions[team][changedSlot] === state.positions[team][otherSlot]) {
+      state.positions[team][otherSlot] = otherPlayer(state.positions[team][changedSlot]);
     }
   };
 
@@ -415,12 +416,20 @@
   document.querySelectorAll('[data-score-order-select]').forEach((button) => {
     button.addEventListener('click', () => {
       const nextOrder = Number(button.dataset.scoreOrderSelect) === 1 ? 1 : 2;
+      const previousOrder = state.scoreOrder;
       state = { ...state, scoreOrder: nextOrder, firstServerActive: nextOrder === 1 ? false : state.firstServerActive, scoreHistory: [] };
       if (nextOrder === 2 && isInitialServeState()) {
         state.firstServerActive = true;
         state.servingPlayer = playerAtSlot(state.servingTeam, 1);
+      } else if (nextOrder === 1) {
+        state.servingPlayer = playerAtSlot(state.servingTeam, 1);
+        state.firstServerActive = false;
+      } else if (!state.firstServerActive && previousOrder === 1) {
+        state.servingPlayer = otherPlayer(state.servingPlayer);
+      } else if (!state.firstServerActive) {
+        state.servingPlayer = otherPlayer(playerAtSlot(state.servingTeam, 1));
       } else {
-        state.servingPlayer = nextOrder === 1 ? playerAtSlot(state.servingTeam, 1) : otherPlayer(playerAtSlot(state.servingTeam, 1));
+        state.servingPlayer = playerAtSlot(state.servingTeam, 1);
       }
       optimisticRow();
       renderModal();
@@ -454,7 +463,7 @@
     const refs = playerRefs[team];
     refs.first?.addEventListener('change', () => {
       state.positions[team][1] = refs.first.value;
-      normalizePositions(team);
+      normalizePositionAfterChange(team, '1');
       if (state.servingTeam === team && state.scoreOrder === 1) state.servingPlayer = playerAtSlot(team, 1);
       renderPlayerSettings();
       renderModal();
@@ -462,7 +471,7 @@
     });
     refs.second?.addEventListener('change', () => {
       state.positions[team][2] = refs.second.value;
-      normalizePositions(team);
+      normalizePositionAfterChange(team, '2');
       if (state.servingTeam === team && state.scoreOrder === 2 && !state.firstServerActive) state.servingPlayer = playerAtSlot(team, 2);
       renderPlayerSettings();
       renderModal();
