@@ -59,6 +59,7 @@
   let speakTimer = null;
 
   const canEditSetup = () => state.scoreA === 0 && state.scoreB === 0;
+  const isInitialServeState = () => state.scoreA === 0 && state.scoreB === 0 && !(state.scoreHistory || []).length;
 
   const updateSetupButton = () => {
     if (!backToSetup) return;
@@ -262,7 +263,7 @@
       scoreOrder: Number.parseInt(row.dataset.scoreOrder || '2', 10) === 1 ? 1 : 2,
       servingTeam: row.dataset.servingTeam === 'B' ? 'B' : 'A',
       servingPlayer: '1',
-      firstServerActive: (row.dataset.servingTeam === 'B' ? 'B' : 'A') === 'A' && (Number.parseInt(row.dataset.scoreOrder || '2', 10) !== 1),
+      firstServerActive: (Number.parseInt(row.dataset.scoreA || '0', 10) || 0) === 0 && (Number.parseInt(row.dataset.scoreB || '0', 10) || 0) === 0 && (Number.parseInt(row.dataset.scoreOrder || '2', 10) !== 1),
       scoreHistory: [],
       ...loadSetup(row),
     };
@@ -373,6 +374,22 @@
       if (clicked?.closest('[data-score-target]')) return;
       const side = item.dataset.servingSelect || item.dataset.servingSide;
       if (!side || !activeRow) return;
+      if (side !== state.servingTeam && isInitialServeState()) {
+        const nextServingTeam = side === 'B' ? 'B' : 'A';
+        state = {
+          ...state,
+          servingTeam: nextServingTeam,
+          scoreOrder: 2,
+          servingPlayer: playerAtSlot(nextServingTeam, 1),
+          firstServerActive: true,
+          scoreHistory: [],
+        };
+        optimisticRow();
+        renderModal();
+        scheduleSpeak(0);
+        saveScore();
+        return;
+      }
       if (side !== state.servingTeam && state.scoreOrder !== 2) {
         setStatus('Chỉ đổi đội giao khi đang ở tay 2', 'text-danger');
         scheduleSpeak(0);
@@ -398,7 +415,12 @@
     button.addEventListener('click', () => {
       const nextOrder = Number(button.dataset.scoreOrderSelect) === 1 ? 1 : 2;
       state = { ...state, scoreOrder: nextOrder, firstServerActive: nextOrder === 1 ? false : state.firstServerActive, scoreHistory: [] };
-      state.servingPlayer = nextOrder === 1 ? playerAtSlot(state.servingTeam, 1) : otherPlayer(playerAtSlot(state.servingTeam, 1));
+      if (nextOrder === 2 && isInitialServeState()) {
+        state.firstServerActive = true;
+        state.servingPlayer = playerAtSlot(state.servingTeam, 1);
+      } else {
+        state.servingPlayer = nextOrder === 1 ? playerAtSlot(state.servingTeam, 1) : otherPlayer(playerAtSlot(state.servingTeam, 1));
+      }
       optimisticRow();
       renderModal();
       scheduleSpeak(0);

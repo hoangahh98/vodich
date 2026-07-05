@@ -29,6 +29,11 @@
         <div><label>Người chơi 2</label><input id="readerBPlayer2Name" maxlength="40" value="B người 2"></div>
       </section>
     </div>
+    <div class="score-options">
+      <span>Đội giao trước</span>
+      <button type="button" class="btn btn-sm btn-primary" data-reader-serving-select="A">Đội A</button>
+      <button type="button" class="btn btn-sm" data-reader-serving-select="B">Đội B</button>
+    </div>
 
     <div class="score-reader-board mb">
       <section class="score-reader-team serving" id="readerTeamACard" data-reader-team="A">
@@ -59,8 +64,8 @@
 
     <div class="score-reader-actions">
       <div class="score-reader-order">
-        <button class="btn btn-primary" type="button" data-reader-order="1">Tay 1</button>
-        <button class="btn" type="button" data-reader-order="2">Tay 2</button>
+        <button class="btn" type="button" data-reader-order="1">Tay 1</button>
+        <button class="btn btn-primary" type="button" data-reader-order="2">Tay 2</button>
       </div>
       <div class="score-reader-command">
         <button class="btn btn-primary" id="readerSpeakScore" type="button">🔊 Đọc lại</button>

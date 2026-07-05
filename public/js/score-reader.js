@@ -88,7 +88,7 @@
     state.scoreB = Math.min(Math.max(0, number(state.scoreB, 0)), state.maxScore);
     state.scoreOrder = state.scoreOrder === 1 ? 1 : 2;
     state.servingTeam = state.servingTeam === 'B' ? 'B' : 'A';
-    state.firstServerActive = state.firstServerActive === false ? false : state.servingTeam === 'A' && state.scoreOrder === 2;
+    state.firstServerActive = state.firstServerActive === true && state.scoreOrder === 2;
     state.servingPlayer = state.servingPlayer === '2' ? '2' : '1';
     if (state.firstServerActive) state.servingPlayer = '1';
     state.scoreHistory = Array.isArray(state.scoreHistory) ? state.scoreHistory.slice(-30) : [];
@@ -135,6 +135,9 @@
     document.querySelectorAll('[data-reader-order]').forEach((button) => {
       const active = Number(button.dataset.readerOrder) === state.scoreOrder;
       button.classList.toggle('btn-primary', active);
+    });
+    document.querySelectorAll('[data-reader-serving-select]').forEach((button) => {
+      button.classList.toggle('btn-primary', button.dataset.readerServingSelect === state.servingTeam);
     });
     document.querySelectorAll('[data-reader-delta]').forEach((button) => {
       button.disabled = !canChange(button.dataset.readerTeam, Number(button.dataset.readerDelta));
@@ -269,6 +272,15 @@
 
   function changeServing(team) {
     if (team === state.servingTeam) return;
+    if (state.scoreA === 0 && state.scoreB === 0 && !state.scoreHistory.length) {
+      state.servingTeam = team === 'B' ? 'B' : 'A';
+      state.scoreOrder = 2;
+      state.servingPlayer = playerAtSlot(state.servingTeam, 1);
+      state.firstServerActive = true;
+      render();
+      scheduleSpeak();
+      return;
+    }
     if (state.scoreOrder !== 2) {
       status('Chỉ đổi đội giao khi đang ở tay 2.', 'text-danger');
       return;
@@ -283,6 +295,9 @@
   }
 
   document.querySelectorAll('.score-reader-team[data-reader-team]').forEach((item) => item.addEventListener('click', () => changeServing(item.dataset.readerTeam)));
+  document.querySelectorAll('[data-reader-serving-select]').forEach((button) => {
+    button.addEventListener('click', () => changeServing(button.dataset.readerServingSelect));
+  });
   document.querySelectorAll('[data-reader-delta]').forEach((button) => {
     button.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -294,7 +309,10 @@
       const nextOrder = Number(button.dataset.readerOrder) === 1 ? 1 : 2;
       const previousOrder = state.scoreOrder;
       state.scoreOrder = nextOrder;
-      if (nextOrder === 1) {
+      if (nextOrder === 2 && state.scoreA === 0 && state.scoreB === 0 && !state.scoreHistory.length) {
+        state.servingPlayer = playerAtSlot(state.servingTeam, 1);
+        state.firstServerActive = true;
+      } else if (nextOrder === 1) {
         state.servingPlayer = playerAtSlot(state.servingTeam, 1);
         state.firstServerActive = false;
       } else if (!state.firstServerActive && previousOrder === 1) {

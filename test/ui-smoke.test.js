@@ -252,6 +252,7 @@ test('score reader renders for standalone friendly scoring', async () => {
   assert.match(html, /id="readerTeamBPlayerTitle"/);
   assert.match(html, /id="readerAPlayer1Name"/);
   assert.match(html, /id="readerBPlayer2Name"/);
+  assert.match(html, /data-reader-serving-select="B"/);
   assert.doesNotMatch(html, /id="readerWinRally"/);
   assert.doesNotMatch(html, /id="readerLoseRally"/);
   assert.match(html, /data-reader-order="2"/);

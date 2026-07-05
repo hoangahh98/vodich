@@ -83,3 +83,48 @@ test('score rules and scoreboard modal enforce serving-side scoring', async ({ p
   await page.locator('[data-score-target="A"]').click();
   await expect(page.locator('#scoreInputA')).toHaveText('1');
 });
+
+test('scoreboard can choose team B as first server at 0-0-2', async ({ page }) => {
+  await page.setContent(`
+    <div id="matchList" data-tournament-id="1" data-touch-score="11" data-max-score="15" data-knockout-touch-score="15" data-knockout-max-score="19">
+      <div data-round-block>
+        <span data-done-count>0</span>
+        <div class="tran-card" data-match-id="1" data-team-a="A / B" data-team-b="C / D" data-score-a="0" data-score-b="0" data-score-order="2" data-serving-team="A" data-knockout="false" tabindex="0">
+          <span class="score-a">0</span><span class="score-b">0</span><span class="score-order">2</span>
+          <span class="score-pill bg-primary"></span><span class="match-status bg-secondary"></span>
+        </div>
+      </div>
+    </div>
+    <div id="scoreModal" class="hidden" aria-hidden="true">
+      <strong id="scoreTeamA"></strong><strong id="scoreTeamB"></strong>
+      <div id="scoreSideA" data-serving-side="A"><button data-score-target="A" data-score-delta="1">+</button></div>
+      <div id="scoreSideB" data-serving-side="B"><button data-score-target="B" data-score-delta="1">+</button></div>
+      <div id="scoreInputA">0</div><div id="scoreInputB">0</div>
+      <button data-serving-select="A"></button><button data-serving-select="B"></button>
+      <button data-score-order-select="1"></button><button data-score-order-select="2"></button>
+      <button data-score-close></button><div id="scoreSaveStatus"></div>
+    </div>
+  `);
+  await page.addScriptTag({
+    content: `
+      window.__emits = [];
+      window.Vodich = {
+        getTournamentSocket: () => ({ on() {}, emit: (...args) => window.__emits.push(args) }),
+        socketEvents: { SCORE: 'score', SCORE_UPDATED: 'scoreUpdated', SCORE_REJECTED: 'scoreRejected' },
+      };
+    `,
+  });
+  await page.addScriptTag({ path: path.join(root, 'public/js/score-rules.js') });
+  await page.addScriptTag({ path: path.join(root, 'public/js/score-speech.js') });
+  await page.addScriptTag({ path: path.join(root, 'public/js/scoreboard-dom.js') });
+  await page.addScriptTag({ path: path.join(root, 'public/js/scoreboard.js') });
+
+  await page.locator('[data-match-id="1"]').click();
+  await page.locator('[data-serving-select="B"]').click();
+  await expect(page.locator('.tran-card')).toHaveAttribute('data-serving-team', 'B');
+  await expect(page.locator('.tran-card')).toHaveAttribute('data-score-order', '2');
+  await page.locator('[data-score-target="A"]').click();
+  await expect(page.locator('#scoreSaveStatus')).toContainText('Chỉ đội đang giao');
+  await page.locator('[data-score-target="B"]').click();
+  await expect(page.locator('#scoreInputB')).toHaveText('1');
+});
