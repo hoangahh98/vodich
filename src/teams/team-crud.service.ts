@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { isRootAdmin, rootAdminUsername } from '../common/admin-scope';
 import { CurrentUser } from '../types';
@@ -9,17 +10,17 @@ export class TeamCrudService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(user: CurrentUser) {
-    const [teams, memberCounts] = await Promise.all([
-      this.prisma.teamClub.findMany({
-        where: user.role === 'ADMIN' && !isRootAdmin(user) ? this.adminTeamWhere(user) : {},
-        orderBy: { id: 'desc' },
-      }),
-      this.prisma.teamMember.groupBy({
-        by: ['teamId'],
-        where: { active: true },
-        _count: { _all: true },
-      }),
-    ]);
+    const teams = await this.prisma.teamClub.findMany({
+      where: this.teamWhereForUser(user),
+      orderBy: { id: 'desc' },
+    });
+    if (!teams.length) return [];
+
+    const memberCounts = await this.prisma.teamMember.groupBy({
+      by: ['teamId'],
+      where: { active: true, teamId: { in: teams.map((team) => team.id) } },
+      _count: { _all: true },
+    });
     const countByTeamId = new Map(memberCounts.map((item) => [item.teamId.toString(), item._count._all]));
     return teams.map((team) => ({
       ...team,
@@ -44,6 +45,11 @@ export class TeamCrudService {
     return (await this.prisma.teamClub.count({ where: { id: teamId, ...this.adminTeamWhere(user) } })) > 0;
   }
 
+  async canView(user: CurrentUser, teamId: bigint) {
+    if (user.role === 'ADMIN') return this.canManage(user, teamId);
+    return (await this.prisma.teamClub.count({ where: { id: teamId, ...this.clientTeamWhere(user) } })) > 0;
+  }
+
   async availableAdmins(teamId: bigint, ownerAdminId?: bigint | null) {
     return this.prisma.appUser.findMany({
       where: {
@@ -64,8 +70,25 @@ export class TeamCrudService {
     return this.prisma.teamClubPermission.delete({ where: { id: permissionId } });
   }
 
-  private adminTeamWhere(user: CurrentUser) {
+  private adminTeamWhere(user: CurrentUser): Prisma.TeamClubWhereInput {
     const adminId = BigInt(user.id);
     return { OR: [{ ownerAdminId: adminId }, { permissions: { some: { adminId } } }] };
+  }
+
+  private clientTeamWhere(user: CurrentUser): Prisma.TeamClubWhereInput {
+    return {
+      members: {
+        some: {
+          active: true,
+          OR: [{ playerId: BigInt(user.id) }, { player: { is: { email: { equals: user.email, mode: 'insensitive' } } } }],
+        },
+      },
+    };
+  }
+
+  private teamWhereForUser(user: CurrentUser): Prisma.TeamClubWhereInput {
+    if (user.role === 'CLIENT') return this.clientTeamWhere(user);
+    if (!isRootAdmin(user)) return this.adminTeamWhere(user);
+    return {};
   }
 }

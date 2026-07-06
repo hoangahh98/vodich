@@ -108,6 +108,7 @@ test('TeamMonthReportBuilder calculates finance summary and fixed member orderin
     report.players.map((player) => player.displayName),
     ['Dung'],
   );
+  assert.equal(report.emailList, 'an@example.com\nbinh@example.com');
 });
 
 test('TravelSummaryBuilder balances paid expenses, collections, and transfer suggestions', () => {

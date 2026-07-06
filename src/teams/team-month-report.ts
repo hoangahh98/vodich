@@ -54,7 +54,11 @@ export class TeamMonthReportBuilder {
       members: rows,
       players: input.players.filter((player) => !activePlayerIds.has(player.id.toString())),
       finance,
-      emailList: rows.map((member) => member.player.email).filter(Boolean).join('; '),
+      emailList: rows
+        .filter((member) => member.memberType === 'FIXED')
+        .map((member) => member.player.email)
+        .filter(Boolean)
+        .join('\n'),
     };
   }
 

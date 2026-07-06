@@ -32,6 +32,10 @@ export class TeamService {
     return this.crud.canManage(user, teamId);
   }
 
+  canView(user: CurrentUser, teamId: bigint) {
+    return this.crud.canView(user, teamId);
+  }
+
   detailForMonth(id: bigint, month: string) {
     return this.detail.detailForMonth(id, month);
   }

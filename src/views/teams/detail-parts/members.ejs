@@ -4,7 +4,12 @@
   <section class="card-lite p">
     <div class="section-heading mb">
       <div><span class="feature-icon">👥</span><h2 class="section-title">Thành viên và đóng phí</h2><p class="muted">Danh sách đóng phí nằm ngay trong mục thành viên.</p></div>
-      <% if (currentUser.role === 'ADMIN' && members.length) { %><button class="btn btn-sm btn-outline" type="button" data-open-modal="teamEmailModal">Get Email</button><% } %>
+      <% if (currentUser.role === 'ADMIN' && members.length) { %>
+        <div class="hero-action-buttons">
+          <button class="btn btn-sm btn-outline" type="button" data-open-modal="teamEmailModal">Get Email</button>
+          <button class="btn btn-sm btn-success" type="button" data-open-modal="teamContentModal">Content mẫu</button>
+        </div>
+      <% } %>
     </div>
     <% if (currentUser.role === 'ADMIN') { %>
       <form class="registration-panel mb" method="post" action="/teams/<%= team.id %>/members" data-require-checked="playerIds">

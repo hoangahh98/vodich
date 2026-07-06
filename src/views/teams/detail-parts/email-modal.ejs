@@ -2,10 +2,29 @@
   <div id="teamEmailModal" class="score-modal hidden" aria-hidden="true">
     <div class="score-modal-backdrop" data-close-modal="teamEmailModal"></div>
     <div class="score-modal-panel" role="dialog" aria-modal="true">
-      <div class="score-modal-head"><div><h3>Danh sách email</h3><small>Copy email thành viên đội bóng</small></div><button class="btn btn-sm" type="button" data-close-modal="teamEmailModal">Đóng</button></div>
+      <div class="score-modal-head"><div><h3>Danh sách email</h3><small>Copy email thành viên cố định</small></div><button class="btn btn-sm" type="button" data-close-modal="teamEmailModal">Đóng</button></div>
       <div class="score-modal-body">
         <textarea id="teamEmailListText" rows="6" readonly><%= emailList %></textarea>
         <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamEmailListText">Copy email</button></div>
+      </div>
+    </div>
+  </div>
+  <div id="teamContentModal" class="score-modal hidden" aria-hidden="true">
+    <div class="score-modal-backdrop" data-close-modal="teamContentModal"></div>
+    <div class="score-modal-panel" role="dialog" aria-modal="true">
+      <div class="score-modal-head"><div><h3>Content mẫu</h3><small>Copy gửi cho thành viên</small></div><button class="btn btn-sm" type="button" data-close-modal="teamContentModal">Đóng</button></div>
+      <div class="score-modal-body">
+        <textarea id="teamContentSampleText" rows="14" readonly><%= teamLink %> link app theo dõi quỹ nước
+"<%= team.name %>"
+
+Email để đăng nhập:
+<%= emailList %>
+
+Pass chung: 123456789
+
+Mọi người có thể vào phần quản lý đội bóng để theo dõi chi phí của từng buổi chơi.
+Mọi cập nhật mọi người có thể theo dõi tại đây nhé.</textarea>
+        <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamContentSampleText">Copy nội dung</button></div>
       </div>
     </div>
   </div>

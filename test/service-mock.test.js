@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 
 const { AdminService } = require('../dist/admin/admin.service');
 const { AuthService } = require('../dist/auth/auth.service');
+const { TeamCrudService } = require('../dist/teams/team-crud.service');
 const { TeamFundService } = require('../dist/teams/team-fund.service');
 const { TournamentCrudService } = require('../dist/tournaments/tournament-crud.service');
 const { TournamentPaymentService } = require('../dist/tournaments/tournament-payment.service');
@@ -191,4 +192,40 @@ test('TeamFundService sets fund and seeds fixed member payments from previous ba
   assert.equal(fundPayload.create.notes, 'July fund');
   assert.equal(paymentUpserts.length, 2);
   assert.equal(paymentUpserts[0].create.paidAmount, 100000);
+});
+
+test('TeamCrudService restricts client teams to active memberships', async () => {
+  let teamWhere;
+  let countWhere;
+  const service = new TeamCrudService({
+    teamClub: {
+      findMany: async ({ where }) => {
+        teamWhere = where;
+        return [{ id: 3n, name: 'Member Team' }];
+      },
+      count: async ({ where }) => {
+        countWhere = where;
+        return where.id === 3n ? 1 : 0;
+      },
+    },
+    teamMember: {
+      groupBy: async ({ where }) => {
+        assert.deepEqual(where.teamId.in, [3n]);
+        return [{ teamId: 3n, _count: { _all: 2 } }];
+      },
+    },
+  });
+
+  const user = { id: '7', email: 'player@test.local', displayName: 'Player', role: 'CLIENT' };
+  const teams = await service.list(user);
+  const canView = await service.canView(user, 3n);
+
+  assert.equal(teams.length, 1);
+  assert.equal(teams[0].activeMemberCount, 2);
+  assert.equal(teamWhere.members.some.active, true);
+  assert.equal(teamWhere.members.some.OR[0].playerId, 7n);
+  assert.equal(teamWhere.members.some.OR[1].player.is.email.equals, 'player@test.local');
+  assert.equal(canView, true);
+  assert.equal(countWhere.id, 3n);
+  assert.equal(countWhere.members.some.active, true);
 });

@@ -38,8 +38,10 @@ export class TeamController {
   @Get('/teams/:id/:section')
   async teamDetail(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Param('section') section: string) {
     const month = String(req.query.month || currentMonth());
-    if (req.session.user?.role === 'ADMIN' && !(await this.teams.canManage(req.session.user, BigInt(id)))) return forbidden(res);
-    return render(res, 'teams/detail', { ...(await this.teams.detailForMonth(BigInt(id), month)), section: safeTeamSection(section) });
+    const teamId = BigInt(id);
+    if (!(await this.teams.canView(req.session.user!, teamId))) return forbidden(res);
+    const teamLink = `${req.protocol}://${req.get('host')}/teams/${id}/members`;
+    return render(res, 'teams/detail', { ...(await this.teams.detailForMonth(teamId, month)), section: safeTeamSection(section), teamLink });
   }
 
   @Post('/teams/:id/settings')
