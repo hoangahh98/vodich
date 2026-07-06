@@ -1,4 +1,6 @@
 <% if (currentUser.role === 'ADMIN') { %>
+  <% const teamReportLink = typeof teamLink !== 'undefined' ? teamLink : ''; %>
+  <% const missingFixedMembers = members.filter((member) => member.memberType === 'FIXED' && member.expectedAmount > member.paidAmount); %>
   <div id="teamEmailModal" class="score-modal hidden" aria-hidden="true">
     <div class="score-modal-backdrop" data-close-modal="teamEmailModal"></div>
     <div class="score-modal-panel" role="dialog" aria-modal="true">
@@ -14,7 +16,7 @@
     <div class="score-modal-panel" role="dialog" aria-modal="true">
       <div class="score-modal-head"><div><h3>Content mẫu</h3><small>Copy gửi cho thành viên</small></div><button class="btn btn-sm" type="button" data-close-modal="teamContentModal">Đóng</button></div>
       <div class="score-modal-body">
-        <textarea id="teamContentSampleText" rows="14" readonly><%= teamLink %> link app theo dõi quỹ nước
+        <textarea id="teamContentSampleText" rows="14" readonly><%= teamReportLink %> link app theo dõi quỹ nước
 "<%= team.name %>"
 
 Email để đăng nhập:
@@ -25,6 +27,33 @@ Pass chung: 123456789
 Mọi người có thể vào phần quản lý đội bóng để theo dõi chi phí của từng buổi chơi.
 Mọi cập nhật mọi người có thể theo dõi tại đây nhé.</textarea>
         <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamContentSampleText">Copy nội dung</button></div>
+      </div>
+    </div>
+  </div>
+  <div id="teamFundReportModal" class="score-modal hidden" aria-hidden="true">
+    <div class="score-modal-backdrop" data-close-modal="teamFundReportModal"></div>
+    <div class="score-modal-panel" role="dialog" aria-modal="true">
+      <div class="score-modal-head"><div><h3>Báo quỹ</h3><small>Copy cập nhật thu chi tháng <%= selectedMonth %></small></div><button class="btn btn-sm" type="button" data-close-modal="teamFundReportModal">Đóng</button></div>
+      <div class="score-modal-body">
+        <textarea id="teamFundReportText" rows="18" readonly>Cập nhật quỹ nước - "<%= team.name %>"
+Tháng: <%= selectedMonth %>
+
+Tổng thu: <%= formatMoney(finance.totalPaid) %>đ
+Tiền sân: <%= formatMoney(finance.courtCost) %>đ
+Đã chi: <%= formatMoney(finance.totalExpense) %>đ
+Quỹ còn lại: <%= formatMoney(finance.balance) %>đ
+
+Chi tiết đã chi:
+<% if (!expenses.length) { %>- Chưa có khoản chi trong tháng
+<% } else { %><% expenses.forEach((expense) => { %>- <%= expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('vi-VN') : selectedMonth %>: <%= expense.content %> - <%= formatMoney(expense.amount) %>đ<% if (expense.notes) { %> (<%= expense.notes %>)<% } %>
+<% }) %><% } %>
+Thành viên còn thiếu quỹ:
+<% if (!missingFixedMembers.length) { %>- Không có
+<% } else { %><% missingFixedMembers.forEach((member) => { %>- <%= member.player.displayName %>: thiếu <%= formatMoney(member.expectedAmount - member.paidAmount) %>đ
+<% }) %><% } %>
+Link theo dõi:
+<%= teamReportLink %></textarea>
+        <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamFundReportText">Copy báo quỹ</button></div>
       </div>
     </div>
   </div>
