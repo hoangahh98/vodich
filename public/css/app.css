@@ -113,6 +113,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .metric { display: block; font-size: 26px; margin: 8px 0 2px; }
 .month-filter { flex: 0 0 170px; width: 170px; min-width: 0; max-width: 100%; }
 .month-filter input { width: 100%; min-width: 0; max-width: 100%; }
+.team-hero-tools { display: grid; justify-items: end; gap: 8px; flex: 0 0 170px; width: 170px; max-width: 100%; }
+.team-hero-tools .btn { width: 100%; }
 .checkbox-line label { display: flex; align-items: center; gap: 8px; margin: 0; }
 .checkbox-line input { width: auto; min-height: auto; }
 .form-section { border: 1px solid #cfe2ff; border-radius: 10px; padding: 18px; margin-bottom: 16px; background: #fbfdff; box-shadow: inset 0 0 0 1px rgba(13,110,253,.03); }
@@ -504,6 +506,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .feature-hero h1 { margin: 0 0 4px; font-size: 22px; }
   .month-filter { justify-self: start; flex: 0 0 160px; min-width: 0; width: 160px; max-width: 100%; }
   .month-filter input[type="month"] { width: 160px; height: 38px; min-height: 38px; padding: 7px 8px; font-size: 13px; border-radius: 8px; }
+  .team-hero-tools { justify-items: start; flex: 0 0 160px; width: 160px; }
   .team-expense-form { grid-template-columns: 132px minmax(0, 1fr) minmax(110px, 140px) minmax(82px, auto); gap: 8px; }
   .team-expense-form .expense-date { width: 132px; max-width: 100%; }
   .team-expense-form .expense-date input { width: 132px; height: 38px; }

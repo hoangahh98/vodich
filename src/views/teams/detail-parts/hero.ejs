@@ -4,14 +4,14 @@
       <h1><%= team.name %></h1>
       <div class="muted strong-muted"><%= team.description || 'Chưa có ghi chú' %></div>
     </div>
-    <div class="hero-actions">
-      <% if (currentUser.role === 'ADMIN') { %>
-        <button class="btn btn-sm btn-primary" type="button" data-open-modal="teamFundReportModal">Báo quỹ</button>
-      <% } %>
+    <div class="team-hero-tools">
       <form method="get" action="/teams/<%= team.id %>/<%= section %>" class="month-filter">
         <label>Tháng quỹ</label>
         <input type="month" name="month" value="<%= selectedMonth %>" onchange="this.form.submit()">
       </form>
+      <% if (currentUser.role === 'ADMIN') { %>
+        <button class="btn btn-sm btn-primary" type="button" data-open-modal="teamFundReportModal">Báo quỹ</button>
+      <% } %>
     </div>
   </div>
 </section>
