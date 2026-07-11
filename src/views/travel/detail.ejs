@@ -52,13 +52,13 @@
         <form method="post" action="/travel/trips/<%= trip.id %>/collections">
           <div class="travel-frozen-wrap">
             <table class="travel-table travel-table-sticky">
-              <thead><tr><th class="sticky-col">Thành viên</th><th>Đã thu</th><th>Đã trả</th><th>Ứng trước</th><th>Còn thiếu</th><th>Ghi chú</th></tr></thead>
+              <thead><tr><th class="sticky-col">Thành viên</th><th>Đã chi</th><th>Đã thu</th><th>Đã trả</th><th>Ứng trước</th><th>Còn thiếu</th><th>Ghi chú</th></tr></thead>
               <tbody>
-                <% members.forEach((member) => { const key = member.id.toString(); const isTreasurer = String(trip.treasurerMemberId || '') === key; %>
+                <% members.forEach((member) => { const key = member.id.toString(); const isTreasurer = String(trip.treasurerMemberId || '') === key; const memberSpent = summary.memberSpent.get(key) || 0; const memberPaid = summary.memberPaidTotal.get(key) || 0; const actualCollected = summary.actualCollected ? summary.actualCollected.get(key) || 0 : Number(member.collections[0]?.amount || 0); %>
                   <tr class="<%= (summary.balances.get(key) || 0) >= 0 ? 'sufficient-row' : 'insufficient-row' %>">
                     <td class="sticky-col"><strong><%= member.name %></strong><% if (isTreasurer) { %><br><span class="badge">Thủ quỹ</span><% } %></td>
+                    <td><strong><%= formatMoney(memberSpent) %>đ</strong></td>
                     <td>
-                      <% const memberSpent = summary.memberSpent.get(key) || 0; const memberPaid = summary.memberPaidTotal.get(key) || 0; const actualCollected = summary.actualCollected ? summary.actualCollected.get(key) || 0 : Number(member.collections[0]?.amount || 0); %>
                       <% if (isTreasurer) { %>
                         <input type="hidden" name="collection_<%= key %>" value="<%= formatMoney(memberSpent) %>">
                         <input class="money-input" value="<%= formatMoney(memberSpent) %>" readonly>
@@ -111,7 +111,7 @@
         <% if (members.length) { %>
           <form id="tmEdit" method="post" action="/travel/trips/<%= trip.id %>/members/bulk-edit"></form>
           <form id="tmDelete" method="post" action="/travel/trips/<%= trip.id %>/members/bulk-delete" data-require-checked="memberId" data-confirm="Xóa những thành viên đã tích?"></form>
-          <div class="travel-member-list" data-member-list>
+          <div class="travel-member-list" data-dirty-watch>
             <div class="travel-member-row travel-member-head muted">
               <span>Chọn</span><span>Tên</span><span>Email</span>
             </div>
@@ -180,37 +180,41 @@
     <% } %>
 
     <section class="card-lite p mb">
-      <div class="section-heading mb"><div><span class="feature-icon">📋</span><h2 class="section-title">Bảng khoản chi</h2><% if (isTravelAdmin) { %><p class="muted">Sửa số tiền/chia ngay trong ô rồi bấm Lưu.</p><% } %></div><span class="badge"><%= expenses.length %> khoản</span></div>
-      <% if (isTravelAdmin) { expenses.forEach((expense) => { %>
-        <form id="exp-<%= expense.id %>" method="post" action="/travel/trips/<%= trip.id %>/expenses/<%= expense.id %>/edit">
-          <input type="hidden" name="title" value="<%= expense.title %>">
-          <input type="hidden" name="spentDate" value="<%= expense.spentDate ? new Date(expense.spentDate).toISOString().slice(0,10) : today %>">
-          <input type="hidden" name="paidByMemberId" value="<%= expense.paidByMemberId || '' %>">
-          <input type="hidden" name="note" value="<%= expense.note %>">
-        </form>
-      <% }) } %>
-      <div class="travel-frozen-wrap">
+      <div class="section-heading mb"><div><span class="feature-icon">📋</span><h2 class="section-title">Bảng khoản chi</h2><% if (isTravelAdmin) { %><p class="muted">Sửa số tiền/chia ngay trong ô, rồi bấm nút ở dưới.</p><% } %></div><span class="badge"><%= expenses.length %> khoản</span></div>
+      <% if (isTravelAdmin && expenses.length) { %>
+        <form id="expEdit" method="post" action="/travel/trips/<%= trip.id %>/expenses/bulk-edit"></form>
+        <form id="expDelete" method="post" action="/travel/trips/<%= trip.id %>/expenses/bulk-delete" data-require-checked="expenseId" data-confirm="Xóa những khoản chi đã tích?"></form>
+      <% } %>
+      <div class="travel-frozen-wrap" data-dirty-watch>
         <table class="travel-table travel-table-sticky travel-expense-table">
-          <thead><tr><th class="sticky-col">Khoản chi</th><th>Người trả</th><th>Tổng</th><% members.forEach((member) => { %><th><%= member.name %></th><% }) %><% if (isTravelAdmin) { %><th>Thao tác</th><% } %></tr></thead>
+          <thead><tr><th class="sticky-col"><%= isTravelAdmin ? '☑ Khoản chi' : 'Khoản chi' %></th><th>Người trả</th><th>Tổng</th><% members.forEach((member) => { %><th><%= member.name %></th><% }) %></tr></thead>
           <tbody>
             <% expenses.forEach((expense) => { const splitMap = new Map(expense.splits.map((split) => [split.memberId.toString(), Number(split.amount)])); %>
               <tr>
-                <td class="sticky-col"><strong><%= expense.title %></strong><br><span class="muted"><%= expense.spentDate ? new Date(expense.spentDate).toLocaleDateString('vi-VN') : '-' %> · <%= expense.note || 'Không ghi chú' %></span></td>
+                <td class="sticky-col">
+                  <% if (isTravelAdmin) { %><label class="travel-exp-check"><input type="checkbox" form="expDelete" name="expenseId" value="<%= expense.id %>"><span><strong><%= expense.title %></strong><br><span class="muted"><%= expense.spentDate ? new Date(expense.spentDate).toLocaleDateString('vi-VN') : '-' %> · <%= expense.note || 'Không ghi chú' %></span></span></label>
+                  <% } else { %><strong><%= expense.title %></strong><br><span class="muted"><%= expense.spentDate ? new Date(expense.spentDate).toLocaleDateString('vi-VN') : '-' %> · <%= expense.note || 'Không ghi chú' %></span><% } %>
+                </td>
                 <td><%= expense.paidByMember?.name || '-' %></td>
                 <% if (isTravelAdmin) { %>
-                  <td><input class="money-input" form="exp-<%= expense.id %>" name="amount" value="<%= formatMoney(expense.amount) %>"></td>
-                  <% members.forEach((member) => { const key = member.id.toString(); %><td><input class="money-input" form="exp-<%= expense.id %>" name="split_<%= key %>" value="<%= formatMoney(splitMap.get(key) || 0) %>"></td><% }) %>
-                  <td class="travel-exp-actions"><button class="btn btn-sm btn-success" form="exp-<%= expense.id %>" data-loading-text="...">Lưu</button><button class="btn btn-sm btn-danger" form="exp-<%= expense.id %>" formaction="/travel/trips/<%= trip.id %>/expenses/<%= expense.id %>/delete" data-confirm="Xóa khoản chi này?" data-loading-text="...">Xóa</button></td>
+                  <td><input class="money-input" form="expEdit" name="amount_<%= expense.id %>" value="<%= formatMoney(expense.amount) %>"></td>
+                  <% members.forEach((member) => { const key = member.id.toString(); %><td><input class="money-input" form="expEdit" name="split_<%= expense.id %>_<%= key %>" value="<%= formatMoney(splitMap.get(key) || 0) %>"></td><% }) %>
                 <% } else { %>
                   <td><strong><%= formatMoney(expense.amount) %>đ</strong></td>
                   <% members.forEach((member) => { const key = member.id.toString(); %><td class="<%= String(viewerMemberId || '') === key ? 'mine-row' : '' %>"><%= formatMoney(splitMap.get(key) || 0) %>đ</td><% }) %>
                 <% } %>
               </tr>
             <% }) %>
-            <% if (!expenses.length) { %><tr><td colspan="<%= 3 + members.length + (isTravelAdmin ? 1 : 0) %>" class="text-center muted">Chưa có khoản chi.</td></tr><% } %>
+            <% if (!expenses.length) { %><tr><td colspan="<%= 3 + members.length %>" class="text-center muted">Chưa có khoản chi.</td></tr><% } %>
           </tbody>
         </table>
       </div>
+      <% if (isTravelAdmin && expenses.length) { %>
+        <div class="flex between center mt gap">
+          <button class="btn btn-danger btn-sm" type="submit" form="expDelete" data-loading-text="Đang xóa...">🗑️ Xóa đã tích</button>
+          <button class="btn btn-success" type="submit" form="expEdit" data-dirty-save disabled data-loading-text="Đang lưu...">💾 Lưu thay đổi</button>
+        </div>
+      <% } %>
     </section>
   <% } %>
 
@@ -221,7 +225,7 @@
       <% if (aiError) { %><div class="alert-lite warn mb">⚠️ <%= aiError %></div><% } %>
       <% if (isTravelAdmin) { %>
         <% if (!aiConfigured) { %>
-          <div class="alert-lite warn mb">Chưa cấu hình <code>GEMINI_API_KEY</code> trên server nên chưa tạo được gợi ý AI.</div>
+          <div class="alert-lite warn mb">Chưa cấu hình <code>GROQ_API_KEY</code> trên server nên chưa tạo được gợi ý AI.</div>
         <% } %>
         <form class="travel-member-form mb" method="post" action="/travel/trips/<%= trip.id %>/ai-plan">
           <div><label>Số ngày</label><input name="days" type="number" min="1" max="10" value="2"></div>

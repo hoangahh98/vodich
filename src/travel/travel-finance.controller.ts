@@ -75,7 +75,7 @@ export class TravelFinanceController {
     if (!tripId) return;
     await this.finance.setTreasurer(tripId, treasurerMemberId);
     this.gateway.emitTravelTripUpdated(id, 'treasurer-updated');
-    return res.redirect(`/travel/trips/${id}/members`);
+    return res.redirect(`/travel/trips/${id}/overview`);
   }
 
   @Post('/travel/trips/:id/collections')
@@ -84,7 +84,7 @@ export class TravelFinanceController {
     if (!tripId) return;
     await this.finance.updateCollections(tripId, body);
     this.gateway.emitTravelTripUpdated(id, 'collections-updated');
-    return res.redirect(`/travel/trips/${id}/members`);
+    return res.redirect(`/travel/trips/${id}/overview`);
   }
 
   @Post('/travel/trips/:id/collections/paid-enough')
@@ -93,7 +93,7 @@ export class TravelFinanceController {
     if (!tripId) return;
     await this.finance.markPaidEnough(tripId);
     this.gateway.emitTravelTripUpdated(id, 'collections-paid-enough');
-    return res.redirect(`/travel/trips/${id}/members`);
+    return res.redirect(`/travel/trips/${id}/overview`);
   }
 
   @Post('/travel/trips/:id/expenses')
@@ -114,6 +114,26 @@ export class TravelFinanceController {
     await this.finance.updateExpense(scopedTrip, expId, body);
     this.gateway.emitTravelTripUpdated(tripId, 'expense-updated');
     return res.redirect(`/travel/trips/${tripId}/expenses`);
+  }
+
+  @Post('/travel/trips/:id/expenses/bulk-edit')
+  async bulkEditExpenses(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    const tripId = await this.manageableTrip(req, res, id);
+    if (!tripId) return;
+    await this.finance.updateExpenseAmounts(tripId, body);
+    this.gateway.emitTravelTripUpdated(id, 'expenses-updated');
+    return res.redirect(`/travel/trips/${id}/expenses`);
+  }
+
+  @Post('/travel/trips/:id/expenses/bulk-delete')
+  async bulkDeleteExpenses(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string | string[]>) {
+    const tripId = await this.manageableTrip(req, res, id);
+    if (!tripId) return;
+    const raw = Array.isArray(body.expenseId) ? body.expenseId : body.expenseId ? [body.expenseId] : [];
+    const expenseIds = raw.map((value) => parseBigId(value)).filter((value): value is bigint => value !== null);
+    await this.finance.deleteExpenses(tripId, expenseIds);
+    this.gateway.emitTravelTripUpdated(id, 'expenses-deleted');
+    return res.redirect(`/travel/trips/${id}/expenses`);
   }
 
   @Post('/travel/trips/:tripId/expenses/:expenseId/delete')

@@ -8,12 +8,7 @@
     sync();
   }
 
-  // Danh sách thành viên: chỉ bật nút "Lưu" khi có chỉnh sửa.
-  const memberList = document.querySelector('[data-member-list]');
-  const saveBtn = document.querySelector('[data-dirty-save]');
-  if (memberList && saveBtn) {
-    memberList.addEventListener('input', () => {
-      saveBtn.disabled = false;
-    });
-  }
+  // Bật nút "Lưu thay đổi" khi có chỉnh sửa trong vùng theo dõi (thành viên / khoản chi).
+  const enableSave = () => document.querySelectorAll('[data-dirty-save]').forEach((btn) => (btn.disabled = false));
+  document.querySelectorAll('[data-dirty-watch]').forEach((zone) => zone.addEventListener('input', enableSave));
 })();

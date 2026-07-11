@@ -221,6 +221,45 @@ export class TravelFinanceService {
     return this.prisma.travelTripExpense.delete({ where: { id: expenseId, tripId } });
   }
 
+  deleteExpenses(tripId: bigint, expenseIds: bigint[]) {
+    const ids = [...new Set(expenseIds.map((id) => id.toString()))].map((id) => BigInt(id));
+    if (!ids.length) return Promise.resolve();
+    return this.prisma.travelTripExpense.deleteMany({ where: { id: { in: ids }, tripId } });
+  }
+
+  /** Sửa số tiền + phần chia của nhiều khoản chi cùng lúc (form amount_<id>, split_<id>_<memberId>). */
+  async updateExpenseAmounts(tripId: bigint, body: Record<string, string>) {
+    const ids = Object.keys(body)
+      .filter((key) => key.startsWith('amount_'))
+      .map((key) => key.slice(7))
+      .filter((id) => /^\d+$/.test(id))
+      .map((id) => BigInt(id));
+    if (!ids.length) return;
+    const members = await this.activeMembers(tripId);
+    const memberIds = members.map((member) => member.id);
+    if (!memberIds.length) return;
+    const expenses = await this.prisma.travelTripExpense.findMany({ where: { tripId, id: { in: ids } } });
+    const ops: unknown[] = [];
+    for (const expense of expenses) {
+      const id = expense.id;
+      const amount = parseMoney(body[`amount_${id}`]);
+      let splits = memberIds.map((memberId) => ({ memberId, amount: parseMoney(body[`split_${id}_${memberId}`]) }));
+      const splitTotal = splits.reduce((total, split) => total + split.amount, 0);
+      if (splitTotal !== amount) splits = splitEvenly(amount, memberIds);
+      const positive = splits.filter((split) => split.amount > 0);
+      const isPrivate = positive.length === 1 && positive[0].amount === amount;
+      ops.push(
+        this.prisma.travelTripExpense.update({
+          where: { id },
+          data: { amount, splitMode: isPrivate ? 'PRIVATE' : 'SHARED', privateMemberId: isPrivate ? positive[0].memberId : null },
+        }),
+        this.prisma.travelTripExpenseSplit.deleteMany({ where: { expenseId: id } }),
+        this.prisma.travelTripExpenseSplit.createMany({ data: splits.map((split) => ({ expenseId: id, ...split })) }),
+      );
+    }
+    if (ops.length) await this.prisma.$transaction(ops as never);
+  }
+
   private activeMembers(tripId: bigint) {
     return this.prisma.travelTripMember.findMany({ where: { tripId, active: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }] });
   }

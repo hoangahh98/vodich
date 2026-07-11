@@ -604,11 +604,13 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .travel-exp-actions { white-space: nowrap; display: flex; gap: 6px; }
 .travel-exp-actions .btn { min-height: 34px; }
 
-/* Thêm khoản chi: không cho ô ngày lòi ra, wrap gọn trên mọi cỡ màn hình */
-.travel-expense-form { grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); align-items: end; }
+/* Thêm khoản chi: không cho ô ngày lòi ra/phình to, wrap gọn trên mọi cỡ màn hình */
+.travel-expense-form { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; }
 .travel-expense-form > div, .travel-expense-form > button { min-width: 0; }
-.travel-expense-form input, .travel-expense-form select { width: 100%; min-width: 0; max-width: 100%; }
-.travel-expense-form input[type="date"] { min-width: 0; }
+.travel-expense-form input, .travel-expense-form select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+/* Chuẩn hóa ô ngày: nhiều trình duyệt mobile render date input to bất thường -> ép về đúng cỡ */
+.travel-expense-form input[type="date"] { -webkit-appearance: none; -moz-appearance: none; appearance: none; min-width: 0; height: 44px; line-height: 22px; padding: 10px 12px; font-size: 15px; }
+.travel-expense-form input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .travel-expense-form > button[type="submit"], .travel-expense-form > .btn { grid-column: 1 / -1; }
 
 /* Hàng thành viên: [checkbox] [tên] [email] — chỉ sửa inline, nút Lưu/Xóa ở dưới */
@@ -630,3 +632,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .medical-form-wide { grid-column: 1 / -1; }
 .medical-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 @media (max-width: 560px) { .medical-form { grid-template-columns: 1fr 1fr; } .medical-form-wide, .medical-form-actions { grid-column: 1 / -1; } }
+
+/* Ô đầu bảng khoản chi: checkbox chọn + tên khoản */
+.travel-exp-check { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.travel-exp-check input { margin-top: 3px; width: 18px; height: 18px; flex: 0 0 auto; }
