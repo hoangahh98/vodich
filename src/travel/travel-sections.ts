@@ -1,4 +1,4 @@
-export const TRAVEL_SECTIONS = ['overview', 'members', 'expenses', 'places', 'settings'] as const;
+export const TRAVEL_SECTIONS = ['overview', 'members', 'expenses', 'ai', 'places', 'settings'] as const;
 export type TravelSection = (typeof TRAVEL_SECTIONS)[number];
 
 export function safeTravelSection(value: unknown): TravelSection {

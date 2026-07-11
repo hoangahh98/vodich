@@ -317,6 +317,8 @@ model TravelTrip {
   destinationId     BigInt?  @map("destination_id")
   treasurerMemberId BigInt?  @unique @map("treasurer_member_id")
   active            Boolean  @default(true)
+  aiPlan            String?  @map("ai_plan")
+  aiPlanAt          DateTime? @map("ai_plan_at")
   createdAt         DateTime @default(now()) @map("created_at")
   updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
 

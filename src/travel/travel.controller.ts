@@ -10,6 +10,7 @@ import { isTravelSchemaMissing } from './travel-errors';
 import { travelExpenseCategories } from './travel-finance.service';
 import { TravelService, travelSuggestionCategories } from './travel.service';
 import { TravelSummaryBuilder } from './travel-summary';
+import { TravelAiService } from './travel-ai.service';
 import { safeTravelSection } from './travel-sections';
 
 @Controller()
@@ -21,6 +22,7 @@ export class TravelController {
   constructor(
     private readonly travel: TravelService,
     private readonly gateway: MatchGateway,
+    private readonly travelAi: TravelAiService,
   ) {}
 
   @Get('/travel')
@@ -67,6 +69,27 @@ export class TravelController {
     return res.redirect('/travel');
   }
 
+  @Post('/travel/trips/:id/ai-plan')
+  @AdminOnly()
+  async generateAiPlan(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    const tripId = parseBigId(id);
+    if (!tripId) return notFound(res);
+    if (!(await this.travel.canManage(req.session.user as CurrentUser, tripId))) return forbidden(res);
+    try {
+      await this.travelAi.generateForTrip(tripId, {
+        days: Number(body.days) || undefined,
+        people: Number(body.people) || undefined,
+        notes: body.notes,
+      });
+    } catch (error) {
+      // Không chặn trang: lưu ý lỗi qua query để view hiển thị nhẹ nhàng.
+      const message = error instanceof Error ? error.message : 'Tạo gợi ý AI thất bại';
+      return res.redirect(`/travel/trips/${id}/ai?err=${encodeURIComponent(message)}`);
+    }
+    this.gateway.emitTravelTripUpdated(id, 'ai-plan');
+    return res.redirect(`/travel/trips/${id}/ai`);
+  }
+
   @Get('/travel/trips/:id')
   tripDetailRedirect(@Res() res: Response, @Param('id') id: string) {
     return res.redirect(`/travel/trips/${id}/overview`);
@@ -96,6 +119,10 @@ export class TravelController {
       expenseCategories: travelExpenseCategories,
       suggestionCategories: travelSuggestionCategories,
       isTravelAdmin,
+      aiPlan: this.travelAi.parseStored(detail.trip.aiPlan),
+      aiPlanAt: detail.trip.aiPlanAt,
+      aiConfigured: this.travelAi.isConfigured(),
+      aiError: String(req.query.err || ''),
       today: new Date().toISOString().slice(0, 10),
     });
   }

@@ -5,6 +5,7 @@
     { key: 'overview', label: '📊 Tổng quan' },
     { key: 'members', label: '👥 Thành viên' },
     { key: 'expenses', label: '🧾 Khoản chi' },
+    { key: 'ai', label: '🤖 AI gợi ý' },
   ];
   if (hasPlaces) sections.push({ key: 'places', label: '🧭 Gợi ý' });
   if (isTravelAdmin) sections.push({ key: 'settings', label: '⚙️ Cài đặt' });
@@ -204,6 +205,50 @@
           </tbody>
         </table>
       </div>
+    </section>
+  <% } %>
+
+  <!-- ===== AI GỢI Ý ===== -->
+  <% if (section === 'ai') { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">🤖</span><h2 class="section-title">Gợi ý &amp; lịch trình bằng AI</h2><p class="muted">AI gợi ý địa điểm và lịch trình cho <strong><%= trip.destination?.name || trip.name %></strong>. Chỉ mang tính tham khảo, nên kiểm chứng lại giờ mở cửa/địa chỉ.</p></div></div>
+      <% if (aiError) { %><div class="alert-lite warn mb">⚠️ <%= aiError %></div><% } %>
+      <% if (isTravelAdmin) { %>
+        <% if (!aiConfigured) { %>
+          <div class="alert-lite warn mb">Chưa cấu hình <code>GEMINI_API_KEY</code> trên server nên chưa tạo được gợi ý AI.</div>
+        <% } %>
+        <form class="travel-member-form mb" method="post" action="/travel/trips/<%= trip.id %>/ai-plan">
+          <div><label>Số ngày</label><input name="days" type="number" min="1" max="10" value="2"></div>
+          <div><label>Số người</label><input name="people" type="number" min="1" value="<%= members.length || 1 %>"></div>
+          <div><label>Sở thích/ghi chú</label><input name="notes" placeholder="Có trẻ em, thích hải sản, ngân sách vừa..."></div>
+          <button class="btn btn-success" data-loading-text="Đang hỏi AI..." <%= aiConfigured ? '' : 'disabled' %>>✨ Tạo gợi ý AI</button>
+        </form>
+      <% } %>
+      <% if (aiPlan) { %>
+        <% if (aiPlan.summary) { %><p class="mb"><strong>Tổng quan:</strong> <%= aiPlan.summary %></p><% } %>
+        <% const byCat = {}; (aiPlan.places || []).forEach((p) => { (byCat[p.category] = byCat[p.category] || []).push(p); }); %>
+        <% Object.keys(byCat).forEach((cat) => { %>
+          <div class="mb"><h3 class="section-title" style="font-size:17px">📍 <%= cat %></h3>
+            <div class="grid travel-place-grid">
+              <% byCat[cat].forEach((place) => { %>
+                <div class="travel-place-card"><div class="travel-place-icon">📌</div><div><h3><%= place.name %></h3><% if (place.area) { %><span class="badge"><%= place.area %></span><% } %><p class="muted"><%= place.note %></p></div></div>
+              <% }) %>
+            </div>
+          </div>
+        <% }) %>
+        <% if ((aiPlan.itinerary || []).length) { %>
+          <h3 class="section-title mt" style="font-size:17px">🗓️ Lịch trình gợi ý</h3>
+          <% aiPlan.itinerary.forEach((day) => { %>
+            <div class="card-lite p mb"><strong><%= day.day %></strong>
+              <div class="table-wrap"><table class="travel-table"><thead><tr><th>Khung giờ</th><th>Hoạt động</th><th>Ghi chú</th></tr></thead><tbody>
+                <% (day.slots || []).forEach((slot) => { %><tr><td><strong><%= slot.time %></strong></td><td><%= slot.activity %></td><td class="muted"><%= slot.note %></td></tr><% }) %>
+              </tbody></table></div>
+            </div>
+          <% }) %>
+        <% } %>
+      <% } else if (aiConfigured || !isTravelAdmin) { %>
+        <p class="muted text-center">Chưa có gợi ý AI cho chuyến này<%= isTravelAdmin ? '. Bấm "Tạo gợi ý AI" ở trên.' : '.' %></p>
+      <% } %>
     </section>
   <% } %>
 

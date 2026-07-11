@@ -39,6 +39,8 @@ import { TravelController } from './travel/travel.controller';
 import { TravelFinanceController } from './travel/travel-finance.controller';
 import { TravelFinanceService } from './travel/travel-finance.service';
 import { TravelService } from './travel/travel.service';
+import { TravelAiService } from './travel/travel-ai.service';
+import { GeminiService } from './common/gemini.service';
 import { LocalsMiddleware } from './common/locals.middleware';
 import { RateLimitService } from './common/rate-limit.service';
 import { FeatureGuard } from './common/feature.guard';
@@ -67,6 +69,8 @@ import { FeatureGuard } from './common/feature.guard';
     TeamMemberService,
     TravelService,
     TravelFinanceService,
+    TravelAiService,
+    GeminiService,
     MatchGateway,
     LocalsMiddleware,
     RateLimitService,
