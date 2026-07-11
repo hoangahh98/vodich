@@ -31,8 +31,13 @@ window.GameCore = (() => {
         tone(880, 0.1, 0.16);
       } else if (kind === 'wrong') {
         tone(200, 0, 0.22, 'square');
-      } else if (kind === 'win') {
-        [523, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.12, 0.18));
+      } else if (kind === 'win' || kind === 'cheer') {
+        [523, 659, 784, 1046, 1318].forEach((f, i) => tone(f, i * 0.1, 0.2));
+      } else if (kind === 'pop') {
+        tone(880, 0, 0.06);
+        tone(1400, 0.03, 0.08);
+      } else if (kind === 'rustle') {
+        tone(320, 0, 0.12, 'triangle');
       } else {
         tone(440, 0, 0.08);
       }
@@ -70,6 +75,22 @@ window.GameCore = (() => {
       utter.pitch = 1.15; // hơi cao cho giọng nữ, thân thiện với trẻ
       const voice = femaleEnglishVoice();
       if (voice) utter.voice = voice;
+      window.speechSynthesis.speak(utter);
+    } catch (_) {}
+  };
+
+  // Đọc tên vật thể bằng tiếng Việt (dùng cho các game mầm non).
+  const speakVi = (text) => {
+    try {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = 'vi-VN';
+      const voices = window.speechSynthesis.getVoices() || [];
+      const vi = voices.find((v) => (v.lang || '').toLowerCase().startsWith('vi'));
+      if (vi) utter.voice = vi;
+      utter.rate = 0.95;
+      utter.pitch = 1.1;
       window.speechSynthesis.speak(utter);
     } catch (_) {}
   };
@@ -155,5 +176,5 @@ window.GameCore = (() => {
     if (link.classList.contains('game-back')) link.textContent = 'Đang về...';
   });
 
-  return { sound, speak, praise: () => pick(PRAISES), encourage: () => pick(ENCOURAGE), pick, shuffle, confetti, Hud };
+  return { sound, speak, speakVi, praise: () => pick(PRAISES), encourage: () => pick(ENCOURAGE), pick, shuffle, confetti, Hud };
 })();

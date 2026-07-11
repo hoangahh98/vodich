@@ -1,0 +1,43 @@
+<%- include('../partials/head', { title: 'Tiếng Anh nâng cao' }) %>
+<body class="game-body">
+  <div class="game-stage game-stage-advanced" data-game="advanced" data-ai="<%= aiConfigured ? '1' : '0' %>">
+    <header class="game-topbar">
+      <a class="game-back" href="/games">Về</a>
+      <div class="game-hud"><span class="game-stat">🎓 Gia sư AI</span></div>
+    </header>
+
+    <div class="adv-picker">
+      <div class="adv-picker-row" data-scenarios>
+        <button class="adv-chip active" data-scenario="free" type="button">💬 Tự do</button>
+        <button class="adv-chip" data-scenario="interview" type="button">💼 Phỏng vấn</button>
+        <button class="adv-chip" data-scenario="restaurant" type="button">🍽️ Nhà hàng</button>
+        <button class="adv-chip" data-scenario="travel" type="button">✈️ Du lịch</button>
+        <button class="adv-chip" data-scenario="shopping" type="button">🛍️ Mua sắm</button>
+        <button class="adv-chip" data-scenario="doctor" type="button">🩺 Bác sĩ</button>
+        <button class="adv-chip" data-scenario="discussion" type="button">🗣️ Thảo luận</button>
+      </div>
+      <div class="adv-picker-row" data-levels>
+        <button class="adv-chip adv-chip-level active" data-level="beginner" type="button">🌱 Cơ bản</button>
+        <button class="adv-chip adv-chip-level" data-level="intermediate" type="button">⭐ Trung cấp</button>
+        <button class="adv-chip adv-chip-level" data-level="advanced" type="button">🔥 Nâng cao</button>
+      </div>
+    </div>
+
+    <div class="chat-window" data-chat-window>
+      <div class="chat-msg chat-ai"><span class="chat-avatar">🎓</span><div class="chat-bubble">Chọn tình huống &amp; trình độ ở trên, rồi bấm 🎙️ để bắt đầu luyện nói. Bấm "Bắt đầu" để gia sư mở lời trước nhé!</div></div>
+    </div>
+
+    <div class="chat-tip" data-chat-tip></div>
+
+    <div class="chat-controls">
+      <button class="chat-mic" data-chat-mic type="button" title="Nhấn để nói">🎙️</button>
+      <input class="chat-text" data-chat-text type="text" placeholder="Hoặc gõ tiếng Anh ở đây..." autocomplete="off">
+      <button class="chat-send" data-chat-send type="button">Gửi</button>
+    </div>
+    <div class="text-center"><button class="adv-start" data-chat-start type="button">▶ Bắt đầu (AI mở lời)</button></div>
+    <% if (!aiConfigured) { %><div class="chat-warn">Chưa cấu hình AI trên server nên chưa trò chuyện được.</div><% } %>
+  </div>
+  <script src="/js/games-core.js"></script>
+  <script src="/js/games-advanced.js"></script>
+</body>
+</html>
