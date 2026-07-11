@@ -6,11 +6,24 @@
   const hint = stage.querySelector('[data-bubbles-hint]');
 
   const OBJECTS = [
-    { e: '🐶', v: 'con chó' }, { e: '🐱', v: 'con mèo' }, { e: '🍎', v: 'quả táo' }, { e: '🍌', v: 'quả chuối' },
-    { e: '🚗', v: 'ô tô' }, { e: '⚽', v: 'quả bóng' }, { e: '🐟', v: 'con cá' }, { e: '🌸', v: 'bông hoa' },
-    { e: '⭐', v: 'ngôi sao' }, { e: '🎈', v: 'bóng bay' }, { e: '🐘', v: 'con voi' }, { e: '🍓', v: 'quả dâu' },
-    { e: '🦋', v: 'con bướm' }, { e: '☀️', v: 'mặt trời' }, { e: '🐷', v: 'con lợn' }, { e: '🚂', v: 'tàu hỏa' },
-    { e: '🐰', v: 'con thỏ' }, { e: '🍉', v: 'dưa hấu' }, { e: '🐥', v: 'con gà con' }, { e: '🌈', v: 'cầu vồng' },
+    // Xe cộ
+    { e: '🚗', v: 'ô tô' }, { e: '🚓', v: 'xe cảnh sát' }, { e: '🚒', v: 'xe cứu hỏa' }, { e: '🚑', v: 'xe cứu thương' },
+    { e: '🚕', v: 'xe taxi' }, { e: '🚌', v: 'xe buýt' }, { e: '🚚', v: 'xe tải' }, { e: '🚜', v: 'máy cày' },
+    { e: '🏍️', v: 'xe máy' }, { e: '🚲', v: 'xe đạp' }, { e: '🚂', v: 'tàu hỏa' }, { e: '✈️', v: 'máy bay' },
+    { e: '🚁', v: 'trực thăng' }, { e: '🚀', v: 'tên lửa' }, { e: '🚢', v: 'tàu thủy' }, { e: '⛵', v: 'thuyền buồm' },
+    // Động vật
+    { e: '🐶', v: 'con chó' }, { e: '🐱', v: 'con mèo' }, { e: '🐘', v: 'con voi' }, { e: '🦁', v: 'sư tử' },
+    { e: '🐯', v: 'con hổ' }, { e: '🐻', v: 'con gấu' }, { e: '🐼', v: 'gấu trúc' }, { e: '🐨', v: 'gấu túi' },
+    { e: '🦊', v: 'con cáo' }, { e: '🐷', v: 'con lợn' }, { e: '🐮', v: 'con bò' }, { e: '🐴', v: 'con ngựa' },
+    { e: '🐒', v: 'con khỉ' }, { e: '🐰', v: 'con thỏ' }, { e: '🐭', v: 'con chuột' }, { e: '🐸', v: 'con ếch' },
+    { e: '🐔', v: 'con gà' }, { e: '🐥', v: 'gà con' }, { e: '🦆', v: 'con vịt' }, { e: '🦉', v: 'con cú' },
+    { e: '🐧', v: 'chim cánh cụt' }, { e: '🦒', v: 'hươu cao cổ' }, { e: '🦓', v: 'ngựa vằn' }, { e: '🐍', v: 'con rắn' },
+    { e: '🐢', v: 'con rùa' }, { e: '🐝', v: 'con ong' }, { e: '🦋', v: 'con bướm' }, { e: '🐟', v: 'con cá' },
+    { e: '🐳', v: 'cá voi' }, { e: '🦈', v: 'cá mập' }, { e: '🦀', v: 'con cua' }, { e: '🐙', v: 'bạch tuộc' },
+    // Trái cây & thiên nhiên
+    { e: '🍎', v: 'quả táo' }, { e: '🍌', v: 'quả chuối' }, { e: '🍓', v: 'quả dâu' }, { e: '🍉', v: 'dưa hấu' },
+    { e: '🍊', v: 'quả cam' }, { e: '🍇', v: 'chùm nho' }, { e: '🌸', v: 'bông hoa' }, { e: '🌈', v: 'cầu vồng' },
+    { e: '⭐', v: 'ngôi sao' }, { e: '☀️', v: 'mặt trời' }, { e: '🌙', v: 'mặt trăng' }, { e: '⚽', v: 'quả bóng' },
   ];
   const COLORS = ['#ff6b6b', '#feca57', '#48dbfb', '#1dd1a1', '#ff9ff3', '#54a0ff', '#5f27cd', '#00d2d3'];
 

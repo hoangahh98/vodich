@@ -1,0 +1,12 @@
+<%- include('../partials/head', { title: 'Ghép Bóng' }) %>
+<body class="game-body">
+  <div class="shadow-stage" data-game="shadow">
+    <a class="game-back peek-back" href="/games">Về</a>
+    <div class="shadow-hint" data-shadow-hint>Hình này là bóng nào? Chạm vào bóng đúng nhé! 🕵️</div>
+    <div class="shadow-target" data-shadow-target></div>
+    <div class="shadow-options" data-shadow-options></div>
+  </div>
+  <script src="/js/games-core.js"></script>
+  <script src="/js/games-shadow.js"></script>
+</body>
+</html>

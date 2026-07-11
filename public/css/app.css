@@ -740,3 +740,16 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .adv-suggest-actions { display: flex; gap: 8px; margin-top: 10px; }
 .adv-suggest-btn { border: 0; border-radius: 999px; padding: 8px 16px; font-weight: 800; cursor: pointer; background: rgba(255,255,255,.92); color: #22303a; }
 .adv-suggest-use { background: #2ecc71; color: #fff; }
+
+/* ===== Game: Ghép Bóng (shadow matching) ===== */
+.shadow-stage { position: fixed; inset: 0; background: linear-gradient(160deg,#f6d365,#fda085); overflow: hidden; touch-action: manipulation; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5vh; padding: 74px 12px 24px; }
+.shadow-hint { position: fixed; top: 54px; left: 0; right: 0; text-align: center; color: #5a3d00; font-weight: 800; font-size: 18px; padding: 0 12px; }
+.shadow-target { font-size: min(30vw, 150px); line-height: 1; }
+.shadow-pop { animation: shadow-pop .5s ease; }
+@keyframes shadow-pop { 0% { transform: scale(.3); opacity: 0; } 60% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
+.shadow-options { display: flex; flex-wrap: wrap; gap: 4vw; justify-content: center; align-items: center; }
+.shadow-opt { -webkit-appearance: none; appearance: none; border: 0; background: rgba(255,255,255,.4); border-radius: 24px; width: min(27vw, 130px); height: min(27vw, 130px); font-size: min(18vw, 88px); line-height: 1; cursor: pointer; box-shadow: 0 8px 18px rgba(0,0,0,.18); filter: brightness(0) opacity(.7); display: grid; place-items: center; transition: filter .3s, transform .2s; }
+.shadow-opt.shadow-correct { filter: none; background: #fff; animation: shadow-pop .5s ease; }
+.shadow-opt.shadow-wrong { animation: shadow-shake .5s ease; }
+@keyframes shadow-shake { 0%,100% { transform: translateX(0); } 25% { transform: translateX(-9px); } 75% { transform: translateX(9px); } }
+.game-card-shadow { background: linear-gradient(135deg,#5f2c82,#49a09d); }

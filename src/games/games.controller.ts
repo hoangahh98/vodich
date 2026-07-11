@@ -59,10 +59,10 @@ export class GamesController {
     return render(res, 'games/match');
   }
 
-  @Get('/games/hoa-si')
-  scratch(@Req() req: Request, @Res() res: Response) {
+  @Get('/games/ghep-bong')
+  shadowGame(@Req() req: Request, @Res() res: Response) {
     if (!requireUser(req, res)) return;
-    return render(res, 'games/scratch');
+    return render(res, 'games/shadow');
   }
 
   @Get('/games/hoi-thoai')
