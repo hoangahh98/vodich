@@ -137,5 +137,6 @@ export class TournamentController {
   }
 }
 
-// CLIENT chỉ thấy danh sách thành viên (không email), bảng xếp hạng và lịch thi đấu.
-const CLIENT_TOURNAMENT_SECTIONS = ['players', 'ranking', 'schedule'];
+// CLIENT xem được thành viên (ẩn email), quỹ, BXH, lịch và đóng phí (minh bạch tài chính);
+// chỉ mục 'settings' (cấu hình/xóa giải) là dành riêng ADMIN.
+const CLIENT_TOURNAMENT_SECTIONS = ['players', 'fund', 'ranking', 'schedule', 'fees'];
