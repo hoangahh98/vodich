@@ -23,10 +23,19 @@ async function main() {
   for (const model of models) {
     const delegate = prisma[lowerFirst(model.name)];
     if (!delegate?.findMany) continue;
-    const rows = await delegate.findMany();
-    data[model.name] = rows;
-    total += rows.length;
-    console.log(`  ${model.name}: ${rows.length}`);
+    try {
+      const rows = await delegate.findMany();
+      data[model.name] = rows;
+      total += rows.length;
+      console.log(`  ${model.name}: ${rows.length}`);
+    } catch (error) {
+      // Bảng chưa tồn tại (migration chưa deploy) -> bỏ qua, không làm hỏng backup.
+      if (error && (error.code === 'P2021' || error.code === 'P2022')) {
+        console.log(`  ${model.name}: (bỏ qua — bảng chưa có)`);
+      } else {
+        throw error;
+      }
+    }
   }
 
   const dir = path.join(process.cwd(), 'backups');

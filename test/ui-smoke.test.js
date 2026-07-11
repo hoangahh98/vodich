@@ -244,9 +244,14 @@ test('travel views render dashboard and finance detail without overflow-prone pl
   assert.match(overview, /data-travel-trip-id="1"/);
   assert.match(overview, /href="\/travel\/trips\/1\/members"/);
   assert.match(overview, /Tổng ứng trước/);
+  // Thu tiền đã chuyển vào Tổng quan.
+  assert.match(overview, /Đã trả/);
+  assert.match(overview, /\/collections/);
   assert.match(membersAdmin, /danh sách chung/);
   assert.match(membersAdmin, /name="playerId"/);
-  assert.match(membersAdmin, /Đã trả/);
+  // Thành viên: chọn nhiều để xóa cùng lúc.
+  assert.match(membersAdmin, /tmBulkDelete/);
+  assert.match(membersAdmin, /Xóa người đã chọn/);
   assert.match(expensesAdmin, /travel-expense-form/);
   // Client không thấy form thêm khoản chi / thu tiền, nhưng vẫn thấy bảng thành viên.
   assert.doesNotMatch(membersClient, /travel-expense-form/);
