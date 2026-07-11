@@ -636,3 +636,34 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 /* Ô đầu bảng khoản chi: checkbox chọn + tên khoản */
 .travel-exp-check { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
 .travel-exp-check input { margin-top: 3px; width: 18px; height: 18px; flex: 0 0 auto; }
+
+/* ===== Giao diện màu mè (đồng bộ cả app) ===== */
+/* Hero mọi module: nền gradient sống động, chữ trắng */
+.feature-hero { background: linear-gradient(120deg, #4f46e5 0%, #2575fc 55%, #06b6d4 100%); color: #fff; border-left: 0; box-shadow: 0 8px 22px rgba(37,117,252,.28); }
+.feature-hero h1, .feature-hero .section-title { color: #fff; }
+.feature-hero .muted, .feature-hero .strong-muted, .feature-hero p.muted { color: rgba(255,255,255,.9); }
+.feature-hero .feature-icon { background: rgba(255,255,255,.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,.35); color: #fff; }
+.feature-hero-art { background: rgba(255,255,255,.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,.4); }
+.feature-hero .btn-sm { background: rgba(255,255,255,.9); color: #1f2937; border-color: transparent; }
+
+/* Thẻ trang chủ: mỗi module một màu gradient, chữ trắng */
+.home-tile { color: #fff !important; border: 0; box-shadow: 0 8px 20px rgba(0,0,0,.16); transition: transform .15s, box-shadow .15s; }
+.home-tile:hover { transform: translateY(-4px); box-shadow: 0 14px 30px rgba(0,0,0,.24); }
+.home-tile h3 { color: #fff; }
+.home-tile .muted { color: rgba(255,255,255,.9); }
+.home-tile .module-icon { filter: drop-shadow(0 2px 4px rgba(0,0,0,.2)); }
+.ht-tour { background: linear-gradient(135deg,#ff8a00,#ff2d95); }
+.ht-team { background: linear-gradient(135deg,#11998e,#38ef7d); }
+.ht-travel { background: linear-gradient(135deg,#12c2e9,#4568dc); }
+.ht-member { background: linear-gradient(135deg,#8e2de2,#4a00e0); }
+.ht-medical { background: linear-gradient(135deg,#f857a6,#ff5858); }
+.ht-games { background: linear-gradient(135deg,#f7971e,#ffd200); color: #4a3200 !important; }
+.ht-games h3, .ht-games .muted { color: #5a3d00; }
+.ht-perm { background: linear-gradient(135deg,#485563,#29323c); }
+.ht-log { background: linear-gradient(135deg,#3a6073,#16222a); }
+
+/* Cài đặt chat (nhập tên/tuổi người học) */
+.chat-setup { width: 100%; max-width: 640px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.25); border-radius: 14px; padding: 12px; }
+.chat-setup label { color: #fff; font-size: 12px; margin-bottom: 4px; }
+.chat-setup input, .chat-setup select { height: 40px; }
+.chat-setup-toggle { border: 0; background: rgba(255,255,255,.25); color: #fff; border-radius: 999px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; margin-left: 8px; }

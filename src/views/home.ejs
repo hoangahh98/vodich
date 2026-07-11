@@ -9,14 +9,14 @@
     </div>
   </section>
   <div class="grid module-grid">
-    <% if (featureSet.has('TOURNAMENTS')) { %><a class="card-lite module-card" href="/tournaments"><div class="module-icon">🏆</div><h3>Giải Đấu</h3><p class="muted">Thành viên, quỹ, BXH, thi đấu, đóng phí.</p></a><% } %>
-    <% if (featureSet.has('TEAMS')) { %><a class="card-lite module-card" href="/teams"><div class="module-icon"><span class="pickleball-icon" aria-hidden="true"></span></div><h3>Đội Bóng</h3><p class="muted">Thành viên và quỹ tháng.</p></a><% } %>
-    <% if (featureSet.has('TRAVEL')) { %><a class="card-lite module-card" href="/travel"><div class="module-icon">🌴</div><h3>Du Lịch</h3><p class="muted">Mục thu chi chuyến đi.</p></a><% } %>
-    <% if (currentUser && currentUser.role === 'ADMIN' && featureSet.has('TOURNAMENTS')) { %><a class="card-lite module-card" href="/players"><div class="module-icon">👤</div><h3>Thành Viên</h3><p class="muted">Danh sách thành viên dùng chung.</p></a><% } %>
-    <% if (featureSet.has('MEDICAL')) { %><a class="card-lite module-card" href="/medical"><div class="module-icon">🩺</div><h3>Y Tế</h3><p class="muted">Hồ sơ &amp; phân tích đơn thuốc bằng AI.</p></a><% } %>
-    <a class="card-lite module-card" href="/games"><div class="module-icon">🎮</div><h3>Học Vui</h3><p class="muted">Game Toán &amp; Tiếng Anh cho bé.</p></a>
-    <% if (featureSet.has('PERMISSIONS')) { %><a class="card-lite module-card" href="/permissions"><div class="module-icon">⚙️</div><h3>Phân Quyền</h3><p class="muted">Cấp quyền module cho admin.</p></a><% } %>
-    <% if (isRoot) { %><a class="card-lite module-card" href="/logs"><div class="module-icon">🧾</div><h3>Theo Dõi Log</h3><p class="muted">Theo dõi thao tác và lỗi.</p></a><% } %>
+    <% if (featureSet.has('TOURNAMENTS')) { %><a class="card-lite module-card home-tile ht-tour" href="/tournaments"><div class="module-icon">🏆</div><h3>Giải Đấu</h3><p class="muted">Thành viên, quỹ, BXH, thi đấu, đóng phí.</p></a><% } %>
+    <% if (featureSet.has('TEAMS')) { %><a class="card-lite module-card home-tile ht-team" href="/teams"><div class="module-icon"><span class="pickleball-icon" aria-hidden="true"></span></div><h3>Đội Bóng</h3><p class="muted">Thành viên và quỹ tháng.</p></a><% } %>
+    <% if (featureSet.has('TRAVEL')) { %><a class="card-lite module-card home-tile ht-travel" href="/travel"><div class="module-icon">🌴</div><h3>Du Lịch</h3><p class="muted">Mục thu chi chuyến đi.</p></a><% } %>
+    <% if (currentUser && currentUser.role === 'ADMIN' && featureSet.has('TOURNAMENTS')) { %><a class="card-lite module-card home-tile ht-member" href="/players"><div class="module-icon">👤</div><h3>Thành Viên</h3><p class="muted">Danh sách thành viên dùng chung.</p></a><% } %>
+    <% if (featureSet.has('MEDICAL')) { %><a class="card-lite module-card home-tile ht-medical" href="/medical"><div class="module-icon">🩺</div><h3>Y Tế</h3><p class="muted">Hồ sơ &amp; phân tích đơn thuốc bằng AI.</p></a><% } %>
+    <a class="card-lite module-card home-tile ht-games" href="/games"><div class="module-icon">🎮</div><h3>Học Vui</h3><p class="muted">Game Toán &amp; Tiếng Anh cho bé.</p></a>
+    <% if (featureSet.has('PERMISSIONS')) { %><a class="card-lite module-card home-tile ht-perm" href="/permissions"><div class="module-icon">⚙️</div><h3>Phân Quyền</h3><p class="muted">Cấp quyền module cho admin.</p></a><% } %>
+    <% if (isRoot) { %><a class="card-lite module-card home-tile ht-log" href="/logs"><div class="module-icon">🧾</div><h3>Theo Dõi Log</h3><p class="muted">Theo dõi thao tác và lỗi.</p></a><% } %>
   </div>
 </main>
 <%- include('partials/bottom-menu') %>

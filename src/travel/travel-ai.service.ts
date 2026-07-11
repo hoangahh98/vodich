@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma.service';
 
 export interface TravelPlanResult {
   summary: string;
-  places: Array<{ category: string; name: string; area: string; note: string }>;
+  places: Array<{ category: string; name: string; address: string; hours: string; area: string; note: string }>;
   itinerary: Array<{ day: string; slots: Array<{ time: string; activity: string; note: string }> }>;
 }
 
@@ -32,16 +32,23 @@ export class TravelAiService {
       `Trả về JSON đúng schema:`,
       `{`,
       `  "summary": "1-2 câu tổng quan chuyến đi",`,
-      `  "places": [ { "category": "một trong: Quán ăn ngon, Cà phê ngon, Cà phê chụp ảnh đẹp, Khu vui chơi trẻ em, Điểm khám phá, Khách sạn, Ăn vặt/đặc sản", "name": "tên địa điểm", "area": "khu vực/địa chỉ tương đối", "note": "vì sao nên tới, món/điểm nổi bật" } ],`,
+      `  "places": [ { "category": "một trong: Quán ăn ngon, Cà phê ngon, Cà phê chụp ảnh đẹp, Khu vui chơi trẻ em, Điểm khám phá, Khách sạn, Ăn vặt/đặc sản", "name": "tên địa điểm", "address": "địa chỉ CỤ THỂ (số nhà, đường, phường/quận, thành phố nếu biết)", "hours": "giờ mở - đóng cửa, VD 07:00 - 22:00", "area": "khu vực", "note": "vì sao nên tới, món/điểm nổi bật" } ],`,
       `  "itinerary": [ { "day": "Ngày 1", "slots": [ { "time": "Sáng|Trưa|Chiều|Tối", "activity": "làm gì", "note": "gợi ý ngắn" } ] } ]`,
       `}`,
-      `Yêu cầu: mỗi loại địa điểm cho 2-4 gợi ý (ưu tiên chỗ nổi tiếng/đại diện), tổng ~12-20 địa điểm; lịch trình đủ ${days} ngày, mỗi ngày 3-4 khung giờ. Ưu tiên nơi phù hợp có trẻ em nếu nhóm có trẻ. Viết tiếng Việt, ngắn gọn, thực tế. Chỉ trả JSON.`,
+      `Yêu cầu: mỗi loại địa điểm cho 2-4 gợi ý (ưu tiên chỗ nổi tiếng/đại diện), tổng ~12-20 địa điểm; BẮT BUỘC có địa chỉ cụ thể và giờ mở/đóng cửa (nếu không chắc thì ghi ước lượng phổ biến, đừng để trống); lịch trình đủ ${days} ngày, mỗi ngày 3-4 khung giờ. Ưu tiên nơi phù hợp có trẻ em nếu nhóm có trẻ. Viết tiếng Việt, ngắn gọn, thực tế. Chỉ trả JSON.`,
     ].join('\n');
 
     const result = await this.ai.generateJson<TravelPlanResult>(prompt, { temperature: 0.8 });
     const normalized: TravelPlanResult = {
       summary: String(result.summary || ''),
-      places: Array.isArray(result.places) ? result.places.slice(0, 30) : [],
+      places: (Array.isArray(result.places) ? result.places : []).slice(0, 30).map((place) => ({
+        category: String(place.category || 'Khác'),
+        name: String(place.name || ''),
+        address: String(place.address || ''),
+        hours: String(place.hours || ''),
+        area: String(place.area || ''),
+        note: String(place.note || ''),
+      })),
       itinerary: Array.isArray(result.itinerary) ? result.itinerary.slice(0, 10) : [],
     };
     await this.prisma.travelTrip.update({

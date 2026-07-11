@@ -11,6 +11,37 @@
   const messages = [];
   let busy = false;
 
+  // --- Hồ sơ người học (lưu localStorage) ---
+  const setup = stage.querySelector('[data-chat-setup]');
+  const pName = stage.querySelector('[data-p-name]');
+  const pAge = stage.querySelector('[data-p-age]');
+  const pGender = stage.querySelector('[data-p-gender]');
+  const pPartner = stage.querySelector('[data-p-partner]');
+  const partnerLabel = stage.querySelector('[data-partner-label]');
+  const readProfile = () => ({
+    name: (pName.value || '').trim(),
+    age: (pAge.value || '').trim(),
+    gender: (pGender.value || '').trim(),
+    partner: (pPartner.value || '').trim() || 'Emma',
+  });
+  const saveProfile = () => {
+    try { localStorage.setItem('game-chat-profile', JSON.stringify(readProfile())); } catch (_) {}
+    if (partnerLabel) partnerLabel.textContent = readProfile().partner;
+  };
+  try {
+    const saved = JSON.parse(localStorage.getItem('game-chat-profile') || '{}');
+    if (saved.name) pName.value = saved.name;
+    if (saved.age) pAge.value = saved.age;
+    if (saved.gender) pGender.value = saved.gender;
+    if (saved.partner) pPartner.value = saved.partner;
+  } catch (_) {}
+  if (partnerLabel) partnerLabel.textContent = readProfile().partner;
+  [pName, pAge, pGender, pPartner].forEach((el) => el && el.addEventListener('change', saveProfile));
+  const toggleBtn = stage.querySelector('[data-setup-toggle]');
+  if (toggleBtn && setup) toggleBtn.addEventListener('click', () => setup.classList.toggle('hidden'));
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recog = null;
   let listening = false;
@@ -80,7 +111,7 @@
       const res = await fetch('/games/chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ messages }),
+        body: JSON.stringify({ messages, profile: readProfile() }),
       });
       const data = await res.json();
       if (data.reply) {

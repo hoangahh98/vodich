@@ -241,7 +241,7 @@
           <div class="mb"><h3 class="section-title" style="font-size:17px">📍 <%= cat %></h3>
             <div class="grid travel-place-grid">
               <% byCat[cat].forEach((place) => { %>
-                <div class="travel-place-card"><div class="travel-place-icon">📌</div><div><h3><%= place.name %></h3><% if (place.area) { %><span class="badge"><%= place.area %></span><% } %><p class="muted"><%= place.note %></p></div></div>
+                <div class="travel-place-card"><div class="travel-place-icon">📌</div><div><h3><%= place.name %></h3><% if (place.area) { %><span class="badge"><%= place.area %></span><% } %><% if (place.address) { %><p class="muted">📍 <%= place.address %></p><% } %><% if (place.hours) { %><p class="muted">🕒 <%= place.hours %></p><% } %><p class="muted"><%= place.note %></p></div></div>
               <% }) %>
             </div>
           </div>
