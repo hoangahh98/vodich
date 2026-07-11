@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { GeminiService } from '../common/gemini.service';
+import { AiService } from '../common/ai.service';
 
 export interface ExtractedItem {
   drugName: string;
@@ -41,10 +41,10 @@ const MED_DISCLAIMER =
 
 @Injectable()
 export class MedicalAiService {
-  constructor(private readonly gemini: GeminiService) {}
+  constructor(private readonly ai: AiService) {}
 
   isConfigured() {
-    return this.gemini.isConfigured();
+    return this.ai.isConfigured();
   }
 
   disclaimer() {
@@ -59,7 +59,7 @@ export class MedicalAiService {
       '  "items": [ { "drugName": "tên thuốc (kèm hàm lượng nếu có)", "isAntibiotic": true/false, "dosage": "liều mỗi lần", "frequency": "số lần/ngày, cách dùng", "duration": "số ngày dùng", "note": "ghi chú" } ] }',
       'Quy tắc: liệt kê MỌI thuốc thấy trong đơn. isAntibiotic=true nếu là kháng sinh (amoxicillin, augmentin, cefixim, azithromycin, cephalexin...). Nếu ảnh mờ/không đọc được thì trả items rỗng. Chỉ trả JSON, không giải thích.',
     ].join('\n');
-    const result = await this.gemini.generateJson<ExtractedPrescription>(prompt, {
+    const result = await this.ai.generateJson<ExtractedPrescription>(prompt, {
       images: [{ mimeType, data: imageBase64 }],
       temperature: 0.1,
     });
@@ -85,7 +85,7 @@ export class MedicalAiService {
       'Trả về JSON: { "risk": "LOW|MEDIUM|HIGH", "summary": "phân tích bằng tiếng Việt, gạch đầu dòng ngắn gọn theo 5 mục trên, nêu rõ nếu KHÔNG có vấn đề" }.',
       `Bắt buộc kết thúc summary bằng đúng câu: "${MED_DISCLAIMER}". Chỉ trả JSON.`,
     ].join('\n');
-    const result = await this.gemini.generateJson<SafetyAnalysis>(prompt, { temperature: 0.3 });
+    const result = await this.ai.generateJson<SafetyAnalysis>(prompt, { temperature: 0.3 });
     const risk = ['LOW', 'MEDIUM', 'HIGH'].includes(result.risk) ? result.risk : 'MEDIUM';
     let summary = String(result.summary || '').trim();
     if (!summary.includes('KHÔNG thay thế')) summary = `${summary}\n\n${MED_DISCLAIMER}`;

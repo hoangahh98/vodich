@@ -1,0 +1,118 @@
+import { Injectable } from '@nestjs/common';
+
+/**
+ * Client gọi AI qua Groq (chuẩn OpenAI, không cần thẻ). Cần env GROQ_API_KEY.
+ * - Model text mặc định: llama-3.3-70b-versatile (đổi qua GROQ_MODEL).
+ * - Model đọc ảnh mặc định: llama-4-scout (đổi qua GROQ_VISION_MODEL) — dùng cho đơn thuốc.
+ */
+export interface AiImage {
+  mimeType: string;
+  data: string; // base64 (không có tiền tố data:)
+}
+
+export interface AiOptions {
+  json?: boolean;
+  images?: AiImage[];
+  model?: string;
+  temperature?: number;
+}
+
+const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+
+@Injectable()
+export class AiService {
+  isConfigured(): boolean {
+    return Boolean((process.env.GROQ_API_KEY || '').trim());
+  }
+
+  private textModel() {
+    return process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
+  }
+
+  private visionModel() {
+    return process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+  }
+
+  async generate(prompt: string, options: AiOptions = {}): Promise<string> {
+    const key = (process.env.GROQ_API_KEY || '').trim();
+    if (!key) throw new Error('Chưa cấu hình GROQ_API_KEY. Hãy đặt biến môi trường này để dùng tính năng AI.');
+
+    const hasImages = Boolean(options.images && options.images.length);
+    const model = options.model || (hasImages ? this.visionModel() : this.textModel());
+
+    const content: unknown = hasImages
+      ? [
+          { type: 'text', text: prompt },
+          ...options.images!.map((image) => ({ type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.data}` } })),
+        ]
+      : prompt;
+
+    const body: Record<string, unknown> = {
+      model,
+      messages: [{ role: 'user', content }],
+      temperature: options.temperature ?? 0.7,
+      // response_format json chỉ dùng khi không kèm ảnh (model vision có thể không hỗ trợ).
+      ...(options.json && !hasImages ? { response_format: { type: 'json_object' } } : {}),
+    };
+
+    const maxAttempts = 3;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const response = await fetch(ENDPOINT, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+        body: JSON.stringify(body),
+      });
+
+      if (response.ok) {
+        const payload = (await response.json()) as GroqResponse;
+        const text = payload.choices?.[0]?.message?.content || '';
+        if (!text) throw new Error('AI không trả về nội dung.');
+        return text;
+      }
+
+      const detail = await response.text().catch(() => '');
+      if ((response.status === 429 || response.status === 503) && attempt < maxAttempts) {
+        await sleep(attempt * 1200);
+        continue;
+      }
+      throw new Error(friendlyError(response.status, detail));
+    }
+    throw new Error(friendlyError(429, ''));
+  }
+
+  async generateJson<T>(prompt: string, options: AiOptions = {}): Promise<T> {
+    const raw = await this.generate(prompt, { ...options, json: true });
+    try {
+      return JSON.parse(stripCodeFence(raw)) as T;
+    } catch {
+      throw new Error('Không đọc được JSON từ AI.');
+    }
+  }
+}
+
+interface GroqResponse {
+  choices?: Array<{ message?: { content?: string } }>;
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function friendlyError(status: number, detail: string): string {
+  if (status === 429) return 'AI đang bận (hết lượt tạm thời). Thử lại sau ít phút nhé.';
+  if (status === 503) return 'AI đang quá tải, thử lại sau chút nhé.';
+  if (status === 401 || (status === 400 && /api key|invalid/i.test(detail))) return 'GROQ_API_KEY không hợp lệ.';
+  return `AI lỗi ${status}: ${detail.slice(0, 200)}`;
+}
+
+function stripCodeFence(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.startsWith('```')) {
+    return trimmed.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+  }
+  // Lấy đoạn JSON đầu tiên nếu model chèn text quanh nó.
+  const first = trimmed.indexOf('{');
+  const last = trimmed.lastIndexOf('}');
+  if (first > 0 && last > first) return trimmed.slice(first, last + 1);
+  return trimmed;
+}

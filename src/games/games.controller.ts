@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { requireUser } from '../common/controller-utils';
-import { GeminiService } from '../common/gemini.service';
+import { AiService } from '../common/ai.service';
 import { render } from '../common/view';
 
 interface ChatTurn {
@@ -11,7 +11,7 @@ interface ChatTurn {
 
 @Controller()
 export class GamesController {
-  constructor(private readonly gemini: GeminiService) {}
+  constructor(private readonly ai: AiService) {}
 
   @Get('/games')
   hub(@Req() req: Request, @Res() res: Response) {
@@ -34,13 +34,13 @@ export class GamesController {
   @Get('/games/hoi-thoai')
   chatPage(@Req() req: Request, @Res() res: Response) {
     if (!requireUser(req, res)) return;
-    return render(res, 'games/chat', { aiConfigured: this.gemini.isConfigured() });
+    return render(res, 'games/chat', { aiConfigured: this.ai.isConfigured() });
   }
 
   @Post('/games/chat')
   async chat(@Req() req: Request, @Res() res: Response, @Body() body: { messages?: ChatTurn[] }) {
     if (!req.session.user) return res.status(401).json({ error: 'Cần đăng nhập' });
-    if (!this.gemini.isConfigured()) return res.status(503).json({ error: 'Chưa cấu hình AI trên server.' });
+    if (!this.ai.isConfigured()) return res.status(503).json({ error: 'Chưa cấu hình AI trên server.' });
     const history = Array.isArray(body.messages) ? body.messages.slice(-12) : [];
     const transcript = history.map((turn) => `${turn.role === 'user' ? 'Bé' : 'Emma'}: ${String(turn.text || '').slice(0, 500)}`).join('\n');
     const prompt = [
@@ -54,7 +54,7 @@ export class GamesController {
       transcript ? `Hội thoại đến giờ:\n${transcript}` : 'Bé vừa mở cuộc trò chuyện, hãy chào và hỏi tên bé.',
     ].join('\n');
     try {
-      const result = await this.gemini.generateJson<{ reply: string; tip?: string }>(prompt, { temperature: 0.8 });
+      const result = await this.ai.generateJson<{ reply: string; tip?: string }>(prompt, { temperature: 0.8 });
       return res.json({ reply: String(result.reply || '').trim() || 'Hi there!', tip: String(result.tip || '').trim() });
     } catch (error) {
       return res.status(502).json({ error: error instanceof Error ? error.message : 'AI lỗi' });

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { GeminiService } from '../common/gemini.service';
+import { AiService } from '../common/ai.service';
 import { PrismaService } from '../prisma.service';
 
 export interface TravelPlanResult {
@@ -11,12 +11,12 @@ export interface TravelPlanResult {
 @Injectable()
 export class TravelAiService {
   constructor(
-    private readonly gemini: GeminiService,
+    private readonly ai: AiService,
     private readonly prisma: PrismaService,
   ) {}
 
   isConfigured() {
-    return this.gemini.isConfigured();
+    return this.ai.isConfigured();
   }
 
   /** Sinh gợi ý địa điểm + lịch trình cho một chuyến đi và lưu vào chuyến đó. */
@@ -38,7 +38,7 @@ export class TravelAiService {
       `Yêu cầu: mỗi loại địa điểm cho 2-4 gợi ý (ưu tiên chỗ nổi tiếng/đại diện), tổng ~12-20 địa điểm; lịch trình đủ ${days} ngày, mỗi ngày 3-4 khung giờ. Ưu tiên nơi phù hợp có trẻ em nếu nhóm có trẻ. Viết tiếng Việt, ngắn gọn, thực tế. Chỉ trả JSON.`,
     ].join('\n');
 
-    const result = await this.gemini.generateJson<TravelPlanResult>(prompt, { temperature: 0.8 });
+    const result = await this.ai.generateJson<TravelPlanResult>(prompt, { temperature: 0.8 });
     const normalized: TravelPlanResult = {
       summary: String(result.summary || ''),
       places: Array.isArray(result.places) ? result.places.slice(0, 30) : [],
