@@ -49,6 +49,17 @@ export class TravelFinanceController {
     return res.redirect(`/travel/trips/${tripId}/members`);
   }
 
+  @Post('/travel/trips/:id/members/bulk-delete')
+  async bulkDeleteMembers(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string | string[]>) {
+    const tripId = await this.manageableTrip(req, res, id);
+    if (!tripId) return;
+    const raw = Array.isArray(body.memberId) ? body.memberId : body.memberId ? [body.memberId] : [];
+    const memberIds = raw.map((value) => parseBigId(value)).filter((value): value is bigint => value !== null);
+    await this.finance.deleteMembers(tripId, memberIds);
+    this.gateway.emitTravelTripUpdated(id, 'members-deleted');
+    return res.redirect(`/travel/trips/${id}/members`);
+  }
+
   @Post('/travel/trips/:id/treasurer')
   async setTreasurer(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('treasurerMemberId') treasurerMemberId: string) {
     const tripId = await this.manageableTrip(req, res, id);

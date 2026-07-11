@@ -72,9 +72,16 @@ export class TravelFinanceService {
   }
 
   async deleteMember(tripId: bigint, memberId: bigint) {
+    await this.deleteMembers(tripId, [memberId]);
+  }
+
+  /** Xóa (ẩn) nhiều thành viên cùng lúc, bỏ thủ quỹ nếu nằm trong danh sách. */
+  async deleteMembers(tripId: bigint, memberIds: bigint[]) {
+    const ids = [...new Set(memberIds.map((id) => id.toString()))].map((id) => BigInt(id));
+    if (!ids.length) return;
     await this.prisma.$transaction([
-      this.prisma.travelTrip.updateMany({ where: { id: tripId, treasurerMemberId: memberId }, data: { treasurerMemberId: null } }),
-      this.prisma.travelTripMember.update({ where: { id: memberId, tripId }, data: { active: false } }),
+      this.prisma.travelTrip.updateMany({ where: { id: tripId, treasurerMemberId: { in: ids } }, data: { treasurerMemberId: null } }),
+      this.prisma.travelTripMember.updateMany({ where: { id: { in: ids }, tripId }, data: { active: false } }),
     ]);
     await this.rebalanceSharedExpenses(tripId);
   }
