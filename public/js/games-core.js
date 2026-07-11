@@ -94,22 +94,31 @@ window.GameCore = (() => {
 
   // Đọc tên vật thể bằng tiếng Việt (dùng cho các game mầm non).
   const speakVi = (text) => {
-    try {
-      const synth = window.speechSynthesis;
-      if (!synth) return;
-      warmTts();
-      // Chỉ hủy khi đang dồn nhiều câu (tránh cancel() làm rớt câu đơn trên mobile).
-      if (synth.speaking && synth.pending) synth.cancel();
-      const utter = new SpeechSynthesisUtterance(text);
-      utter.lang = 'vi-VN';
-      const voices = synth.getVoices() || [];
-      const vi = voices.find((v) => (v.lang || '').toLowerCase().startsWith('vi'));
-      if (vi) utter.voice = vi;
-      utter.rate = 0.95;
-      utter.pitch = 1.1;
-      synth.resume();
-      synth.speak(utter);
-    } catch (_) {}
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+    warmTts();
+    const doSpeak = () => {
+      try {
+        if (synth.speaking && synth.pending) synth.cancel();
+        const utter = new SpeechSynthesisUtterance(text);
+        const voices = synth.getVoices() || [];
+        const vi = voices.find((v) => (v.lang || '').toLowerCase().startsWith('vi'));
+        if (vi) {
+          utter.voice = vi;
+          utter.lang = 'vi-VN';
+        } else {
+          // KHÔNG có giọng Việt: để mặc định (đừng ép vi-VN kẻo im lặng) -> vẫn ra tiếng.
+          utter.voice = voices[0] || null;
+        }
+        utter.rate = 0.95;
+        utter.pitch = 1.1;
+        synth.resume();
+        synth.speak(utter);
+      } catch (_) {}
+    };
+    // Trên mobile getVoices() có thể rỗng lúc đầu (nạp bất đồng bộ) -> chờ chút.
+    if ((synth.getVoices() || []).length === 0) setTimeout(doSpeak, 150);
+    else doSpeak();
   };
 
   const PRAISES = ['Giỏi quá! 🎉', 'Tuyệt vời! 🌟', 'Chính xác! 👏', 'Siêu ghê! 🚀', 'Đỉnh của chóp! 🏆', 'Bé thông minh! 🧠'];

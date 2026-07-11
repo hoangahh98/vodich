@@ -42,7 +42,8 @@
       bubble.classList.add('bubble-pop');
       setTimeout(() => bubble.remove(), 260);
     };
-    bubble.addEventListener('pointerdown', onPop);
+    // Dùng 'click' (không phải 'pointerdown'): iOS chỉ cho phép đọc tiếng nói từ click/touchend.
+    bubble.addEventListener('click', onPop);
     bubble.addEventListener('animationend', () => bubble.remove());
     layer.appendChild(bubble);
   }
