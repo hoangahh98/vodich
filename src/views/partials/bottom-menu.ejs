@@ -4,6 +4,7 @@
     <% const currentPath = path || '/'; %>
     <% if (currentPath === '/') { %>
       <a class="" href="/score-reader">🔊 Đọc điểm</a>
+      <a class="" href="/games">🎮 Học vui</a>
       <% if (featureSet.has('TOURNAMENTS')) { %><a class="" href="/tournaments">🏆 Giải đấu</a><% } %>
       <% if (featureSet.has('TEAMS')) { %><a class="" href="/teams"><span class="pickleball-icon" aria-hidden="true"></span> Đội bóng</a><% } %>
       <% if (featureSet.has('TRAVEL')) { %><a class="" href="/travel">🌴 Du lịch</a><% } %>

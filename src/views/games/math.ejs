@@ -1,0 +1,29 @@
+<%- include('../partials/head', { title: 'Toán vui' }) %>
+<body class="game-body">
+  <div class="game-stage game-stage-math" data-game="math">
+    <header class="game-topbar">
+      <a class="game-back" href="/games">← Về</a>
+      <div class="game-hud">
+        <span class="game-stat">⭐ <b data-score>0</b></span>
+        <span class="game-stat">🔥 <b data-streak>0</b></span>
+        <span class="game-stat">🏆 <b data-best>0</b></span>
+      </div>
+    </header>
+
+    <div class="game-levels" data-levels>
+      <button class="game-level active" data-level="easy">😀 Dễ</button>
+      <button class="game-level" data-level="medium">😎 Vừa</button>
+      <button class="game-level" data-level="hard">🤓 Khó</button>
+    </div>
+
+    <div class="game-panel">
+      <div class="game-visual" data-visual></div>
+      <div class="game-question" data-question>Sẵn sàng chưa? 🚀</div>
+      <div class="game-choices" data-choices></div>
+      <div class="game-feedback" data-feedback></div>
+    </div>
+  </div>
+  <script src="/js/games-core.js"></script>
+  <script src="/js/games-math.js"></script>
+</body>
+</html>

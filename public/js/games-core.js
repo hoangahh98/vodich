@@ -1,0 +1,125 @@
+// Tiện ích dùng chung cho các game trẻ em: âm thanh, phát âm, confetti, khen, HUD.
+window.GameCore = (() => {
+  let audioCtx = null;
+  const ensureAudio = () => {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) audioCtx = new Ctx();
+    }
+    return audioCtx;
+  };
+
+  const tone = (freq, start, duration, type = 'sine') => {
+    const ctx = ensureAudio();
+    if (!ctx) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.001, ctx.currentTime + start);
+    gain.gain.exponentialRampToValueAtTime(0.25, ctx.currentTime + start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + start + duration);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(ctx.currentTime + start);
+    osc.stop(ctx.currentTime + start + duration);
+  };
+
+  const sound = (kind) => {
+    try {
+      if (kind === 'correct') {
+        tone(660, 0, 0.12);
+        tone(880, 0.1, 0.16);
+      } else if (kind === 'wrong') {
+        tone(200, 0, 0.22, 'square');
+      } else if (kind === 'win') {
+        [523, 659, 784, 1046].forEach((f, i) => tone(f, i * 0.12, 0.18));
+      } else {
+        tone(440, 0, 0.08);
+      }
+    } catch (_) {}
+  };
+
+  const speak = (text, lang = 'en-US') => {
+    try {
+      if (!window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = lang;
+      utter.rate = 0.9;
+      window.speechSynthesis.speak(utter);
+    } catch (_) {}
+  };
+
+  const PRAISES = ['Giỏi quá! 🎉', 'Tuyệt vời! 🌟', 'Chính xác! 👏', 'Siêu ghê! 🚀', 'Đỉnh của chóp! 🏆', 'Bé thông minh! 🧠'];
+  const ENCOURAGE = ['Gần đúng rồi, thử lại nhé! 💪', 'Không sao đâu, cố lên! 🌈', 'Suýt nữa rồi! 😊'];
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const shuffle = (arr) => {
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  };
+
+  const confetti = () => {
+    const emojis = ['🎉', '⭐', '🎈', '🌟', '✨', '🥳', '🍭'];
+    for (let i = 0; i < 18; i++) {
+      const span = document.createElement('span');
+      span.className = 'game-confetti';
+      span.textContent = pick(emojis);
+      span.style.left = Math.random() * 100 + 'vw';
+      span.style.animationDelay = Math.random() * 0.3 + 's';
+      span.style.fontSize = 18 + Math.random() * 22 + 'px';
+      document.body.appendChild(span);
+      setTimeout(() => span.remove(), 1600);
+    }
+  };
+
+  class Hud {
+    constructor(stage, storageKey) {
+      this.stage = stage;
+      this.storageKey = storageKey;
+      this.score = 0;
+      this.streak = 0;
+      this.best = Number(this.read()) || 0;
+      this.render();
+    }
+    read() {
+      try {
+        return localStorage.getItem(this.storageKey);
+      } catch (_) {
+        return 0;
+      }
+    }
+    write(value) {
+      try {
+        localStorage.setItem(this.storageKey, String(value));
+      } catch (_) {}
+    }
+    correct() {
+      this.score += 1;
+      this.streak += 1;
+      if (this.score > this.best) {
+        this.best = this.score;
+        this.write(this.best);
+      }
+      this.render();
+    }
+    wrong() {
+      this.streak = 0;
+      this.render();
+    }
+    render() {
+      const set = (sel, val) => {
+        const el = this.stage.querySelector(sel);
+        if (el) el.textContent = val;
+      };
+      set('[data-score]', this.score);
+      set('[data-streak]', this.streak);
+      set('[data-best]', this.best);
+    }
+  }
+
+  return { sound, speak, praise: () => pick(PRAISES), encourage: () => pick(ENCOURAGE), pick, shuffle, confetti, Hud };
+})();

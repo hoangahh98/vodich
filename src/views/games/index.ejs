@@ -1,0 +1,26 @@
+<%- include('../partials/head', { title: 'Học vui' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div><h1>🎮 Học vui cùng bé</h1><div class="muted strong-muted">Chọn trò chơi để bé vừa chơi vừa học Toán và Tiếng Anh nhé!</div></div>
+      <div class="feature-hero-art">🧸</div>
+    </div>
+  </section>
+
+  <div class="grid game-hub">
+    <a class="game-card game-card-math" href="/games/toan">
+      <div class="game-card-emoji">🔢</div>
+      <h2>Toán vui</h2>
+      <p>Cộng, trừ, nhân — chọn đáp án đúng để ăn sao ⭐</p>
+      <span class="game-card-go">Chơi ngay →</span>
+    </a>
+    <a class="game-card game-card-english" href="/games/tieng-anh">
+      <div class="game-card-emoji">🔤</div>
+      <h2>Tiếng Anh vui</h2>
+      <p>Nhìn hình đoán từ, nghe đọc và chọn đúng 🗣️</p>
+      <span class="game-card-go">Chơi ngay →</span>
+    </a>
+  </div>
+</main>
+<%- include('../partials/bottom-menu') %>
