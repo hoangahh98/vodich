@@ -218,7 +218,7 @@ test('travel views render dashboard and finance detail without overflow-prone pl
     trip: { id: 1n, name: 'Trip', description: 'Note', destinationId: 1n, destination: { name: 'Đà Nẵng' }, treasurerMemberId: 1n, permissions: [] },
     members: [member],
     expenses: [{ id: 1n, title: 'Ẩm thực', amount: 200, note: 'Bữa tối', spentDate: new Date(), paidByMemberId: 1n, paidByMember: member, splits: [{ memberId: 1n, amount: 200 }] }],
-    availablePlayers: [],
+    availablePlayers: [{ id: 9n, displayName: 'Bình', email: 'binh@test' }],
     admins: [],
     destinations: [{ id: 1n, name: 'Đà Nẵng' }],
     destinationSuggestions: [{ id: 1n, category: 'Quán ăn ngon', name: 'Mì Quảng', address: 'Đà Nẵng', description: '', mapUrl: '' }],
@@ -244,7 +244,8 @@ test('travel views render dashboard and finance detail without overflow-prone pl
   assert.match(overview, /data-travel-trip-id="1"/);
   assert.match(overview, /href="\/travel\/trips\/1\/members"/);
   assert.match(overview, /Tổng ứng trước/);
-  assert.match(membersAdmin, /Chọn từ danh sách/);
+  assert.match(membersAdmin, /danh sách chung/);
+  assert.match(membersAdmin, /name="playerId"/);
   assert.match(membersAdmin, /Đã trả/);
   assert.match(expensesAdmin, /travel-expense-form/);
   // Client không thấy form thêm khoản chi / thu tiền, nhưng vẫn thấy bảng thành viên.

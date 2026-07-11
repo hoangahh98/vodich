@@ -46,11 +46,21 @@
     <% if (isTravelAdmin) { %>
       <section class="card-lite p mb">
         <div class="section-heading mb"><div><span class="feature-icon">➕</span><h2 class="section-title">Thêm thành viên</h2></div></div>
+        <% if (availablePlayers.length) { %>
+          <form class="mb" method="post" action="/travel/trips/<%= trip.id %>/members" data-require-checked="playerId">
+            <label class="muted">Chọn từ danh sách chung (tích nhiều người một lúc)</label>
+            <div class="player-check-list mb" data-player-picker>
+              <% availablePlayers.forEach((player) => { %>
+                <label><input type="checkbox" name="playerId" value="<%= player.id %>"><span><strong><%= player.displayName %></strong><small><%= player.email || 'Chưa có email' %></small></span></label>
+              <% }) %>
+            </div>
+            <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm người đã chọn</button>
+          </form>
+        <% } %>
         <form class="travel-member-form mb" method="post" action="/travel/trips/<%= trip.id %>/members">
-          <div><label>Chọn từ danh sách</label><select name="playerId"><option value="">Thêm nhanh bên dưới</option><% availablePlayers.forEach((player) => { %><option value="<%= player.id %>"><%= player.displayName %><%= player.email ? ' - ' + player.email : '' %></option><% }) %></select></div>
-          <div><label>Tên nhanh</label><input name="name" placeholder="Tên thành viên"></div>
-          <div><label>Email</label><input name="email" type="email" placeholder="Để người đó xem được"></div>
-          <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button>
+          <div><label>Thêm nhanh (ngoài danh sách)</label><input name="name" placeholder="Tên thành viên"></div>
+          <div><label>Email</label><input name="email" type="email" placeholder="Có email sẽ tự lưu vào danh sách chung"></div>
+          <button class="btn btn-outline" data-loading-text="Đang thêm...">Thêm nhanh</button>
         </form>
         <div class="travel-member-list">
           <% members.forEach((member) => { %>

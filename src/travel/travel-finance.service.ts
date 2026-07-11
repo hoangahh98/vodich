@@ -19,20 +19,26 @@ export class TravelFinanceService {
     return this.summaryBuilder.build(members, expenses, treasurerMemberId);
   }
 
-  /** Thêm thành viên từ danh sách chung (Player). */
-  async addMemberFromPlayer(tripId: bigint, playerId: bigint) {
-    const player = await this.prisma.player.findUniqueOrThrow({ where: { id: playerId } });
-    const member = await this.prisma.travelTripMember.create({
-      data: {
-        tripId,
-        playerId: player.id,
-        name: player.displayName,
-        email: player.email,
-        collections: { create: { tripId, amount: 0 } },
-      },
-    });
+  /** Thêm nhiều thành viên từ danh sách chung (Player) trong một lần. */
+  async addMembersFromPlayers(tripId: bigint, playerIds: bigint[]) {
+    const uniqueIds = [...new Set(playerIds.map((id) => id.toString()))].map((id) => BigInt(id));
+    if (!uniqueIds.length) return 0;
+    const [players, existing] = await Promise.all([
+      this.prisma.player.findMany({ where: { id: { in: uniqueIds } } }),
+      this.prisma.travelTripMember.findMany({ where: { tripId, active: true, playerId: { in: uniqueIds } }, select: { playerId: true } }),
+    ]);
+    const existingSet = new Set(existing.map((member) => member.playerId?.toString()));
+    const toAdd = players.filter((player) => !existingSet.has(player.id.toString()));
+    if (!toAdd.length) return 0;
+    await this.prisma.$transaction(
+      toAdd.map((player) =>
+        this.prisma.travelTripMember.create({
+          data: { tripId, playerId: player.id, name: player.displayName, email: player.email, collections: { create: { tripId, amount: 0 } } },
+        }),
+      ),
+    );
     await this.rebalanceSharedExpenses(tripId);
-    return member;
+    return toAdd.length;
   }
 
   /** Thêm nhanh bằng tên/email; nếu có email thì gắn/tạo vào danh sách chung (Player). */
