@@ -71,6 +71,28 @@ export class TravelFinanceService {
     return this.prisma.travelTripMember.update({ where: { id: memberId, tripId }, data: { name, email } });
   }
 
+  /** Lưu tên/email của TẤT CẢ thành viên cùng lúc (form name_<id>, email_<id>). */
+  async updateMembers(tripId: bigint, body: Record<string, string>) {
+    const ids = Object.keys(body)
+      .filter((key) => key.startsWith('name_'))
+      .map((key) => key.slice(5))
+      .filter((id) => /^\d+$/.test(id))
+      .map((id) => BigInt(id));
+    if (!ids.length) return;
+    const valid = await this.prisma.travelTripMember.findMany({ where: { tripId, active: true, id: { in: ids } }, select: { id: true } });
+    const updates = valid.map((member) => {
+      const id = member.id;
+      return this.prisma.travelTripMember.update({
+        where: { id },
+        data: {
+          name: clean(body[`name_${id}`]) || 'Chưa đặt tên',
+          email: clean(body[`email_${id}`]).toLowerCase(),
+        },
+      });
+    });
+    if (updates.length) await this.prisma.$transaction(updates);
+  }
+
   async deleteMember(tripId: bigint, memberId: bigint) {
     await this.deleteMembers(tripId, [memberId]);
   }

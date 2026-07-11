@@ -109,19 +109,24 @@
           <button class="btn btn-outline" data-loading-text="Đang thêm...">Thêm nhanh</button>
         </form>
         <% if (members.length) { %>
-          <form id="tmBulkDelete" method="post" action="/travel/trips/<%= trip.id %>/members/bulk-delete" data-require-checked="memberId" data-confirm="Xóa những thành viên đã chọn?"></form>
-          <div class="travel-member-list">
+          <form id="tmEdit" method="post" action="/travel/trips/<%= trip.id %>/members/bulk-edit"></form>
+          <form id="tmDelete" method="post" action="/travel/trips/<%= trip.id %>/members/bulk-delete" data-require-checked="memberId" data-confirm="Xóa những thành viên đã tích?"></form>
+          <div class="travel-member-list" data-member-list>
+            <div class="travel-member-row travel-member-head muted">
+              <span>Chọn</span><span>Tên</span><span>Email</span>
+            </div>
             <% members.forEach((member) => { %>
-              <form class="travel-member-row" method="post" action="/travel/trips/<%= trip.id %>/members/<%= member.id %>/edit">
-                <input type="checkbox" form="tmBulkDelete" name="memberId" value="<%= member.id %>" aria-label="Chọn <%= member.name %>">
-                <div><input name="name" value="<%= member.name %>" required></div>
-                <div><input name="email" type="email" value="<%= member.email %>" placeholder="Email"></div>
-                <button class="btn btn-sm" data-loading-text="Đang lưu...">Lưu</button>
-                <button class="btn btn-sm btn-danger" formaction="/travel/trips/<%= trip.id %>/members/<%= member.id %>/delete" data-confirm="Xóa thành viên này?" data-loading-text="Đang xóa...">Xóa</button>
-              </form>
+              <div class="travel-member-row">
+                <input type="checkbox" form="tmDelete" name="memberId" value="<%= member.id %>" aria-label="Chọn <%= member.name %>">
+                <div><input form="tmEdit" name="name_<%= member.id %>" value="<%= member.name %>" required></div>
+                <div><input form="tmEdit" name="email_<%= member.id %>" type="email" value="<%= member.email %>" placeholder="Email"></div>
+              </div>
             <% }) %>
           </div>
-          <div class="text-right mt"><button class="btn btn-danger btn-sm" form="tmBulkDelete" data-loading-text="Đang xóa...">🗑️ Xóa người đã chọn</button></div>
+          <div class="flex between center mt gap">
+            <button class="btn btn-danger btn-sm" type="submit" form="tmDelete" data-loading-text="Đang xóa...">🗑️ Xóa đã tích</button>
+            <button class="btn btn-success" type="submit" form="tmEdit" data-dirty-save disabled data-loading-text="Đang lưu...">💾 Lưu thay đổi</button>
+          </div>
         <% } else { %>
           <p class="muted">Chưa có thành viên. Thêm từ danh sách hoặc nhập nhanh phía trên.</p>
         <% } %>

@@ -249,9 +249,11 @@ test('travel views render dashboard and finance detail without overflow-prone pl
   assert.match(overview, /\/collections/);
   assert.match(membersAdmin, /danh sách chung/);
   assert.match(membersAdmin, /name="playerId"/);
-  // Thành viên: chọn nhiều để xóa cùng lúc.
-  assert.match(membersAdmin, /tmBulkDelete/);
-  assert.match(membersAdmin, /Xóa người đã chọn/);
+  // Thành viên: 2 nút chung ở dưới (lưu full + xóa đã tích), inline theo id.
+  assert.match(membersAdmin, /Xóa đã tích/);
+  assert.match(membersAdmin, /Lưu thay đổi/);
+  assert.match(membersAdmin, /name="name_9"|name="name_1"/);
+  assert.doesNotMatch(membersAdmin, /members\/1\/edit/);
   assert.match(expensesAdmin, /travel-expense-form/);
   // Client không thấy form thêm khoản chi / thu tiền, nhưng vẫn thấy bảng thành viên.
   assert.doesNotMatch(membersClient, /travel-expense-form/);

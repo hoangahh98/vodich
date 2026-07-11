@@ -72,16 +72,16 @@
 
   <details class="card-lite p mb">
     <summary><strong>✏️ Sửa thông tin / xóa người thân</strong></summary>
-    <form class="row mt" method="post" action="/medical/patients/<%= patient.id %>/edit">
-      <div class="col-4"><label>Họ tên</label><input name="name" value="<%= patient.name %>" required></div>
-      <div class="col-2"><label>Năm sinh</label><input name="birthYear" type="number" value="<%= patient.birthYear || '' %>"></div>
-      <div class="col-2"><label>Giới tính</label><select name="gender"><option value="">--</option><option value="Nam" <%= patient.gender==='Nam'?'selected':'' %>>Nam</option><option value="Nữ" <%= patient.gender==='Nữ'?'selected':'' %>>Nữ</option></select></div>
-      <div class="col-4"><label>Dị ứng</label><input name="allergies" value="<%= patient.allergies || '' %>"></div>
-      <div class="col-6"><label>Bệnh nền</label><input name="conditions" value="<%= patient.conditions || '' %>"></div>
-      <div class="col-6"><label>Ghi chú</label><input name="notes" value="<%= patient.notes || '' %>"></div>
-      <div class="col-12 flex between"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu</button></div>
+    <form class="medical-form mt" method="post" action="/medical/patients/<%= patient.id %>/edit">
+      <div><label>Họ tên</label><input name="name" value="<%= patient.name %>" required></div>
+      <div><label>Năm sinh</label><input name="birthYear" type="number" value="<%= patient.birthYear || '' %>"></div>
+      <div><label>Giới tính</label><select name="gender"><option value="">--</option><option value="Nam" <%= patient.gender==='Nam'?'selected':'' %>>Nam</option><option value="Nữ" <%= patient.gender==='Nữ'?'selected':'' %>>Nữ</option></select></div>
+      <div><label>Dị ứng</label><input name="allergies" value="<%= patient.allergies || '' %>"></div>
+      <div class="medical-form-wide"><label>Bệnh nền</label><input name="conditions" value="<%= patient.conditions || '' %>"></div>
+      <div class="medical-form-wide"><label>Ghi chú</label><input name="notes" value="<%= patient.notes || '' %>"></div>
+      <div class="medical-form-actions"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu thay đổi</button></div>
     </form>
-    <form method="post" action="/medical/patients/<%= patient.id %>/delete" data-confirm="Xóa người thân này và toàn bộ đơn thuốc?" class="mt"><button class="btn btn-danger">Xóa người thân</button></form>
+    <form method="post" action="/medical/patients/<%= patient.id %>/delete" data-confirm="Xóa người thân này và toàn bộ đơn thuốc?" class="mt"><button class="btn btn-danger btn-sm">Xóa người thân</button></form>
   </details>
 </main>
 <script src="/js/medical-upload.js"></script>

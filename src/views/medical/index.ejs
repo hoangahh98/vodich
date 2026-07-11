@@ -10,14 +10,14 @@
 
   <section class="card-lite p mb">
     <div class="section-heading mb"><div><span class="feature-icon">➕</span><h2 class="section-title">Thêm người thân</h2></div></div>
-    <form class="row" method="post" action="/medical/patients">
-      <div class="col-4"><label>Họ tên</label><input name="name" required></div>
-      <div class="col-2"><label>Năm sinh</label><input name="birthYear" type="number" min="1900" max="2200" placeholder="VD 2018"></div>
-      <div class="col-2"><label>Giới tính</label><select name="gender"><option value="">--</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select></div>
-      <div class="col-4"><label>Dị ứng</label><input name="allergies" placeholder="VD: penicillin"></div>
-      <div class="col-6"><label>Bệnh nền</label><input name="conditions" placeholder="VD: hen suyễn"></div>
-      <div class="col-6"><label>Ghi chú</label><input name="notes"></div>
-      <div class="col-12 text-right"><button class="btn btn-success" data-loading-text="Đang lưu...">Thêm</button></div>
+    <form class="medical-form" method="post" action="/medical/patients">
+      <div><label>Họ tên</label><input name="name" required placeholder="VD: Bé An"></div>
+      <div><label>Năm sinh</label><input name="birthYear" type="number" min="1900" max="2200" placeholder="VD 2018"></div>
+      <div><label>Giới tính</label><select name="gender"><option value="">--</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select></div>
+      <div><label>Dị ứng</label><input name="allergies" placeholder="VD: penicillin"></div>
+      <div class="medical-form-wide"><label>Bệnh nền</label><input name="conditions" placeholder="VD: hen suyễn"></div>
+      <div class="medical-form-wide"><label>Ghi chú</label><input name="notes"></div>
+      <div class="medical-form-actions"><button class="btn btn-success" data-loading-text="Đang lưu...">Thêm người thân</button></div>
     </form>
   </section>
 

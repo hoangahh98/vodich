@@ -60,6 +60,15 @@ export class TravelFinanceController {
     return res.redirect(`/travel/trips/${id}/members`);
   }
 
+  @Post('/travel/trips/:id/members/bulk-edit')
+  async bulkEditMembers(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    const tripId = await this.manageableTrip(req, res, id);
+    if (!tripId) return;
+    await this.finance.updateMembers(tripId, body);
+    this.gateway.emitTravelTripUpdated(id, 'members-updated');
+    return res.redirect(`/travel/trips/${id}/members`);
+  }
+
   @Post('/travel/trips/:id/treasurer')
   async setTreasurer(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('treasurerMemberId') treasurerMemberId: string) {
     const tripId = await this.manageableTrip(req, res, id);
