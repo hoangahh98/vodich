@@ -70,12 +70,13 @@ export class TravelFinanceController {
   }
 
   @Post('/travel/trips/:id/treasurer')
-  async setTreasurer(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('treasurerMemberId') treasurerMemberId: string) {
+  async setTreasurer(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: { treasurerMemberId?: string; returnSection?: string }) {
     const tripId = await this.manageableTrip(req, res, id);
     if (!tripId) return;
-    await this.finance.setTreasurer(tripId, treasurerMemberId);
+    await this.finance.setTreasurer(tripId, body.treasurerMemberId);
     this.gateway.emitTravelTripUpdated(id, 'treasurer-updated');
-    return res.redirect(`/travel/trips/${id}/overview`);
+    const section = body.returnSection === 'expenses' ? 'expenses' : 'overview';
+    return res.redirect(`/travel/trips/${id}/${section}`);
   }
 
   @Post('/travel/trips/:id/collections')
