@@ -1,0 +1,38 @@
+<%- include('../partials/head', { title: 'Y tế' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div><h1>🩺 Sổ y tế gia đình</h1><div class="muted strong-muted">Lưu hồ sơ người thân và phân tích đơn thuốc bằng AI (chỉ tham khảo).</div></div>
+      <div class="feature-hero-art">🩺</div>
+    </div>
+  </section>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">➕</span><h2 class="section-title">Thêm người thân</h2></div></div>
+    <form class="row" method="post" action="/medical/patients">
+      <div class="col-4"><label>Họ tên</label><input name="name" required></div>
+      <div class="col-2"><label>Năm sinh</label><input name="birthYear" type="number" min="1900" max="2200" placeholder="VD 2018"></div>
+      <div class="col-2"><label>Giới tính</label><select name="gender"><option value="">--</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select></div>
+      <div class="col-4"><label>Dị ứng</label><input name="allergies" placeholder="VD: penicillin"></div>
+      <div class="col-6"><label>Bệnh nền</label><input name="conditions" placeholder="VD: hen suyễn"></div>
+      <div class="col-6"><label>Ghi chú</label><input name="notes"></div>
+      <div class="col-12 text-right"><button class="btn btn-success" data-loading-text="Đang lưu...">Thêm</button></div>
+    </form>
+  </section>
+
+  <section class="card-lite p">
+    <div class="section-heading mb"><div><span class="feature-icon">👨‍👩‍👧</span><h2 class="section-title">Người thân</h2></div><span class="badge"><%= patients.length %></span></div>
+    <div class="grid module-grid">
+      <% patients.forEach((patient) => { %>
+        <a class="card-lite module-card" href="/medical/patients/<%= patient.id %>">
+          <div class="module-icon">🧑‍⚕️</div>
+          <h3><%= patient.name %></h3>
+          <p class="muted"><%= patient.birthYear ? (new Date().getFullYear() - patient.birthYear) + ' tuổi' : 'Chưa rõ tuổi' %> · <%= patient._count.prescriptions %> đơn thuốc</p>
+        </a>
+      <% }) %>
+      <% if (!patients.length) { %><p class="muted">Chưa có người thân nào. Thêm ở trên nhé.</p><% } %>
+    </div>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

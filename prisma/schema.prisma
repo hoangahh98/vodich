@@ -258,6 +258,57 @@ model AppLog {
   @@map("app_log")
 }
 
+model MedPatient {
+  id           BigInt   @id @default(autoincrement())
+  name         String   @db.VarChar(255)
+  birthYear    Int?     @map("birth_year")
+  gender       String?  @db.VarChar(20)
+  allergies    String?
+  conditions   String?
+  notes        String?
+  ownerAdminId BigInt?  @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  prescriptions MedPrescription[]
+
+  @@map("med_patient")
+}
+
+model MedPrescription {
+  id             BigInt    @id @default(autoincrement())
+  patientId      BigInt    @map("patient_id")
+  prescribedDate DateTime? @map("prescribed_date") @db.Date
+  doctor         String    @default("") @db.VarChar(255)
+  clinic         String    @default("") @db.VarChar(255)
+  diagnosis      String    @default("")
+  imageData      String?   @map("image_data")
+  imageMime      String?   @map("image_mime") @db.VarChar(80)
+  aiSummary      String?   @map("ai_summary")
+  aiRisk         String?   @map("ai_risk") @db.VarChar(20)
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  patient MedPatient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  items   MedPrescriptionItem[]
+
+  @@map("med_prescription")
+}
+
+model MedPrescriptionItem {
+  id             BigInt  @id @default(autoincrement())
+  prescriptionId BigInt  @map("prescription_id")
+  drugName       String  @map("drug_name") @db.VarChar(255)
+  isAntibiotic   Boolean @default(false) @map("is_antibiotic")
+  dosage         String  @default("")
+  frequency      String  @default("")
+  duration       String  @default("")
+  note           String  @default("")
+
+  prescription MedPrescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  @@map("med_prescription_item")
+}
+
 model TravelDestination {
   id        BigInt   @id @default(autoincrement())
   name      String   @unique @db.VarChar(255)

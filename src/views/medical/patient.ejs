@@ -1,0 +1,88 @@
+<%- include('../partials/head', { title: patient.name }) %>
+<%- include('../partials/topbar') %>
+<% const riskInfo = { LOW: { c: 'bg-success', t: '🟢 Ít rủi ro' }, MEDIUM: { c: 'bg-info text-dark', t: '🟠 Cần lưu ý' }, HIGH: { c: 'bg-danger', t: '🔴 Nguy cơ cao' } }; %>
+<main class="app-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>🧑‍⚕️ <%= patient.name %></h1>
+        <div class="muted strong-muted">
+          <%= patient.birthYear ? (new Date().getFullYear() - patient.birthYear) + ' tuổi (' + patient.birthYear + ')' : 'Chưa rõ tuổi' %>
+          <%= patient.gender ? ' · ' + patient.gender : '' %>
+          <% if (patient.allergies) { %> · ⚠️ Dị ứng: <%= patient.allergies %><% } %>
+          <% if (patient.conditions) { %> · Bệnh nền: <%= patient.conditions %><% } %>
+        </div>
+      </div>
+      <a class="btn btn-sm" href="/medical">← Danh sách</a>
+    </div>
+  </section>
+
+  <div class="alert-lite warn mb"><%= disclaimer %></div>
+  <% if (aiError) { %><div class="alert-lite warn mb">⚠️ <%= aiError %></div><% } %>
+  <% if (!aiConfigured) { %><div class="alert-lite warn mb">Chưa cấu hình <code>GEMINI_API_KEY</code> trên server nên chưa dùng được phân tích AI.</div><% } %>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">📷</span><h2 class="section-title">Thêm đơn thuốc từ ảnh</h2><p class="muted">Chụp/chọn ảnh đơn thuốc, AI sẽ đọc thuốc và phân tích an toàn dựa trên các đơn cũ.</p></div></div>
+    <form method="post" action="/medical/patients/<%= patient.id %>/prescriptions" data-medical-upload>
+      <input type="hidden" name="imageData" data-image-data>
+      <input type="hidden" name="imageMime" data-image-mime>
+      <div class="row">
+        <div class="col-6">
+          <label>Ảnh đơn thuốc</label>
+          <input type="file" accept="image/*" capture="environment" data-image-file>
+        </div>
+        <div class="col-6"><img data-image-preview class="medical-preview hidden" alt="Xem trước"></div>
+      </div>
+      <div class="text-right mt"><button class="btn btn-success" data-image-submit disabled data-loading-text="AI đang đọc đơn..." <%= aiConfigured ? '' : 'disabled' %>>🤖 Đọc &amp; phân tích</button></div>
+    </form>
+  </section>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">💊</span><h2 class="section-title">Lịch sử đơn thuốc</h2></div><span class="badge"><%= patient.prescriptions.length %></span></div>
+    <% if (!patient.prescriptions.length) { %><p class="muted">Chưa có đơn thuốc nào.</p><% } %>
+    <% patient.prescriptions.forEach((rx) => { %>
+      <div class="card-lite p mb">
+        <div class="flex between center gap mb">
+          <div>
+            <strong><%= rx.prescribedDate ? new Date(rx.prescribedDate).toLocaleDateString('vi-VN') : 'Không rõ ngày' %></strong>
+            <% if (rx.doctor || rx.clinic) { %><span class="muted"> · <%= [rx.doctor, rx.clinic].filter(Boolean).join(' - ') %></span><% } %>
+            <% if (rx.aiRisk && riskInfo[rx.aiRisk]) { %> <span class="badge <%= riskInfo[rx.aiRisk].c %>"><%= riskInfo[rx.aiRisk].t %></span><% } %>
+          </div>
+          <div class="flex gap">
+            <% if (rx.imageData) { %><a class="btn btn-sm" href="/medical/prescriptions/<%= rx.id %>/image" target="_blank">🖼️ Ảnh</a><% } %>
+            <form method="post" action="/medical/prescriptions/<%= rx.id %>/reanalyze"><button class="btn btn-sm" data-loading-text="..." <%= aiConfigured ? '' : 'disabled' %>>↻ Phân tích lại</button></form>
+            <form method="post" action="/medical/prescriptions/<%= rx.id %>/delete" data-confirm="Xóa đơn thuốc này?"><button class="btn btn-sm btn-danger" data-loading-text="...">Xóa</button></form>
+          </div>
+        </div>
+        <% if (rx.diagnosis) { %><p class="muted mb">Chẩn đoán: <%= rx.diagnosis %></p><% } %>
+        <div class="table-wrap"><table><thead><tr><th>Thuốc</th><th>Liều</th><th>Cách dùng</th><th>Số ngày</th><th>Ghi chú</th></tr></thead><tbody>
+          <% rx.items.forEach((item) => { %>
+            <tr>
+              <td><strong><%= item.drugName %></strong><% if (item.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %></td>
+              <td><%= item.dosage || '-' %></td><td><%= item.frequency || '-' %></td><td><%= item.duration || '-' %></td><td class="muted"><%= item.note || '' %></td>
+            </tr>
+          <% }) %>
+        </tbody></table></div>
+        <% if (rx.aiSummary) { %>
+          <div class="medical-analysis mt"><strong>🤖 Phân tích AI:</strong><div class="medical-analysis-body"><%= rx.aiSummary %></div></div>
+        <% } %>
+      </div>
+    <% }) %>
+  </section>
+
+  <details class="card-lite p mb">
+    <summary><strong>✏️ Sửa thông tin / xóa người thân</strong></summary>
+    <form class="row mt" method="post" action="/medical/patients/<%= patient.id %>/edit">
+      <div class="col-4"><label>Họ tên</label><input name="name" value="<%= patient.name %>" required></div>
+      <div class="col-2"><label>Năm sinh</label><input name="birthYear" type="number" value="<%= patient.birthYear || '' %>"></div>
+      <div class="col-2"><label>Giới tính</label><select name="gender"><option value="">--</option><option value="Nam" <%= patient.gender==='Nam'?'selected':'' %>>Nam</option><option value="Nữ" <%= patient.gender==='Nữ'?'selected':'' %>>Nữ</option></select></div>
+      <div class="col-4"><label>Dị ứng</label><input name="allergies" value="<%= patient.allergies || '' %>"></div>
+      <div class="col-6"><label>Bệnh nền</label><input name="conditions" value="<%= patient.conditions || '' %>"></div>
+      <div class="col-6"><label>Ghi chú</label><input name="notes" value="<%= patient.notes || '' %>"></div>
+      <div class="col-12 flex between"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu</button></div>
+    </form>
+    <form method="post" action="/medical/patients/<%= patient.id %>/delete" data-confirm="Xóa người thân này và toàn bộ đơn thuốc?" class="mt"><button class="btn btn-danger">Xóa người thân</button></form>
+  </details>
+</main>
+<script src="/js/medical-upload.js"></script>
+<%- include('../partials/bottom-menu') %>

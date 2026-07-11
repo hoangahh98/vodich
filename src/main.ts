@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import * as helmet from 'helmet';
+import { json, urlencoded } from 'express';
 import { join } from 'path';
 import { AppModule } from './app.module';
 import { ViewExceptionFilter } from './common/view-exception.filter';
@@ -10,7 +11,10 @@ import { getSessionMiddleware } from './common/session';
 import { PrismaService } from './prisma.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  // Tự cấu hình body parser với giới hạn lớn hơn để nhận ảnh đơn thuốc (base64) ở module y tế.
+  app.use(json({ limit: '12mb' }));
+  app.use(urlencoded({ extended: true, limit: '12mb' }));
   // Render/Supabase chạy sau reverse proxy: cần trust proxy để cookie `secure`
   // hoạt động và để req.ip lấy đúng IP client (không tin header thô).
   app.set('trust proxy', 1);

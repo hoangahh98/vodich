@@ -1,7 +1,7 @@
 import 'express-session';
 
 export type UserRole = 'ADMIN' | 'CLIENT';
-export type AppFeature = 'TOURNAMENTS' | 'TEAMS' | 'TRAVEL' | 'PERMISSIONS';
+export type AppFeature = 'TOURNAMENTS' | 'TEAMS' | 'TRAVEL' | 'MEDICAL' | 'PERMISSIONS';
 
 export interface CurrentUser {
   id: string;

@@ -10,6 +10,9 @@ import { AdminService } from './admin/admin.service';
 import { HealthController } from './health.controller';
 import { HomeController } from './home.controller';
 import { GamesController } from './games/games.controller';
+import { MedicalController } from './medical/medical.controller';
+import { MedicalService } from './medical/medical.service';
+import { MedicalAiService } from './medical/medical-ai.service';
 import { PlayersController } from './players/players.controller';
 import { PlayersService } from './players/players.service';
 import { TournamentService } from './tournaments/tournament.service';
@@ -46,7 +49,7 @@ import { RateLimitService } from './common/rate-limit.service';
 import { FeatureGuard } from './common/feature.guard';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, GamesController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, GamesController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, MedicalController, AdminController],
   providers: [
     PrismaService,
     AuthService,
@@ -70,6 +73,8 @@ import { FeatureGuard } from './common/feature.guard';
     TravelService,
     TravelFinanceService,
     TravelAiService,
+    MedicalService,
+    MedicalAiService,
     GeminiService,
     MatchGateway,
     LocalsMiddleware,
