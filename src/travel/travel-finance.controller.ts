@@ -27,7 +27,7 @@ export class TravelFinanceController {
     if (personId) await this.finance.addMemberFromPerson(tripId, personId);
     else await this.finance.addQuickMember(tripId, body.name, body.email);
     this.gateway.emitTravelTripUpdated(id, 'member-added');
-    return res.redirect(`/travel/trips/${id}`);
+    return res.redirect(`/travel/trips/${id}/members`);
   }
 
   @Post('/travel/trips/:tripId/members/:memberId/edit')
@@ -36,7 +36,7 @@ export class TravelFinanceController {
     if (!scope) return;
     await this.finance.updateMember(scope.tripId, scope.memberId, body);
     this.gateway.emitTravelTripUpdated(tripId, 'member-updated');
-    return res.redirect(`/travel/trips/${tripId}`);
+    return res.redirect(`/travel/trips/${tripId}/members`);
   }
 
   @Post('/travel/trips/:tripId/members/:memberId/delete')
@@ -45,7 +45,7 @@ export class TravelFinanceController {
     if (!scope) return;
     await this.finance.deleteMember(scope.tripId, scope.memberId);
     this.gateway.emitTravelTripUpdated(tripId, 'member-deleted');
-    return res.redirect(`/travel/trips/${tripId}`);
+    return res.redirect(`/travel/trips/${tripId}/members`);
   }
 
   @Post('/travel/trips/:id/treasurer')
@@ -54,7 +54,7 @@ export class TravelFinanceController {
     if (!tripId) return;
     await this.finance.setTreasurer(tripId, treasurerMemberId);
     this.gateway.emitTravelTripUpdated(id, 'treasurer-updated');
-    return res.redirect(`/travel/trips/${id}`);
+    return res.redirect(`/travel/trips/${id}/members`);
   }
 
   @Post('/travel/trips/:id/collections')
@@ -63,7 +63,7 @@ export class TravelFinanceController {
     if (!tripId) return;
     await this.finance.updateCollections(tripId, body);
     this.gateway.emitTravelTripUpdated(id, 'collections-updated');
-    return res.redirect(`/travel/trips/${id}`);
+    return res.redirect(`/travel/trips/${id}/members`);
   }
 
   @Post('/travel/trips/:id/collections/paid-enough')
@@ -72,7 +72,7 @@ export class TravelFinanceController {
     if (!tripId) return;
     await this.finance.markPaidEnough(tripId);
     this.gateway.emitTravelTripUpdated(id, 'collections-paid-enough');
-    return res.redirect(`/travel/trips/${id}`);
+    return res.redirect(`/travel/trips/${id}/members`);
   }
 
   @Post('/travel/trips/:id/expenses')
@@ -81,7 +81,7 @@ export class TravelFinanceController {
     if (!tripId) return;
     await this.finance.addExpense(tripId, body);
     this.gateway.emitTravelTripUpdated(id, 'expense-added');
-    return res.redirect(`/travel/trips/${id}`);
+    return res.redirect(`/travel/trips/${id}/expenses`);
   }
 
   @Post('/travel/trips/:tripId/expenses/:expenseId/edit')
@@ -92,7 +92,7 @@ export class TravelFinanceController {
     if (!expId) return notFound(res);
     await this.finance.updateExpense(scopedTrip, expId, body);
     this.gateway.emitTravelTripUpdated(tripId, 'expense-updated');
-    return res.redirect(`/travel/trips/${tripId}`);
+    return res.redirect(`/travel/trips/${tripId}/expenses`);
   }
 
   @Post('/travel/trips/:tripId/expenses/:expenseId/delete')
@@ -103,7 +103,7 @@ export class TravelFinanceController {
     if (!expId) return notFound(res);
     await this.finance.deleteExpense(scopedTrip, expId);
     this.gateway.emitTravelTripUpdated(tripId, 'expense-deleted');
-    return res.redirect(`/travel/trips/${tripId}`);
+    return res.redirect(`/travel/trips/${tripId}/expenses`);
   }
 
   @Post('/travel/trips/:id/permissions')
@@ -114,7 +114,7 @@ export class TravelFinanceController {
     if (!adminBigId) return notFound(res);
     await this.travel.addPermission(tripId, adminBigId);
     this.gateway.emitTravelTripUpdated(id, 'permission-added');
-    return res.redirect(`/travel/trips/${id}`);
+    return res.redirect(`/travel/trips/${id}/settings`);
   }
 
   @Post('/travel/trips/:tripId/permissions/:permissionId/delete')
@@ -125,7 +125,7 @@ export class TravelFinanceController {
     if (!permId) return notFound(res);
     await this.travel.removePermission(scopedTrip, permId);
     this.gateway.emitTravelTripUpdated(tripId, 'permission-deleted');
-    return res.redirect(`/travel/trips/${tripId}`);
+    return res.redirect(`/travel/trips/${tripId}/settings`);
   }
 
   /** Parse tripId + kiểm quyền quản lý; trả tripId hợp lệ hoặc null (đã gửi response 404/403). */

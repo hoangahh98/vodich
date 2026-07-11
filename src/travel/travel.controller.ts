@@ -10,6 +10,7 @@ import { isTravelSchemaMissing } from './travel-errors';
 import { travelExpenseCategories } from './travel-finance.service';
 import { TravelService, travelSuggestionCategories } from './travel.service';
 import { TravelSummaryBuilder } from './travel-summary';
+import { safeTravelSection } from './travel-sections';
 
 @Controller()
 @UseGuards(FeatureGuard)
@@ -52,7 +53,7 @@ export class TravelController {
     if (!(await this.travel.canManage(req.session.user as CurrentUser, tripId))) return forbidden(res);
     await this.travel.updateTrip(tripId, body);
     this.gateway.emitTravelTripUpdated(id, 'trip-updated');
-    return res.redirect(`/travel/trips/${id}`);
+    return res.redirect(`/travel/trips/${id}/settings`);
   }
 
   @Post('/travel/trips/:id/delete')
@@ -67,7 +68,12 @@ export class TravelController {
   }
 
   @Get('/travel/trips/:id')
-  async detail(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+  tripDetailRedirect(@Res() res: Response, @Param('id') id: string) {
+    return res.redirect(`/travel/trips/${id}/overview`);
+  }
+
+  @Get('/travel/trips/:id/:section')
+  async detail(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Param('section') sectionParam: string) {
     const user = req.session.user as CurrentUser;
     const tripId = parseBigId(id);
     if (!tripId) return notFound(res);
@@ -76,8 +82,15 @@ export class TravelController {
     const detail = await this.travel.detail(tripId, isTravelAdmin);
     const summary = this.summaryBuilder.build(detail.members, detail.expenses, detail.trip.treasurerMemberId);
     const viewerMemberId = user.role === 'CLIENT' ? detail.members.find((member) => member.email.toLowerCase() === user.email.toLowerCase() || member.player?.email?.toLowerCase() === user.email.toLowerCase())?.id : null;
+    const hasPlaces = Boolean(detail.trip.destination && detail.destinationSuggestions.length);
+    // Chọn mục hiển thị; ẩn mục không hợp lệ cho từng vai trò/ngữ cảnh.
+    let section = safeTravelSection(sectionParam);
+    if (section === 'places' && !hasPlaces) section = 'overview';
+    if (section === 'settings' && !isTravelAdmin) section = 'overview';
     return render(res, 'travel/detail', {
       ...detail,
+      section,
+      hasPlaces,
       summary,
       viewerMemberId,
       expenseCategories: travelExpenseCategories,

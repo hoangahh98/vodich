@@ -361,13 +361,6 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .ranking-board-title { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #e7f1ff; color: #084298; border-bottom: 1px solid #cfe2ff; font-size: 18px; }
 .ranking-board-title strong { font-weight: 900; }
 .travel-shell { max-width: 1320px; }
-.travel-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; position: sticky; top: 8px; z-index: 5; }
-.travel-tab { border: 1px solid rgba(13, 110, 253, 0.25); background: #fff; color: #0d6efd; border-radius: 999px; padding: 8px 16px; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: background 0.15s, color 0.15s; }
-.travel-tab:hover { background: rgba(13, 110, 253, 0.08); }
-.travel-tab.active { background: #0d6efd; color: #fff; border-color: #0d6efd; box-shadow: 0 2px 8px rgba(13, 110, 253, 0.25); }
-.travel-tab-panel { display: none; }
-.travel-tab-panel.active { display: block; animation: travel-fade 0.15s ease; }
-@keyframes travel-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 .travel-trip-form { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(220px, 1.3fr) auto; gap: 12px; align-items: end; }
 .travel-trip-action { min-width: 118px; }
 .travel-trip-action .btn { width: 100%; }
