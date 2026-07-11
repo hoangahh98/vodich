@@ -65,6 +65,12 @@ export class GamesController {
     return render(res, 'games/shadow');
   }
 
+  @Get('/games/cay-tao')
+  appleTree(@Req() req: Request, @Res() res: Response) {
+    if (!requireUser(req, res)) return;
+    return render(res, 'games/tree');
+  }
+
   @Get('/games/hoi-thoai')
   chatPage(@Req() req: Request, @Res() res: Response) {
     if (!requireUser(req, res)) return;

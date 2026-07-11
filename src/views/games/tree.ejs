@@ -1,0 +1,23 @@
+<%- include('../partials/head', { title: 'Cây Táo Lắc Lư' }) %>
+<body class="game-body">
+  <div class="tree-stage" data-game="tree">
+    <a class="game-back peek-back" href="/games">Về</a>
+    <div class="tree-hint" data-tree-hint>Lắc điện thoại cho táo rụng! 🍎</div>
+    <div class="tree-top" data-tree>🌳</div>
+    <div class="tree-layer" data-apple-layer></div>
+    <div class="tree-ground"></div>
+    <button class="tree-shake-btn" data-shake type="button">🌳 Lắc cây!</button>
+
+    <div class="tree-start" data-tree-start>
+      <div class="tree-start-box">
+        <div class="tree-start-emoji">🍎🌳</div>
+        <h1>Cây Táo Lắc Lư</h1>
+        <p>Lắc điện thoại cho táo rụng, rồi chạm nhặt táo nhé!</p>
+        <button class="tree-start-btn" data-start type="button">▶ Bắt đầu chơi</button>
+      </div>
+    </div>
+  </div>
+  <script src="/js/games-core.js"></script>
+  <script src="/js/games-tree.js"></script>
+</body>
+</html>
