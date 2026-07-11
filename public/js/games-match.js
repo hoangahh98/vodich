@@ -27,8 +27,8 @@
     const chosen = shuffle(ITEMS).slice(0, PAIRS);
     const deck = shuffle([...chosen, ...chosen]);
     const cols = deck.length <= 12 ? 3 : 4;
-    grid.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
-    grid.style.maxWidth = cols * 120 + 'px';
+    // Thẻ cỡ cố định (không kéo giãn) để khối thẻ gọn và căn giữa được cả web lẫn mobile.
+    grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, min(26vw, 110px)))';
     deck.forEach((item) => {
       const card = document.createElement('button');
       card.type = 'button';

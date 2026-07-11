@@ -111,10 +111,15 @@
   // Chặn thao tác mặc định (kéo làm mới, zoom) khi đang chơi.
   canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
 
+  // Chỉ vẽ lại khi ĐỔI CHIỀU RỘNG (xoay/gập màn hình). Bỏ qua đổi chiều cao do thanh
+  // địa chỉ mobile ẩn/hiện — nếu không sẽ xóa mất tiến độ quẹt của bé.
   let resizeTimer = null;
+  let lastW = window.innerWidth;
   window.addEventListener('resize', () => {
+    if (window.innerWidth === lastW) return;
+    lastW = window.innerWidth;
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(newPicture, 200); // vẽ lại lớp phủ theo kích thước mới
+    resizeTimer = setTimeout(newPicture, 250);
   });
 
   newPicture();

@@ -8,7 +8,11 @@
   const textInput = stage.querySelector('[data-chat-text]');
   const sendBtn = stage.querySelector('[data-chat-send]');
   const startBtn = stage.querySelector('[data-chat-start]');
+  const suggestBox = stage.querySelector('[data-suggest]');
+  const suggestEn = stage.querySelector('[data-suggest-en]');
+  const suggestVi = stage.querySelector('[data-suggest-vi]');
   const aiOn = stage.getAttribute('data-ai') === '1';
+  let lastSuggest = '';
   let messages = [];
   let busy = false;
   let scenario = 'free';
@@ -75,10 +79,18 @@
       });
       const data = await res.json();
       if (data.reply) {
-        thinking.querySelector('.chat-bubble').textContent = data.reply;
+        const b = thinking.querySelector('.chat-bubble');
+        b.textContent = data.reply;
+        if (data.vi) {
+          const vi = document.createElement('div');
+          vi.className = 'chat-vi';
+          vi.textContent = '🇻🇳 ' + data.vi;
+          b.appendChild(vi);
+        }
         messages.push({ role: 'ai', text: data.reply });
         speak(data.reply);
-        tipEl.textContent = data.tip ? '💡 ' + data.tip : '';
+        tipEl.textContent = data.tip ? '✍️ ' + data.tip : '';
+        showSuggest(data.suggest, data.suggestVi);
       } else {
         thinking.querySelector('.chat-bubble').textContent = data.error || 'Thử lại nhé!';
       }
@@ -107,6 +119,20 @@
     await ask('');
     busy = false;
   }
+
+  function showSuggest(en, vi) {
+    if (!suggestBox) return;
+    if (!en) { suggestBox.classList.add('hidden'); lastSuggest = ''; return; }
+    lastSuggest = en;
+    suggestEn.textContent = en;
+    suggestVi.textContent = vi ? '(' + vi + ')' : '';
+    suggestBox.classList.remove('hidden');
+  }
+
+  const speakSuggest = stage.querySelector('[data-suggest-speak]');
+  const useSuggest = stage.querySelector('[data-suggest-use]');
+  speakSuggest && speakSuggest.addEventListener('click', () => { if (lastSuggest) speak(lastSuggest); });
+  useSuggest && useSuggest.addEventListener('click', () => { if (lastSuggest && !busy) send(lastSuggest); });
 
   startBtn && startBtn.addEventListener('click', start);
   micBtn.addEventListener('click', () => {

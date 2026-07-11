@@ -721,7 +721,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 /* ===== Game: Lật Hình Trí Nhớ ===== */
 .match-stage { position: fixed; inset: 0; background: linear-gradient(160deg,#667eea,#764ba2); overflow: hidden; touch-action: manipulation; }
 .match-hint { position: fixed; top: 56px; left: 0; right: 0; text-align: center; color: #fff; font-weight: 800; font-size: 18px; text-shadow: 0 2px 6px rgba(0,0,0,.3); }
-.match-grid { position: absolute; inset: 96px 12px 16px; display: grid; gap: 10px; place-content: center; }
+.match-grid { position: absolute; inset: 96px 12px 16px; display: grid; gap: 10px; justify-content: center; align-content: center; place-content: center; }
 .match-card { position: relative; width: 100%; aspect-ratio: 1; border: 0; background: transparent; cursor: pointer; perspective: 600px; padding: 0; }
 .match-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .35s; }
 .match-card.flipped .match-inner, .match-card.matched .match-inner { transform: rotateY(180deg); }
@@ -730,3 +730,13 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .match-front { background: #fff; transform: rotateY(180deg); font-size: min(15vw,64px); }
 .match-card.matched { animation: match-vanish .5s ease .3s forwards; }
 @keyframes match-vanish { to { transform: scale(0); opacity: 0; } }
+
+/* Tiếng Anh nâng cao: bản dịch + gợi ý trả lời */
+.chat-vi { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(0,0,0,.12); font-size: 13.5px; color: #33506e; font-weight: 600; }
+.adv-suggest { width: 100%; max-width: 640px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); border-radius: 14px; padding: 12px 14px; }
+.adv-suggest-label { color: #fffbe6; font-weight: 800; font-size: 14px; }
+.adv-suggest-en { color: #fff; font-size: 18px; font-weight: 800; margin-top: 4px; }
+.adv-suggest-vi { color: rgba(255,255,255,.9); font-size: 14px; margin-top: 2px; }
+.adv-suggest-actions { display: flex; gap: 8px; margin-top: 10px; }
+.adv-suggest-btn { border: 0; border-radius: 999px; padding: 8px 16px; font-weight: 800; cursor: pointer; background: rgba(255,255,255,.92); color: #22303a; }
+.adv-suggest-use { background: #2ecc71; color: #fff; }

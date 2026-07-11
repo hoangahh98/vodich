@@ -92,13 +92,26 @@ export class GamesController {
       `Quy tắc:`,
       `- Trả lời bằng tiếng Anh ĐÚNG trình độ (${level.guide}).`,
       `- Giữ đúng vai/tình huống, luôn kết thúc bằng MỘT câu hỏi để người học nói tiếp.`,
-      `- Nếu câu người học có lỗi ngữ pháp/từ vựng, nêu bản sửa ngắn gọn ở phần "tip".`,
-      `Trả về JSON: { "reply": "câu tiếng Anh của gia sư", "tip": "nhận xét/sửa lỗi RẤT ngắn bằng tiếng Việt (có thể rỗng)" }.`,
+      `- Người học KHÔNG giỏi tiếng Anh, nên luôn kèm bản dịch và gợi ý câu trả lời.`,
+      `Trả về JSON đúng schema:`,
+      `{`,
+      `  "reply": "câu tiếng Anh của gia sư",`,
+      `  "vi": "bản dịch tiếng Việt của câu reply",`,
+      `  "suggest": "MỘT câu tiếng Anh đơn giản mà người học có thể dùng để trả lời câu hỏi vừa rồi",`,
+      `  "suggestVi": "nghĩa tiếng Việt của câu suggest",`,
+      `  "tip": "sửa lỗi/nhận xét RẤT ngắn bằng tiếng Việt cho câu trước của người học (có thể rỗng)"`,
+      `}. Chỉ trả JSON.`,
       transcript ? `Hội thoại đến giờ:\n${transcript}` : `Người học vừa bắt đầu. Hãy mở đầu tình huống một cách tự nhiên.`,
     ].join('\n');
     try {
-      const result = await this.ai.generateJson<{ reply: string; tip?: string }>(prompt, { temperature: 0.8 });
-      return res.json({ reply: String(result.reply || '').trim() || '...', tip: String(result.tip || '').trim() });
+      const result = await this.ai.generateJson<{ reply: string; vi?: string; suggest?: string; suggestVi?: string; tip?: string }>(prompt, { temperature: 0.8 });
+      return res.json({
+        reply: String(result.reply || '').trim() || '...',
+        vi: String(result.vi || '').trim(),
+        suggest: String(result.suggest || '').trim(),
+        suggestVi: String(result.suggestVi || '').trim(),
+        tip: String(result.tip || '').trim(),
+      });
     } catch (error) {
       return res.status(502).json({ error: error instanceof Error ? error.message : 'AI lỗi' });
     }
