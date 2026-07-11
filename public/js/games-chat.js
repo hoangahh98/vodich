@@ -41,8 +41,6 @@
   if (toggleBtn && setup) toggleBtn.addEventListener('click', () => setup.classList.toggle('hidden'));
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recog = null;
   let listening = false;
   let micTimer = null;
