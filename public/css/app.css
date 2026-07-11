@@ -616,3 +616,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
   .travel-member-row { grid-template-columns: auto 1fr auto; grid-auto-flow: row; }
   .travel-member-row input[type="checkbox"] { grid-row: 1 / span 2; align-self: center; }
 }
+
+/* Trạng thái "đã bấm" cho link điều hướng trong game */
+.game-back.navigating { opacity: .6; pointer-events: none; }
+.game-card.navigating { opacity: .7; transform: scale(.98); pointer-events: none; }

@@ -145,5 +145,15 @@ window.GameCore = (() => {
     }
   }
 
+  // Nút "Về" (và thẻ game) là link điều hướng: khi bấm hiện trạng thái để biết đã bấm.
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest && event.target.closest('.game-back, .game-card');
+    if (!link || link.dataset.navigating) return;
+    if (event.metaKey || event.ctrlKey || event.button === 1) return; // mở tab mới thì bỏ qua
+    link.dataset.navigating = '1';
+    link.classList.add('navigating');
+    if (link.classList.contains('game-back')) link.textContent = 'Đang về...';
+  });
+
   return { sound, speak, praise: () => pick(PRAISES), encourage: () => pick(ENCOURAGE), pick, shuffle, confetti, Hud };
 })();

@@ -13,18 +13,44 @@
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recog = null;
+  let listening = false;
+  let micTimer = null;
+
+  const stopListening = () => {
+    listening = false;
+    micBtn.classList.remove('listening');
+    clearTimeout(micTimer);
+    micTimer = null;
+  };
+
   if (SR) {
-    recog = new SR();
-    recog.lang = 'en-US';
-    recog.interimResults = false;
-    recog.maxAlternatives = 1;
-    recog.onresult = (e) => {
-      const said = e.results[0][0].transcript;
-      send(said);
-    };
-    recog.onend = () => micBtn.classList.remove('listening');
-    recog.onerror = () => micBtn.classList.remove('listening');
-  } else {
+    try {
+      recog = new SR();
+      recog.lang = 'en-US';
+      recog.interimResults = false;
+      recog.maxAlternatives = 1;
+      recog.continuous = false;
+      recog.onstart = () => {
+        listening = true;
+        micBtn.classList.add('listening');
+      };
+      recog.onresult = (e) => {
+        stopListening();
+        const said = e && e.results && e.results[0] && e.results[0][0] ? e.results[0][0].transcript : '';
+        if (said) send(said);
+      };
+      recog.onend = stopListening;
+      recog.onerror = (e) => {
+        stopListening();
+        if (e && (e.error === 'not-allowed' || e.error === 'service-not-allowed')) {
+          tipEl.textContent = '🎤 Chưa cấp quyền micro — hãy gõ chữ hoặc bật quyền micro cho trang.';
+        }
+      };
+    } catch (_) {
+      recog = null;
+    }
+  }
+  if (!recog) {
     micBtn.disabled = true;
     micBtn.title = 'Trình duyệt không hỗ trợ micro, hãy gõ chữ';
   }
@@ -74,11 +100,21 @@
 
   micBtn.addEventListener('click', () => {
     if (!recog || busy) return;
+    if (listening) {
+      try { recog.stop(); } catch (_) {}
+      stopListening();
+      return;
+    }
     try {
-      micBtn.classList.add('listening');
+      if (window.speechSynthesis) window.speechSynthesis.cancel(); // tránh xung đột TTS/mic
       recog.start();
+      // An toàn: tự dừng sau 8s nếu không có kết quả để UI không bị kẹt.
+      micTimer = setTimeout(() => {
+        try { recog.stop(); } catch (_) {}
+        stopListening();
+      }, 8000);
     } catch (_) {
-      micBtn.classList.remove('listening');
+      stopListening();
     }
   });
   sendBtn.addEventListener('click', () => send(textInput.value));
