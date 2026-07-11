@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { TRAVEL_EXPENSE_CATEGORIES, validExpenseCategory } from './travel.constants';
 import { parseMoney, splitEvenly } from './travel-money';
@@ -104,12 +104,12 @@ export class TravelFinanceService {
 
   async addExpense(tripId: bigint, body: Record<string, string>) {
     const members = await this.activeMembers(tripId);
-    if (!members.length) throw new Error('Cần có thành viên để chia tiền');
+    if (!members.length) throw new BadRequestException('Cần có thành viên để chia tiền');
     const title = cleanRequired(body.title, 'Nội dung khoản chi');
-    if (!validExpenseCategory(title)) throw new Error('Nội dung khoản chi không hợp lệ');
+    if (!validExpenseCategory(title)) throw new BadRequestException('Nội dung khoản chi không hợp lệ');
     const memberIds = members.map((member) => member.id);
     const paidByMemberId = validMemberId(body.paidByMemberId, memberIds);
-    if (!paidByMemberId) throw new Error('Cần chọn người trả tiền hợp lệ');
+    if (!paidByMemberId) throw new BadRequestException('Cần chọn người trả tiền hợp lệ');
     const splitMode = body.splitMode === 'PRIVATE' ? 'PRIVATE' : 'SHARED';
     const splits =
       splitMode === 'PRIVATE'
@@ -118,7 +118,7 @@ export class TravelFinanceService {
             .filter((item) => item.amount > 0)
         : splitEvenly(parseMoney(body.amount), memberIds);
     const amount = splitMode === 'PRIVATE' ? splits.reduce((total, split) => total + split.amount, 0) : parseMoney(body.amount);
-    if (amount <= 0 || !splits.length) throw new Error('Cần nhập số tiền lớn hơn 0');
+    if (amount <= 0 || !splits.length) throw new BadRequestException('Cần nhập số tiền lớn hơn 0');
     const privateMemberId = splitMode === 'PRIVATE' && splits.length === 1 ? splits[0].memberId : null;
     return this.prisma.travelTripExpense.create({
       data: {
@@ -139,14 +139,14 @@ export class TravelFinanceService {
     const members = await this.activeMembers(tripId);
     const memberIds = members.map((member) => member.id);
     const title = cleanRequired(body.title, 'Nội dung khoản chi');
-    if (!validExpenseCategory(title)) throw new Error('Nội dung khoản chi không hợp lệ');
+    if (!validExpenseCategory(title)) throw new BadRequestException('Nội dung khoản chi không hợp lệ');
     const amount = parseMoney(body.amount);
     const splits = memberIds.map((memberId) => ({ memberId, amount: parseMoney(body[`split_${memberId}`]) }));
     let normalizedSplits = splits;
     const splitTotal = splits.reduce((total, split) => total + split.amount, 0);
     if (splitTotal !== amount) normalizedSplits = splitEvenly(amount, memberIds);
     const paidByMemberId = validMemberId(body.paidByMemberId, memberIds);
-    if (!paidByMemberId) throw new Error('Cần chọn người trả tiền hợp lệ');
+    if (!paidByMemberId) throw new BadRequestException('Cần chọn người trả tiền hợp lệ');
     const positiveSplits = normalizedSplits.filter((item) => item.amount > 0);
     await this.prisma.$transaction([
       this.prisma.travelTripExpense.update({

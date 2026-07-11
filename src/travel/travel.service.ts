@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { parseBigId } from '../common/controller-utils';
 import { CurrentUser } from '../types';
 import { TRAVEL_SUGGESTION_CATEGORIES, validSuggestionCategory } from './travel.constants';
 
@@ -59,7 +60,7 @@ export class TravelService {
     }));
   }
 
-  async detail(tripId: bigint) {
+  async detail(tripId: bigint, forAdmin = true) {
     const trip = await this.prisma.travelTrip.findUniqueOrThrow({
       where: { id: tripId },
       include: {
@@ -68,7 +69,7 @@ export class TravelService {
         permissions: { include: { admin: true }, orderBy: { id: 'asc' } },
       },
     });
-    const [members, expenses, availablePeople, admins, destinations, destinationSuggestions] = await Promise.all([
+    const [members, expenses, destinationSuggestions] = await Promise.all([
       this.prisma.travelTripMember.findMany({
         where: { tripId, active: true },
         include: { collections: true, player: true },
@@ -79,11 +80,12 @@ export class TravelService {
         include: { splits: true, paidByMember: true },
         orderBy: [{ spentDate: 'asc' }, { id: 'asc' }],
       }),
-      this.availablePeople(tripId),
-      this.availableAdmins(tripId, trip.ownerAdminId),
-      this.destinations(),
       trip.destinationId ? this.suggestionsForDestination(trip.destinationId) : Promise.resolve([]),
     ]);
+    // Dữ liệu chỉ dành cho admin quản trị chuyến; không truy vấn khi người xem là CLIENT.
+    const [availablePeople, admins, destinations] = forAdmin
+      ? await Promise.all([this.availablePeople(tripId), this.availableAdmins(tripId, trip.ownerAdminId), this.destinations()])
+      : [[], [], []];
     return { trip, members, expenses, availablePeople, admins, destinations, destinationSuggestions };
   }
 
@@ -194,8 +196,9 @@ export class TravelService {
 
   async saveSuggestion(body: Record<string, string>, suggestionId?: bigint) {
     const category = clean(body.category);
-    if (!validSuggestionCategory(category)) throw new Error('Loại gợi ý không hợp lệ');
-    const destinationId = BigInt(body.destinationId || body.destination_id || 0);
+    if (!validSuggestionCategory(category)) throw new BadRequestException('Loại gợi ý không hợp lệ');
+    const destinationId = parseBigId(body.destinationId || body.destination_id);
+    if (!destinationId) throw new BadRequestException('Cần chọn địa danh hợp lệ');
     const data = {
       destinationId,
       category,
@@ -218,8 +221,7 @@ export class TravelService {
   private async destinationIdFromBody(body: Record<string, string>) {
     const destinationName = clean(body.destinationName);
     if (destinationName) return (await this.createDestination(destinationName)).id;
-    const raw = clean(body.destinationId);
-    return raw ? BigInt(raw) : null;
+    return parseBigId(body.destinationId);
   }
 
   private async findOrCreatePlayer(displayName: string, email: string) {
@@ -237,7 +239,7 @@ export function clean(value: unknown) {
 
 export function cleanRequired(value: unknown, label: string) {
   const result = clean(value);
-  if (!result) throw new Error(`${label} là bắt buộc`);
+  if (!result) throw new BadRequestException(`${label} là bắt buộc`);
   return result;
 }
 

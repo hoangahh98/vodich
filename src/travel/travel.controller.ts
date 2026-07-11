@@ -1,12 +1,13 @@
 import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { forbidden, notFound, parseBigId } from '../common/controller-utils';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
 import { FeatureGuard } from '../common/feature.guard';
 import { render } from '../common/view';
 import { MatchGateway } from '../tournaments/match.gateway';
 import { CurrentUser } from '../types';
 import { isTravelSchemaMissing } from './travel-errors';
-import { TravelFinanceService, travelExpenseCategories } from './travel-finance.service';
+import { travelExpenseCategories } from './travel-finance.service';
 import { TravelService, travelSuggestionCategories } from './travel.service';
 import { TravelSummaryBuilder } from './travel-summary';
 
@@ -18,7 +19,6 @@ export class TravelController {
 
   constructor(
     private readonly travel: TravelService,
-    private readonly finance: TravelFinanceService,
     private readonly gateway: MatchGateway,
   ) {}
 
@@ -47,8 +47,10 @@ export class TravelController {
   @Post('/travel/trips/:id/edit')
   @AdminOnly()
   async editTrip(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(id)))) return forbidden(res);
-    await this.travel.updateTrip(BigInt(id), body);
+    const tripId = parseBigId(id);
+    if (!tripId) return notFound(res);
+    if (!(await this.travel.canManage(req.session.user as CurrentUser, tripId))) return forbidden(res);
+    await this.travel.updateTrip(tripId, body);
     this.gateway.emitTravelTripUpdated(id, 'trip-updated');
     return res.redirect(`/travel/trips/${id}`);
   }
@@ -56,8 +58,10 @@ export class TravelController {
   @Post('/travel/trips/:id/delete')
   @AdminOnly()
   async deleteTrip(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(id)))) return forbidden(res);
-    await this.travel.deleteTrip(BigInt(id));
+    const tripId = parseBigId(id);
+    if (!tripId) return notFound(res);
+    if (!(await this.travel.canManage(req.session.user as CurrentUser, tripId))) return forbidden(res);
+    await this.travel.deleteTrip(tripId);
     this.gateway.emitTravelTripsUpdated('trip-deleted');
     return res.redirect('/travel');
   }
@@ -65,8 +69,11 @@ export class TravelController {
   @Get('/travel/trips/:id')
   async detail(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     const user = req.session.user as CurrentUser;
-    if (!(await this.travel.canView(user, BigInt(id)))) return forbidden(res);
-    const detail = await this.travel.detail(BigInt(id));
+    const tripId = parseBigId(id);
+    if (!tripId) return notFound(res);
+    if (!(await this.travel.canView(user, tripId))) return forbidden(res);
+    const isTravelAdmin = user.role === 'ADMIN';
+    const detail = await this.travel.detail(tripId, isTravelAdmin);
     const summary = this.summaryBuilder.build(detail.members, detail.expenses, detail.trip.treasurerMemberId);
     const viewerMemberId = user.role === 'CLIENT' ? detail.members.find((member) => member.email.toLowerCase() === user.email.toLowerCase() || member.player?.email?.toLowerCase() === user.email.toLowerCase())?.id : null;
     return render(res, 'travel/detail', {
@@ -75,7 +82,7 @@ export class TravelController {
       viewerMemberId,
       expenseCategories: travelExpenseCategories,
       suggestionCategories: travelSuggestionCategories,
-      isTravelAdmin: user.role === 'ADMIN',
+      isTravelAdmin,
       today: new Date().toISOString().slice(0, 10),
     });
   }
@@ -96,21 +103,25 @@ export class TravelController {
   @Post('/travel/people/:id/edit')
   @AdminOnly()
   async editPerson(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    await this.travel.updatePerson(BigInt(id), body);
+    const personId = parseBigId(id);
+    if (!personId) return notFound(res);
+    await this.travel.updatePerson(personId, body);
     return res.redirect('/travel/people');
   }
 
   @Post('/travel/people/:id/delete')
   @AdminOnly()
   async deletePerson(@Res() res: Response, @Param('id') id: string) {
-    await this.travel.deletePerson(BigInt(id));
+    const personId = parseBigId(id);
+    if (!personId) return notFound(res);
+    await this.travel.deletePerson(personId);
     return res.redirect('/travel/people');
   }
 
   @Get('/travel/suggestions')
   @AdminOnly()
   async suggestions(@Res() res: Response, @Query('destinationId') destinationId?: string, @Query('category') category?: string) {
-    const selectedDestinationId = destinationId ? BigInt(destinationId) : undefined;
+    const selectedDestinationId = parseBigId(destinationId) ?? undefined;
     const [destinations, suggestions] = await Promise.all([this.travel.destinations(), this.travel.suggestions(selectedDestinationId, category)]);
     return render(res, 'travel/suggestions', { destinations, suggestions, selectedDestinationId, selectedCategory: category || '', categories: travelSuggestionCategories });
   }
@@ -132,18 +143,18 @@ export class TravelController {
   @Post('/travel/suggestions/:id/edit')
   @AdminOnly()
   async editSuggestion(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    await this.travel.saveSuggestion(body, BigInt(id));
+    const suggestionId = parseBigId(id);
+    if (!suggestionId) return notFound(res);
+    await this.travel.saveSuggestion(body, suggestionId);
     return res.redirect('/travel/suggestions');
   }
 
   @Post('/travel/suggestions/:id/delete')
   @AdminOnly()
   async deleteSuggestion(@Res() res: Response, @Param('id') id: string) {
-    await this.travel.deleteSuggestion(BigInt(id));
+    const suggestionId = parseBigId(id);
+    if (!suggestionId) return notFound(res);
+    await this.travel.deleteSuggestion(suggestionId);
     return res.redirect('/travel/suggestions');
   }
-}
-
-function forbidden(res: Response) {
-  return res.status(403).render('error', { message: 'Không có quyền' });
 }

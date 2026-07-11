@@ -1,5 +1,6 @@
 import { Body, Controller, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
+import { forbidden, notFound, parseBigId } from '../common/controller-utils';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
 import { FeatureGuard } from '../common/feature.guard';
 import { MatchGateway } from '../tournaments/match.gateway';
@@ -20,94 +21,135 @@ export class TravelFinanceController {
 
   @Post('/travel/trips/:id/members')
   async addMember(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(id)))) return forbidden(res);
-    if (body.personId) await this.finance.addMemberFromPerson(BigInt(id), BigInt(body.personId));
-    else await this.finance.addQuickMember(BigInt(id), body.name, body.email);
+    const tripId = await this.manageableTrip(req, res, id);
+    if (!tripId) return;
+    const personId = parseBigId(body.personId);
+    if (personId) await this.finance.addMemberFromPerson(tripId, personId);
+    else await this.finance.addQuickMember(tripId, body.name, body.email);
     this.gateway.emitTravelTripUpdated(id, 'member-added');
     return res.redirect(`/travel/trips/${id}`);
   }
 
   @Post('/travel/trips/:tripId/members/:memberId/edit')
   async editMember(@Req() req: Request, @Res() res: Response, @Param('tripId') tripId: string, @Param('memberId') memberId: string, @Body() body: Record<string, string>) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(tripId)))) return forbidden(res);
-    await this.finance.updateMember(BigInt(tripId), BigInt(memberId), body);
+    const scope = await this.manageableMember(req, res, tripId, memberId);
+    if (!scope) return;
+    await this.finance.updateMember(scope.tripId, scope.memberId, body);
     this.gateway.emitTravelTripUpdated(tripId, 'member-updated');
     return res.redirect(`/travel/trips/${tripId}`);
   }
 
   @Post('/travel/trips/:tripId/members/:memberId/delete')
   async deleteMember(@Req() req: Request, @Res() res: Response, @Param('tripId') tripId: string, @Param('memberId') memberId: string) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(tripId)))) return forbidden(res);
-    await this.finance.deleteMember(BigInt(tripId), BigInt(memberId));
+    const scope = await this.manageableMember(req, res, tripId, memberId);
+    if (!scope) return;
+    await this.finance.deleteMember(scope.tripId, scope.memberId);
     this.gateway.emitTravelTripUpdated(tripId, 'member-deleted');
     return res.redirect(`/travel/trips/${tripId}`);
   }
 
   @Post('/travel/trips/:id/treasurer')
   async setTreasurer(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('treasurerMemberId') treasurerMemberId: string) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(id)))) return forbidden(res);
-    await this.finance.setTreasurer(BigInt(id), treasurerMemberId);
+    const tripId = await this.manageableTrip(req, res, id);
+    if (!tripId) return;
+    await this.finance.setTreasurer(tripId, treasurerMemberId);
     this.gateway.emitTravelTripUpdated(id, 'treasurer-updated');
     return res.redirect(`/travel/trips/${id}`);
   }
 
   @Post('/travel/trips/:id/collections')
   async updateCollections(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(id)))) return forbidden(res);
-    await this.finance.updateCollections(BigInt(id), body);
+    const tripId = await this.manageableTrip(req, res, id);
+    if (!tripId) return;
+    await this.finance.updateCollections(tripId, body);
     this.gateway.emitTravelTripUpdated(id, 'collections-updated');
     return res.redirect(`/travel/trips/${id}`);
   }
 
   @Post('/travel/trips/:id/collections/paid-enough')
   async markPaidEnough(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(id)))) return forbidden(res);
-    await this.finance.markPaidEnough(BigInt(id));
+    const tripId = await this.manageableTrip(req, res, id);
+    if (!tripId) return;
+    await this.finance.markPaidEnough(tripId);
     this.gateway.emitTravelTripUpdated(id, 'collections-paid-enough');
     return res.redirect(`/travel/trips/${id}`);
   }
 
   @Post('/travel/trips/:id/expenses')
   async addExpense(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(id)))) return forbidden(res);
-    await this.finance.addExpense(BigInt(id), body);
+    const tripId = await this.manageableTrip(req, res, id);
+    if (!tripId) return;
+    await this.finance.addExpense(tripId, body);
     this.gateway.emitTravelTripUpdated(id, 'expense-added');
     return res.redirect(`/travel/trips/${id}`);
   }
 
   @Post('/travel/trips/:tripId/expenses/:expenseId/edit')
   async editExpense(@Req() req: Request, @Res() res: Response, @Param('tripId') tripId: string, @Param('expenseId') expenseId: string, @Body() body: Record<string, string>) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(tripId)))) return forbidden(res);
-    await this.finance.updateExpense(BigInt(tripId), BigInt(expenseId), body);
+    const scopedTrip = await this.manageableTrip(req, res, tripId);
+    if (!scopedTrip) return;
+    const expId = parseBigId(expenseId);
+    if (!expId) return notFound(res);
+    await this.finance.updateExpense(scopedTrip, expId, body);
     this.gateway.emitTravelTripUpdated(tripId, 'expense-updated');
     return res.redirect(`/travel/trips/${tripId}`);
   }
 
   @Post('/travel/trips/:tripId/expenses/:expenseId/delete')
   async deleteExpense(@Req() req: Request, @Res() res: Response, @Param('tripId') tripId: string, @Param('expenseId') expenseId: string) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(tripId)))) return forbidden(res);
-    await this.finance.deleteExpense(BigInt(tripId), BigInt(expenseId));
+    const scopedTrip = await this.manageableTrip(req, res, tripId);
+    if (!scopedTrip) return;
+    const expId = parseBigId(expenseId);
+    if (!expId) return notFound(res);
+    await this.finance.deleteExpense(scopedTrip, expId);
     this.gateway.emitTravelTripUpdated(tripId, 'expense-deleted');
     return res.redirect(`/travel/trips/${tripId}`);
   }
 
   @Post('/travel/trips/:id/permissions')
   async addPermission(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('adminId') adminId: string) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(id)))) return forbidden(res);
-    await this.travel.addPermission(BigInt(id), BigInt(adminId));
+    const tripId = await this.manageableTrip(req, res, id);
+    const adminBigId = parseBigId(adminId);
+    if (!tripId) return;
+    if (!adminBigId) return notFound(res);
+    await this.travel.addPermission(tripId, adminBigId);
     this.gateway.emitTravelTripUpdated(id, 'permission-added');
     return res.redirect(`/travel/trips/${id}`);
   }
 
   @Post('/travel/trips/:tripId/permissions/:permissionId/delete')
   async removePermission(@Req() req: Request, @Res() res: Response, @Param('tripId') tripId: string, @Param('permissionId') permissionId: string) {
-    if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(tripId)))) return forbidden(res);
-    await this.travel.removePermission(BigInt(tripId), BigInt(permissionId));
+    const scopedTrip = await this.manageableTrip(req, res, tripId);
+    const permId = parseBigId(permissionId);
+    if (!scopedTrip) return;
+    if (!permId) return notFound(res);
+    await this.travel.removePermission(scopedTrip, permId);
     this.gateway.emitTravelTripUpdated(tripId, 'permission-deleted');
     return res.redirect(`/travel/trips/${tripId}`);
   }
-}
 
-function forbidden(res: Response) {
-  return res.status(403).render('error', { message: 'Không có quyền' });
+  /** Parse tripId + kiểm quyền quản lý; trả tripId hợp lệ hoặc null (đã gửi response 404/403). */
+  private async manageableTrip(req: Request, res: Response, idParam: string): Promise<bigint | null> {
+    const tripId = parseBigId(idParam);
+    if (!tripId) {
+      notFound(res);
+      return null;
+    }
+    if (!(await this.travel.canManage(req.session.user as CurrentUser, tripId))) {
+      forbidden(res);
+      return null;
+    }
+    return tripId;
+  }
+
+  private async manageableMember(req: Request, res: Response, tripParam: string, memberParam: string): Promise<{ tripId: bigint; memberId: bigint } | null> {
+    const memberId = parseBigId(memberParam);
+    const tripId = await this.manageableTrip(req, res, tripParam);
+    if (!tripId) return null;
+    if (!memberId) {
+      notFound(res);
+      return null;
+    }
+    return { tripId, memberId };
+  }
 }

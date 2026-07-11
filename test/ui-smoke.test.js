@@ -230,13 +230,36 @@ test('travel views render dashboard and finance detail without overflow-prone pl
     today: '2026-07-03',
   });
 
+  const clientDetail = await renderView('travel/detail.ejs', {
+    ...commonLocals('/travel/trips/1'),
+    trip: { id: 1n, name: 'Trip', description: 'Note', destinationId: 1n, destination: { name: 'Đà Nẵng' }, treasurerMemberId: 1n, permissions: [] },
+    members: [member],
+    expenses: [{ id: 1n, title: 'Ẩm thực', amount: 200, note: 'Bữa tối', spentDate: new Date(), paidByMemberId: 1n, paidByMember: member, splits: [{ memberId: 1n, amount: 200 }] }],
+    availablePeople: [],
+    admins: [],
+    destinations: [],
+    destinationSuggestions: [],
+    summary,
+    viewerMemberId: 1n,
+    expenseCategories: ['Ẩm thực', 'Khác'],
+    suggestionCategories: ['Quán ăn ngon'],
+    isTravelAdmin: false,
+    today: '2026-07-03',
+  });
+
   assert.match(dashboard, /data-travel-index/);
   assert.match(dashboard, /🌴/);
   assert.match(detail, /data-travel-trip-id="1"/);
+  assert.match(detail, /data-travel-tabs/);
+  assert.match(detail, /data-travel-panel="overview"/);
   assert.match(detail, /travel-expense-form/);
   assert.match(detail, /Tổng ứng trước/);
   assert.match(detail, /Đã trả/);
   assert.match(detail, /🌴/);
+  // Client không thấy form thêm khoản chi / thu tiền, nhưng vẫn thấy bảng thành viên.
+  assert.doesNotMatch(clientDetail, /travel-expense-form/);
+  assert.doesNotMatch(clientDetail, /\/collections/);
+  assert.match(clientDetail, /data-travel-tabs/);
   assert.match(home, /pickleball-icon/);
   assert.doesNotMatch(home, /module-card" href="\/score-reader/);
 });
