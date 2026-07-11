@@ -89,6 +89,12 @@ E2E_DATABASE_URL=postgresql://... npm run test:e2e
 
 Runner sẽ seed dữ liệu e2e vào DB test và ghi `.e2e-state.json` cục bộ. File này đã được ignore.
 
+## Tính năng AI (Gemini)
+
+- `GEMINI_API_KEY`: bắt buộc để dùng AI (gợi ý du lịch, phân tích đơn thuốc, game nói chuyện). Lấy tại https://aistudio.google.com/apikey.
+- `GEMINI_MODEL`: model dùng, mặc định `gemini-2.0-flash`. Nếu hay bị lỗi 429 (hết hạn mức/ngày của bản free), thử đổi sang model có hạn mức free cao hơn, ví dụ `gemini-1.5-flash`, hoặc bật billing trong Google Cloud để tăng giới hạn.
+- App tự thử lại vài lần khi gặp 429/503 tạm thời và báo lỗi thân thiện khi hết lượt.
+
 ## Backup / khôi phục dữ liệu
 
 Supabase free không có backup tự động, nên có 2 script thủ công:
