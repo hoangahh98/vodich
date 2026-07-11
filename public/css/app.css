@@ -667,3 +667,49 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .chat-setup label { color: #fff; font-size: 12px; margin-bottom: 4px; }
 .chat-setup input, .chat-setup select { height: 40px; }
 .chat-setup-toggle { border: 0; background: rgba(255,255,255,.25); color: #fff; border-radius: 999px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; margin-left: 8px; }
+
+/* ===== Game: tiếng Anh nâng cao (gia sư AI) ===== */
+.game-card-advanced { background: linear-gradient(135deg,#0f2027,#2c5364); }
+.game-stage-advanced { background: radial-gradient(circle at 15% 10%, #a1c4fd, transparent 45%), linear-gradient(160deg, #2c3e50, #4ca1af); }
+.adv-picker { width: 100%; max-width: 680px; display: flex; flex-direction: column; gap: 8px; }
+.adv-picker-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.adv-chip { border: 0; border-radius: 999px; padding: 8px 14px; font-weight: 700; font-size: 14px; cursor: pointer; background: rgba(255,255,255,.22); color: #fff; }
+.adv-chip.active { background: #fff; color: #22303a; box-shadow: 0 4px 12px rgba(0,0,0,.2); }
+.adv-chip-level.active { background: #ffd166; color: #4a3200; }
+.adv-start { border: 0; border-radius: 999px; padding: 9px 20px; font-weight: 800; font-size: 15px; cursor: pointer; background: rgba(255,255,255,.9); color: #22303a; }
+
+/* ===== Game: Bong Bóng Ma Thuật ===== */
+.bubbles-stage { position: fixed; inset: 0; overflow: hidden; background: linear-gradient(160deg,#89f7fe,#66a6ff); touch-action: manipulation; }
+.bubbles-back, .peek-back, .scratch-back { position: fixed; top: 12px; left: 12px; z-index: 10; }
+.bubbles-layer { position: absolute; inset: 0; }
+.bubbles-hint, .peek-hint { position: fixed; left: 0; right: 0; text-align: center; color: #fff; font-weight: 800; font-size: 20px; text-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.bubbles-hint { bottom: 22px; }
+.magic-bubble { position: absolute; bottom: -170px; width: var(--size); height: var(--size); border-radius: 50%; border: 0; display: grid; place-items: center; font-size: calc(var(--size) * .5); cursor: pointer; box-shadow: inset -8px -8px 16px rgba(0,0,0,.12), inset 8px 8px 16px rgba(255,255,255,.45), 0 6px 14px rgba(0,0,0,.15); animation-name: bubble-float; animation-timing-function: linear; animation-fill-mode: forwards; }
+@keyframes bubble-float { to { transform: translateY(-125vh); } }
+.bubble-pop { animation: bubble-burst .26s ease forwards !important; }
+@keyframes bubble-burst { to { transform: scale(1.5); opacity: 0; } }
+.bubble-particle { position: fixed; z-index: 20; font-size: 22px; pointer-events: none; transform: translate(-50%,-50%); animation: particle-fly .8s ease-out forwards; }
+@keyframes particle-fly { to { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.4); opacity: 0; } }
+
+/* ===== Game: Ú Òa Cùng Động Vật ===== */
+.peek-stage { position: fixed; inset: 0; background: linear-gradient(160deg,#a8e063,#56ab2f); overflow: hidden; touch-action: manipulation; }
+.peek-hint { top: 58px; font-size: 18px; }
+.peek-grid { position: absolute; inset: 100px 14px 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; place-items: center; }
+.peek-spot { border: 0; background: rgba(255,255,255,.28); border-radius: 28px; width: 100%; height: 100%; max-width: 280px; max-height: 260px; font-size: min(26vw, 120px); cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,.18); }
+.peek-wiggle { animation: peek-wiggle .5s ease; }
+@keyframes peek-wiggle { 0%,100%{transform:rotate(0)} 25%{transform:rotate(-9deg)} 75%{transform:rotate(9deg)} }
+.peek-reveal { background: #fff; animation: peek-reveal .5s ease; }
+@keyframes peek-reveal { 0%{transform:scale(.4);opacity:0} 60%{transform:scale(1.2)} 100%{transform:scale(1);opacity:1} }
+
+/* ===== Game: Họa Sĩ Nhí (cào tranh) ===== */
+.scratch-stage { position: fixed; inset: 0; overflow: hidden; touch-action: none; overscroll-behavior: none; background: #1f2430; }
+.scratch-picture { position: absolute; inset: 0; display: grid; place-items: center; font-size: min(58vw, 58vh); }
+.scratch-canvas { position: absolute; inset: 0; touch-action: none; }
+.scratch-hint { position: fixed; bottom: 24px; left: 0; right: 0; text-align: center; color: #fff; font-weight: 800; font-size: 19px; text-shadow: 0 2px 6px rgba(0,0,0,.4); transition: opacity .3s; z-index: 5; }
+.scratch-celebrate { animation: scratch-cel .6s ease; }
+@keyframes scratch-cel { 0%{transform:scale(1)} 50%{transform:scale(1.14)} 100%{transform:scale(1)} }
+
+/* Thẻ hub 3 game mới */
+.game-card-bubbles { background: linear-gradient(135deg,#4facfe,#00f2fe); }
+.game-card-peek { background: linear-gradient(135deg,#56ab2f,#a8e063); }
+.game-card-scratch { background: linear-gradient(135deg,#ee0979,#ff6a00); }
