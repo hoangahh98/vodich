@@ -23,8 +23,8 @@ export class TravelFinanceController {
   async addMember(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     const tripId = await this.manageableTrip(req, res, id);
     if (!tripId) return;
-    const personId = parseBigId(body.personId);
-    if (personId) await this.finance.addMemberFromPerson(tripId, personId);
+    const playerId = parseBigId(body.playerId);
+    if (playerId) await this.finance.addMemberFromPlayer(tripId, playerId);
     else await this.finance.addQuickMember(tripId, body.name, body.email);
     this.gateway.emitTravelTripUpdated(id, 'member-added');
     return res.redirect(`/travel/trips/${id}/members`);

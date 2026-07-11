@@ -47,7 +47,7 @@
       <section class="card-lite p mb">
         <div class="section-heading mb"><div><span class="feature-icon">➕</span><h2 class="section-title">Thêm thành viên</h2></div></div>
         <form class="travel-member-form mb" method="post" action="/travel/trips/<%= trip.id %>/members">
-          <div><label>Chọn từ danh sách</label><select name="personId"><option value="">Thêm nhanh bên dưới</option><% availablePeople.forEach((person) => { %><option value="<%= person.id %>"><%= person.name %><%= person.email ? ' - ' + person.email : '' %></option><% }) %></select></div>
+          <div><label>Chọn từ danh sách</label><select name="playerId"><option value="">Thêm nhanh bên dưới</option><% availablePlayers.forEach((player) => { %><option value="<%= player.id %>"><%= player.displayName %><%= player.email ? ' - ' + player.email : '' %></option><% }) %></select></div>
           <div><label>Tên nhanh</label><input name="name" placeholder="Tên thành viên"></div>
           <div><label>Email</label><input name="email" type="email" placeholder="Để người đó xem được"></div>
           <button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button>
@@ -235,7 +235,6 @@
   <button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu">☰</button>
   <div class="bottom-menu-inner">
     <% sections.forEach((item) => { %><a class="<%= section === item.key ? 'active' : '' %>" href="/travel/trips/<%= trip.id %>/<%= item.key %>"><%= item.label %></a><% }) %>
-    <a href="/travel">↩️ Danh sách chuyến</a>
   </div>
 </nav>
 <script src="/socket.io/socket.io.js"></script>

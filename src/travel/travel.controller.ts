@@ -100,37 +100,6 @@ export class TravelController {
     });
   }
 
-  @Get('/travel/people')
-  @AdminOnly()
-  async people(@Res() res: Response) {
-    return render(res, 'travel/people', { people: await this.travel.people() });
-  }
-
-  @Post('/travel/people')
-  @AdminOnly()
-  async createPerson(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
-    await this.travel.createPerson(req.session.user as CurrentUser, body);
-    return res.redirect('/travel/people');
-  }
-
-  @Post('/travel/people/:id/edit')
-  @AdminOnly()
-  async editPerson(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    const personId = parseBigId(id);
-    if (!personId) return notFound(res);
-    await this.travel.updatePerson(personId, body);
-    return res.redirect('/travel/people');
-  }
-
-  @Post('/travel/people/:id/delete')
-  @AdminOnly()
-  async deletePerson(@Res() res: Response, @Param('id') id: string) {
-    const personId = parseBigId(id);
-    if (!personId) return notFound(res);
-    await this.travel.deletePerson(personId);
-    return res.redirect('/travel/people');
-  }
-
   @Get('/travel/suggestions')
   @AdminOnly()
   async suggestions(@Res() res: Response, @Query('destinationId') destinationId?: string, @Query('category') category?: string) {

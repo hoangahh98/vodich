@@ -19,15 +19,15 @@ export class TravelFinanceService {
     return this.summaryBuilder.build(members, expenses, treasurerMemberId);
   }
 
-  async addMemberFromPerson(tripId: bigint, personId: bigint) {
-    const person = await this.prisma.travelPerson.findUniqueOrThrow({ where: { id: personId } });
+  /** Thêm thành viên từ danh sách chung (Player). */
+  async addMemberFromPlayer(tripId: bigint, playerId: bigint) {
+    const player = await this.prisma.player.findUniqueOrThrow({ where: { id: playerId } });
     const member = await this.prisma.travelTripMember.create({
       data: {
         tripId,
-        personId: person.id,
-        playerId: person.playerId,
-        name: person.name,
-        email: person.email,
+        playerId: player.id,
+        name: player.displayName,
+        email: player.email,
         collections: { create: { tripId, amount: 0 } },
       },
     });
@@ -35,12 +35,28 @@ export class TravelFinanceService {
     return member;
   }
 
+  /** Thêm nhanh bằng tên/email; nếu có email thì gắn/tạo vào danh sách chung (Player). */
   async addQuickMember(tripId: bigint, name: string, email = '') {
+    const cleanName = cleanRequired(name, 'Tên thành viên');
     const normalizedEmail = clean(email).toLowerCase();
-    const person = await this.prisma.travelPerson.create({
-      data: { name: cleanRequired(name, 'Tên thành viên'), email: normalizedEmail },
+    const player = normalizedEmail
+      ? await this.prisma.player.upsert({
+          where: { email: normalizedEmail },
+          update: { displayName: cleanName },
+          create: { displayName: cleanName, email: normalizedEmail, skillLevel: 'C', notes: '' },
+        })
+      : null;
+    const member = await this.prisma.travelTripMember.create({
+      data: {
+        tripId,
+        playerId: player?.id ?? null,
+        name: cleanName,
+        email: normalizedEmail,
+        collections: { create: { tripId, amount: 0 } },
+      },
     });
-    return this.addMemberFromPerson(tripId, person.id);
+    await this.rebalanceSharedExpenses(tripId);
+    return member;
   }
 
   async updateMember(tripId: bigint, memberId: bigint, body: Record<string, string>) {

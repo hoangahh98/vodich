@@ -218,7 +218,7 @@ test('travel views render dashboard and finance detail without overflow-prone pl
     trip: { id: 1n, name: 'Trip', description: 'Note', destinationId: 1n, destination: { name: 'Đà Nẵng' }, treasurerMemberId: 1n, permissions: [] },
     members: [member],
     expenses: [{ id: 1n, title: 'Ẩm thực', amount: 200, note: 'Bữa tối', spentDate: new Date(), paidByMemberId: 1n, paidByMember: member, splits: [{ memberId: 1n, amount: 200 }] }],
-    availablePeople: [],
+    availablePlayers: [],
     admins: [],
     destinations: [{ id: 1n, name: 'Đà Nẵng' }],
     destinationSuggestions: [{ id: 1n, category: 'Quán ăn ngon', name: 'Mì Quảng', address: 'Đà Nẵng', description: '', mapUrl: '' }],

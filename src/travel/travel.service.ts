@@ -83,10 +83,10 @@ export class TravelService {
       trip.destinationId ? this.suggestionsForDestination(trip.destinationId) : Promise.resolve([]),
     ]);
     // Dữ liệu chỉ dành cho admin quản trị chuyến; không truy vấn khi người xem là CLIENT.
-    const [availablePeople, admins, destinations] = forAdmin
-      ? await Promise.all([this.availablePeople(tripId), this.availableAdmins(tripId, trip.ownerAdminId), this.destinations()])
+    const [availablePlayers, admins, destinations] = forAdmin
+      ? await Promise.all([this.availablePlayers(tripId), this.availableAdmins(tripId, trip.ownerAdminId), this.destinations()])
       : [[], [], []];
-    return { trip, members, expenses, availablePeople, admins, destinations, destinationSuggestions };
+    return { trip, members, expenses, availablePlayers, admins, destinations, destinationSuggestions };
   }
 
   destinations() {
@@ -117,36 +117,11 @@ export class TravelService {
     return this.prisma.travelTrip.update({ where: { id: tripId }, data: { active: false, treasurerMemberId: null } });
   }
 
-  async people() {
-    return this.prisma.travelPerson.findMany({ where: { active: true }, include: { player: true }, orderBy: [{ name: 'asc' }, { id: 'asc' }] });
-  }
-
-  async createPerson(user: CurrentUser, body: Record<string, string>) {
-    const email = clean(body.email).toLowerCase();
-    const player = email ? await this.findOrCreatePlayer(cleanRequired(body.name, 'Tên thành viên'), email) : null;
-    return this.prisma.travelPerson.create({
-      data: { name: cleanRequired(body.name, 'Tên thành viên'), email, playerId: player?.id, ownerAdminId: user.role === 'ADMIN' ? BigInt(user.id) : null },
-    });
-  }
-
-  async updatePerson(personId: bigint, body: Record<string, string>) {
-    const email = clean(body.email).toLowerCase();
-    const name = cleanRequired(body.name, 'Tên thành viên');
-    const player = email ? await this.findOrCreatePlayer(name, email) : null;
-    return this.prisma.travelPerson.update({
-      where: { id: personId },
-      data: { name, email, playerId: player?.id || null, members: { updateMany: { where: { active: true }, data: { name, email, playerId: player?.id || null } } } },
-    });
-  }
-
-  deletePerson(personId: bigint) {
-    return this.prisma.travelPerson.update({ where: { id: personId }, data: { active: false } });
-  }
-
-  async availablePeople(tripId: bigint) {
-    return this.prisma.travelPerson.findMany({
-      where: { active: true, members: { none: { tripId, active: true } } },
-      orderBy: [{ name: 'asc' }, { id: 'asc' }],
+  /** Thành viên chung (Player) chưa có trong chuyến — dùng cho dropdown thêm thành viên. */
+  async availablePlayers(tripId: bigint) {
+    return this.prisma.player.findMany({
+      where: { travelMembers: { none: { tripId, active: true } } },
+      orderBy: [{ displayName: 'asc' }, { id: 'asc' }],
     });
   }
 
