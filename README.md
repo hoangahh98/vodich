@@ -89,6 +89,18 @@ E2E_DATABASE_URL=postgresql://... npm run test:e2e
 
 Runner sẽ seed dữ liệu e2e vào DB test và ghi `.e2e-state.json` cục bộ. File này đã được ignore.
 
+## Backup / khôi phục dữ liệu
+
+Supabase free không có backup tự động, nên có 2 script thủ công:
+
+```bash
+npm run backup     # xuất toàn bộ bảng ra backups/backup-<time>.json + backups/latest.json
+npm run restore    # phục hồi từ backups/latest.json (hoặc: npm run restore -- đường/dẫn.json)
+```
+
+- `restore` chèn theo thứ tự khóa ngoại, bỏ qua bản ghi trùng, KHÔNG xóa dữ liệu hiện có. Chạy `npx prisma migrate deploy` trước để bảng đã tồn tại (vd khi tạo DB Supabase mới).
+- ⚠️ **KHÔNG commit thư mục `backups/` vào repo này** — repo đang PUBLIC, mà file backup chứa email, hash mật khẩu và (sau này) dữ liệu y tế. `backups/` đã được `.gitignore`. Muốn lưu backup theo lịch, dùng một trong các cách an toàn: repo **private** riêng, artifact được mã hóa, hoặc Supabase paid có Point-in-Time Recovery. Có thể hẹn giờ chạy `npm run backup` bằng cron trên máy/VPS riêng.
+
 ## Health checks
 
 - `/healthz`: app process sống.

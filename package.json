@@ -9,6 +9,8 @@
     "test:e2e": "npm run build && node scripts/run-e2e.js",
     "seed:e2e": "node scripts/seed-e2e.js",
     "check:render": "node scripts/check-render-ready.js",
+    "backup": "node scripts/backup-db.js",
+    "restore": "node scripts/restore-db.js",
     "start": "node dist/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main.js",
