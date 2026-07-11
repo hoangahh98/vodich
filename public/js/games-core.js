@@ -39,6 +39,27 @@ window.GameCore = (() => {
     } catch (_) {}
   };
 
+  const FEMALE_HINTS = ['female', 'zira', 'samantha', 'karen', 'moira', 'tessa', 'susan', 'linda', 'google us english', 'aria', 'jenny', 'sonia', 'natasha'];
+  let cachedVoice = null;
+  const femaleEnglishVoice = () => {
+    if (cachedVoice) return cachedVoice;
+    if (!window.speechSynthesis) return null;
+    const voices = window.speechSynthesis.getVoices() || [];
+    const en = voices.filter((v) => (v.lang || '').toLowerCase().startsWith('en'));
+    cachedVoice =
+      en.find((v) => FEMALE_HINTS.some((h) => (v.name || '').toLowerCase().includes(h))) ||
+      en.find((v) => !/male/i.test(v.name) || /female/i.test(v.name)) ||
+      en[0] ||
+      null;
+    return cachedVoice;
+  };
+  if (window.speechSynthesis) {
+    window.speechSynthesis.onvoiceschanged = () => {
+      cachedVoice = null;
+      femaleEnglishVoice();
+    };
+  }
+
   const speak = (text, lang = 'en-US') => {
     try {
       if (!window.speechSynthesis) return;
@@ -46,6 +67,9 @@ window.GameCore = (() => {
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = lang;
       utter.rate = 0.9;
+      utter.pitch = 1.15; // hơi cao cho giọng nữ, thân thiện với trẻ
+      const voice = femaleEnglishVoice();
+      if (voice) utter.voice = voice;
       window.speechSynthesis.speak(utter);
     } catch (_) {}
   };

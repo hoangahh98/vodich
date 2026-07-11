@@ -1,0 +1,25 @@
+<%- include('../partials/head', { title: 'Nói chuyện với AI' }) %>
+<body class="game-body">
+  <div class="game-stage game-stage-chat" data-game="chat" data-ai="<%= aiConfigured ? '1' : '0' %>">
+    <header class="game-topbar">
+      <a class="game-back" href="/games">Về</a>
+      <div class="game-hud"><span class="game-stat">💬 Emma</span></div>
+    </header>
+
+    <div class="chat-window" data-chat-window>
+      <div class="chat-msg chat-ai"><span class="chat-avatar">👩‍🦰</span><div class="chat-bubble">Hi! I'm Emma. Nhấn nút micro và nói tiếng Anh với mình nhé! 🎈</div></div>
+    </div>
+
+    <div class="chat-tip" data-chat-tip></div>
+
+    <div class="chat-controls">
+      <button class="chat-mic" data-chat-mic type="button" title="Nhấn để nói">🎙️</button>
+      <input class="chat-text" data-chat-text type="text" placeholder="Hoặc gõ tiếng Anh ở đây..." autocomplete="off">
+      <button class="chat-send" data-chat-send type="button">Gửi</button>
+    </div>
+    <% if (!aiConfigured) { %><div class="chat-warn">Chưa cấu hình AI trên server nên chưa trò chuyện được.</div><% } %>
+  </div>
+  <script src="/js/games-core.js"></script>
+  <script src="/js/games-chat.js"></script>
+</body>
+</html>
