@@ -79,19 +79,36 @@ window.GameCore = (() => {
     } catch (_) {}
   };
 
+  // Kích hoạt speechSynthesis khi người dùng chạm lần đầu (bắt buộc trên mobile).
+  let ttsWarmed = false;
+  const warmTts = () => {
+    if (ttsWarmed || !window.speechSynthesis) return;
+    ttsWarmed = true;
+    try {
+      window.speechSynthesis.resume();
+      window.speechSynthesis.speak(new SpeechSynthesisUtterance(' '));
+    } catch (_) {}
+  };
+  document.addEventListener('pointerdown', warmTts, { once: true, capture: true });
+  document.addEventListener('touchstart', warmTts, { once: true, capture: true });
+
   // Đọc tên vật thể bằng tiếng Việt (dùng cho các game mầm non).
   const speakVi = (text) => {
     try {
-      if (!window.speechSynthesis) return;
-      window.speechSynthesis.cancel();
+      const synth = window.speechSynthesis;
+      if (!synth) return;
+      warmTts();
+      // Chỉ hủy khi đang dồn nhiều câu (tránh cancel() làm rớt câu đơn trên mobile).
+      if (synth.speaking && synth.pending) synth.cancel();
       const utter = new SpeechSynthesisUtterance(text);
       utter.lang = 'vi-VN';
-      const voices = window.speechSynthesis.getVoices() || [];
+      const voices = synth.getVoices() || [];
       const vi = voices.find((v) => (v.lang || '').toLowerCase().startsWith('vi'));
       if (vi) utter.voice = vi;
       utter.rate = 0.95;
       utter.pitch = 1.1;
-      window.speechSynthesis.speak(utter);
+      synth.resume();
+      synth.speak(utter);
     } catch (_) {}
   };
 

@@ -21,10 +21,34 @@
   let done = false;
   let drawing = false;
   let checkPending = false;
+  // Mặt nạ hình chính (emoji) để đo % ĐÚNG phần hình, không tính nền trống.
+  const mask = document.createElement('canvas');
+  const mctx = mask.getContext('2d', { willReadFrequently: true });
+  let maskData = null;
+  let maskTotal = 0;
 
   function fit() {
     canvas.width = stage.clientWidth;
     canvas.height = stage.clientHeight;
+  }
+
+  function buildMask() {
+    mask.width = canvas.width;
+    mask.height = canvas.height;
+    mctx.clearRect(0, 0, mask.width, mask.height);
+    const size = Math.min(window.innerWidth, window.innerHeight) * 0.58;
+    mctx.font = size + 'px sans-serif';
+    mctx.textAlign = 'center';
+    mctx.textBaseline = 'middle';
+    mctx.fillText(current.e, mask.width / 2, mask.height / 2);
+    try {
+      maskData = mctx.getImageData(0, 0, mask.width, mask.height).data;
+      maskTotal = 0;
+      for (let i = 3; i < maskData.length; i += 16) if (maskData[i] > 20) maskTotal++;
+    } catch (_) {
+      maskData = null;
+      maskTotal = 0;
+    }
   }
 
   function newPicture() {
@@ -34,6 +58,7 @@
     picture.textContent = current.e;
     hint && (hint.style.opacity = '1');
     fit();
+    buildMask();
     // Phủ lớp xám lên trên.
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = '#9aa4b2';
@@ -64,18 +89,25 @@
 
   function percentCleared() {
     try {
-      // Chỉ xét VÙNG HÌNH CHÍNH ở giữa (nơi có bức tranh), không tính nền trống quanh mép.
-      const w = canvas.width;
-      const h = canvas.height;
-      const side = Math.floor(Math.min(w, h) * 0.62);
-      const x0 = Math.floor((w - side) / 2);
-      const y0 = Math.floor((h - side) / 2);
-      const data = ctx.getImageData(x0, y0, side, side).data;
+      const overlay = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      // Có mặt nạ hình: chỉ tính phần thuộc EMOJI (ô tô...) đã bị cào.
+      if (maskData && maskTotal > 200) {
+        let clear = 0;
+        let total = 0;
+        for (let i = 3; i < overlay.length && i < maskData.length; i += 16) {
+          if (maskData[i] > 20) {
+            total++;
+            if (overlay[i] === 0) clear++;
+          }
+        }
+        return total ? clear / total : 0;
+      }
+      // Dự phòng: xét vùng giữa nếu không dựng được mặt nạ.
       let clear = 0;
       let total = 0;
-      for (let i = 3; i < data.length; i += 32) { // lấy mẫu alpha
+      for (let i = 3; i < overlay.length; i += 32) {
         total++;
-        if (data[i] === 0) clear++;
+        if (overlay[i] === 0) clear++;
       }
       return total ? clear / total : 0;
     } catch (_) {
