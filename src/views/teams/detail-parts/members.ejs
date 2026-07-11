@@ -55,7 +55,7 @@
     <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-member-fee-list"><thead><tr><th class="sticky-col">Tên</th><th>Loại</th><th>Tiền đóng</th><th>Trạng thái</th><th>Donate/thiếu</th></tr></thead><tbody>
       <% members.forEach((member) => { %>
         <tr class="<%= isTeamMemberMine(member) ? 'mine-row' : '' %> <%= member.paymentStatus === 'PAID' ? 'sufficient-row' : 'insufficient-row' %>">
-          <td class="sticky-col"><strong><%= member.player.displayName %></strong><% if (member.notes) { %><br><span class="muted"><%= member.notes %></span><% } %></td>
+          <td class="sticky-col"><strong><%= member.player.displayName %></strong><% if (member.notes && currentUser.role === 'ADMIN') { %><br><span class="muted"><%= member.notes %></span><% } %></td>
           <td><span class="badge <%= member.memberType === 'GUEST' ? 'bg-info text-dark' : 'bg-success' %>"><%= member.typeLabel %></span></td>
           <td><strong><%= formatMoney(member.paidAmount) %>đ</strong></td>
           <td><span class="payment-mark <%= member.paymentStatus === 'PAID' ? 'paid' : 'unpaid' %>"><%= member.paymentStatus === 'PAID' ? '✓' : '✕' %></span></td>
@@ -64,7 +64,7 @@
             <% } else if (member.difference > 0) { %><span class="badge bg-success">+<%= formatMoney(member.difference) %>đ donate</span>
             <% } else if (member.difference === 0 && finance.monthlyFee > 0) { %><span class="badge bg-primary">Đủ phí</span>
             <% } else { %><span class="badge bg-danger">Thiếu <%= formatMoney(Math.abs(member.difference)) %>đ</span><% } %>
-            <% if (member.feeNotes) { %><br><span class="muted"><%= member.feeNotes %></span><% } %>
+            <% if (member.feeNotes && currentUser.role === 'ADMIN') { %><br><span class="muted"><%= member.feeNotes %></span><% } %>
           </td>
         </tr>
       <% }) %>

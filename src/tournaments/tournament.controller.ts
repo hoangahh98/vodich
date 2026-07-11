@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
-import { requireFeature, safeTournamentSection } from '../common/controller-utils';
+import { forbidden, notFound, parseBigId, requireFeature, safeTournamentSection } from '../common/controller-utils';
 import { render } from '../common/view';
 import { TournamentDetailViewModelBuilder } from './tournament-detail-view-model';
 import { MatchGateway } from './match.gateway';
@@ -101,9 +101,11 @@ export class TournamentController {
   @Post('/tournaments/:tournamentId/permissions/:permissionId/delete')
   async removePermission(@Req() req: Request, @Res() res: Response, @Param('tournamentId') tournamentId: string, @Param('permissionId') permissionId: string) {
     if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
-    const id = BigInt(tournamentId);
+    const id = parseBigId(tournamentId);
+    const permId = parseBigId(permissionId);
+    if (!id || !permId) return notFound(res);
     if (!(await this.tournaments.canManage(req.session.user!, id))) return forbidden(res);
-    await this.tournaments.removePermission(BigInt(permissionId));
+    await this.tournaments.removePermission(id, permId);
     this.matchGateway.emitTournamentUpdated(tournamentId, 'permission-deleted');
     return res.redirect(`/tournaments/${tournamentId}/settings`);
   }
@@ -112,15 +114,21 @@ export class TournamentController {
   async tournamentDetail(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Param('section') section: string) {
     const user = requireFeature(req, res, this.auth, 'TOURNAMENTS');
     if (!user) return;
-    const tournamentId = BigInt(id);
-    if (!(await this.tournaments.canView(user, tournamentId))) return res.status(403).render('error', { message: 'Không có quyền' });
+    const tournamentId = parseBigId(id);
+    if (!tournamentId) return notFound(res);
+    if (!(await this.tournaments.canView(user, tournamentId))) return forbidden(res);
+    // CLIENT chỉ được xem các mục không nhạy cảm; các mục tài chính/cài đặt chỉ dành cho ADMIN.
+    const safeSection = safeTournamentSection(section);
+    if (user.role !== 'ADMIN' && !CLIENT_TOURNAMENT_SECTIONS.includes(safeSection)) {
+      return res.redirect(`/tournaments/${id}/players`);
+    }
     const detail = await this.tournaments.detail(tournamentId);
     const minimumFee = this.tournaments.minimumFee(detail.tournament);
     const externalLink = `${req.protocol}://${req.get('host')}/external-register/${id}`;
     const tournamentLink = `${req.protocol}://${req.get('host')}/tournaments/${id}/players`;
     const viewModel = this.detailViewModel.build({ currentUser: user, detail, externalLink, minimumFee, tournamentLink });
     return render(res, 'tournaments/detail', {
-      section,
+      section: safeSection,
       ...detail,
       ...viewModel,
       detailContext: viewModel,
@@ -129,6 +137,5 @@ export class TournamentController {
   }
 }
 
-function forbidden(res: Response) {
-  return res.status(403).render('error', { message: 'Không có quyền' });
-}
+// CLIENT chỉ thấy danh sách thành viên (không email), bảng xếp hạng và lịch thi đấu.
+const CLIENT_TOURNAMENT_SECTIONS = ['players', 'ranking', 'schedule'];

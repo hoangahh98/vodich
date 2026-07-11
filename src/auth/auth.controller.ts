@@ -47,8 +47,7 @@ export class AuthController {
 }
 
 function clientIp(req: Request) {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (Array.isArray(forwarded)) return forwarded[0] || req.ip;
-  if (forwarded) return forwarded.split(',')[0].trim();
-  return req.ip;
+  // Với `trust proxy` bật, req.ip đã là IP client thật (Express tự đọc X-Forwarded-For
+  // đáng tin), không parse header thô do client gửi để tránh giả mạo vượt rate-limit.
+  return req.ip || 'unknown';
 }

@@ -41,11 +41,12 @@ export function shouldSkipHttpLog(req: Request, statusCode: number) {
   return ['/css/', '/js/', '/icons/', '/uploads/'].some((prefix) => req.path.startsWith(prefix));
 }
 
+const SENSITIVE_KEY_PATTERN = /password|passwd|pwd|secret|token|otp|cvv|card|authorization|cookie/i;
+
 function safeParams(body: unknown): string {
   if (!body || typeof body !== 'object') return '';
   return Object.entries(body as Record<string, unknown>)
-    .filter(([key]) => !key.toLowerCase().includes('password'))
-    .map(([key, value]) => `${key}=${String(value).slice(0, 300)}`)
+    .map(([key, value]) => (SENSITIVE_KEY_PATTERN.test(key) ? `${key}=***` : `${key}=${String(value).slice(0, 300)}`))
     .join('&')
     .slice(0, 2000);
 }

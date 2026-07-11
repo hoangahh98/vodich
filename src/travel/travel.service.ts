@@ -163,8 +163,8 @@ export class TravelService {
     return this.prisma.travelTripPermission.create({ data: { tripId, adminId } });
   }
 
-  removePermission(permissionId: bigint) {
-    return this.prisma.travelTripPermission.delete({ where: { id: permissionId } });
+  removePermission(tripId: bigint, permissionId: bigint) {
+    return this.prisma.travelTripPermission.deleteMany({ where: { id: permissionId, tripId } });
   }
 
   suggestions(destinationId?: bigint, category?: string) {

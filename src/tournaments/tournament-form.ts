@@ -1,6 +1,8 @@
+import { oneOf, PLAY_TYPES, TOURNAMENT_FORMATS } from '../common/enums';
 import { parseMoney } from '../common/money';
 
 export function buildTournamentData(form: Record<string, unknown>, prizes: number[]) {
+  const playType = oneOf(form.playType, PLAY_TYPES, 'SINGLES');
   return {
     name: String(form.name || '').trim(),
     venue: String(form.venue || '').trim(),
@@ -8,9 +10,9 @@ export function buildTournamentData(form: Record<string, unknown>, prizes: numbe
     endTime: form.endTime ? new Date(String(form.endTime)) : null,
     courtCount: Math.max(1, Number(form.courtCount || 1)),
     expectedPlayers: Math.max(1, Number(form.expectedPlayers || 1)),
-    playType: String(form.playType || 'SINGLES'),
-    format: String(form.format || 'ROUND_ROBIN'),
-    knockoutQualifierCount: normalizeQualifierCount(Number(form.knockoutQualifierCount || 2), Math.max(1, Number(form.expectedPlayers || 1)), String(form.playType || 'SINGLES')),
+    playType,
+    format: oneOf(form.format, TOURNAMENT_FORMATS, 'ROUND_ROBIN'),
+    knockoutQualifierCount: normalizeQualifierCount(Number(form.knockoutQualifierCount || 2), Math.max(1, Number(form.expectedPlayers || 1)), playType),
     touchScore: Math.max(1, Number(form.touchScore || 11)),
     maxScore: Math.max(1, Number(form.maxScore || 15)),
     knockoutTouchScore: Math.max(1, Number(form.knockoutTouchScore || 15)),

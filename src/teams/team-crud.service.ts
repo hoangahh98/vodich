@@ -66,8 +66,8 @@ export class TeamCrudService {
     return this.prisma.teamClubPermission.create({ data: { teamId, adminId } });
   }
 
-  removePermission(permissionId: bigint) {
-    return this.prisma.teamClubPermission.delete({ where: { id: permissionId } });
+  removePermission(teamId: bigint, permissionId: bigint) {
+    return this.prisma.teamClubPermission.deleteMany({ where: { id: permissionId, teamId } });
   }
 
   private adminTeamWhere(user: CurrentUser): Prisma.TeamClubWhereInput {

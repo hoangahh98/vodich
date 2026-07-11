@@ -17,6 +17,7 @@ export class HealthController {
     const db = await this.checkDatabase();
     const redis = await this.checkRedis();
     const ok = db.ok && redis.ok;
+    // Endpoint public: chỉ trả trạng thái boolean, không lộ message lỗi/host:port nội bộ.
     return res.status(ok ? 200 : 503).json({ ok, db, redis });
   }
 
@@ -25,19 +26,25 @@ export class HealthController {
       await this.prisma.$queryRaw`SELECT 1`;
       return { ok: true };
     } catch (error) {
-      return { ok: false, error: errorMessage(error) };
+      console.error('[readyz] database check failed', error);
+      return { ok: false };
     }
   }
 
   private async checkRedis() {
     try {
-      return { ...(await checkRedisReady()), features: getRedisFeatureStatuses() };
+      const status = await checkRedisReady();
+      return { configured: status.configured, required: status.required, ok: status.ok, features: publicFeatureFlags() };
     } catch (error) {
-      return { configured: true, ok: false, error: errorMessage(error), features: getRedisFeatureStatuses() };
+      console.error('[readyz] redis check failed', error);
+      return { configured: true, ok: false, features: publicFeatureFlags() };
     }
   }
 }
 
-function errorMessage(error: unknown) {
-  return error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+/** Chỉ phơi cờ enabled cho từng feature, ẩn `details` (chứa host:port Redis). */
+function publicFeatureFlags() {
+  return Object.fromEntries(
+    Object.entries(getRedisFeatureStatuses()).map(([feature, status]) => [feature, { enabled: status.enabled }]),
+  );
 }

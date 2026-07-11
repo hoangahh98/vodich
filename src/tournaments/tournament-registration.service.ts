@@ -10,6 +10,15 @@ export class TournamentRegistrationService {
     return this.registerPlayers(tournamentId, [playerId]);
   }
 
+  /** Trả về tournamentId thật của một registration để controller authorize đúng giải (chống IDOR). */
+  async registrationTournamentId(registrationId: bigint): Promise<bigint | null> {
+    const registration = await this.prisma.tournamentRegistration.findUnique({
+      where: { id: registrationId },
+      select: { tournamentId: true },
+    });
+    return registration?.tournamentId ?? null;
+  }
+
   async registerPlayers(tournamentId: bigint, playerIds: bigint[]) {
     const tournament = await this.prisma.tournament.findUniqueOrThrow({ where: { id: tournamentId } });
     const uniqueIds = [...new Set(playerIds.map((id) => id.toString()))].map((id) => BigInt(id));
@@ -114,16 +123,23 @@ export class TournamentRegistrationService {
     });
   }
 
-  async bulkRegistrations(registrationIds: bigint[], action: string) {
-    const ids = [...new Set(registrationIds.map((id) => id.toString()))].map((id) => BigInt(id));
+  async bulkRegistrations(tournamentId: bigint, registrationIds: bigint[], action: string) {
+    const requestedIds = [...new Set(registrationIds.map((id) => id.toString()))].map((id) => BigInt(id));
+    if (!requestedIds.length) return;
+    // Chỉ thao tác trên registration thực sự thuộc giải này (chống IDOR chéo giải).
+    const scoped = await this.prisma.tournamentRegistration.findMany({
+      where: { id: { in: requestedIds }, tournamentId },
+      select: { id: true },
+    });
+    const ids = scoped.map((registration) => registration.id);
     if (!ids.length) return;
     if (action === 'delete') {
-      await this.prisma.tournamentRegistration.deleteMany({ where: { id: { in: ids } } });
+      await this.prisma.tournamentRegistration.deleteMany({ where: { id: { in: ids }, tournamentId } });
       return;
     }
     if (action === 'withdraw') {
       await this.prisma.tournamentRegistration.updateMany({
-        where: { id: { in: ids } },
+        where: { id: { in: ids }, tournamentId },
         data: { status: 'WITHDRAWN', withdrawnAt: new Date() },
       });
       return;

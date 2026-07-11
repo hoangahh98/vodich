@@ -21,6 +21,25 @@ export function requireFeature(req: Express.Request, res: Response, auth: AuthSe
   return user;
 }
 
+export function forbidden(res: Response, message = 'Không có quyền') {
+  return res.status(403).render('error', { message });
+}
+
+export function notFound(res: Response, message = 'Không tìm thấy') {
+  return res.status(404).render('error', { message });
+}
+
+/** Parse an toàn một id dạng chuỗi sang BigInt; trả về null nếu không hợp lệ (tránh 500). */
+export function parseBigId(value: unknown): bigint | null {
+  const raw = String(value ?? '').trim();
+  if (!/^\d+$/.test(raw)) return null;
+  try {
+    return BigInt(raw);
+  } catch {
+    return null;
+  }
+}
+
 export function blankToNull(value?: string) {
   return value && value.trim() ? value.trim() : null;
 }

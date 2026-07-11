@@ -76,8 +76,12 @@ export class TournamentService {
     return this.payments.updatePayment(registrationId, amount, status);
   }
 
-  updatePayments(body: Record<string, string>) {
-    return this.payments.updatePayments(body);
+  updatePayments(tournamentId: bigint, body: Record<string, string>) {
+    return this.payments.updatePayments(tournamentId, body);
+  }
+
+  registrationTournamentId(registrationId: bigint) {
+    return this.registrations.registrationTournamentId(registrationId);
   }
 
   withdraw(registrationId: bigint) {
@@ -96,8 +100,8 @@ export class TournamentService {
     return this.registrations.updateRegistrationSkill(registrationId, skillLevel);
   }
 
-  bulkRegistrations(registrationIds: bigint[], action: string) {
-    return this.registrations.bulkRegistrations(registrationIds, action);
+  bulkRegistrations(tournamentId: bigint, registrationIds: bigint[], action: string) {
+    return this.registrations.bulkRegistrations(tournamentId, registrationIds, action);
   }
 
   generateSchedule(tournamentId: bigint) {
@@ -136,7 +140,7 @@ export class TournamentService {
     return this.crud.addPermission(tournamentId, adminId);
   }
 
-  removePermission(permissionId: bigint) {
-    return this.crud.removePermission(permissionId);
+  removePermission(tournamentId: bigint, permissionId: bigint) {
+    return this.crud.removePermission(tournamentId, permissionId);
   }
 }

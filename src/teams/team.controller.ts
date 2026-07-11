@@ -2,7 +2,7 @@ import { Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs
 import { Request, Response } from 'express';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
 import { FeatureGuard } from '../common/feature.guard';
-import { safeTeamSection } from '../common/controller-utils';
+import { forbidden, notFound, parseBigId, safeTeamSection } from '../common/controller-utils';
 import { render } from '../common/view';
 import { MatchGateway } from '../tournaments/match.gateway';
 import { TeamService } from './team.service';
@@ -66,8 +66,11 @@ export class TeamController {
   @Post('/teams/:teamId/permissions/:permissionId/delete')
   @AdminOnly()
   async removePermission(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('permissionId') permissionId: string) {
-    if (!(await this.teams.canManage(req.session.user!, BigInt(teamId)))) return forbidden(res);
-    await this.teams.removePermission(BigInt(permissionId));
+    const id = parseBigId(teamId);
+    const permId = parseBigId(permissionId);
+    if (!id || !permId) return notFound(res);
+    if (!(await this.teams.canManage(req.session.user!, id))) return forbidden(res);
+    await this.teams.removePermission(id, permId);
     this.matchGateway.emitTeamUpdated(teamId, 'permission-deleted');
     return res.redirect(`/teams/${teamId}/settings`);
   }
@@ -75,8 +78,4 @@ export class TeamController {
 
 export function currentMonth() {
   return new Date().toISOString().slice(0, 7);
-}
-
-function forbidden(res: Response) {
-  return res.status(403).render('error', { message: 'Không có quyền' });
 }

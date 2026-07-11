@@ -4,6 +4,7 @@ import { RequestHandler } from 'express';
 import { createConnectedRedisClient, isRedisConfigured, isRedisRequired, recordRedisLog, redisConnectionSummary, requiredRedisError, setRedisFeatureStatus } from './redis';
 
 const sessionMaxAge = 12 * 60 * 60 * 1000;
+const WEAK_SECRETS = new Set(['', 'change-me', 'vodich-session-secret']);
 let sessionMiddlewarePromise: Promise<RequestHandler> | undefined;
 
 export function getSessionMiddleware(): Promise<RequestHandler> {
@@ -11,12 +12,29 @@ export function getSessionMiddleware(): Promise<RequestHandler> {
   return sessionMiddlewarePromise;
 }
 
+function resolveSessionSecret(): string {
+  const secret = (process.env.SESSION_SECRET || '').trim();
+  const isProduction = process.env.NODE_ENV === 'production';
+  if (isProduction && WEAK_SECRETS.has(secret)) {
+    throw new Error(
+      'SESSION_SECRET chưa được đặt hoặc còn để giá trị mặc định. Hãy đặt một chuỗi ngẫu nhiên dài (>=32 ký tự) trong biến môi trường trước khi chạy production.',
+    );
+  }
+  return secret || 'vodich-session-secret';
+}
+
 async function createSessionMiddleware() {
+  const isProduction = process.env.NODE_ENV === 'production';
   const options: session.SessionOptions = {
-    secret: process.env.SESSION_SECRET || 'vodich-session-secret',
+    secret: resolveSessionSecret(),
     resave: false,
     saveUninitialized: false,
-    cookie: { maxAge: sessionMaxAge },
+    cookie: {
+      maxAge: sessionMaxAge,
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: isProduction,
+    },
   };
 
   if (isRedisConfigured()) {

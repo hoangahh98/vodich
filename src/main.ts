@@ -4,12 +4,16 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import * as helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
+import { ViewExceptionFilter } from './common/view-exception.filter';
 import { setRedisLogSink } from './common/redis';
 import { getSessionMiddleware } from './common/session';
 import { PrismaService } from './prisma.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // Render/Supabase chạy sau reverse proxy: cần trust proxy để cookie `secure`
+  // hoạt động và để req.ip lấy đúng IP client (không tin header thô).
+  app.set('trust proxy', 1);
   const prisma = app.get(PrismaService);
   if (process.env.DISABLE_APP_LOGS !== 'true') {
     setRedisLogSink(async (entry) => {
@@ -33,6 +37,7 @@ async function bootstrap() {
   app.useStaticAssets(join(__dirname, '..', 'public'));
   app.setBaseViewsDir(join(__dirname, 'views'));
   app.setViewEngine('ejs');
+  app.useGlobalFilters(new ViewExceptionFilter());
   await app.listen(process.env.PORT || 3000);
 }
 

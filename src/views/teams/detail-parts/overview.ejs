@@ -20,7 +20,7 @@
       <% } %>
       <div class="table-wrap team-frozen-wrap"><table><thead><tr><th>Ngày</th><th>Nội dung</th><th>Tiền</th><th></th></tr></thead><tbody>
         <% expenses.forEach((expense) => { %>
-          <tr><td><%= expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('vi-VN') : '-' %></td><td><strong><%= expense.content %></strong><% if (expense.notes) { %><br><span class="muted"><%= expense.notes %></span><% } %></td><td><strong><%= formatMoney(expense.amount) %>đ</strong></td><td class="text-right"><% if (currentUser.role === 'ADMIN') { %><form method="post" action="/teams/<%= team.id %>/expenses/<%= expense.id %>/delete" data-confirm="Xóa khoản chi này?"><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xóa...">Xóa</button></form><% } %></td></tr>
+          <tr><td><%= expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('vi-VN') : '-' %></td><td><strong><%= expense.content %></strong><% if (expense.notes && currentUser.role === 'ADMIN') { %><br><span class="muted"><%= expense.notes %></span><% } %></td><td><strong><%= formatMoney(expense.amount) %>đ</strong></td><td class="text-right"><% if (currentUser.role === 'ADMIN') { %><form method="post" action="/teams/<%= team.id %>/expenses/<%= expense.id %>/delete" data-confirm="Xóa khoản chi này?"><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xóa...">Xóa</button></form><% } %></td></tr>
         <% }) %>
         <% if (!expenses.length) { %><tr><td colspan="4" class="muted text-center">Chưa có khoản chi nào trong tháng.</td></tr><% } %>
       </tbody></table></div>

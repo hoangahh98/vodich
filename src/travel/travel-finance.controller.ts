@@ -102,7 +102,7 @@ export class TravelFinanceController {
   @Post('/travel/trips/:tripId/permissions/:permissionId/delete')
   async removePermission(@Req() req: Request, @Res() res: Response, @Param('tripId') tripId: string, @Param('permissionId') permissionId: string) {
     if (!(await this.travel.canManage(req.session.user as CurrentUser, BigInt(tripId)))) return forbidden(res);
-    await this.travel.removePermission(BigInt(permissionId));
+    await this.travel.removePermission(BigInt(tripId), BigInt(permissionId));
     this.gateway.emitTravelTripUpdated(tripId, 'permission-deleted');
     return res.redirect(`/travel/trips/${tripId}`);
   }

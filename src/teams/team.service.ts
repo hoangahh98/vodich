@@ -80,7 +80,7 @@ export class TeamService {
     return this.crud.addPermission(teamId, adminId);
   }
 
-  removePermission(permissionId: bigint) {
-    return this.crud.removePermission(permissionId);
+  removePermission(teamId: bigint, permissionId: bigint) {
+    return this.crud.removePermission(teamId, permissionId);
   }
 }

@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma.service';
 import { AppFeature, CurrentUser, UserRole } from '../types';
 
 const CLIENT_PASSWORD = '123456789';
+const WEAK_ADMIN_PASSWORDS = new Set(['', '123456789', 'admin', 'password']);
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -14,6 +15,11 @@ export class AuthService implements OnModuleInit {
 
   async onModuleInit() {
     if (process.env.SKIP_ADMIN_BOOTSTRAP === 'true') return;
+    if (process.env.NODE_ENV === 'production' && WEAK_ADMIN_PASSWORDS.has(this.rootPassword)) {
+      console.warn(
+        '[auth] APP_ADMIN_PASSWORD đang để giá trị mặc định/yếu ở production. Hãy đặt mật khẩu admin mạnh và đổi lại mật khẩu tài khoản admin gốc.',
+      );
+    }
     const existing = await this.prisma.appUser.findUnique({ where: { username: this.rootUsername } });
     if (!existing) {
       await this.prisma.appUser.create({

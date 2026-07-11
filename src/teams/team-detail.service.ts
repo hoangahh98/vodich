@@ -44,7 +44,11 @@ export class TeamDetailService {
       this.prisma.teamExpense.findMany({ where: { teamId, expenseMonth: previousMonth } }),
     ]);
     if (!fund) return 0;
-    const totalPaid = payments.reduce((sum, payment) => sum + Number(payment.paidAmount), 0);
+    // Chỉ tính khoản đã đóng (PAID) cho khớp báo cáo tháng (team-month-report),
+    // tránh cộng nhầm khoản UNPAID làm số dư mang sang tháng sau bị sai lệch tích lũy.
+    const totalPaid = payments
+      .filter((payment) => payment.paymentStatus === 'PAID')
+      .reduce((sum, payment) => sum + Number(payment.paidAmount), 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
     return Number(fund.previousBalance || 0) + totalPaid - Number(fund.courtCost || 0) - totalExpense;
   }

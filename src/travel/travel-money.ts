@@ -1,12 +1,12 @@
 import { Decimal } from '@prisma/client/runtime/library';
+import { parseMoney as parseMoneyBase } from '../common/money';
 
 export type MoneyInput = string | number | Decimal | null | undefined;
 
+/** Như common parseMoney nhưng clamp không âm — khoản thu/chi du lịch luôn >= 0. */
 export function parseMoney(value: MoneyInput): number {
-  if (value instanceof Decimal) return Number(value);
-  const normalized = String(value ?? '0').replace(/[^\d.-]/g, '');
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? Math.max(0, Math.round(parsed)) : 0;
+  if (value instanceof Decimal) return Math.max(0, Math.round(Number(value)));
+  return Math.max(0, parseMoneyBase(value));
 }
 
 export function splitEvenly(amount: number, memberIds: bigint[]) {

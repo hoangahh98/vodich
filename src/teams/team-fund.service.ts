@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { normalizePaymentStatus } from '../common/enums';
 import { parseMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
 import { TeamDetailService } from './team-detail.service';
@@ -53,8 +54,8 @@ export class TeamFundService {
           ...(memberType ? [this.prisma.teamMember.update({ where: { id: memberId }, data: { memberType: normalizeMemberType(memberType) } })] : []),
           this.prisma.teamMemberPayment.upsert({
             where: { memberId_fundMonth: { memberId, fundMonth } },
-            update: { paidAmount: parseMoney(amount), paymentStatus: body[`status_${memberId}`] || 'UNPAID', notes: cleanText(body[`notes_${memberId}`]) },
-            create: { memberId, fundMonth, paidAmount: parseMoney(amount), paymentStatus: body[`status_${memberId}`] || 'UNPAID', notes: cleanText(body[`notes_${memberId}`]) },
+            update: { paidAmount: parseMoney(amount), paymentStatus: normalizePaymentStatus(body[`status_${memberId}`]), notes: cleanText(body[`notes_${memberId}`]) },
+            create: { memberId, fundMonth, paidAmount: parseMoney(amount), paymentStatus: normalizePaymentStatus(body[`status_${memberId}`]), notes: cleanText(body[`notes_${memberId}`]) },
           }),
         ];
       });

@@ -1,5 +1,5 @@
 <nav class="bottom-menu"><button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div class="bottom-menu-inner">
-  <% (currentUser.role === 'ADMIN' ? ['players','fund','ranking','schedule','fees','settings'] : ['players','fund','ranking','schedule','fees']).forEach((item) => { const labels = {players:'👥 Thành viên', fund:'🏆 Quỹ', ranking:'📊 BXH', schedule:'🗓️ Thi đấu', fees:'💳 Đóng phí', settings:'⚙️ Cài đặt'}; %><a class="<%= section === item ? 'active' : '' %>" href="/tournaments/<%= tournament.id %>/<%= item %>"><%= labels[item] %></a><% }) %>
+  <% (currentUser.role === 'ADMIN' ? ['players','fund','ranking','schedule','fees','settings'] : ['players','ranking','schedule']).forEach((item) => { const labels = {players:'👥 Thành viên', fund:'🏆 Quỹ', ranking:'📊 BXH', schedule:'🗓️ Thi đấu', fees:'💳 Đóng phí', settings:'⚙️ Cài đặt'}; %><a class="<%= section === item ? 'active' : '' %>" href="/tournaments/<%= tournament.id %>/<%= item %>"><%= labels[item] %></a><% }) %>
 </div></nav>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>

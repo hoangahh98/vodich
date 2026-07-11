@@ -130,8 +130,9 @@ export class TournamentCrudService {
     return this.prisma.tournamentPermission.create({ data: { tournamentId, adminId } });
   }
 
-  removePermission(permissionId: bigint) {
-    return this.prisma.tournamentPermission.delete({ where: { id: permissionId } });
+  removePermission(tournamentId: bigint, permissionId: bigint) {
+    // deleteMany cho phép ràng buộc theo tournamentId; xoá 0 dòng nếu permission thuộc giải khác.
+    return this.prisma.tournamentPermission.deleteMany({ where: { id: permissionId, tournamentId } });
   }
 
   private adminTournamentWhere(user: CurrentUser) {

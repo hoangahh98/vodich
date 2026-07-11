@@ -66,7 +66,7 @@ test('TournamentPaymentService bulk update uses minimum fee when amount is blank
     $transaction: async (items) => items,
   });
 
-  await service.updatePayments({ amount_7: '', status_7: 'PAID' });
+  await service.updatePayments(1n, { amount_7: '', status_7: 'PAID' });
 
   assert.equal(updates.length, 1);
   assert.equal(updates[0].where.id, 7n);

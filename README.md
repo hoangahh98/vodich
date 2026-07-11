@@ -34,7 +34,7 @@ REQUIRE_REDIS=false
 - `DATABASE_URL`: PostgreSQL connection string.
 - `DATABASE_CONNECTION_LIMIT`: số connection Prisma runtime dùng cho mỗi service. Production mặc định là `3` để chạy được nhiều Render service trên Supabase pool nhỏ.
 - `DATABASE_POOL_TIMEOUT`: timeout chờ connection của Prisma pool, mặc định `20` giây.
-- `SESSION_SECRET`: chuỗi bí mật dài để ký session cookie. Hai Render service dùng chung app phải dùng cùng giá trị này.
+- `SESSION_SECRET`: chuỗi bí mật dài (>=32 ký tự ngẫu nhiên) để ký session cookie. Hai Render service dùng chung app phải dùng cùng giá trị này. **Ở production (`NODE_ENV=production`) app sẽ fail-fast nếu biến này bị thiếu hoặc còn để giá trị mặc định (`change-me`)** — phải đặt giá trị mạnh trong Render env trước khi deploy. Sinh nhanh: `node -e "console.log(require('crypto').randomBytes(48).toString('base64url'))"`. Đổi giá trị này sẽ đăng xuất toàn bộ session hiện tại.
 - `REDIS_URL`: Redis URL dùng cho session/socket adapter khi chạy nhiều service.
 - `REQUIRE_REDIS`: đặt `true` trên production nhiều service để app fail-fast nếu Redis thiếu hoặc lỗi. Đặt `false` chỉ phù hợp khi chạy một service hoặc môi trường test.
 - `APP_ADMIN_USERNAME`: tài khoản admin gốc, mặc định `admin`.
