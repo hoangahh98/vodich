@@ -64,10 +64,16 @@
 
   function percentCleared() {
     try {
-      const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+      // Chỉ xét VÙNG HÌNH CHÍNH ở giữa (nơi có bức tranh), không tính nền trống quanh mép.
+      const w = canvas.width;
+      const h = canvas.height;
+      const side = Math.floor(Math.min(w, h) * 0.62);
+      const x0 = Math.floor((w - side) / 2);
+      const y0 = Math.floor((h - side) / 2);
+      const data = ctx.getImageData(x0, y0, side, side).data;
       let clear = 0;
       let total = 0;
-      for (let i = 3; i < data.length; i += 40) { // lấy mẫu 1/10 pixel
+      for (let i = 3; i < data.length; i += 32) { // lấy mẫu alpha
         total++;
         if (data[i] === 0) clear++;
       }

@@ -91,7 +91,12 @@ export class TravelSummaryBuilder {
       memberAdvanced.set(memberId, advanced);
       memberDebt.set(memberId, debt);
       memberCollected.set(memberId, Math.min(spent, collected + paidTotal));
-      balances.set(memberId, advanced - debt);
+      // "Còn" = số dư THỰC: (đã thu + đã trả) - đã chi. Dương = thừa, âm = thiếu.
+      // Thủ quỹ giữ tiền của cả nhóm nên tính riêng: đã trả - phần của mình - tiền thu từ người khác.
+      // Cách này đảm bảo tổng số dư của mọi người = 0 (sổ cân).
+      const netBalance =
+        treasurerId === memberId ? paidTotal - spent - collectedFromOtherMembers : collected + paidTotal - spent;
+      balances.set(memberId, netBalance);
     });
 
     return {

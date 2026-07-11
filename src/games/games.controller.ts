@@ -54,9 +54,9 @@ export class GamesController {
   }
 
   @Get('/games/u-oa')
-  peekaboo(@Req() req: Request, @Res() res: Response) {
+  matchGame(@Req() req: Request, @Res() res: Response) {
     if (!requireUser(req, res)) return;
-    return render(res, 'games/peekaboo');
+    return render(res, 'games/match');
   }
 
   @Get('/games/hoa-si')
