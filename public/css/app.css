@@ -733,6 +733,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 
 /* Tiếng Anh nâng cao: bản dịch + gợi ý trả lời */
 .chat-vi { margin-top: 6px; padding-top: 6px; border-top: 1px dashed rgba(0,0,0,.12); font-size: 13.5px; color: #33506e; font-weight: 600; }
+.chat-replay { display: inline-flex; align-items: center; gap: 4px; margin-top: 8px; border: 0; border-radius: 999px; padding: 5px 12px; font-size: 12.5px; font-weight: 700; cursor: pointer; background: rgba(0,0,0,.06); color: #22303a; }
+.chat-replay:hover { background: rgba(0,0,0,.12); }
 .adv-suggest { width: 100%; max-width: 640px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); border-radius: 14px; padding: 12px 14px; }
 .adv-suggest-label { color: #fffbe6; font-weight: 800; font-size: 14px; }
 .adv-suggest-en { color: #fff; font-size: 18px; font-weight: 800; margin-top: 4px; }

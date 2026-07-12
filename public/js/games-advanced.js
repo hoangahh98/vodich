@@ -131,6 +131,12 @@
           vi.textContent = '🇻🇳 ' + data.vi;
           b.appendChild(vi);
         }
+        const replay = document.createElement('button');
+        replay.type = 'button';
+        replay.className = 'chat-replay';
+        replay.textContent = '🔊 Nghe lại';
+        replay.addEventListener('click', () => speak(data.reply));
+        b.appendChild(replay);
         messages.push({ role: 'ai', text: data.reply });
         speak(data.reply);
         tipEl.textContent = data.tip ? '✍️ ' + data.tip : '';
