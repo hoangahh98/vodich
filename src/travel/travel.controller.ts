@@ -11,6 +11,7 @@ import { travelExpenseCategories } from './travel-finance.service';
 import { TravelService, travelSuggestionCategories } from './travel.service';
 import { TravelSummaryBuilder } from './travel-summary';
 import { TravelAiService } from './travel-ai.service';
+import { RateLimitService } from '../common/rate-limit.service';
 import { safeTravelSection } from './travel-sections';
 
 @Controller()
@@ -23,6 +24,7 @@ export class TravelController {
     private readonly travel: TravelService,
     private readonly gateway: MatchGateway,
     private readonly travelAi: TravelAiService,
+    private readonly rateLimit: RateLimitService,
   ) {}
 
   @Get('/travel')
@@ -75,6 +77,8 @@ export class TravelController {
     const tripId = parseBigId(id);
     if (!tripId) return notFound(res);
     if (!(await this.travel.canManage(req.session.user as CurrentUser, tripId))) return forbidden(res);
+    const limit = this.rateLimit.consume(`ai:travel:${req.ip || 'unknown'}`, { max: 10, windowMs: 60_000 });
+    if (!limit.allowed) return res.redirect(`/travel/trips/${id}/ai?err=${encodeURIComponent(`Thao tác quá nhanh, thử lại sau ${limit.retryAfterSeconds}s`)}`);
     try {
       await this.travelAi.generateForTrip(tripId, {
         days: Number(body.days) || undefined,

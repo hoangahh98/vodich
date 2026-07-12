@@ -96,6 +96,12 @@ document.addEventListener('input', (event) => {
   input.value = digits ? Number(digits).toLocaleString('en-US') : '';
 });
 
+// Tự gửi form khi đổi giá trị (thay cho onchange inline, để CSP script-src 'self' hoạt động).
+document.addEventListener('change', (event) => {
+  const el = event.target instanceof Element ? event.target.closest('[data-autosubmit]') : null;
+  if (el && el.form) el.form.submit();
+});
+
 const getAppSocket = () => {
   if (typeof io === 'undefined') return null;
   if (!window.vodichSocket) window.vodichSocket = io();

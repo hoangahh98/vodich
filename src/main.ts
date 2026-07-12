@@ -32,9 +32,21 @@ async function bootstrap() {
       });
     });
   }
+  // CSP: chặn XSS. script-src 'self' (không inline script) — đã bỏ hết inline handler.
+  // style-src cho phép inline + Bootstrap CDN; bỏ upgrade-insecure-requests để dev/e2e chạy http localhost được.
   app.use(
     helmet.default({
-      contentSecurityPolicy: false,
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          'script-src': ["'self'"],
+          'style-src': ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+          'img-src': ["'self'", 'data:'],
+          'font-src': ["'self'", 'https://cdn.jsdelivr.net', 'data:'],
+          'connect-src': ["'self'"],
+          'upgrade-insecure-requests': null,
+        },
+      },
     }),
   );
   app.use(await getSessionMiddleware());
@@ -42,6 +54,8 @@ async function bootstrap() {
   app.setBaseViewsDir(join(__dirname, 'views'));
   app.setViewEngine('ejs');
   app.useGlobalFilters(new ViewExceptionFilter());
+  // Đóng kết nối Prisma/Redis sạch khi Render gửi SIGTERM lúc deploy/restart.
+  app.enableShutdownHooks();
   await app.listen(process.env.PORT || 3000);
 }
 

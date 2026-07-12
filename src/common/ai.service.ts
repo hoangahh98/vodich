@@ -18,6 +18,8 @@ export interface AiOptions {
 }
 
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+// Chặn treo: huỷ request nếu Groq không phản hồi trong thời gian này (đổi qua AI_TIMEOUT_MS).
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 20000;
 
 @Injectable()
 export class AiService {
@@ -57,11 +59,23 @@ export class AiService {
 
     const maxAttempts = 3;
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      const response = await fetch(ENDPOINT, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-        body: JSON.stringify(body),
-      });
+      let response: Response;
+      try {
+        response = await fetch(ENDPOINT, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
+          body: JSON.stringify(body),
+          signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+        });
+      } catch (error) {
+        // Timeout (AbortError) hoặc lỗi mạng: thử lại, hết lượt thì báo thân thiện.
+        if (attempt < maxAttempts) {
+          await sleep(attempt * 1200);
+          continue;
+        }
+        const isTimeout = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError');
+        throw new Error(isTimeout ? 'AI phản hồi quá lâu, thử lại sau chút nhé.' : 'Không kết nối được tới AI, thử lại sau nhé.');
+      }
 
       if (response.ok) {
         const payload = (await response.json()) as GroqResponse;

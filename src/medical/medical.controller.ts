@@ -7,6 +7,7 @@ import { render } from '../common/view';
 import { CurrentUser } from '../types';
 import { MedicalAiService } from './medical-ai.service';
 import { MedicalService } from './medical.service';
+import { RateLimitService } from '../common/rate-limit.service';
 
 @Controller()
 @UseGuards(FeatureGuard)
@@ -15,6 +16,7 @@ export class MedicalController {
   constructor(
     private readonly medical: MedicalService,
     private readonly ai: MedicalAiService,
+    private readonly rateLimit: RateLimitService,
   ) {}
 
   @Get('/medical')
@@ -60,13 +62,15 @@ export class MedicalController {
   }
 
   @Post('/medical/patients/:id/prescriptions')
-  async addPrescription(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+  async addPrescription(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     const patientId = parseBigId(id);
     if (!patientId) return notFound(res);
     const patient = await this.medical.getPatient(patientId);
     if (!patient) return notFound(res);
     const back = `/medical/patients/${patientId}`;
-    if (!this.ai.isConfigured()) return res.redirect(`${back}?err=${encodeURIComponent('Chưa cấu hình GEMINI_API_KEY')}`);
+    if (!this.ai.isConfigured()) return res.redirect(`${back}?err=${encodeURIComponent('Chưa cấu hình AI trên server (GROQ_API_KEY)')}`);
+    const limit = this.rateLimit.consume(`ai:medical:${req.ip || 'unknown'}`, { max: 15, windowMs: 60_000 });
+    if (!limit.allowed) return res.redirect(`${back}?err=${encodeURIComponent(`Thao tác quá nhanh, thử lại sau ${limit.retryAfterSeconds}s`)}`);
     const image = parseImage(body.imageData, body.imageMime);
     if (!image) return res.redirect(`${back}?err=${encodeURIComponent('Cần chọn ảnh đơn thuốc')}`);
     try {
@@ -81,12 +85,14 @@ export class MedicalController {
   }
 
   @Post('/medical/prescriptions/:id/reanalyze')
-  async reanalyze(@Res() res: Response, @Param('id') id: string) {
+  async reanalyze(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     const prescriptionId = parseBigId(id);
     if (!prescriptionId) return notFound(res);
     const prescription = await this.medical.getPrescription(prescriptionId);
     if (!prescription) return notFound(res);
     const back = `/medical/patients/${prescription.patientId}`;
+    const limit = this.rateLimit.consume(`ai:medical:${req.ip || 'unknown'}`, { max: 15, windowMs: 60_000 });
+    if (!limit.allowed) return res.redirect(`${back}?err=${encodeURIComponent(`Thao tác quá nhanh, thử lại sau ${limit.retryAfterSeconds}s`)}`);
     try {
       await this.runAnalysis(prescription.patientId, prescriptionId);
     } catch (error) {
