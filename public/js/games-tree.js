@@ -9,31 +9,38 @@
   const startBtn = stage.querySelector('[data-start]');
   const shakeBtn = stage.querySelector('[data-shake]');
 
-  const NUMS = ['một', 'hai', 'ba', 'bốn', 'năm'];
+  const NUMS = ['một', 'hai', 'ba', 'bốn', 'năm', 'sáu', 'bảy', 'tám', 'chín', 'mười'];
+  const BATCH = 10;
   const G = 0.7;
   const APPLE = 56;
   let apples = [];
   let W = 0;
   let H = 0;
   let groundY = 0;
-  let collected = 0;
+  let roundCount = 0;
+  let treeBox = null;
   let running = false;
 
   function measure() {
     W = stage.clientWidth;
     H = stage.clientHeight;
     groundY = H - 90 - APPLE;
+    // Đo ô thật của cây để treo táo đúng lên tán.
+    const sr = stage.getBoundingClientRect();
+    const tr = tree.getBoundingClientRect();
+    treeBox = { x: tr.left - sr.left, y: tr.top - sr.top, w: tr.width, h: tr.height };
   }
 
   function canopy() {
-    // Vùng tán cây (phần trên màn hình) để treo táo.
-    const cx = W / 2;
-    const topY = Math.max(70, H * 0.12);
-    const spreadX = Math.min(W * 0.38, 200);
-    const spreadY = Math.min(H * 0.22, 170);
+    // Bám vào phần tán lá (nửa trên, giữa) của ô cây thật.
+    const b = treeBox || { x: W * 0.2, y: H * 0.1, w: W * 0.6, h: H * 0.4 };
+    const cx = b.x + b.w / 2;
+    const halfX = b.w * 0.3;
+    const topY = b.y + b.h * 0.16;
+    const spanY = b.h * 0.4;
     return {
-      x: cx + (Math.random() * 2 - 1) * spreadX - APPLE / 2,
-      y: topY + Math.random() * spreadY,
+      x: cx + (Math.random() * 2 - 1) * halfX - APPLE / 2,
+      y: topY + Math.random() * spanY,
     };
   }
 
@@ -60,12 +67,16 @@
     sparkle(apple.x + APPLE / 2, apple.y + APPLE / 2);
     apple.el.remove();
     apples = apples.filter((a) => a !== apple);
-    collected += 1;
-    const n = ((collected - 1) % 5);
-    speakVi(NUMS[n]);
-    if (collected % 5 === 0) { sound('cheer'); confetti(); }
-    else sound('pop');
-    if (!apples.length) setTimeout(() => grow(6), 500); // hết táo -> mọc lại
+    roundCount += 1;
+    speakVi(NUMS[Math.min(roundCount, NUMS.length) - 1]); // đếm 1..10 trong mỗi đợt
+    if (!apples.length) {
+      sound('cheer');
+      confetti();
+      roundCount = 0;
+      setTimeout(() => grow(BATCH), 600); // hết táo -> mọc lại đợt mới
+    } else {
+      sound('pop');
+    }
   }
 
   function shake() {
@@ -145,7 +156,7 @@
     running = true;
     startOverlay && startOverlay.classList.add('hidden');
     measure();
-    grow(6);
+    grow(BATCH);
     enableMotion();
     requestAnimationFrame(tick);
   }
