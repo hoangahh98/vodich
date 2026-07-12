@@ -111,18 +111,20 @@ export class GamesController {
       `  "vi": "bản dịch tiếng Việt của câu reply",`,
       `  "suggest": "MỘT câu tiếng Anh đơn giản mà người học có thể dùng để trả lời câu hỏi vừa rồi",`,
       `  "suggestVi": "nghĩa tiếng Việt của câu suggest",`,
-      `  "tip": "sửa lỗi/nhận xét RẤT ngắn bằng tiếng Việt cho câu trước của người học (có thể rỗng)"`,
+      `  "reviewNote": "nhận xét NGẮN bằng tiếng Việt về câu tiếng Anh NGƯỜI HỌC VỪA NÓI: khen nếu đúng, chỉ rõ lỗi nếu sai (rỗng nếu người học chưa nói gì)",`,
+      `  "reviewBetter": "viết lại câu người học vừa nói thành tiếng Anh CHUẨN, tự nhiên hơn (rỗng nếu câu đã tốt hoặc người học chưa nói gì)"`,
       `}. Chỉ trả JSON.`,
       transcript ? `Hội thoại đến giờ:\n${transcript}` : `Người học vừa bắt đầu. Hãy mở đầu tình huống một cách tự nhiên.`,
     ].join('\n');
     try {
-      const result = await this.ai.generateJson<{ reply: string; vi?: string; suggest?: string; suggestVi?: string; tip?: string }>(prompt, { temperature: 0.8 });
+      const result = await this.ai.generateJson<{ reply: string; vi?: string; suggest?: string; suggestVi?: string; reviewNote?: string; reviewBetter?: string }>(prompt, { temperature: 0.8 });
       return res.json({
         reply: String(result.reply || '').trim() || '...',
         vi: String(result.vi || '').trim(),
         suggest: String(result.suggest || '').trim(),
         suggestVi: String(result.suggestVi || '').trim(),
-        tip: String(result.tip || '').trim(),
+        reviewNote: String(result.reviewNote || '').trim(),
+        reviewBetter: String(result.reviewBetter || '').trim(),
       });
     } catch (error) {
       return res.status(502).json({ error: error instanceof Error ? error.message : 'AI lỗi' });

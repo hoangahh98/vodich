@@ -113,7 +113,7 @@
     return row;
   }
 
-  async function ask(userText) {
+  async function ask(userText, userRow) {
     const thinking = bubble('ai', '...');
     try {
       const res = await fetch('/games/advanced-chat', {
@@ -139,7 +139,32 @@
         b.appendChild(replay);
         messages.push({ role: 'ai', text: data.reply });
         speak(data.reply);
-        tipEl.textContent = data.tip ? '✍️ ' + data.tip : '';
+        tipEl.textContent = '';
+        // Đánh giá câu người học vừa nói + câu viết lại chuẩn hơn, gắn dưới bong bóng của họ.
+        if (userRow && (data.reviewNote || data.reviewBetter)) {
+          const ub = userRow.querySelector('.chat-bubble');
+          const box = document.createElement('div');
+          box.className = 'chat-review';
+          if (data.reviewNote) {
+            const note = document.createElement('div');
+            note.className = 'chat-review-note';
+            note.textContent = '📝 ' + data.reviewNote;
+            box.appendChild(note);
+          }
+          if (data.reviewBetter) {
+            const better = document.createElement('div');
+            better.className = 'chat-review-better';
+            better.textContent = '✅ Nên nói: ' + data.reviewBetter;
+            const play = document.createElement('button');
+            play.type = 'button';
+            play.className = 'chat-replay';
+            play.textContent = '🔊';
+            play.addEventListener('click', () => speak(data.reviewBetter));
+            better.appendChild(play);
+            box.appendChild(better);
+          }
+          ub.appendChild(box);
+        }
         showSuggest(data.suggest, data.suggestVi);
       } else {
         thinking.querySelector('.chat-bubble').textContent = data.error || 'Thử lại nhé!';
@@ -154,10 +179,10 @@
     if (!text || busy || !aiOn) return;
     busy = true;
     tipEl.textContent = '';
-    bubble('user', text);
+    const userRow = bubble('user', text);
     messages.push({ role: 'user', text });
     textInput.value = '';
-    await ask(text);
+    await ask(text, userRow);
     busy = false;
   }
 
@@ -166,7 +191,7 @@
     busy = true;
     messages = [];
     tipEl.textContent = '';
-    await ask('');
+    await ask('', null);
     busy = false;
   }
 
