@@ -44,10 +44,6 @@
     <% if (isTravelAdmin) { %>
       <section class="card-lite p mb">
         <div class="section-heading mb"><div><span class="feature-icon">💰</span><h2 class="section-title">Thu tiền</h2></div></div>
-        <form method="post" action="/travel/trips/<%= trip.id %>/treasurer" class="travel-treasurer-form mb">
-          <div><label>Thủ quỹ</label><select name="treasurerMemberId"><option value="">Chưa chọn</option><% members.forEach((member) => { %><option value="<%= member.id %>" <%= String(trip.treasurerMemberId || '') === String(member.id) ? 'selected' : '' %>><%= member.name %></option><% }) %></select></div>
-          <button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu thủ quỹ</button>
-        </form>
         <% if (members.length) { %>
         <form method="post" action="/travel/trips/<%= trip.id %>/collections">
           <div class="travel-frozen-wrap">
