@@ -62,23 +62,39 @@
   pickRow('[data-scenarios]', 'data-scenario', (v) => { scenario = v; resetConversation(); });
   pickRow('[data-levels]', 'data-level', (v) => { level = v; resetConversation(); });
 
-  // --- Mic (Web Speech, robust) ---
+  // --- Mic (Web Speech): bấm để BẮT ĐẦU nói, bấm lần nữa để XONG phiên nói ---
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recog = null;
   let listening = false;
-  let gotResult = false;
+  let finalText = '';
   let micTimer = null;
-  const stopListening = () => { listening = false; micBtn.classList.remove('listening'); clearTimeout(micTimer); micTimer = null; };
+  const stopMic = () => { try { recog && recog.stop(); } catch (_) {} };
   if (SR) {
     try {
       recog = new SR();
       recog.lang = 'en-US';
-      recog.interimResults = false;
-      recog.continuous = false;
-      recog.onstart = () => { listening = true; gotResult = false; micBtn.classList.add('listening'); tipEl.textContent = '🎤 Đang nghe... hãy nói!'; };
-      recog.onresult = (e) => { gotResult = true; stopListening(); const t = e.results?.[0]?.[0]?.transcript || ''; if (t) send(t); else tipEl.textContent = '🤔 Chưa nghe rõ, thử nói lại hoặc gõ chữ nhé.'; };
-      recog.onend = () => { const was = listening; stopListening(); if (was && !gotResult) tipEl.textContent = '🤔 Chưa nghe rõ, thử nói lại hoặc gõ chữ nhé.'; };
-      recog.onerror = (e) => { stopListening(); if (e && (e.error === 'not-allowed' || e.error === 'service-not-allowed')) tipEl.textContent = '🎤 Chưa cấp quyền micro — hãy gõ chữ hoặc bật quyền.'; };
+      recog.interimResults = true; // hiện chữ đang nói vào ô nhập
+      recog.continuous = true;     // nghe liên tục tới khi bấm dừng
+      recog.onstart = () => { listening = true; micBtn.classList.add('listening'); tipEl.textContent = '🎤 Đang nghe... bấm mic lần nữa khi nói xong.'; };
+      recog.onresult = (e) => {
+        let interim = '';
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const chunk = e.results[i][0] ? e.results[i][0].transcript : '';
+          if (e.results[i].isFinal) finalText += chunk + ' ';
+          else interim += chunk;
+        }
+        textInput.value = (finalText + interim).trim(); // cho người dùng thấy chữ ngay
+      };
+      recog.onerror = (e) => { if (e && (e.error === 'not-allowed' || e.error === 'service-not-allowed')) tipEl.textContent = '🎤 Chưa cấp quyền micro — hãy gõ chữ hoặc bật quyền.'; };
+      recog.onend = () => {
+        listening = false;
+        micBtn.classList.remove('listening');
+        clearTimeout(micTimer);
+        const said = (finalText || textInput.value || '').trim();
+        finalText = '';
+        if (said) send(said);
+        else tipEl.textContent = '🤔 Chưa nghe rõ, thử nói lại hoặc gõ chữ nhé.';
+      };
     } catch (_) { recog = null; }
   }
   // Web Speech cần Chrome/Edge + HTTPS; và chỉ dùng được khi server đã bật AI.
@@ -165,12 +181,14 @@
   startBtn && startBtn.addEventListener('click', start);
   micBtn.addEventListener('click', () => {
     if (!recog || busy) return;
-    if (listening) { try { recog.stop(); } catch (_) {} stopListening(); return; }
+    if (listening) { stopMic(); return; } // bấm lần 2 -> dừng & gửi (onend lo phần gửi)
+    finalText = '';
+    textInput.value = '';
     try {
-      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      if (window.speechSynthesis) window.speechSynthesis.cancel(); // tránh xung đột TTS/mic
       recog.start();
-      micTimer = setTimeout(() => { try { recog.stop(); } catch (_) {} stopListening(); }, 8000);
-    } catch (_) { stopListening(); }
+      micTimer = setTimeout(stopMic, 60000); // an toàn: tự dừng sau 60s nếu quên bấm
+    } catch (_) { /* start khi đang chạy sẽ throw -> bỏ qua */ }
   });
   sendBtn.addEventListener('click', () => send(textInput.value));
   textInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(textInput.value); });
