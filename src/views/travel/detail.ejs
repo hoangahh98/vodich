@@ -52,7 +52,7 @@
         <form method="post" action="/travel/trips/<%= trip.id %>/collections">
           <div class="travel-frozen-wrap">
             <table class="travel-table travel-table-sticky">
-              <thead><tr><th class="sticky-col">Thành viên</th><th>Đã chi</th><th>Đã thu</th><th>Đã trả</th><th>Ứng trước</th><th>Còn</th><th>Ghi chú</th></tr></thead>
+              <thead><tr><th class="sticky-col">Thành viên</th><th>Đã chi</th><th>Đã thu</th><th>Đã trả</th><th>Còn</th><th>Ghi chú</th></tr></thead>
               <tbody>
                 <% members.forEach((member) => { const key = member.id.toString(); const isTreasurer = String(trip.treasurerMemberId || '') === key; const memberSpent = summary.memberSpent.get(key) || 0; const memberPaid = summary.memberPaidTotal.get(key) || 0; const actualCollected = summary.actualCollected ? summary.actualCollected.get(key) || 0 : Number(member.collections[0]?.amount || 0); %>
                   <tr class="<%= (summary.balances.get(key) || 0) >= 0 ? 'sufficient-row' : 'insufficient-row' %>">
@@ -72,9 +72,8 @@
                       <% } %>
                     </td>
                     <td><strong><%= formatMoney(memberPaid) %>đ</strong></td>
-                    <td><strong class="text-success"><%= formatMoney(summary.memberAdvanced.get(key) || 0) %>đ</strong></td>
                     <% const bal = summary.balances.get(key) || 0; %>
-                    <td><% if (bal > 0) { %><strong class="text-success">thừa <%= formatMoney(bal) %>đ</strong><% } else if (bal < 0) { %><strong class="text-danger">thiếu <%= formatMoney(-bal) %>đ</strong><% } else { %><span class="muted">đủ</span><% } %></td>
+                    <td><% if (bal > 0) { %><strong class="text-success">ứng trước <%= formatMoney(bal) %>đ</strong><% } else if (bal < 0) { %><strong class="text-danger">thiếu <%= formatMoney(-bal) %>đ</strong><% } else { %><span class="muted">đủ</span><% } %></td>
                     <td><input name="collectionNote_<%= key %>" value="<%= member.collections[0]?.note || '' %>"></td>
                   </tr>
                 <% }) %>
@@ -137,18 +136,17 @@
         <div class="section-heading mb"><div><span class="feature-icon">👥</span><h2 class="section-title">Thành viên</h2></div></div>
         <div class="travel-table-wrap">
           <table class="travel-table">
-            <thead><tr><th>Thành viên</th><th>Đã thu</th><th>Đã trả</th><th>Ứng trước</th><th>Còn</th></tr></thead>
+            <thead><tr><th>Thành viên</th><th>Đã thu</th><th>Đã trả</th><th>Còn</th></tr></thead>
             <tbody>
               <% members.forEach((member) => { const key = member.id.toString(); const isTreasurer = String(trip.treasurerMemberId || '') === key; const bal = summary.balances.get(key) || 0; %>
                 <tr class="<%= String(viewerMemberId || '') === key ? 'mine-row' : '' %>">
                   <td><strong><%= member.name %></strong><% if (isTreasurer) { %><br><span class="badge">Thủ quỹ</span><% } %></td>
                   <td><%= formatMoney(isTreasurer ? (summary.memberSpent.get(key) || 0) : (summary.actualCollected.get(key) || 0)) %>đ</td>
                   <td><strong><%= formatMoney(summary.memberPaidTotal.get(key) || 0) %>đ</strong></td>
-                  <td><strong class="text-success"><%= formatMoney(summary.memberAdvanced.get(key) || 0) %>đ</strong></td>
-                  <td><% if (bal > 0) { %><strong class="text-success">thừa <%= formatMoney(bal) %>đ</strong><% } else if (bal < 0) { %><strong class="text-danger">thiếu <%= formatMoney(-bal) %>đ</strong><% } else { %><span class="muted">đủ</span><% } %></td>
+                  <td><% if (bal > 0) { %><strong class="text-success">ứng trước <%= formatMoney(bal) %>đ</strong><% } else if (bal < 0) { %><strong class="text-danger">thiếu <%= formatMoney(-bal) %>đ</strong><% } else { %><span class="muted">đủ</span><% } %></td>
                 </tr>
               <% }) %>
-              <% if (!members.length) { %><tr><td colspan="5" class="text-center muted">Chưa có thành viên.</td></tr><% } %>
+              <% if (!members.length) { %><tr><td colspan="4" class="text-center muted">Chưa có thành viên.</td></tr><% } %>
             </tbody>
           </table>
         </div>

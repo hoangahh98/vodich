@@ -141,3 +141,25 @@ test('TravelSummaryBuilder balances paid expenses, collections, and transfer sug
     amount: 100,
   });
 });
+
+test('TravelSummaryBuilder giữ sổ cân: có thủ quỹ thì tổng số dư = 0 và tổng ứng trước = tổng thiếu', () => {
+  const builder = new TravelSummaryBuilder();
+  const members = [
+    { id: 1n, name: 'An', collections: [{ amount: 0 }] }, // thủ quỹ
+    { id: 2n, name: 'Binh', collections: [{ amount: 100 }] },
+    { id: 3n, name: 'Cuong', collections: [{ amount: 50 }] },
+  ];
+  const expenses = [{ amount: 300, paidByMemberId: 1n, splits: splitEvenly(300, [1n, 2n, 3n]) }];
+
+  const summary = builder.build(members, expenses, 1n);
+
+  const totalBalance = [...summary.balances.values()].reduce((sum, value) => sum + value, 0);
+  const totalDebt = [...summary.memberDebt.values()].reduce((sum, value) => sum + value, 0);
+  // Bất biến: khi đã chọn thủ quỹ, sổ phải cân tuyệt đối.
+  assert.equal(totalBalance, 0);
+  // "Ứng trước" và "thiếu" là hai mặt của cùng một số dư → tổng phải bằng nhau.
+  assert.equal(summary.totalAdvanced, totalDebt);
+  // Kể cả khi có người nộp DƯ (Binh nộp 100 cho phần 100, Cuong mới 50/100) sổ vẫn cân.
+  assert.equal(summary.memberDebt.get('3'), 50);
+  assert.equal(summary.memberAdvanced.get('1'), 50);
+});

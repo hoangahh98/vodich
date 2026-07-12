@@ -82,21 +82,16 @@ export class TravelSummaryBuilder {
       const spent = memberSpent.get(memberId) || 0;
       const paidTotal = memberPaidTotal.get(memberId) || 0;
       const collected = effectiveCollected.get(memberId) || 0;
-      const remainingShare = Math.max(spent - collected, 0);
-      const advanced =
-        treasurerId === memberId
-          ? Math.max(paidTotal - spent - collectedFromOtherMembers, 0)
-          : Math.max(paidTotal - remainingShare, 0);
-      const debt = treasurerId === memberId ? 0 : Math.max(remainingShare - paidTotal, 0);
-      memberAdvanced.set(memberId, advanced);
-      memberDebt.set(memberId, debt);
       memberCollected.set(memberId, Math.min(spent, collected + paidTotal));
-      // "Còn" = số dư THỰC: (đã thu + đã trả) - đã chi. Dương = thừa, âm = thiếu.
+      // "Còn" = số dư THỰC: (đã thu + đã trả) - đã chi. Dương = còn ứng trước, âm = còn thiếu.
       // Thủ quỹ giữ tiền của cả nhóm nên tính riêng: đã trả - phần của mình - tiền thu từ người khác.
-      // Cách này đảm bảo tổng số dư của mọi người = 0 (sổ cân).
+      // Cách này đảm bảo tổng số dư của mọi người = 0 (sổ cân) khi đã chọn thủ quỹ.
       const netBalance =
         treasurerId === memberId ? paidTotal - spent - collectedFromOtherMembers : collected + paidTotal - spent;
       balances.set(memberId, netBalance);
+      // "Ứng trước" và "thiếu" lấy thẳng từ số dư để tổng ứng trước luôn = tổng thiếu (sổ cân).
+      memberAdvanced.set(memberId, Math.max(netBalance, 0));
+      memberDebt.set(memberId, Math.max(-netBalance, 0));
     });
 
     return {
