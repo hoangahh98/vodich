@@ -569,9 +569,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .medical-analysis { background: #f8f9fb; border: 1px solid var(--line); border-left: 4px solid #0d6efd; border-radius: 8px; padding: 12px 14px; }
 .medical-analysis-body { white-space: pre-wrap; margin-top: 6px; font-size: 14px; line-height: 1.55; }
 
-/* ===== Game: chat with AI ===== */
-.game-card-chat { background: linear-gradient(135deg, #f7971e, #d81b60); }
-.game-stage-chat { background: radial-gradient(circle at 15% 10%, #ffe29f, transparent 45%), linear-gradient(160deg, #ee9ca7, #7b4397); }
+/* ===== Giao diện hội thoại dùng chung (Tập nói chuyện tiếng Anh) ===== */
 .chat-window { width: 100%; max-width: 640px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 14px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; min-height: 46svh; }
 .chat-msg { display: flex; align-items: flex-end; gap: 8px; }
 .chat-msg.chat-user { justify-content: flex-end; }
@@ -667,6 +665,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .chat-setup label { color: #fff; font-size: 12px; margin-bottom: 4px; }
 .chat-setup input, .chat-setup select { height: 40px; }
 .chat-setup-toggle { border: 0; background: rgba(255,255,255,.25); color: #fff; border-radius: 999px; width: 34px; height: 34px; font-size: 16px; cursor: pointer; margin-left: 8px; }
+.chat-setup-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: flex-end; }
+.chat-setup-save { border: 0; border-radius: 999px; padding: 10px 22px; font-weight: 800; font-size: 14px; cursor: pointer; background: #fff; color: #7b4397; }
 
 /* ===== Game: tiếng Anh nâng cao (gia sư AI) ===== */
 .game-card-advanced { background: linear-gradient(135deg,#0f2027,#2c5364); }

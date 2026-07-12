@@ -1,10 +1,19 @@
-<%- include('../partials/head', { title: 'Tiếng Anh nâng cao' }) %>
+<%- include('../partials/head', { title: 'Tập nói chuyện tiếng Anh' }) %>
 <body class="game-body">
   <div class="game-stage game-stage-advanced" data-game="advanced" data-ai="<%= aiConfigured ? '1' : '0' %>">
     <header class="game-topbar">
       <a class="game-back" href="/games">Về</a>
-      <div class="game-hud"><span class="game-stat">🎓 Gia sư AI</span></div>
+      <div class="game-hud"><span class="game-stat">🎓 Gia sư AI</span>
+        <button class="chat-setup-toggle" type="button" data-setup-toggle title="Cài đặt">⚙️</button>
+      </div>
     </header>
+
+    <div class="chat-setup hidden" data-chat-setup>
+      <div><label>Tên của bạn</label><input data-p-name placeholder="VD: An"></div>
+      <div><label>Tuổi</label><input data-p-age type="number" min="1" max="120" placeholder="VD: 7"></div>
+      <div><label>Giới tính</label><select data-p-gender><option value="">--</option><option value="Nam">Nam</option><option value="Nữ">Nữ</option></select></div>
+      <div class="chat-setup-actions"><button class="chat-setup-save" type="button" data-setup-save>💾 Lưu thông tin</button></div>
+    </div>
 
     <div class="adv-picker">
       <div class="adv-picker-row" data-scenarios>

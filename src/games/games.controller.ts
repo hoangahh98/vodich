@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { requireUser } from '../common/controller-utils';
 import { AiService } from '../common/ai.service';
+import { RateLimitService } from '../common/rate-limit.service';
 import { render } from '../common/view';
 
 interface ChatTurn {
@@ -27,7 +28,10 @@ const LEVELS: Record<string, { desc: string; guide: string }> = {
 
 @Controller()
 export class GamesController {
-  constructor(private readonly ai: AiService) {}
+  constructor(
+    private readonly ai: AiService,
+    private readonly rateLimit: RateLimitService,
+  ) {}
 
   @Get('/games')
   hub(@Req() req: Request, @Res() res: Response) {
@@ -71,12 +75,6 @@ export class GamesController {
     return render(res, 'games/tree');
   }
 
-  @Get('/games/hoi-thoai')
-  chatPage(@Req() req: Request, @Res() res: Response) {
-    if (!requireUser(req, res)) return;
-    return render(res, 'games/chat', { aiConfigured: this.ai.isConfigured() });
-  }
-
   @Get('/games/tieng-anh-nang-cao')
   advancedPage(@Req() req: Request, @Res() res: Response) {
     if (!requireUser(req, res)) return;
@@ -84,17 +82,25 @@ export class GamesController {
   }
 
   @Post('/games/advanced-chat')
-  async advancedChat(@Req() req: Request, @Res() res: Response, @Body() body: { messages?: ChatTurn[]; scenario?: string; level?: string }) {
+  async advancedChat(@Req() req: Request, @Res() res: Response, @Body() body: { messages?: ChatTurn[]; scenario?: string; level?: string; profile?: { name?: string; age?: string; gender?: string } }) {
     if (!req.session.user) return res.status(401).json({ error: 'Cần đăng nhập' });
     if (!this.ai.isConfigured()) return res.status(503).json({ error: 'Chưa cấu hình AI trên server.' });
+    const limit = this.rateLimit.consume(`ai:advanced:${req.ip || 'unknown'}`, { max: 30, windowMs: 60_000 });
+    if (!limit.allowed) return res.status(429).json({ error: `Bạn hỏi hơi nhanh, thử lại sau ${limit.retryAfterSeconds}s nhé.` });
     const scenario = SCENARIOS[String(body.scenario || '')] || SCENARIOS.free;
     const level = LEVELS[String(body.level || '')] || LEVELS.intermediate;
+    const profile = body.profile || {};
+    const learnerName = String(profile.name || '').trim();
+    const learnerAge = String(profile.age || '').trim();
+    const learnerGender = String(profile.gender || '').trim();
+    const learnerDesc = [learnerName && `tên ${learnerName}`, learnerAge && `${learnerAge} tuổi`, learnerGender].filter(Boolean).join(', ');
     const history = Array.isArray(body.messages) ? body.messages.slice(-14) : [];
     const transcript = history.map((turn) => `${turn.role === 'user' ? 'Learner' : 'Tutor'}: ${String(turn.text || '').slice(0, 700)}`).join('\n');
     const prompt = [
       `Bạn là gia sư tiếng Anh chuyên nghiệp, đang luyện NÓI cho người học qua hội thoại.`,
       `Tình huống đóng vai: ${scenario}.`,
       `Trình độ người học: ${level.desc}`,
+      learnerDesc ? `Thông tin người học: ${learnerDesc}. Hãy xưng hô thân thiện bằng tên và điều chỉnh chủ đề/độ khó cho phù hợp.` : ``,
       `Quy tắc:`,
       `- Trả lời bằng tiếng Anh ĐÚNG trình độ (${level.guide}).`,
       `- Giữ đúng vai/tình huống, luôn kết thúc bằng MỘT câu hỏi để người học nói tiếp.`,
@@ -118,37 +124,6 @@ export class GamesController {
         suggestVi: String(result.suggestVi || '').trim(),
         tip: String(result.tip || '').trim(),
       });
-    } catch (error) {
-      return res.status(502).json({ error: error instanceof Error ? error.message : 'AI lỗi' });
-    }
-  }
-
-  @Post('/games/chat')
-  async chat(@Req() req: Request, @Res() res: Response, @Body() body: { messages?: ChatTurn[]; profile?: { name?: string; age?: string; gender?: string; partner?: string } }) {
-    if (!req.session.user) return res.status(401).json({ error: 'Cần đăng nhập' });
-    if (!this.ai.isConfigured()) return res.status(503).json({ error: 'Chưa cấu hình AI trên server.' });
-    const profile = body.profile || {};
-    const partner = String(profile.partner || '').trim() || 'Emma';
-    const learnerName = String(profile.name || '').trim();
-    const learnerAge = String(profile.age || '').trim();
-    const learnerGender = String(profile.gender || '').trim();
-    const learnerDesc = [learnerName && `tên ${learnerName}`, learnerAge && `${learnerAge} tuổi`, learnerGender && learnerGender].filter(Boolean).join(', ');
-    const history = Array.isArray(body.messages) ? body.messages.slice(-12) : [];
-    const transcript = history.map((turn) => `${turn.role === 'user' ? 'Người học' : partner}: ${String(turn.text || '').slice(0, 500)}`).join('\n');
-    const prompt = [
-      `Bạn là ${partner} — một người bạn nước ngoài thân thiện, đang giúp một người Việt luyện NÓI tiếng Anh.`,
-      learnerDesc ? `Người học: ${learnerDesc}. Xưng hô thân thiện, dùng tên nếu có, điều chỉnh độ khó/chủ đề phù hợp tuổi.` : 'Chưa rõ thông tin người học; hãy hỏi tên và tuổi một cách thân thiện.',
-      'Quy tắc trả lời:',
-      '- Trả lời bằng tiếng Anh ĐƠN GIẢN, ngắn (1-2 câu), giọng vui vẻ, khích lệ.',
-      '- Luôn kết thúc bằng MỘT câu hỏi dễ để người học nói tiếp.',
-      '- Nếu câu người học sai ngữ pháp/từ, sửa nhẹ nhàng bằng cách nhắc lại câu đúng, đừng chê.',
-      '- Chủ đề an toàn, phù hợp lứa tuổi (gia đình, con vật, đồ ăn, trường lớp, công việc, sở thích).',
-      `Trả về JSON: { "reply": "câu tiếng Anh của ${partner}", "tip": "gợi ý/nhận xét RẤT ngắn bằng tiếng Việt (tùy chọn, có thể rỗng)" }.`,
-      transcript ? `Hội thoại đến giờ:\n${transcript}` : `Người học vừa mở cuộc trò chuyện, hãy chào${learnerName ? ' ' + learnerName : ''} và bắt đầu.`,
-    ].join('\n');
-    try {
-      const result = await this.ai.generateJson<{ reply: string; tip?: string }>(prompt, { temperature: 0.8 });
-      return res.json({ reply: String(result.reply || '').trim() || 'Hi there!', tip: String(result.tip || '').trim() });
     } catch (error) {
       return res.status(502).json({ error: error instanceof Error ? error.message : 'AI lỗi' });
     }

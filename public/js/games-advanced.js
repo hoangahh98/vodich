@@ -18,6 +18,31 @@
   let scenario = 'free';
   let level = 'beginner';
 
+  // --- Hồ sơ người học (lưu localStorage) ---
+  const setup = stage.querySelector('[data-chat-setup]');
+  const pName = stage.querySelector('[data-p-name]');
+  const pAge = stage.querySelector('[data-p-age]');
+  const pGender = stage.querySelector('[data-p-gender]');
+  const readProfile = () => ({
+    name: (pName && pName.value || '').trim(),
+    age: (pAge && pAge.value || '').trim(),
+    gender: (pGender && pGender.value || '').trim(),
+  });
+  try {
+    const saved = JSON.parse(localStorage.getItem('game-advanced-profile') || '{}');
+    if (saved.name && pName) pName.value = saved.name;
+    if (saved.age && pAge) pAge.value = saved.age;
+    if (saved.gender && pGender) pGender.value = saved.gender;
+  } catch (_) {}
+  const toggleBtn = stage.querySelector('[data-setup-toggle]');
+  if (toggleBtn && setup) toggleBtn.addEventListener('click', () => setup.classList.toggle('hidden'));
+  const saveBtn = stage.querySelector('[data-setup-save]');
+  if (saveBtn && setup) saveBtn.addEventListener('click', () => {
+    try { localStorage.setItem('game-advanced-profile', JSON.stringify(readProfile())); } catch (_) {}
+    setup.classList.add('hidden');
+    tipEl.textContent = '✅ Đã lưu thông tin của bạn!';
+  });
+
   // --- Chọn tình huống / trình độ ---
   const pickRow = (selector, attr, onPick) => {
     const row = stage.querySelector(selector);
@@ -41,6 +66,7 @@
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   let recog = null;
   let listening = false;
+  let gotResult = false;
   let micTimer = null;
   const stopListening = () => { listening = false; micBtn.classList.remove('listening'); clearTimeout(micTimer); micTimer = null; };
   if (SR) {
@@ -49,13 +75,15 @@
       recog.lang = 'en-US';
       recog.interimResults = false;
       recog.continuous = false;
-      recog.onstart = () => { listening = true; micBtn.classList.add('listening'); };
-      recog.onresult = (e) => { stopListening(); const t = e.results?.[0]?.[0]?.transcript || ''; if (t) send(t); };
-      recog.onend = stopListening;
+      recog.onstart = () => { listening = true; gotResult = false; micBtn.classList.add('listening'); tipEl.textContent = '🎤 Đang nghe... hãy nói!'; };
+      recog.onresult = (e) => { gotResult = true; stopListening(); const t = e.results?.[0]?.[0]?.transcript || ''; if (t) send(t); else tipEl.textContent = '🤔 Chưa nghe rõ, thử nói lại hoặc gõ chữ nhé.'; };
+      recog.onend = () => { const was = listening; stopListening(); if (was && !gotResult) tipEl.textContent = '🤔 Chưa nghe rõ, thử nói lại hoặc gõ chữ nhé.'; };
       recog.onerror = (e) => { stopListening(); if (e && (e.error === 'not-allowed' || e.error === 'service-not-allowed')) tipEl.textContent = '🎤 Chưa cấp quyền micro — hãy gõ chữ hoặc bật quyền.'; };
     } catch (_) { recog = null; }
   }
+  // Web Speech cần Chrome/Edge + HTTPS; và chỉ dùng được khi server đã bật AI.
   if (!recog) { micBtn.disabled = true; micBtn.title = 'Trình duyệt không hỗ trợ micro, hãy gõ chữ'; }
+  else if (!aiOn) { micBtn.disabled = true; micBtn.title = 'Chưa cấu hình AI trên server nên chưa trò chuyện được'; }
 
   function bubble(role, text) {
     const row = document.createElement('div');
@@ -75,7 +103,7 @@
       const res = await fetch('/games/advanced-chat', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ messages, scenario, level }),
+        body: JSON.stringify({ messages, scenario, level, profile: readProfile() }),
       });
       const data = await res.json();
       if (data.reply) {
