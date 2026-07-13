@@ -719,6 +719,10 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .knight-firework { position: fixed; z-index: 80; font-size: 34px; pointer-events: none; animation: knight-boom 1.3s ease-out forwards; }
 .knight-overlay-victory .knight-overlay-card { background: linear-gradient(160deg,#3a1c71,#b06ab3 55%,#4a1c6e); }
 .knight-royal { display: inline-block; font-size: 60px; animation: knight-celebrate 1s ease-in-out infinite; }
+.knight-royal-scene { margin-bottom: 8px; }
+.knight-royal-scene .knight-royal { font-size: 44px; }
+.knight-ko-boss { display: inline-block; font-size: 66px; transform: rotate(90deg); filter: grayscale(.55) brightness(.85); }
+.knight-ko-face { font-size: 40px; vertical-align: 14px; margin-left: 4px; }
 .knight-royal-b { animation-delay: .15s; }
 .knight-royal-heart { display: inline-block; font-size: 34px; vertical-align: middle; animation: knight-heartbeat 1s ease-in-out infinite; }
 @keyframes knight-celebrate { 0%,100% { transform: translateY(0) rotate(-4deg); } 50% { transform: translateY(-10px) rotate(4deg); } }

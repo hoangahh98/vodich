@@ -739,14 +739,22 @@
     ov.classList.remove('knight-overlay-victory');
   }
 
-  // Cảnh chiến thắng: pháo hoa + hoàng tử bế công chúa ăn mừng.
+  // Cảnh chiến thắng: boss nằm chết lè lưỡi trên cùng + hoàng tử bế công chúa ăn mừng.
   function showVictory() {
-    const heroIsGirl = S.character && S.character.gender === 'girl';
-    // Hoàng tử bế công chúa (nếu bé là bạn gái thì công chúa được hoàng tử đón).
-    $('[data-overlay-emoji]').innerHTML = '<span class="knight-royal">🤴</span><span class="knight-royal-heart">💞</span><span class="knight-royal knight-royal-b">👸</span>';
-    $('[data-overlay-title]').textContent = '🎆 CỨU ĐƯỢC CÔNG CHÚA! 🎆';
+    const bossEmoji = (S.wave && S.wave.length) ? S.wave[S.wave.length - 1].emoji : '🐉';
+    // Boss bị hạ: nằm nghiêng (xoay), xám xịt + mặt lè lưỡi 😵.
+    $('[data-overlay-emoji]').innerHTML = '<span class="knight-ko-boss">' + bossEmoji + '</span><span class="knight-ko-face">😵</span>';
+    $('[data-overlay-title]').textContent = 'CỨU ĐƯỢC CÔNG CHÚA! 👑';
     $('[data-overlay-stars]').textContent = '⭐⭐⭐';
-    $('[data-overlay-text]').textContent = 'Hoàng tử bế công chúa ăn mừng! Hiệp sĩ ' + (S.character ? S.character.name : '') + ' đã thắng và cứu được ' + (heroIsGirl ? 'hoàng tử' : 'công chúa') + '! 👑';
+    const textEl = $('[data-overlay-text]');
+    textEl.innerHTML = '';
+    const scene = document.createElement('div');
+    scene.className = 'knight-royal-scene';
+    scene.innerHTML = '<span class="knight-royal">🤴</span><span class="knight-royal-heart">💞</span><span class="knight-royal knight-royal-b">👸</span>';
+    textEl.appendChild(scene);
+    const msg = document.createElement('div');
+    msg.textContent = 'Hoàng tử bế công chúa ăn mừng! Hiệp sĩ ' + (S.character ? S.character.name : '') + ' đã hạ trùm và cứu được công chúa! 🎉';
+    textEl.appendChild(msg);
     const actions = $('[data-overlay-actions]');
     actions.innerHTML = '';
     const btn = document.createElement('button');

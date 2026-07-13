@@ -250,9 +250,11 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       let i = randInt(0, ANIMAL_WEIGHT.length - 1);
       let j = randInt(0, ANIMAL_WEIGHT.length - 1);
       while (j === i) j = randInt(0, ANIMAL_WEIGHT.length - 1);
-      const heavier = i > j ? ANIMAL_WEIGHT[i] : ANIMAL_WEIGHT[j];
-      const choices = shuffle([ANIMAL_WEIGHT[i], ANIMAL_WEIGHT[j]]);
-      return withExplain({ prompt: 'Con nào NẶNG hơn?', visual: '', choices, answer: choices.indexOf(heavier) }, `${heavier} to con hơn nên nặng hơn.`);
+      const heavy = ANIMAL_WEIGHT[Math.max(i, j)];
+      const light = ANIMAL_WEIGHT[Math.min(i, j)];
+      const label = (a: { e: string; n: string }) => `${a.e} ${a.n}`;
+      const choices = shuffle([label(heavy), label(light)]);
+      return withExplain({ prompt: 'Con nào NẶNG hơn?', visual: '', choices, answer: choices.indexOf(label(heavy)) }, `Con ${heavy.n} to hơn con ${light.n} nên con ${heavy.n} nặng hơn.`);
     }
     case 'shareCandy': {
       const maxHalf = cap(age <= 5 ? 4 : 6, 0.3, 2, 9);
@@ -403,8 +405,13 @@ const ODD_CATEGORIES: Record<string, string[]> = {
   vehicle: ['🚗', '🚌', '✈️', '🚂', '🚲', '🚢', '🚚'],
   school: ['✏️', '📕', '📏', '🎒', '📐', '🖊️'],
 };
-// Nhẹ -> nặng dần (chỉ số càng lớn càng nặng).
-const ANIMAL_WEIGHT = ['🐜', '🐭', '🐹', '🐰', '🐱', '🐶', '🐷', '🐺', '🐴', '🐻', '🦁', '🐘', '🦏', '🐋'];
+// Nhẹ -> nặng dần (chỉ số càng lớn càng nặng), thứ tự đúng thực tế & khác biệt rõ.
+// Kèm tên để bé biết con gì.
+const ANIMAL_WEIGHT = [
+  { e: '🐜', n: 'kiến' }, { e: '🐭', n: 'chuột' }, { e: '🐰', n: 'thỏ' }, { e: '🐱', n: 'mèo' },
+  { e: '🐶', n: 'chó' }, { e: '🐷', n: 'lợn' }, { e: '🐴', n: 'ngựa' }, { e: '🦏', n: 'tê giác' },
+  { e: '🐘', n: 'voi' },
+];
 const DAYS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
 const LEGS = [
   { name: 'con chó', emoji: '🐶', per: 4, part: 'chân' },
