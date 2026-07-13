@@ -198,8 +198,9 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
     }
     case 'match': {
       // Nối SỐ với NHÓM đồ vật có đúng số lượng (giống câu "tìm số lượng tương ứng").
+      // Giới hạn ≤6 hình/nhóm để mỗi ô gọn 1 hàng, các ô bằng nhau (không bị lệch cao thấp).
       const count = age <= 5 ? pick([2, 3]) : 3;
-      const maxN = cap(age <= 4 ? 5 : age <= 5 ? 6 : 9, 0.3, 3, 12);
+      const maxN = cap(age <= 4 ? 4 : 5, 0.2, 3, 6);
       const ns = new Set<number>();
       while (ns.size < count) ns.add(randInt(1, maxN)); // số lượng phân biệt -> nối 1-1 không mơ hồ
       const uniqEmojis = shuffle(Array.from(new Set(emojis)));
