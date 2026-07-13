@@ -11,6 +11,7 @@ export interface CharacterDto {
   age: number;
   notes: string;
   currentStage: number;
+  mobIndex: number; // đã đánh tới con quái thứ mấy của ải hiện tại
   hp: number;
   status: string;
   clearedStages: number[]; // các ải đã qua
@@ -64,7 +65,7 @@ export class KnightService {
   async saveProgress(
     user: CurrentUser,
     characterId: bigint,
-    input: { stage?: unknown; hp?: unknown; status?: unknown; cleared?: unknown; stars?: unknown },
+    input: { stage?: unknown; hp?: unknown; status?: unknown; cleared?: unknown; stars?: unknown; mobIndex?: unknown },
   ): Promise<CharacterDto | null> {
     const existing = await this.prisma.knightCharacter.findUnique({ where: { id: characterId } });
     if (!existing || existing.ownerUserId !== BigInt(user.id)) return null;
@@ -75,26 +76,32 @@ export class KnightService {
     const stars = clampStars(Number(input.stars));
 
     // Trạng thái: hết máu -> nghỉ ngơi; qua ải cuối -> chiến thắng; còn lại -> đang chơi.
+    // mobIndex: đã đánh tới con quái thứ mấy (qua ải/nghỉ -> về 0; đang chơi -> lưu vị trí).
     let status: string;
     let currentStage: number;
+    let mobIndex: number;
     if (cleared && stage >= MAX_STAGE) {
       status = 'VICTORY';
       currentStage = MAX_STAGE;
+      mobIndex = 0;
     } else if (cleared) {
       status = 'ACTIVE';
       currentStage = stage + 1;
+      mobIndex = 0;
     } else if (hp <= 0) {
       status = 'RESTING';
-      currentStage = stage; // chơi lại đúng màn hiện tại
+      currentStage = stage; // chơi lại đúng màn hiện tại từ con quái đầu
+      mobIndex = 0;
     } else {
       status = String(input.status) === 'RESTING' ? 'RESTING' : 'ACTIVE';
       currentStage = stage;
+      mobIndex = clampMob(Number(input.mobIndex));
     }
 
     const updates: Prisma.PrismaPromise<unknown>[] = [
       this.prisma.knightCharacter.update({
         where: { id: characterId },
-        data: { hp, status, currentStage },
+        data: { hp, status, currentStage, mobIndex },
       }),
     ];
     if (cleared) {
@@ -119,6 +126,7 @@ function toDto(row: {
   age: number;
   notes: string;
   currentStage: number;
+  mobIndex: number;
   hp: number;
   status: string;
   progress: Array<{ stageNumber: number; stars: number; status: string }>;
@@ -133,6 +141,7 @@ function toDto(row: {
     age: row.age,
     notes: row.notes,
     currentStage: row.currentStage,
+    mobIndex: row.mobIndex,
     hp: row.hp,
     status: row.status,
     clearedStages,
@@ -155,4 +164,8 @@ function clampHp(n: number): number {
 function clampStars(n: number): number {
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.min(3, Math.round(n)));
+}
+function clampMob(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(20, Math.round(n)));
 }

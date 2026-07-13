@@ -4,7 +4,7 @@
 (() => {
   const stage = document.querySelector('[data-game="knight"]');
   if (!stage) return;
-  const { sound, praise, encourage, confetti, speakVi } = window.GameCore;
+  const { sound, praise, encourage, confetti, speakVi, pick } = window.GameCore;
 
   // ---- Cấu hình từ server (nhúng qua data-*) ----
   const parseData = (attr, fallback) => {
@@ -49,6 +49,42 @@
     $$('.knight-screen').forEach((s) => s.classList.toggle('hidden', s.dataset.screen !== name));
     hideOverlay();
   }
+
+  // ---- Mạng: hiện "đang xử lý", tự thử lại tối đa 3 lần, hỏng thì báo đổi mạng ----
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  function showNet(msg) { const el = $('[data-net]'); if (el) { el.textContent = msg; el.classList.remove('hidden'); } }
+  function hideNet() { const el = $('[data-net]'); if (el) el.classList.add('hidden'); }
+
+  // Trả về { ok, data, network }. Tự retry 3 lần khi mạng lỗi/quá tải.
+  // opts.silent: không hiện "đang xử lý" ở lần đầu (dùng cho lưu nền); vẫn báo khi phải thử lại.
+  async function postJson(url, body, opts) {
+    const maxAttempts = 3;
+    if (!(opts && opts.silent)) showNet('⏳ Đang xử lý...');
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+        if (res.ok) { hideNet(); return { ok: true, data: await res.json() }; }
+        if ((res.status >= 500 || res.status === 429) && attempt < maxAttempts) {
+          showNet('⏳ Máy chủ bận, thử lại (' + attempt + '/' + maxAttempts + ')...');
+          await sleep(attempt * 800);
+          continue;
+        }
+        hideNet();
+        return { ok: false, data: await res.json().catch(() => ({})), status: res.status };
+      } catch (_) {
+        if (attempt < maxAttempts) {
+          showNet('📶 Mạng chập chờn, thử lại (' + attempt + '/' + maxAttempts + ')...');
+          await sleep(attempt * 900);
+          continue;
+        }
+        hideNet();
+        return { ok: false, network: true };
+      }
+    }
+    hideNet();
+    return { ok: false, network: true };
+  }
+  const NET_MSG = '📶 Mạng yếu quá! Hãy đổi sang Wi-Fi hoặc 4G khác rồi thử lại nhé.';
 
   // ========================= MÀN 1: CHỌN NHÂN VẬT =========================
   function renderCharList() {
@@ -95,21 +131,13 @@
   }
 
   async function doDeleteCharacter(c) {
-    try {
-      const res = await fetch('/games/hiep-si/character/delete', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ characterId: c.id }),
-      });
-      if (res.ok) {
-        S.characters = S.characters.filter((x) => x.id !== c.id);
-        renderCharList();
-        if (!S.characters.length) { resetCreateForm(); showScreen('create'); }
-      } else {
-        const d = await res.json().catch(() => ({}));
-        showOverlay({ emoji: '⚠️', title: 'Không xoá được', stars: 0, text: d.error || 'Thử lại nhé.', actions: [{ label: 'OK', primary: true, fn: hideOverlay }] });
-      }
-    } catch (_) {
-      showOverlay({ emoji: '⚠️', title: 'Lỗi mạng', stars: 0, text: 'Không kết nối được, thử lại nhé.', actions: [{ label: 'OK', primary: true, fn: hideOverlay }] });
+    const r = await postJson('/games/hiep-si/character/delete', { characterId: c.id });
+    if (r.ok) {
+      S.characters = S.characters.filter((x) => x.id !== c.id);
+      renderCharList();
+      if (!S.characters.length) { resetCreateForm(); showScreen('create'); }
+    } else {
+      showOverlay({ emoji: '⚠️', title: r.network ? 'Lỗi mạng' : 'Không xoá được', stars: 0, text: r.network ? NET_MSG : (r.data && r.data.error) || 'Thử lại nhé.', actions: [{ label: 'OK', primary: true, fn: hideOverlay }] });
     }
   }
 
@@ -146,23 +174,15 @@
     if (!name) { msg.textContent = 'Nhập tên hiệp sĩ nhé!'; return; }
     const btn = $('[data-create-save]');
     btn.disabled = true; msg.textContent = 'Đang tạo...';
-    try {
-      const res = await fetch('/games/hiep-si/character', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name, gender: S.genderForm, age: S.ageForm, notes: $('[data-f-notes]').value.trim() }),
-      });
-      const data = await res.json();
-      if (data.character) {
-        S.characters.unshift(data.character);
-        renderCharList();
-        selectCharacter(data.character);
-      } else {
-        msg.textContent = data.error || 'Không tạo được, thử lại nhé.';
-      }
-    } catch (_) {
-      msg.textContent = 'Mạng có vấn đề, thử lại nhé.';
-    } finally {
-      btn.disabled = false;
+    const r = await postJson('/games/hiep-si/character', { name, gender: S.genderForm, age: S.ageForm, notes: $('[data-f-notes]').value.trim() });
+    btn.disabled = false;
+    if (r.ok && r.data.character) {
+      msg.textContent = '';
+      S.characters.unshift(r.data.character);
+      renderCharList();
+      selectCharacter(r.data.character);
+    } else {
+      msg.textContent = r.network ? NET_MSG : (r.data && r.data.error) || 'Không tạo được, thử lại nhé.';
     }
   }
 
@@ -219,39 +239,38 @@
     S.locked = true;
     S.qIndex = 0;
     S.wrongThisStage = 0;
-    S.playerHp = CONFIG.maxHp;
     $('[data-hero-avatar]').textContent = HERO_EMOJI[c.gender] || '🧒';
     $('[data-hero-name]').textContent = c.name;
     $('[data-question]').textContent = 'Đang triệu hồi câu hỏi... 🔮';
     $('[data-choices]').innerHTML = '';
     $('[data-visual]').textContent = '';
     $('[data-feedback]').textContent = '';
+
+    // Chơi tiếp đúng con quái đã đánh dở của ải hiện tại (nếu còn máu).
+    const resuming = stageNumber === c.currentStage && c.status === 'ACTIVE' && (c.mobIndex || 0) > 0 && c.hp > 0;
+    S.playerHp = resuming ? c.hp : CONFIG.maxHp;
     renderHp();
 
-    try {
-      const res = await fetch('/games/hiep-si/quiz', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ characterId: c.id, stage: stageNumber, level: S.level }),
-      });
-      const data = await res.json();
-      if (!data.stage || !Array.isArray(data.questions) || !data.questions.length) {
-        $('[data-question]').textContent = data.error || 'Không tạo được câu hỏi, thử lại nhé.';
-        addRetry(stageNumber);
-        return;
-      }
-      S.stageMeta = data.stage;
-      S.questions = data.questions;
-      // Đợt quái: mảng quái, đánh lần lượt từng con.
-      S.wave = Array.isArray(data.wave) && data.wave.length ? data.wave : [{ name: 'Quái', emoji: '👾', type: 'normal', hp: 10 }];
-      S.mobIndex = 0;
-      $('[data-stage-name]').textContent = 'Ải ' + data.stage.stage + ': ' + data.stage.title;
-      spawnMonster();
-      S.locked = false;
-      loadQuestion();
-    } catch (_) {
-      $('[data-question]').textContent = 'Mạng có vấn đề, thử lại nhé.';
+    const r = await postJson('/games/hiep-si/quiz', { characterId: c.id, stage: stageNumber, level: S.level });
+    if (!r.ok) {
+      $('[data-question]').textContent = r.network ? NET_MSG : (r.data && r.data.error) || 'Không tạo được câu hỏi, thử lại nhé.';
       addRetry(stageNumber);
+      return;
     }
+    const data = r.data;
+    if (!data.stage || !Array.isArray(data.questions) || !data.questions.length) {
+      $('[data-question]').textContent = (data && data.error) || 'Không tạo được câu hỏi, thử lại nhé.';
+      addRetry(stageNumber);
+      return;
+    }
+    S.stageMeta = data.stage;
+    S.questions = data.questions;
+    S.wave = Array.isArray(data.wave) && data.wave.length ? data.wave : [{ name: 'Quái', emoji: '👾', type: 'normal', hp: 10 }];
+    S.mobIndex = resuming ? Math.min(c.mobIndex, S.wave.length - 1) : 0;
+    $('[data-stage-name]').textContent = 'Ải ' + data.stage.stage + ': ' + data.stage.title;
+    spawnMonster();
+    S.locked = false;
+    loadQuestion();
   }
 
   function addRetry(stageNumber) {
@@ -306,8 +325,15 @@
       $('[data-visual]').classList.add('hidden');
       renderMatch(q, box);
     } else {
-      $('[data-visual]').textContent = q.visual || '';
-      $('[data-visual]').classList.toggle('hidden', !q.visual);
+      const vis = $('[data-visual]');
+      if (typeof q.clock === 'number') {
+        vis.innerHTML = '';
+        vis.appendChild(buildClock(q.clock));
+        vis.classList.remove('hidden');
+      } else {
+        vis.textContent = q.visual || '';
+        vis.classList.toggle('hidden', !q.visual);
+      }
       q.choices.forEach((choice, idx) => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -318,6 +344,32 @@
       });
     }
     startTimer();
+  }
+
+  // Vẽ đồng hồ kim rõ ràng cho câu "mấy giờ" (kim ngắn = giờ, kim dài = số 12).
+  function buildClock(hour) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 100 100');
+    svg.setAttribute('class', 'knight-clock');
+    const cx = 50, cy = 50;
+    const add = (tag, attrs) => { const el = document.createElementNS(NS, tag); for (const k in attrs) el.setAttribute(k, attrs[k]); svg.appendChild(el); return el; };
+    add('circle', { cx, cy, r: 46, fill: '#fffdf5', stroke: '#3a2c6e', 'stroke-width': 4 });
+    // 12 số quanh mặt đồng hồ
+    for (let n = 1; n <= 12; n++) {
+      const a = (n * 30) * Math.PI / 180;
+      const x = cx + 37 * Math.sin(a);
+      const y = cy - 37 * Math.cos(a) + 4.5;
+      const t = add('text', { x, y, 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 'bold', fill: '#3a2c6e' });
+      t.textContent = String(n);
+    }
+    // kim phút (dài) chỉ số 12
+    add('line', { x1: cx, y1: cy, x2: cx, y2: 14, stroke: '#2d6cdf', 'stroke-width': 3, 'stroke-linecap': 'round' });
+    // kim giờ (ngắn, đậm) chỉ vào số giờ
+    const ah = (hour % 12) * 30 * Math.PI / 180;
+    add('line', { x1: cx, y1: cy, x2: cx + 24 * Math.sin(ah), y2: cy - 24 * Math.cos(ah), stroke: '#e2413b', 'stroke-width': 5, 'stroke-linecap': 'round' });
+    add('circle', { cx, cy, r: 3.5, fill: '#3a2c6e' });
+    return svg;
   }
 
   const repeatEmoji = (e, n) => Array.from({ length: n }, () => e).join('');
@@ -416,11 +468,16 @@
     hitMonster();
     confetti();
     if (S.monsterHp <= 0) {
-      // Con quái hiện tại gục -> sang con tiếp theo, hoặc hết đợt thì qua ải.
+      // Con quái hiện tại gục -> nổ tung "ựa" ra rồi biến mất.
       const mm = $('.knight-monster');
       if (mm) { mm.classList.remove('faint'); void mm.offsetWidth; mm.classList.add('faint'); }
+      monsterFx('💥');
+      monsterFx('🤢', 0.1);
+      monsterFx(pick(['💫', '⭐', '😵']), 0.2);
       S.mobIndex += 1;
       if (S.mobIndex >= S.wave.length) { setTimeout(stageCleared, 750); return; }
+      // Lưu nền: đã đánh tới con quái thứ mấy của ải này (chơi tiếp đúng chỗ).
+      saveProgress({ stage: S.stageMeta.stage, mobIndex: S.mobIndex, hp: S.playerHp, cleared: false }, true);
       setTimeout(() => { spawnMonster(); loadNext(); }, 800);
       return;
     }
@@ -496,7 +553,20 @@
   }
   function hitMonster() {
     const m = $('.knight-monster');
-    m.classList.remove('hit'); void m.offsetWidth; m.classList.add('hit');
+    if (m) { m.classList.remove('hit'); void m.offsetWidth; m.classList.add('hit'); }
+    // "Ựa ra": quái giật nảy văng ra 💥 + sao đom đóm.
+    monsterFx('💥');
+    monsterFx(pick(['💫', '😵', '⭐', '💢']), 0.12);
+  }
+  function monsterFx(txt, delay) {
+    const arena = $('.knight-arena');
+    if (!arena) return;
+    const s = document.createElement('span');
+    s.className = 'knight-monster-fx';
+    s.textContent = txt;
+    if (delay) s.style.animationDelay = delay + 's';
+    arena.appendChild(s);
+    setTimeout(() => s.remove(), 850);
   }
 
   // Đúng: hiệp sĩ bắn 1 quả cầu lửa bay sang quái rồi mới trừ máu quái.
@@ -534,7 +604,7 @@
     const stars = S.wrongThisStage === 0 ? 3 : S.wrongThisStage <= 2 ? 2 : 1;
     const stageNum = S.stageMeta.stage;
     const isFinal = stageNum >= CONFIG.maxStage;
-    await saveProgress({ stage: stageNum, hp: S.playerHp, cleared: true, stars });
+    await saveProgress({ stage: stageNum, hp: S.playerHp, cleared: true, stars, mobIndex: 0 });
     if (isFinal) {
       showVictory();
     } else {
@@ -553,7 +623,7 @@
     stopTimer();
     sound('wrong');
     const stageNum = S.stageMeta.stage;
-    await saveProgress({ stage: stageNum, hp: 0, cleared: false });
+    await saveProgress({ stage: stageNum, hp: 0, cleared: false, mobIndex: 0 });
     showOverlay({
       emoji: '😴', title: 'Hiệp sĩ cần nghỉ ngơi', stars: -1,
       text: 'Hết máu rồi! Nghỉ một chút rồi thử lại ải này nhé — tiến trình các ải đã qua vẫn được giữ.',
@@ -564,20 +634,16 @@
     });
   }
 
-  async function saveProgress(payload) {
-    try {
-      const res = await fetch('/games/hiep-si/progress', {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(Object.assign({ characterId: S.character.id }, payload)),
-      });
-      const data = await res.json();
-      if (data.character) {
-        S.character = data.character;
-        // cập nhật trong danh sách
-        const i = S.characters.findIndex((x) => x.id === data.character.id);
-        if (i >= 0) S.characters[i] = data.character;
-      }
-    } catch (_) { /* lưu offline thất bại vẫn cho chơi tiếp */ }
+  async function saveProgress(payload, silent) {
+    const r = await postJson('/games/hiep-si/progress', Object.assign({ characterId: S.character.id }, payload), { silent: !!silent });
+    if (r.ok && r.data.character) {
+      S.character = r.data.character;
+      const i = S.characters.findIndex((x) => x.id === r.data.character.id);
+      if (i >= 0) S.characters[i] = r.data.character;
+    } else if (r.network) {
+      showNet('⚠️ Chưa lưu được tiến trình — hãy kiểm tra/đổi mạng.');
+      setTimeout(hideNet, 2600);
+    }
   }
 
   // ---- Overlay ----

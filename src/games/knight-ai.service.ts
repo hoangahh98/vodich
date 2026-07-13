@@ -17,6 +17,7 @@ export interface KnightQuestion {
   choices: string[]; // 2-4 lựa chọn hiển thị dạng thẻ (rỗng khi type 'match')
   answer: number; // chỉ số đáp án ĐÚNG trong choices (-1 khi type 'match')
   pairs?: KnightPair[]; // các cặp cần nối (chỉ dùng khi type 'match')
+  clock?: number; // giờ (1..12) để client vẽ đồng hồ kim rõ ràng
 }
 
 export type KnightLevel = 'easy' | 'medium' | 'hard';
@@ -250,7 +251,9 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
     }
     case 'clock': {
       const h = randInt(1, 12);
-      return numericQ('Đồng hồ chỉ mấy giờ?', CLOCK_BY_HOUR[h], h, 1, 12);
+      const q = numericQ('Đồng hồ chỉ mấy giờ?', '', h, 1, 12);
+      q.clock = h; // client vẽ đồng hồ kim rõ ràng
+      return q;
     }
     case 'dayShift': {
       const today = randInt(0, 6);
@@ -349,7 +352,6 @@ const ODD_CATEGORIES: Record<string, string[]> = {
 };
 // Nhẹ -> nặng dần (chỉ số càng lớn càng nặng).
 const ANIMAL_WEIGHT = ['🐜', '🐭', '🐹', '🐰', '🐱', '🐶', '🐷', '🐺', '🐴', '🐻', '🦁', '🐘', '🦏', '🐋'];
-const CLOCK_BY_HOUR: Record<number, string> = { 1: '🕐', 2: '🕑', 3: '🕒', 4: '🕓', 5: '🕔', 6: '🕕', 7: '🕖', 8: '🕗', 9: '🕘', 10: '🕙', 11: '🕚', 12: '🕛' };
 const DAYS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
 const LEGS = [
   { name: 'con chó', emoji: '🐶', per: 4, part: 'chân' },

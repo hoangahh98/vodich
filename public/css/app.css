@@ -634,9 +634,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .knight-hp { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px; max-width: 160px; }
 .knight-heart { font-size: 15px; }
 .knight-hero.hurt { animation: knight-shake .4s; }
-.knight-monster.hit { animation: knight-hit .4s; }
 @keyframes knight-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 60% { transform: translateX(8px); } }
-@keyframes knight-hit { 0% { transform: scale(1); filter: none; } 40% { transform: scale(.82) rotate(-6deg); filter: brightness(2) sepia(1) hue-rotate(-40deg); } 100% { transform: scale(1); } }
 
 .knight-quiz { width: 100%; max-width: 620px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.26); border-radius: 24px; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .knight-visual { font-size: 44px; line-height: 1.25; text-align: center; letter-spacing: 4px; min-height: 20px; }
@@ -694,6 +692,18 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .knight-monster.bite { animation: knight-lunge .5s ease; }
 @keyframes knight-lunge { 0% { transform: translateX(0); } 45% { transform: translateX(-38px) rotate(-8deg); } 100% { transform: translateX(0); } }
 @keyframes knight-boom { 0% { transform: scale(.3); opacity: 1; } 100% { transform: scale(1.7); opacity: 0; } }
+/* Quái bị bắn trúng: giật nảy về sau + văng "sao/💥" ra */
+.knight-monster.hit { animation: knight-hit .45s ease; }
+@keyframes knight-hit { 0% { transform: translateX(0) scale(1); filter: none; } 30% { transform: translateX(18px) rotate(12deg) scale(.85); filter: brightness(2.2) hue-rotate(-30deg); } 60% { transform: translateX(-5px) rotate(-5deg); } 100% { transform: translateX(0) scale(1); } }
+.knight-monster-fx { position: absolute; right: 14%; top: 26%; font-size: 40px; z-index: 6; pointer-events: none; animation: knight-spit .75s ease-out forwards; }
+@keyframes knight-spit { 0% { transform: translate(0,0) scale(.4); opacity: 1; } 100% { transform: translate(34px,-26px) scale(1.6); opacity: 0; } }
+
+/* Đồng hồ vẽ cho câu "mấy giờ" */
+.knight-clock { width: 168px; height: 168px; max-width: 60vw; }
+
+/* Báo trạng thái mạng */
+.knight-net { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 90; background: rgba(0,0,0,.82); color: #fff; font-weight: 800; font-size: 14px; padding: 9px 16px; border-radius: 999px; box-shadow: 0 6px 18px rgba(0,0,0,.35); max-width: 90vw; text-align: center; }
+.knight-net.hidden { display: none; }
 
 /* Pháo hoa chiến thắng */
 .knight-firework { position: fixed; z-index: 80; font-size: 34px; pointer-events: none; animation: knight-boom 1.3s ease-out forwards; }

@@ -247,6 +247,7 @@ model KnightCharacter {
   age          Int // 4..7
   notes        String   @default("") // Ghi chú cá nhân: điểm mạnh/yếu, sở thích
   currentStage Int      @default(1) @map("current_stage") // màn chơi hiện tại
+  mobIndex     Int      @default(0) @map("mob_index") // đã đánh tới con quái thứ mấy của ải (chơi tiếp đúng chỗ)
   hp           Int      @default(10) // máu còn lại của lượt chơi hiện tại
   status       String   @default("ACTIVE") @db.VarChar(20) // ACTIVE | RESTING | VICTORY
   createdAt    DateTime @default(now()) @map("created_at")
