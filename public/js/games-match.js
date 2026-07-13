@@ -6,6 +6,8 @@
   const hint = stage.querySelector('[data-match-hint]');
   const movesEl = stage.querySelector('[data-match-moves]');
   const scoreEl = stage.querySelector('[data-match-score]');
+  const setupEl = stage.querySelector('[data-setup]');
+  const playEl = stage.querySelector('[data-play]');
 
   const ITEMS = [
     { e: '🐶', v: 'con chó' }, { e: '🐱', v: 'con mèo' }, { e: '🐰', v: 'con thỏ' }, { e: '🦁', v: 'sư tử' },
@@ -161,7 +163,7 @@
     setTimeout(newBoard, 2400);
   }
 
-  // Chọn mức độ
+  // Chọn mức độ (ở màn cấu hình, chỉ ghi nhận lựa chọn - chưa vào chơi)
   const levelsRow = stage.querySelector('[data-levels]');
   if (levelsRow) {
     levelsRow.addEventListener('click', (e) => {
@@ -169,7 +171,6 @@
       if (!btn) return;
       level = btn.dataset.level;
       levelsRow.querySelectorAll('.game-level').forEach((b) => b.classList.toggle('active', b === btn));
-      newBoard();
     });
   }
 
@@ -181,9 +182,24 @@
       if (!btn) return;
       mode = btn.dataset.mode;
       modesRow.querySelectorAll('.game-level').forEach((b) => b.classList.toggle('active', b === btn));
-      newBoard();
     });
   }
 
-  newBoard();
+  function showSetup() {
+    if (setupEl) setupEl.hidden = false;
+    if (playEl) playEl.hidden = true;
+  }
+  function startGame() {
+    if (setupEl) setupEl.hidden = true;
+    if (playEl) playEl.hidden = false;
+    newBoard();
+  }
+
+  const startBtn = stage.querySelector('[data-start]');
+  if (startBtn) startBtn.addEventListener('click', startGame);
+  const configBtn = stage.querySelector('[data-config]');
+  if (configBtn) configBtn.addEventListener('click', showSetup);
+
+  // Bắt đầu ở màn chọn cấu hình.
+  showSetup();
 })();

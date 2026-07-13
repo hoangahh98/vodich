@@ -2,20 +2,37 @@
 <body class="game-body">
   <div class="match-stage" data-game="match">
     <a class="game-back peek-back" href="/games">Về</a>
-    <div class="game-levels" data-levels>
-      <button class="game-level active" data-level="easy" type="button">😀 Dễ</button>
-      <button class="game-level" data-level="medium" type="button">😎 Vừa</button>
-      <button class="game-level" data-level="hard" type="button">🤯 Khó</button>
-      <button class="game-level" data-level="superhard" type="button">🔥 Siêu khó</button>
+
+    <!-- Màn chọn cấu hình (hiện trước khi vào chơi) -->
+    <div class="match-setup" data-setup>
+      <div class="setup-title">🃏 Lật Hình Trí Nhớ</div>
+      <div class="setup-block">
+        <div class="setup-label">Chọn mức độ</div>
+        <div class="game-levels" data-levels>
+          <button class="game-level active" data-level="easy" type="button">😀 Dễ</button>
+          <button class="game-level" data-level="medium" type="button">😎 Vừa</button>
+          <button class="game-level" data-level="hard" type="button">🤯 Khó</button>
+          <button class="game-level" data-level="superhard" type="button">🔥 Siêu khó</button>
+        </div>
+      </div>
+      <div class="setup-block">
+        <div class="setup-label">Số người chơi</div>
+        <div class="game-levels" data-modes>
+          <button class="game-level active" data-mode="1p" type="button">👤 1 người</button>
+          <button class="game-level" data-mode="2p" type="button">👥 2 người</button>
+        </div>
+      </div>
+      <button class="setup-start" data-start type="button">Bắt đầu chơi ▶️</button>
     </div>
-    <div class="game-levels" data-modes>
-      <button class="game-level active" data-mode="1p" type="button">👤 1 người</button>
-      <button class="game-level" data-mode="2p" type="button">👥 2 người</button>
+
+    <!-- Màn chơi -->
+    <div class="match-play" data-play hidden>
+      <button class="match-config-btn" data-config type="button">⚙️ Đổi</button>
+      <div class="match-hint" data-match-hint>Lật 2 hình giống nhau nhé! 🃏</div>
+      <div class="match-score" data-match-score hidden></div>
+      <div class="match-moves" data-match-moves></div>
+      <div class="match-grid" data-match-grid></div>
     </div>
-    <div class="match-hint" data-match-hint>Lật 2 hình giống nhau nhé! 🃏</div>
-    <div class="match-score" data-match-score hidden></div>
-    <div class="match-moves" data-match-moves></div>
-    <div class="match-grid" data-match-grid></div>
   </div>
   <script src="/js/games-core.js"></script>
   <script src="/js/games-match.js"></script>
