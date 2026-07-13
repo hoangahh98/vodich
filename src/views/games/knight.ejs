@@ -1,0 +1,113 @@
+<%- include('../partials/head', { title: 'Hiệp Sĩ Toán Học' }) %>
+<body class="game-body">
+  <div class="game-stage game-stage-knight" data-game="knight"
+       data-ai="<%= aiConfigured ? '1' : '0' %>"
+       data-max-hp="<%= maxHp %>"
+       data-max-stage="<%= maxStage %>"
+       data-stages="<%= encodeURIComponent(JSON.stringify(stages)) %>"
+       data-characters="<%= encodeURIComponent(JSON.stringify(characters)) %>">
+
+    <header class="game-topbar">
+      <a class="game-back" href="/games">Về</a>
+      <div class="game-hud"><span class="game-stat">⚔️ Hiệp Sĩ Toán Học</span></div>
+    </header>
+
+    <!-- MÀN 1: CHỌN NHÂN VẬT -->
+    <section class="knight-screen" data-screen="select">
+      <h1 class="knight-title">Chọn hiệp sĩ 🛡️</h1>
+      <p class="knight-sub">Chọn nhân vật để chơi tiếp, hoặc tạo hiệp sĩ mới nhé!</p>
+      <div class="knight-char-list" data-char-list></div>
+      <button class="knight-btn knight-btn-primary" data-new-char type="button">✨ Tạo hiệp sĩ mới</button>
+    </section>
+
+    <!-- MÀN 2: TẠO NHÂN VẬT -->
+    <section class="knight-screen hidden" data-screen="create">
+      <h1 class="knight-title">Tạo hiệp sĩ mới ✨</h1>
+      <div class="knight-form">
+        <label>Tên hiệp sĩ</label>
+        <input class="knight-input" data-f-name maxlength="30" placeholder="VD: Bi, Na, Sư Tử...">
+
+        <label>Giới tính</label>
+        <div class="knight-gender" data-f-gender>
+          <button class="knight-gender-btn active" data-gender="boy" type="button">👦 Bạn trai</button>
+          <button class="knight-gender-btn" data-gender="girl" type="button">👧 Bạn gái</button>
+        </div>
+
+        <label>Tuổi của bé</label>
+        <div class="knight-age" data-f-age>
+          <button class="knight-age-btn" data-age="4" type="button">4</button>
+          <button class="knight-age-btn active" data-age="5" type="button">5</button>
+          <button class="knight-age-btn" data-age="6" type="button">6</button>
+          <button class="knight-age-btn" data-age="7" type="button">7</button>
+        </div>
+
+        <label>Ghi chú của bố mẹ (điểm mạnh / điểm yếu)</label>
+        <textarea class="knight-input knight-textarea" data-f-notes maxlength="300" placeholder="VD: Bé đếm tốt nhưng chưa quen phép trừ, thích khủng long..."></textarea>
+
+        <div class="knight-form-actions">
+          <button class="knight-btn" data-create-cancel type="button">Huỷ</button>
+          <button class="knight-btn knight-btn-primary" data-create-save type="button">🚀 Bắt đầu phiêu lưu</button>
+        </div>
+        <div class="knight-form-msg" data-create-msg></div>
+      </div>
+    </section>
+
+    <!-- MÀN 3: BẢN ĐỒ ẢI -->
+    <section class="knight-screen hidden" data-screen="map">
+      <div class="knight-mapbar">
+        <button class="knight-btn knight-btn-ghost" data-map-back type="button">↩ Đổi hiệp sĩ</button>
+        <div class="knight-hero-chip" data-hero-chip></div>
+      </div>
+      <h1 class="knight-title">Hành trình cứu công chúa 👑</h1>
+      <p class="knight-sub" data-map-sub>Chạm vào ải đang mở để chiến đấu!</p>
+      <div class="knight-map" data-map></div>
+    </section>
+
+    <!-- MÀN 4: CHIẾN ĐẤU -->
+    <section class="knight-screen hidden" data-screen="combat">
+      <div class="knight-combat-top">
+        <button class="knight-btn knight-btn-ghost knight-flee" data-combat-back type="button">🏳️ Bỏ chạy</button>
+        <div class="knight-stage-name" data-stage-name></div>
+        <div class="knight-timer"><div class="knight-timer-bar" data-timer-bar></div><span class="knight-timer-num" data-timer-num>180</span></div>
+      </div>
+
+      <div class="knight-arena">
+        <div class="knight-fighter knight-hero">
+          <div class="knight-avatar" data-hero-avatar>🧒</div>
+          <div class="knight-hp" data-hero-hp></div>
+          <div class="knight-fighter-name" data-hero-name>Hiệp sĩ</div>
+        </div>
+        <div class="knight-vs">⚔️</div>
+        <div class="knight-fighter knight-monster">
+          <div class="knight-avatar" data-monster-avatar>👾</div>
+          <div class="knight-hp" data-monster-hp></div>
+          <div class="knight-fighter-name" data-monster-name>Quái vật</div>
+        </div>
+      </div>
+
+      <div class="knight-quiz">
+        <div class="knight-visual" data-visual></div>
+        <div class="knight-question" data-question>Đang triệu hồi câu hỏi... 🔮</div>
+        <div class="knight-choices" data-choices></div>
+        <div class="knight-feedback" data-feedback></div>
+      </div>
+    </section>
+
+    <!-- Lớp phủ kết quả (qua ải / nghỉ ngơi / chiến thắng) -->
+    <div class="knight-overlay hidden" data-overlay>
+      <div class="knight-overlay-card">
+        <div class="knight-overlay-emoji" data-overlay-emoji>🎉</div>
+        <div class="knight-overlay-title" data-overlay-title></div>
+        <div class="knight-overlay-stars" data-overlay-stars></div>
+        <div class="knight-overlay-text" data-overlay-text></div>
+        <div class="knight-overlay-actions" data-overlay-actions></div>
+      </div>
+    </div>
+
+    <% if (!aiConfigured) { %><div class="knight-ai-note">💡 Chưa cấu hình AI trên server — game vẫn chơi được với câu hỏi tự động theo tuổi.</div><% } %>
+  </div>
+
+  <script src="/js/games-core.js"></script>
+  <script src="/js/games-knight.js"></script>
+</body>
+</html>

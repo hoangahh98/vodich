@@ -15,13 +15,14 @@ model AppUser {
   role         String   @db.VarChar(30)
   createdAt    DateTime @default(now()) @map("created_at")
 
-  permissions       AdminFeaturePermission[]
-  ownedTournaments  Tournament[]              @relation("TournamentOwner")
+  permissions           AdminFeaturePermission[]
+  ownedTournaments      Tournament[]             @relation("TournamentOwner")
   tournamentPermissions TournamentPermission[]
-  ownedTeams        TeamClub[]                @relation("TeamClubOwner")
-  teamPermissions   TeamClubPermission[]
-  ownedTravelTrips  TravelTrip[]             @relation("TravelTripOwner")
-  travelPermissions TravelTripPermission[]
+  ownedTeams            TeamClub[]               @relation("TeamClubOwner")
+  teamPermissions       TeamClubPermission[]
+  ownedTravelTrips      TravelTrip[]             @relation("TravelTripOwner")
+  travelPermissions     TravelTripPermission[]
+  knightCharacters      KnightCharacter[]        @relation("KnightCharacterOwner")
 
   @@map("app_user")
 }
@@ -145,17 +146,17 @@ model MatchGame {
 }
 
 model TeamClub {
-  id          BigInt   @id @default(autoincrement())
-  name        String   @db.VarChar(255)
-  description String?
-  ownerAdminId BigInt? @map("owner_admin_id")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @default(now()) @map("updated_at")
+  id           BigInt   @id @default(autoincrement())
+  name         String   @db.VarChar(255)
+  description  String?
+  ownerAdminId BigInt?  @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @map("updated_at")
 
-  ownerAdmin AppUser? @relation("TeamClubOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
-  members  TeamMember[]
-  funds    TeamMonthFund[]
-  expenses TeamExpense[]
+  ownerAdmin  AppUser?             @relation("TeamClubOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
+  members     TeamMember[]
+  funds       TeamMonthFund[]
+  expenses    TeamExpense[]
   permissions TeamClubPermission[]
 
   @@map("team_club")
@@ -234,6 +235,44 @@ model TeamExpense {
   team TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@map("team_expense")
+}
+
+// ===== Game "Hiệp Sĩ Toán Học" (RPG học toán 4-7 tuổi) =====
+// Hồ sơ nhân vật của người chơi: lưu tiến trình liên tục (Save/Load).
+model KnightCharacter {
+  id           BigInt   @id @default(autoincrement())
+  ownerUserId  BigInt   @map("owner_user_id")
+  name         String   @db.VarChar(60)
+  gender       String   @default("boy") @db.VarChar(10) // 'boy' | 'girl'
+  age          Int // 4..7
+  notes        String   @default("") // Ghi chú cá nhân: điểm mạnh/yếu, sở thích
+  currentStage Int      @default(1) @map("current_stage") // màn chơi hiện tại
+  hp           Int      @default(10) // máu còn lại của lượt chơi hiện tại
+  status       String   @default("ACTIVE") @db.VarChar(20) // ACTIVE | RESTING | VICTORY
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  owner    AppUser          @relation("KnightCharacterOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  progress KnightProgress[]
+
+  @@map("knight_character")
+}
+
+// Tiến trình từng ải đã vượt qua (lịch sử + số sao). Tra cứu bằng khoá chính xác
+// [characterId, stageNumber] — không dùng lọc theo khoảng.
+model KnightProgress {
+  id          BigInt   @id @default(autoincrement())
+  characterId BigInt   @map("character_id")
+  stageNumber Int      @map("stage_number")
+  status      String   @default("CLEARED") @db.VarChar(20) // CLEARED
+  stars       Int      @default(0) // 0..3
+  attempts    Int      @default(1)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  character KnightCharacter @relation(fields: [characterId], references: [id], onDelete: Cascade)
+
+  @@unique([characterId, stageNumber])
+  @@map("knight_progress")
 }
 
 model AppLog {
@@ -361,17 +400,17 @@ model TravelPerson {
 }
 
 model TravelTrip {
-  id                BigInt   @id @default(autoincrement())
-  name              String   @db.VarChar(255)
-  description       String   @default("")
-  ownerAdminId      BigInt?  @map("owner_admin_id")
-  destinationId     BigInt?  @map("destination_id")
-  treasurerMemberId BigInt?  @unique @map("treasurer_member_id")
-  active            Boolean  @default(true)
-  aiPlan            String?  @map("ai_plan")
+  id                BigInt    @id @default(autoincrement())
+  name              String    @db.VarChar(255)
+  description       String    @default("")
+  ownerAdminId      BigInt?   @map("owner_admin_id")
+  destinationId     BigInt?   @map("destination_id")
+  treasurerMemberId BigInt?   @unique @map("treasurer_member_id")
+  active            Boolean   @default(true)
+  aiPlan            String?   @map("ai_plan")
   aiPlanAt          DateTime? @map("ai_plan_at")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @default(now()) @updatedAt @map("updated_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
 
   ownerAdmin      AppUser?               @relation("TravelTripOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
   destination     TravelDestination?     @relation(fields: [destinationId], references: [id], onDelete: SetNull)

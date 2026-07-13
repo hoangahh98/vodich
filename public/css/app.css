@@ -532,6 +532,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .game-card-go { margin-top: 6px; font-weight: 800; }
 .game-card-math { background: linear-gradient(135deg, #ff8a00, #ff2d95); }
 .game-card-english { background: linear-gradient(135deg, #12c2e9, #6a5acd); }
+.game-card-knight { background: linear-gradient(135deg, #6a11cb, #2575fc); }
 
 .game-body { margin: 0; }
 .game-stage { min-height: 100svh; display: flex; flex-direction: column; align-items: center; gap: 16px; padding: 14px 14px 30px; color: #fff; overflow-x: hidden; }
@@ -566,6 +567,116 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .game-confetti { position: fixed; top: -30px; z-index: 60; pointer-events: none; animation: game-fall 1.5s ease-in forwards; }
 @keyframes game-fall { to { transform: translateY(105svh) rotate(360deg); opacity: 0; } }
 @media (max-width: 480px) { .game-question { font-size: 25px; } .game-visual-word { font-size: 76px; } .game-choice { font-size: 25px; padding: 16px 8px; } }
+
+/* ===== Hiệp Sĩ Toán Học (RPG học toán) ===== */
+.game-stage-knight { background: radial-gradient(circle at 15% 5%, #7b6cff, transparent 45%), radial-gradient(circle at 85% 0%, #2575fc, transparent 40%), linear-gradient(165deg, #241b4d, #3a1c71 60%, #1b2a5e); }
+.knight-screen { width: 100%; max-width: 760px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.knight-screen.hidden { display: none; }
+.knight-title { font-size: 30px; font-weight: 900; text-align: center; margin: 6px 0 0; text-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.knight-sub { text-align: center; opacity: .92; margin: 0; font-weight: 600; }
+.knight-btn { border: 0; border-radius: 16px; padding: 13px 20px; font-size: 17px; font-weight: 800; cursor: pointer; background: rgba(255,255,255,.22); color: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.2); transition: transform .08s; }
+.knight-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0,0,0,.2); }
+.knight-btn-primary { background: linear-gradient(135deg, #ffd166, #ff8a00); color: #3a2400; }
+.knight-btn-ghost { background: rgba(255,255,255,.15); padding: 9px 14px; font-size: 15px; box-shadow: none; }
+.knight-btn:disabled { opacity: .55; }
+
+/* Chọn nhân vật — lưới tự co (foldable friendly) */
+.knight-char-list { width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; }
+.knight-char-card { position: relative; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); border-radius: 20px; padding: 18px 14px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.knight-char-del { position: absolute; top: 8px; right: 8px; border: 0; background: rgba(0,0,0,.25); color: #fff; border-radius: 999px; width: 32px; height: 32px; font-size: 15px; cursor: pointer; }
+.knight-char-face { font-size: 54px; line-height: 1; }
+.knight-char-name { font-size: 20px; font-weight: 900; }
+.knight-char-meta { font-size: 14px; opacity: .9; }
+.knight-char-progress { font-size: 14px; font-weight: 700; }
+.knight-char-play { margin-top: 6px; width: 100%; }
+.knight-empty { opacity: .9; text-align: center; padding: 12px; }
+
+/* Form tạo nhân vật */
+.knight-form { width: 100%; max-width: 460px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.28); border-radius: 22px; padding: 20px; display: flex; flex-direction: column; gap: 8px; }
+.knight-form label { font-weight: 800; margin-top: 8px; }
+.knight-input { border: 0; border-radius: 14px; padding: 12px 14px; font-size: 16px; width: 100%; box-sizing: border-box; }
+.knight-textarea { resize: vertical; min-height: 66px; font-family: inherit; }
+.knight-gender, .knight-age { display: flex; gap: 8px; flex-wrap: wrap; }
+.knight-gender-btn, .knight-age-btn { border: 0; border-radius: 12px; padding: 11px 16px; font-weight: 800; font-size: 16px; cursor: pointer; background: rgba(255,255,255,.22); color: #fff; }
+.knight-age-btn { flex: 1; min-width: 54px; }
+.knight-gender-btn.active, .knight-age-btn.active { background: #fff; color: #333; }
+.knight-form-actions { display: flex; gap: 10px; margin-top: 14px; }
+.knight-form-actions .knight-btn { flex: 1; }
+.knight-form-msg { min-height: 20px; text-align: center; font-weight: 700; color: #ffe08a; }
+
+/* Bản đồ ải */
+.knight-mapbar { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.knight-hero-chip { background: rgba(255,255,255,.2); padding: 8px 14px; border-radius: 999px; font-weight: 800; }
+.knight-map { width: 100%; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.knight-stage { border: 0; border-radius: 20px; padding: 14px 8px; background: rgba(255,255,255,.14); border: 2px solid transparent; color: #fff; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 4px; transition: transform .1s; }
+.knight-stage:not(.locked):active { transform: scale(.96); }
+.knight-stage.cleared { background: rgba(46,204,113,.28); border-color: rgba(46,204,113,.6); }
+.knight-stage.current { border-color: #ffd166; box-shadow: 0 0 0 3px rgba(255,209,102,.4); animation: knight-glow 1.6s infinite; }
+.knight-stage.locked { opacity: .5; cursor: not-allowed; }
+@keyframes knight-glow { 0%,100% { box-shadow: 0 0 0 3px rgba(255,209,102,.3); } 50% { box-shadow: 0 0 0 6px rgba(255,209,102,.55); } }
+.knight-stage-no { font-weight: 800; font-size: 14px; opacity: .95; }
+.knight-stage-emoji { font-size: 40px; line-height: 1; }
+.knight-stage-title { font-size: 13px; font-weight: 700; }
+.knight-stage-stars { font-size: 13px; letter-spacing: 1px; }
+
+/* Chiến đấu */
+.knight-combat-top { width: 100%; max-width: 760px; display: flex; align-items: center; gap: 10px; }
+.knight-stage-name { flex: 1; text-align: center; font-weight: 800; font-size: 15px; }
+.knight-timer { flex: 0 0 120px; position: relative; height: 24px; background: rgba(0,0,0,.28); border-radius: 999px; overflow: hidden; display: flex; align-items: center; }
+.knight-timer-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: linear-gradient(90deg, #2ecc71, #a8e063); transition: width 1s linear; }
+.knight-timer-bar.low { background: linear-gradient(90deg, #ff5f6d, #ffc371); }
+.knight-timer-num { position: relative; width: 100%; text-align: center; font-weight: 800; font-size: 13px; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+.knight-arena { width: 100%; max-width: 760px; display: flex; align-items: center; justify-content: space-around; gap: 8px; }
+.knight-fighter { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+.knight-avatar { font-size: 62px; line-height: 1; }
+.knight-vs { font-size: 26px; flex: 0 0 auto; }
+.knight-fighter-name { font-weight: 800; font-size: 15px; text-align: center; }
+.knight-hp { display: flex; flex-wrap: wrap; justify-content: center; gap: 1px; max-width: 160px; }
+.knight-heart { font-size: 15px; }
+.knight-hero.hurt { animation: knight-shake .4s; }
+.knight-monster.hit { animation: knight-hit .4s; }
+@keyframes knight-shake { 0%,100% { transform: translateX(0); } 20% { transform: translateX(-8px); } 60% { transform: translateX(8px); } }
+@keyframes knight-hit { 0% { transform: scale(1); filter: none; } 40% { transform: scale(.82) rotate(-6deg); filter: brightness(2) sepia(1) hue-rotate(-40deg); } 100% { transform: scale(1); } }
+
+.knight-quiz { width: 100%; max-width: 620px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.26); border-radius: 24px; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.knight-visual { font-size: 44px; line-height: 1.25; text-align: center; letter-spacing: 4px; min-height: 20px; }
+.knight-visual.hidden { display: none; }
+.knight-question { font-size: 27px; font-weight: 900; text-align: center; text-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.knight-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; width: 100%; }
+.knight-choice { border: 0; border-radius: 18px; padding: 22px 12px; font-size: 30px; font-weight: 900; cursor: pointer; background: #fff; color: #333; box-shadow: 0 6px 0 rgba(0,0,0,.18); transition: transform .08s; }
+.knight-choice:active { transform: translateY(3px); box-shadow: 0 3px 0 rgba(0,0,0,.18); }
+.knight-choice.correct { background: #2ecc71; color: #fff; animation: game-pop .3s; }
+.knight-choice.wrong { background: #e74c3c; color: #fff; animation: game-shake .3s; }
+.knight-feedback { min-height: 26px; font-size: 19px; font-weight: 800; text-align: center; }
+
+/* Overlay kết quả */
+.knight-overlay { position: fixed; inset: 0; z-index: 70; background: rgba(10,6,30,.72); display: flex; align-items: center; justify-content: center; padding: 20px; }
+.knight-overlay.hidden { display: none; }
+.knight-overlay-card { background: linear-gradient(160deg, #3a1c71, #241b4d); border: 1px solid rgba(255,255,255,.28); border-radius: 26px; padding: 28px 24px; max-width: 420px; width: 100%; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+.knight-overlay-emoji { font-size: 68px; line-height: 1; }
+.knight-overlay-title { font-size: 26px; font-weight: 900; }
+.knight-overlay-stars { font-size: 30px; letter-spacing: 4px; min-height: 4px; }
+.knight-overlay-text { font-weight: 600; line-height: 1.5; opacity: .95; }
+.knight-overlay-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 6px; }
+.knight-overlay-actions .knight-btn { width: 100%; }
+.knight-ai-note { width: 100%; max-width: 620px; text-align: center; background: rgba(0,0,0,.22); border-radius: 12px; padding: 8px 14px; font-weight: 600; font-size: 14px; }
+.knight-flee { flex: 0 0 auto; }
+
+/* Điện thoại nhỏ */
+@media (max-width: 480px) {
+  .knight-title { font-size: 25px; }
+  .knight-question { font-size: 23px; }
+  .knight-choice { font-size: 26px; padding: 18px 8px; }
+  .knight-avatar { font-size: 50px; }
+  .knight-stage-name { display: none; }
+}
+/* Foldable mở ngang / màn rộng thấp: xếp gọn để không tràn */
+@media (min-width: 720px) and (max-height: 560px) {
+  .game-stage-knight { padding-top: 8px; gap: 10px; }
+  .knight-arena { max-width: 520px; }
+  .knight-avatar { font-size: 46px; }
+  .knight-quiz { padding: 12px; gap: 10px; }
+}
 
 /* ===== Medical ===== */
 .medical-preview { max-width: 100%; max-height: 220px; border-radius: 10px; border: 1px solid var(--line); object-fit: contain; }
