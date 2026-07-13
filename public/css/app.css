@@ -903,6 +903,11 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .match-stage .game-levels { margin-top: 2px; }
 .match-hint { text-align: center; color: #fff; font-weight: 800; font-size: 18px; text-shadow: 0 2px 6px rgba(0,0,0,.3); }
 .match-moves { color: #fff; font-weight: 800; font-size: 14.5px; text-shadow: 0 1px 4px rgba(0,0,0,.3); opacity: .95; }
+.match-score { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.score-panel { display: flex; flex-direction: column; align-items: center; min-width: 96px; padding: 6px 16px; border-radius: 14px; background: rgba(255,255,255,.22); color: #fff; transition: transform .2s, background .2s; }
+.score-panel.turn { background: #fff; color: #333; transform: scale(1.08); box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+.score-who { font-weight: 800; font-size: 13.5px; }
+.score-num { font-weight: 900; font-size: 24px; line-height: 1.1; }
 .match-grid { display: grid; gap: 10px; justify-content: center; align-content: center; margin: auto 0; }
 .match-card { position: relative; width: 100%; aspect-ratio: 1; border: 0; background: transparent; cursor: pointer; perspective: 600px; padding: 0; }
 .match-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .35s; }
