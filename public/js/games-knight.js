@@ -31,6 +31,7 @@
     monsterMaxHp: 0,
     wave: [], // đợt quái của ải
     mobIndex: 0, // con quái đang đánh
+    currentQ: null, // câu hỏi đang hiển thị (để hiện giải thích khi hết giờ)
     wrongThisStage: 0,
     locked: false,
     timerId: null,
@@ -43,6 +44,21 @@
   const $ = (sel) => stage.querySelector(sel);
   const $$ = (sel) => Array.from(stage.querySelectorAll(sel));
   const HERO_EMOJI = { boy: '🧒', girl: '👧' };
+
+  // Hiện lời khen/nhắc + GIẢI THÍCH vì sao ra đáp án (mọi câu đều có).
+  function showFeedback(mainText, q) {
+    const el = $('[data-feedback]');
+    el.innerHTML = '';
+    const t = document.createElement('div');
+    t.textContent = mainText;
+    el.appendChild(t);
+    if (q && q.explain) {
+      const ex = document.createElement('div');
+      ex.className = 'knight-explain';
+      ex.textContent = '💡 ' + q.explain;
+      el.appendChild(ex);
+    }
+  }
 
   // ---- Điều hướng màn hình ----
   function showScreen(name) {
@@ -317,8 +333,9 @@
   function loadQuestion() {
     if (!S.questions.length) return;
     const q = S.questions[S.qIndex % S.questions.length];
+    S.currentQ = q;
     S.locked = false;
-    $('[data-feedback]').textContent = '';
+    $('[data-feedback]').innerHTML = '';
     const box = $('[data-choices]');
     box.innerHTML = '';
     $('[data-question]').textContent = q.prompt;
@@ -488,7 +505,7 @@
           if (done === total) {
             S.locked = true;
             stopTimer();
-            $('[data-feedback]').textContent = praise();
+            showFeedback(praise(), q);
             heroAttack();
           } else {
             $('[data-feedback]').textContent = '✅ Đúng rồi! Nối tiếp nào.';
@@ -528,10 +545,10 @@
       if (S.mobIndex >= S.wave.length) { setTimeout(stageCleared, 750); return; }
       // Lưu nền: đã đánh tới con quái thứ mấy của ải này (chơi tiếp đúng chỗ).
       saveProgress({ stage: S.stageMeta.stage, mobIndex: S.mobIndex, hp: S.playerHp, cleared: false }, true);
-      setTimeout(() => { spawnMonster(); loadNext(); }, 800);
+      setTimeout(() => { spawnMonster(); loadNext(); }, 1300);
       return;
     }
-    setTimeout(loadNext, 800);
+    setTimeout(loadNext, 1300);
   }
 
   function startTimer() {
@@ -556,10 +573,10 @@
   function onTimeout() {
     if (S.locked) return;
     S.locked = true;
-    $('[data-feedback]').textContent = '⏰ Hết giờ! Quái cắn mất 1 máu.';
+    showFeedback('⏰ Hết giờ! Quái cắn mất 1 máu.', S.currentQ);
     monsterBite();
     takeDamage();
-    setTimeout(afterWrong, 900);
+    setTimeout(afterWrong, 2000);
   }
 
   function answer(idx, btn, q) {
@@ -570,7 +587,7 @@
     if (correct) {
       btn.classList.add('correct');
       sound('correct');
-      $('[data-feedback]').textContent = praise();
+      showFeedback(praise(), q);
       heroAttack();
     } else {
       btn.classList.add('wrong');
@@ -579,10 +596,10 @@
       if (buttons[q.answer]) buttons[q.answer].classList.add('correct');
       sound('wrong');
       S.wrongThisStage += 1;
-      $('[data-feedback]').textContent = encourage();
+      showFeedback(encourage(), q);
       monsterBite();
       takeDamage();
-      setTimeout(afterWrong, 1100);
+      setTimeout(afterWrong, 2000);
     }
   }
 

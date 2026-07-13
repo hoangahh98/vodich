@@ -19,6 +19,7 @@ export interface KnightQuestion {
   pairs?: KnightPair[]; // các cặp cần nối (chỉ dùng khi type 'match')
   clock?: number; // giờ (1..12) để client vẽ đồng hồ kim rõ ràng
   balance?: KnightBalance; // câu "cân thăng bằng/thay thế" (client vẽ cân bằng hình)
+  explain?: string; // giải thích ngắn vì sao ra đáp án (hiện khi bé chọn)
 }
 
 // Cân thăng bằng: 1 big = k small. Hỏi: qty của một bên = mấy của bên kia.
@@ -126,31 +127,31 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
     case 'count': {
       const max = cap(age <= 4 ? 6 : age === 5 ? 8 : 9, 0.5, 4, 15);
       const n = randInt(1, max);
-      return numericQ(`Đếm xem có tất cả mấy ${e}?`, repeat(e, n), n, 0, max + 2);
+      return numericQ(`Đếm xem có tất cả mấy ${e}?`, repeat(e, n), n, 0, max + 2, `Đếm lần lượt được ${n} ${e} nên đáp án là ${n}.`);
     }
     case 'addPic': {
       const maxSum = cap(age <= 4 ? 5 : age === 5 ? 8 : 10, 0.4, 4, 12); // giới hạn 12 để hàng emoji không quá dài
       const a = randInt(1, maxSum - 1);
       const b = randInt(1, maxSum - a);
-      return numericQ(`Có ${a} ${e}, thêm ${b} ${e} nữa. Tất cả mấy?`, `${repeat(e, a)} ➕ ${repeat(e, b)}`, a + b, 0, maxSum + 2);
+      return numericQ(`Có ${a} ${e}, thêm ${b} ${e} nữa. Tất cả mấy?`, `${repeat(e, a)} ➕ ${repeat(e, b)}`, a + b, 0, maxSum + 2, `${a} thêm ${b} là ${a} + ${b} = ${a + b}.`);
     }
     case 'subPic': {
       const maxStart = cap(age <= 5 ? 7 : 10, 0.3, 4, 12);
       const a = randInt(2, maxStart);
       const b = randInt(1, a - 1);
-      return numericQ(`Có ${a} ${e}, bớt đi ${b}. Còn lại mấy?`, repeat(e, a), a - b, 0, maxStart);
+      return numericQ(`Có ${a} ${e}, bớt đi ${b}. Còn lại mấy?`, repeat(e, a), a - b, 0, maxStart, `${a} bớt ${b} là ${a} - ${b} = ${a - b}.`);
     }
     case 'add': {
       const maxSum = cap(age === 6 ? 15 : 20, 1.4, 8, 40);
       const a = randInt(1, maxSum - 1);
       const b = randInt(1, maxSum - a);
-      return numericQ(`${a} + ${b} = ?`, '', a + b, 0, maxSum + 3);
+      return numericQ(`${a} + ${b} = ?`, '', a + b, 0, maxSum + 3, `${a} + ${b} = ${a + b}.`);
     }
     case 'sub': {
       const maxStart = cap(age === 6 ? 12 : 20, 1.4, 6, 40);
       const a = randInt(2, maxStart);
       const b = randInt(1, a - 1);
-      return numericQ(`${a} - ${b} = ?`, '', a - b, 0, maxStart);
+      return numericQ(`${a} - ${b} = ?`, '', a - b, 0, maxStart, `${a} - ${b} = ${a - b}.`);
     }
     case 'compareBig':
     case 'compareSmall': {
@@ -162,7 +163,7 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       const big = type === 'compareBig';
       const answerValue = big ? Math.max(...nums) : Math.min(...nums);
       const choices = nums.map(String);
-      return { prompt: big ? 'Số nào LỚN nhất?' : 'Số nào NHỎ nhất?', visual: '', choices, answer: choices.indexOf(String(answerValue)) };
+      return withExplain({ prompt: big ? 'Số nào LỚN nhất?' : 'Số nào NHỎ nhất?', visual: '', choices, answer: choices.indexOf(String(answerValue)) }, `Trong ${nums.join(', ')}, ${answerValue} là số ${big ? 'lớn' : 'nhỏ'} nhất.`);
     }
     case 'pattern': {
       const a = pick(SHAPES);
@@ -172,20 +173,20 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       while (c === a || c === b) c = pick(SHAPES);
       // Dãy lặp A B A B ? -> tiếp theo là A
       const choices = shuffle([a, b, c]);
-      return { prompt: 'Hình nào tiếp theo trong dãy?', visual: `${a}${b}${a}${b}❓`, choices, answer: choices.indexOf(a) };
+      return withExplain({ prompt: 'Hình nào tiếp theo trong dãy?', visual: `${a}${b}${a}${b}❓`, choices, answer: choices.indexOf(a) }, `Dãy lặp ${a}${b} rồi lại ${a}${b}, nên sau ${b} là ${a}.`);
     }
     case 'shape': {
       const target = pick(SHAPE_OBJS);
       const pool = shuffle(SHAPE_OBJS.filter((s) => s.emoji !== target.emoji)).slice(0, 2);
       const choices = shuffle([target.emoji, ...pool.map((s) => s.emoji)]);
-      return { prompt: `Đâu là ${target.name}?`, visual: '', choices, answer: choices.indexOf(target.emoji) };
+      return withExplain({ prompt: `Đâu là ${target.name}?`, visual: '', choices, answer: choices.indexOf(target.emoji) }, `${target.emoji} là ${target.name}.`);
     }
     case 'seq': {
       const max = cap(age === 6 ? 15 : 22, 1.4, 10, 40);
       const step = pick([1, 2, 2, 3]);
       const start = randInt(1, Math.max(1, max - step * 4));
       const s2 = start + step, s3 = start + 2 * step, next = start + 3 * step;
-      return numericQ(`${start}, ${s2}, ${s3}, ?`, '', next, 0, next + step + 2);
+      return numericQ(`${start}, ${s2}, ${s3}, ?`, '', next, 0, next + step + 2, `Dãy tăng đều ${step}, sau ${s3} là ${s3} + ${step} = ${next}.`);
     }
     case 'seqMissing': {
       // Điền số CÒN THIẾU ở giữa dãy (giống câu 3: 0, ?, 2).
@@ -193,7 +194,7 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       const step = pick([1, 1, 2]);
       const start = randInt(1, Math.max(1, max - 2 * step));
       const mid = start + step, end = start + 2 * step;
-      return numericQ(`Số còn thiếu: ${start}, ?, ${end}`, '', mid, 0, end + 2);
+      return numericQ(`Số còn thiếu: ${start}, ?, ${end}`, '', mid, 0, end + 2, `Dãy tăng đều ${step}: ${start}, ${mid}, ${end}. Số còn thiếu là ${mid}.`);
     }
     case 'match': {
       // Nối SỐ với NHÓM đồ vật có đúng số lượng (giống câu "tìm số lượng tương ứng").
@@ -203,7 +204,7 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       while (ns.size < count) ns.add(randInt(1, maxN)); // số lượng phân biệt -> nối 1-1 không mơ hồ
       const uniqEmojis = shuffle(Array.from(new Set(emojis)));
       const pairs = Array.from(ns).map((num, i) => ({ n: num, emoji: uniqEmojis[i % uniqEmojis.length] }));
-      return { type: 'match', prompt: 'Nối số với nhóm có đúng số lượng', visual: '', choices: [], answer: -1, pairs };
+      return { type: 'match', prompt: 'Nối số với nhóm có đúng số lượng', visual: '', choices: [], answer: -1, pairs, explain: 'Đếm số hình trong mỗi nhóm rồi nối với đúng con số đó.' };
     }
     case 'compareSign': {
       const max = cap(age <= 5 ? 10 : 20, 1.4, 5, 50);
@@ -211,26 +212,28 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       const b = randInt(1, max);
       const ans = a > b ? '>' : a < b ? '<' : '=';
       const choices = ['>', '<', '='];
-      return { prompt: `Chọn dấu đúng:  ${a} ? ${b}`, visual: `${a}   ${b}`, choices, answer: choices.indexOf(ans) };
+      const word = a > b ? `${a} lớn hơn ${b}` : a < b ? `${a} nhỏ hơn ${b}` : `${a} bằng ${b}`;
+      return withExplain({ prompt: `Chọn dấu đúng:  ${a} ? ${b}`, visual: `${a}   ${b}`, choices, answer: choices.indexOf(ans) }, `${word} nên dùng dấu ${ans}.`);
     }
     case 'beforeAfter': {
       const max = cap(age <= 5 ? 10 : 20, 1.2, 5, 50);
       if (pick([true, false])) {
         const n = randInt(2, max);
-        return numericQ(`Số liền TRƯỚC của ${n} là số mấy?`, '', n - 1, 0, max);
+        return numericQ(`Số liền TRƯỚC của ${n} là số mấy?`, '', n - 1, 0, max, `Đếm lùi 1 từ ${n} là ${n - 1}.`);
       }
       const n = randInt(1, max - 1);
-      return numericQ(`Số liền SAU của ${n} là số mấy?`, '', n + 1, 0, max + 1);
+      return numericQ(`Số liền SAU của ${n} là số mấy?`, '', n + 1, 0, max + 1, `Đếm thêm 1 từ ${n} là ${n + 1}.`);
     }
     case 'shapeSides': {
       const s = pick(SHAPE_SIDES);
-      return numericQ(`${s.name} có mấy cạnh?`, s.emoji, s.sides, 0, 6);
+      const ex = s.sides === 0 ? `${s.name} tròn trịa, không có cạnh nào (0 cạnh).` : `${s.name} có ${s.sides} cạnh.`;
+      return numericQ(`${s.name} có mấy cạnh?`, s.emoji, s.sides, 0, 6, ex);
     }
     case 'realShape': {
       const r = pick(REAL_SHAPES);
       const distract = shuffle(ALL_SHAPES.filter((x) => x !== r.shape)).slice(0, 2);
       const choices = shuffle([r.shape, ...distract]);
-      return { prompt: `${r.obj} ${r.emoji} có dạng hình gì?`, visual: '', choices, answer: choices.indexOf(r.shape) };
+      return withExplain({ prompt: `${r.obj} ${r.emoji} có dạng hình gì?`, visual: '', choices, answer: choices.indexOf(r.shape) }, `${r.obj} có dạng ${SHAPE_NAME[r.shape]} ${r.shape}.`);
     }
     case 'oddOneOut': {
       const cats = Object.keys(ODD_CATEGORIES);
@@ -240,7 +243,7 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       const base = shuffle(ODD_CATEGORIES[baseCat]).slice(0, 3);
       const odd = pick(ODD_CATEGORIES[oddCat]);
       const choices = shuffle([...base, odd]);
-      return { prompt: 'Hình nào KHÁC nhóm?', visual: '', choices, answer: choices.indexOf(odd) };
+      return withExplain({ prompt: 'Hình nào KHÁC nhóm?', visual: '', choices, answer: choices.indexOf(odd) }, `${odd} là ${CAT_NAME[oddCat]}, còn 3 hình kia là ${CAT_NAME[baseCat]}.`);
     }
     case 'heavier': {
       let i = randInt(0, ANIMAL_WEIGHT.length - 1);
@@ -248,22 +251,22 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       while (j === i) j = randInt(0, ANIMAL_WEIGHT.length - 1);
       const heavier = i > j ? ANIMAL_WEIGHT[i] : ANIMAL_WEIGHT[j];
       const choices = shuffle([ANIMAL_WEIGHT[i], ANIMAL_WEIGHT[j]]);
-      return { prompt: 'Con nào NẶNG hơn?', visual: '', choices, answer: choices.indexOf(heavier) };
+      return withExplain({ prompt: 'Con nào NẶNG hơn?', visual: '', choices, answer: choices.indexOf(heavier) }, `${heavier} to con hơn nên nặng hơn.`);
     }
     case 'shareCandy': {
       const maxHalf = cap(age <= 5 ? 4 : 6, 0.3, 2, 9);
       const half = randInt(1, maxHalf);
       const total = half * 2;
-      return numericQ(`Có ${total} 🍬 chia đều cho 2 bạn. Mỗi bạn được mấy cái?`, repeat('🍬', total), half, 0, total);
+      return numericQ(`Có ${total} 🍬 chia đều cho 2 bạn. Mỗi bạn được mấy cái?`, repeat('🍬', total), half, 0, total, `${total} chia đều cho 2 bạn: ${total} ÷ 2 = ${half} cái mỗi bạn.`);
     }
     case 'legsWheels': {
       const l = pick(LEGS);
       const count = randInt(2, age <= 5 ? 3 : 4);
-      return numericQ(`Mỗi ${l.name} ${l.emoji} có ${l.per} ${l.part}. ${count} ${l.name} có mấy ${l.part}?`, repeat(l.emoji, count), l.per * count, 0, l.per * count + 3);
+      return numericQ(`Mỗi ${l.name} ${l.emoji} có ${l.per} ${l.part}. ${count} ${l.name} có mấy ${l.part}?`, repeat(l.emoji, count), l.per * count, 0, l.per * count + 3, `Mỗi ${l.name} ${l.per} ${l.part}, ${count} ${l.name} là ${count} × ${l.per} = ${l.per * count} ${l.part}.`);
     }
     case 'clock': {
       const h = randInt(1, 12);
-      const q = numericQ('Đồng hồ chỉ mấy giờ?', '', h, 1, 12);
+      const q = numericQ('Đồng hồ chỉ mấy giờ?', '', h, 1, 12, `Kim ngắn chỉ số ${h}, kim dài chỉ 12 nên là ${h} giờ.`);
       q.clock = h; // client vẽ đồng hồ kim rõ ràng
       return q;
     }
@@ -274,13 +277,13 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       const ans = DAYS[ansIdx];
       const others = shuffle(DAYS.filter((d) => d !== ans)).slice(0, 2);
       const choices = shuffle([ans, ...others]);
-      return { prompt: `Hôm nay là ${DAYS[today]}, vậy ${next ? 'ngày mai' : 'hôm qua'} là thứ mấy?`, visual: '', choices, answer: choices.indexOf(ans) };
+      return withExplain({ prompt: `Hôm nay là ${DAYS[today]}, vậy ${next ? 'ngày mai' : 'hôm qua'} là thứ mấy?`, visual: '', choices, answer: choices.indexOf(ans) }, `${next ? 'Ngay sau' : 'Ngay trước'} ${DAYS[today]} là ${ans}.`);
     }
     case 'balance': {
       // 1 [big] = k [small]. Hỏi bằng mấy (cả chiều nhân & chiều chia).
       const it = pick(BALANCE_ITEMS);
       const reverse = pick([false, true, true]); // ưu tiên chiều ngược (ví dụ 10 chanh = ? cam)
-      let k: number, side: 'big' | 'small', qty: number, answer: number, targetEmoji: string;
+      let k: number, side: 'big' | 'small', qty: number, answer: number, targetEmoji: string, explain: string;
       if (reverse) {
         k = randInt(2, 3);
         const m = randInt(2, 4);
@@ -288,14 +291,16 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
         answer = m; // = mấy vật lớn
         side = 'small';
         targetEmoji = it.big;
+        explain = `1 ${it.big} = ${k} ${it.small}, nên ${qty} ${it.small} = ${qty} ÷ ${k} = ${answer} ${it.big}.`;
       } else {
         k = randInt(2, age <= 5 ? 3 : 4);
         qty = randInt(2, 4); // số vật lớn cho trước
         answer = qty * k; // = mấy vật nhỏ
         side = 'big';
         targetEmoji = it.small;
+        explain = `1 ${it.big} = ${k} ${it.small}, nên ${qty} ${it.big} = ${qty} × ${k} = ${answer} ${it.small}.`;
       }
-      const q = numericQ(`⚖️ = mấy ${targetEmoji}?`, '', answer, 0, answer + 4);
+      const q = numericQ(`⚖️ = mấy ${targetEmoji}?`, '', answer, 0, answer + 4, explain);
       q.balance = { big: it.big, small: it.small, k, side, qty };
       return q;
     }
@@ -310,7 +315,7 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       ]);
       const ans = t.top ? a : c;
       const choices = shuffle([a, b, c]);
-      return { prompt: `${a} ${t.rel} ${b}. ${b} ${t.rel} ${c}. Ai ${t.ask}?`, visual: '', choices, answer: choices.indexOf(ans) };
+      return withExplain({ prompt: `${a} ${t.rel} ${b}. ${b} ${t.rel} ${c}. Ai ${t.ask}?`, visual: '', choices, answer: choices.indexOf(ans) }, `${a} ${t.rel} ${b}, ${b} ${t.rel} ${c}, vậy ${ans} ${t.ask}.`);
     }
     default:
       return null;
@@ -318,7 +323,7 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
 }
 
 // Tạo câu trắc nghiệm số: 3 lựa chọn, đáp án đúng nằm trong đó (distractor gần & khác nhau).
-function numericQ(prompt: string, visual: string, answerValue: number, min: number, max: number): KnightQuestion {
+function numericQ(prompt: string, visual: string, answerValue: number, min: number, max: number, explain?: string): KnightQuestion {
   const options = new Set<number>([answerValue]);
   const deltas = shuffle([-3, -2, -1, 1, 2, 3]);
   for (const d of deltas) {
@@ -330,7 +335,15 @@ function numericQ(prompt: string, visual: string, answerValue: number, min: numb
   let extra = max + 1;
   while (options.size < 3 && extra <= max + 4) options.add(extra++);
   const arr = shuffle(Array.from(options));
-  return { prompt, visual, choices: arr.map(String), answer: arr.indexOf(answerValue) };
+  const q: KnightQuestion = { prompt, visual, choices: arr.map(String), answer: arr.indexOf(answerValue) };
+  if (explain) q.explain = explain;
+  return q;
+}
+
+// Gắn lời giải thích cho câu dạng object literal.
+function withExplain(q: KnightQuestion, explain: string): KnightQuestion {
+  q.explain = explain;
+  return q;
 }
 
 // ---- Chủ đề hình theo ghi chú ----
@@ -365,20 +378,24 @@ const SHAPE_OBJS = [
 ];
 
 // ---- Dữ liệu cho các dạng mở rộng (ngân hàng 350 câu) ----
+// Chỉ dùng 3 hình PHÂN BIỆT rõ (tránh 2 hình vuông đỏ/xanh gây rối).
+const SHAPE_NAME: Record<string, string> = { '🔵': 'hình tròn', '🟦': 'hình vuông', '🔺': 'tam giác' };
+const ALL_SHAPES = ['🔵', '🟦', '🔺'];
 const SHAPE_SIDES = [
   { emoji: '🔺', name: 'Tam giác', sides: 3 },
   { emoji: '🟦', name: 'Hình vuông', sides: 4 },
-  { emoji: '🟥', name: 'Hình chữ nhật', sides: 4 },
   { emoji: '🔵', name: 'Hình tròn', sides: 0 },
 ];
 const REAL_SHAPES = [
   { obj: 'Bánh xe đạp', emoji: '🚲', shape: '🔵' },
   { obj: 'Mặt đồng hồ', emoji: '🕐', shape: '🔵' },
   { obj: 'Quả bóng', emoji: '⚽', shape: '🔵' },
+  { obj: 'Cái bánh pizza cắt miếng', emoji: '🍕', shape: '🔺' },
+  { obj: 'Mái nhà', emoji: '🏠', shape: '🔺' },
   { obj: 'Cửa sổ lớp học', emoji: '🪟', shape: '🟦' },
-  { obj: 'Viên gạch', emoji: '🧱', shape: '🟥' },
+  { obj: 'Cái tivi', emoji: '📺', shape: '🟦' },
 ];
-const ALL_SHAPES = ['🔵', '🟦', '🟥', '🔺'];
+const CAT_NAME: Record<string, string> = { animal: 'con vật', fruit: 'hoa quả', vehicle: 'xe cộ', school: 'đồ dùng học tập' };
 const ODD_CATEGORIES: Record<string, string[]> = {
   animal: ['🐶', '🐱', '🐷', '🐰', '🐮', '🐔', '🐸', '🐵'],
   fruit: ['🍎', '🍌', '🍓', '🍉', '🍊', '🍇', '🍑', '🍐'],

@@ -646,6 +646,7 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .knight-choice.correct { background: #2ecc71; color: #fff; animation: game-pop .3s; }
 .knight-choice.wrong { background: #e74c3c; color: #fff; animation: game-shake .3s; }
 .knight-feedback { min-height: 26px; font-size: 19px; font-weight: 800; text-align: center; }
+.knight-explain { margin-top: 6px; font-size: 15px; font-weight: 700; color: #fff8dc; background: rgba(0,0,0,.28); border-radius: 12px; padding: 7px 12px; line-height: 1.4; }
 
 /* Câu NỐI (chạm số -> chạm nhóm hình) */
 .knight-match { position: relative; display: flex; justify-content: space-between; gap: 26px; width: 100%; }
