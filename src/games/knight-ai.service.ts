@@ -52,15 +52,15 @@ export class KnightAiService {
 }
 
 // ---- Cá nhân hoá loại câu hỏi theo tuổi + ghi chú ----
-type QType = 'count' | 'addPic' | 'subPic' | 'add' | 'sub' | 'compareBig' | 'compareSmall' | 'pattern' | 'shape' | 'seq';
+type QType = 'count' | 'addPic' | 'subPic' | 'add' | 'sub' | 'compareBig' | 'compareSmall' | 'pattern' | 'shape' | 'seq' | 'seqMissing';
 
 function typePool(age: number, monster: Monster['type'], notes: string): QType[] {
   const n = notes.toLowerCase();
   let pool: QType[];
   if (age <= 4) pool = ['count', 'count', 'pattern', 'shape', 'addPic', 'compareBig'];
-  else if (age === 5) pool = ['count', 'addPic', 'subPic', 'pattern', 'shape', 'compareBig', 'compareSmall'];
-  else if (age === 6) pool = ['add', 'addPic', 'sub', 'subPic', 'compareBig', 'compareSmall', 'seq', 'count'];
-  else pool = ['add', 'sub', 'compareBig', 'compareSmall', 'seq', 'addPic', 'subPic'];
+  else if (age === 5) pool = ['count', 'addPic', 'subPic', 'pattern', 'shape', 'compareBig', 'compareSmall', 'seqMissing'];
+  else if (age === 6) pool = ['add', 'addPic', 'sub', 'subPic', 'compareBig', 'compareSmall', 'seq', 'seqMissing', 'count'];
+  else pool = ['add', 'sub', 'compareBig', 'compareSmall', 'seq', 'seqMissing', 'addPic', 'subPic'];
 
   // Bám ghi chú của bố mẹ để luyện đúng điểm yếu (thêm trọng số).
   const boost = (t: QType, times = 2) => { for (let i = 0; i < times; i++) pool.push(t); };
@@ -111,13 +111,14 @@ function build(type: QType, age: number, monster: Monster['type'], emojis: strin
     case 'compareBig':
     case 'compareSmall': {
       const max = age <= 5 ? 10 : 20;
-      const a = randInt(1, max);
-      let b = randInt(1, max);
-      while (b === a) b = randInt(1, max);
+      const k = age <= 4 ? 2 : pick([2, 3, 3]); // giống "khoanh số lớn nhất" (2-3 số)
+      const set = new Set<number>();
+      while (set.size < k) set.add(randInt(1, max));
+      const nums = shuffle(Array.from(set));
       const big = type === 'compareBig';
-      const answerValue = big ? Math.max(a, b) : Math.min(a, b);
-      const choices = shuffle([String(a), String(b)]);
-      return { prompt: big ? 'Số nào LỚN hơn?' : 'Số nào NHỎ hơn?', visual: '', choices, answer: choices.indexOf(String(answerValue)) };
+      const answerValue = big ? Math.max(...nums) : Math.min(...nums);
+      const choices = nums.map(String);
+      return { prompt: big ? 'Số nào LỚN nhất?' : 'Số nào NHỎ nhất?', visual: '', choices, answer: choices.indexOf(String(answerValue)) };
     }
     case 'pattern': {
       const a = pick(SHAPES);
@@ -141,6 +142,14 @@ function build(type: QType, age: number, monster: Monster['type'], emojis: strin
       const start = randInt(1, Math.max(1, max - step * 4));
       const s2 = start + step, s3 = start + 2 * step, next = start + 3 * step;
       return numericQ(`${start}, ${s2}, ${s3}, ?`, '', next, 0, next + step + 2);
+    }
+    case 'seqMissing': {
+      // Điền số CÒN THIẾU ở giữa dãy (giống câu 3: 0, ?, 2).
+      const max = age <= 5 ? 10 : age === 6 ? 15 : 22;
+      const step = pick([1, 1, 2]);
+      const start = randInt(1, Math.max(1, max - 2 * step));
+      const mid = start + step, end = start + 2 * step;
+      return numericQ(`Số còn thiếu: ${start}, ?, ${end}`, '', mid, 0, end + 2);
     }
     default:
       return null;
