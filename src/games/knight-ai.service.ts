@@ -1,183 +1,207 @@
 import { Injectable } from '@nestjs/common';
-import { AiService } from '../common/ai.service';
 import { Monster } from './knight.constants';
 
-// Một câu hỏi trực quan cho trẻ: hiển thị emoji + các thẻ đáp án bấm chọn (không gõ phím).
+// Một câu hỏi trực quan cho trẻ: emoji minh hoạ + các thẻ đáp án bấm chọn (không gõ phím).
 export interface KnightQuestion {
-  prompt: string; // câu hỏi tiếng Việt, ngắn gọn
+  prompt: string;
   visual: string; // chuỗi emoji minh hoạ (có thể rỗng)
   choices: string[]; // 2-4 lựa chọn hiển thị dạng thẻ
-  answer: number; // chỉ số đáp án đúng trong choices
+  answer: number; // chỉ số đáp án ĐÚNG trong choices
 }
 
 export interface GenerateParams {
   age: number; // 4..7
-  notes: string; // ghi chú điểm mạnh/yếu của bé
-  monster: Monster; // để điều chỉnh độ khó theo loại quái
-  count: number; // số câu cần sinh
+  notes: string; // ghi chú điểm mạnh/yếu -> cá nhân hoá dạng câu hỏi & hình
+  monster: Monster; // độ khó theo loại quái
+  count: number; // số câu cần sinh (không trùng nhau)
 }
 
+/**
+ * Sinh đề bằng CODE — đáp án luôn đúng theo cấu tạo (không nhờ AI, tránh AI đặt sai đáp án),
+ * các câu trong một ải KHÔNG trùng nhau, và trực quan bằng hình ảnh (emoji).
+ */
 @Injectable()
 export class KnightAiService {
-  constructor(private readonly ai: AiService) {}
-
+  // Luôn sẵn sàng: đề do server tự sinh, không phụ thuộc API.
   isConfigured() {
-    return this.ai.isConfigured();
+    return true;
   }
 
-  /**
-   * Sinh bộ câu hỏi. Ưu tiên AI (Groq) đọc TUỔI + GHI CHÚ để cá nhân hoá; nếu chưa
-   * cấu hình AI hoặc AI lỗi/JSON hỏng thì tự sinh câu hỏi tĩnh theo tuổi (luôn chơi được).
-   */
   async generateQuestions(params: GenerateParams): Promise<KnightQuestion[]> {
-    const count = clamp(params.count, 4, 12);
-    if (this.ai.isConfigured()) {
-      try {
-        const prompt = buildPrompt({ ...params, count });
-        const result = await this.ai.generateJson<{ questions?: unknown }>(prompt, { temperature: 0.9 });
-        const cleaned = sanitizeQuestions(result?.questions, count);
-        if (cleaned.length >= Math.min(3, count)) {
-          // Bù cho đủ số câu bằng câu tĩnh nếu AI trả thiếu.
-          return padTo(cleaned, count, params.age);
-        }
-      } catch {
-        // rơi xuống fallback tĩnh bên dưới
-      }
+    const count = clamp(params.count, 3, 14);
+    const age = clamp(params.age, 4, 7);
+    const emojis = themeEmojis(params.notes || '');
+    const pool = typePool(age, params.monster.type, params.notes || '');
+
+    const out: KnightQuestion[] = [];
+    const seen = new Set<string>();
+    const maxAttempts = count * 60;
+    let attempts = 0;
+    while (out.length < count && attempts < maxAttempts) {
+      attempts++;
+      const type = pool[randInt(0, pool.length - 1)];
+      const q = build(type, age, params.monster.type, emojis);
+      if (!q) continue;
+      const sig = signature(q);
+      if (seen.has(sig)) continue; // không trùng nhau
+      seen.add(sig);
+      out.push(q);
     }
-    return fallbackQuestions(params.age, count);
+    return out;
   }
 }
 
-// ---- Prompt: cá nhân hoá theo Tuổi + Ghi chú (lấy cảm hứng POMath / Kumon / VioEdu) ----
-function buildPrompt(p: GenerateParams): string {
-  const age = clamp(p.age, 3, 8);
-  const focus =
-    age <= 5
-      ? 'nhận diện HÌNH KHỐI (tròn, vuông, tam giác), QUY LUẬT/dãy hình lặp lại, ĐẾM SỐ LƯỢNG qua hình ảnh, so sánh nhiều/ít. Chưa dùng phép cộng trừ trừu tượng.'
-      : 'phép CỘNG và TRỪ trong phạm vi 20, đếm, so sánh lớn/bé, và TOÁN ĐỐ LOGIC đơn giản (một bước).';
-  const hard = p.monster.type === 'boss' ? 'khó hơn một chút (câu cuối là câu thử thách)' : p.monster.type === 'elite' ? 'vừa phải' : 'dễ, nhẹ nhàng';
-  const notes = (p.notes || '').trim();
-  return [
-    `Bạn là "Quản Trò" của một game học Toán nhập vai cho trẻ mầm non/tiểu học Việt Nam.`,
-    `Hãy soạn ${p.count} câu hỏi TOÁN bằng TIẾNG VIỆT cho một bé ${age} tuổi.`,
-    `Trọng tâm theo lứa tuổi: ${focus}`,
-    `Độ khó tổng thể: ${hard}.`,
-    notes ? `Ghi chú riêng về bé (hãy bám sát để luyện đúng điểm yếu, tránh làm bé nản): "${notes.slice(0, 300)}".` : `Bé chưa có ghi chú riêng, hãy ra đề cân bằng.`,
-    `Quy tắc BẮT BUỘC:`,
-    `- Mỗi câu là một object: {"prompt": string, "visual": string, "choices": string[], "answer": number}.`,
-    `- "prompt": câu hỏi ngắn, thân thiện, KHÔNG quá 90 ký tự.`,
-    `- "visual": chuỗi EMOJI minh hoạ (vd "🍎🍎🍎" hoặc "🔺🟦🔺🟦❓"); để "" nếu không cần. TUYỆT ĐỐI không dùng chữ trong visual.`,
-    `- "choices": 2 đến 4 lựa chọn NGẮN (số như "3", hoặc 1 emoji). Đáp án sai phải hợp lý, gần đúng.`,
-    `- "answer": chỉ số (bắt đầu từ 0) của đáp án ĐÚNG trong "choices". Phải chính xác tuyệt đối về mặt toán học.`,
-    `- Không giải thích, không thêm chữ ngoài JSON.`,
-    `Trả về DUY NHẤT JSON: {"questions": [ ... ${p.count} câu ... ]}. Chỉ JSON.`,
-  ].join('\n');
+// ---- Cá nhân hoá loại câu hỏi theo tuổi + ghi chú ----
+type QType = 'count' | 'addPic' | 'subPic' | 'add' | 'sub' | 'compareBig' | 'compareSmall' | 'pattern' | 'shape' | 'seq';
+
+function typePool(age: number, monster: Monster['type'], notes: string): QType[] {
+  const n = notes.toLowerCase();
+  let pool: QType[];
+  if (age <= 4) pool = ['count', 'count', 'pattern', 'shape', 'addPic', 'compareBig'];
+  else if (age === 5) pool = ['count', 'addPic', 'subPic', 'pattern', 'shape', 'compareBig', 'compareSmall'];
+  else if (age === 6) pool = ['add', 'addPic', 'sub', 'subPic', 'compareBig', 'compareSmall', 'seq', 'count'];
+  else pool = ['add', 'sub', 'compareBig', 'compareSmall', 'seq', 'addPic', 'subPic'];
+
+  // Bám ghi chú của bố mẹ để luyện đúng điểm yếu (thêm trọng số).
+  const boost = (t: QType, times = 2) => { for (let i = 0; i < times; i++) pool.push(t); };
+  if (/(cộng|cong|phép cộng|\+)/.test(n)) { boost('add'); boost('addPic'); }
+  if (/(trừ|tru|phép trừ)/.test(n)) { boost('sub'); boost('subPic'); }
+  if (/(đếm|dem|số lượng|so luong)/.test(n)) { boost('count'); }
+  if (/(so sánh|so sanh|lớn|nhỏ|lon hon|nho hon)/.test(n)) { boost('compareBig'); boost('compareSmall'); }
+  if (/(hình|hinh|khối|khoi|quy luật|quy luat|pattern)/.test(n)) { boost('pattern'); boost('shape'); }
+
+  // Boss/tinh anh: nhích khó hơn (ưu tiên tính & dãy số).
+  if (monster === 'boss') { boost('add'); boost('sub'); boost('seq'); }
+  return pool;
 }
 
-// ---- Làm sạch & kiểm chứng dữ liệu AI (không tin tưởng mù quáng) ----
-function sanitizeQuestions(raw: unknown, max: number): KnightQuestion[] {
-  if (!Array.isArray(raw)) return [];
-  const out: KnightQuestion[] = [];
-  for (const item of raw) {
-    if (out.length >= max) break;
-    if (!item || typeof item !== 'object') continue;
-    const q = item as Record<string, unknown>;
-    const prompt = String(q.prompt ?? '').trim().slice(0, 120);
-    const visual = String(q.visual ?? '').trim().slice(0, 60);
-    const choicesRaw = Array.isArray(q.choices) ? q.choices : [];
-    const choices = choicesRaw.map((c) => String(c ?? '').trim().slice(0, 24)).filter((c) => c.length > 0);
-    const answer = Number(q.answer);
-    if (!prompt) continue;
-    if (choices.length < 2 || choices.length > 4) continue;
-    if (!Number.isInteger(answer) || answer < 0 || answer >= choices.length) continue;
-    out.push({ prompt, visual, choices, answer });
+function build(type: QType, age: number, monster: Monster['type'], emojis: string[]): KnightQuestion | null {
+  const hard = monster === 'boss' ? 2 : monster === 'elite' ? 1 : 0;
+  const e = pick(emojis);
+  switch (type) {
+    case 'count': {
+      const max = age <= 4 ? 6 : age === 5 ? 8 : 9;
+      const n = randInt(1, max);
+      return numericQ(`Đếm xem có tất cả mấy ${e}?`, repeat(e, n), n, 0, max + 2);
+    }
+    case 'addPic': {
+      const maxSum = age <= 4 ? 5 : age === 5 ? 8 : 10;
+      const a = randInt(1, maxSum - 1);
+      const b = randInt(1, maxSum - a);
+      return numericQ(`Có ${a} ${e}, thêm ${b} ${e} nữa. Tất cả mấy?`, `${repeat(e, a)} ➕ ${repeat(e, b)}`, a + b, 0, maxSum + 2);
+    }
+    case 'subPic': {
+      const maxStart = age <= 5 ? 7 : 10;
+      const a = randInt(2, maxStart);
+      const b = randInt(1, a - 1);
+      return numericQ(`Có ${a} ${e}, bớt đi ${b}. Còn lại mấy?`, repeat(e, a), a - b, 0, maxStart);
+    }
+    case 'add': {
+      const maxSum = (age === 6 ? 15 : 20) + hard;
+      const a = randInt(1, maxSum - 1);
+      const b = randInt(1, maxSum - a);
+      return numericQ(`${a} + ${b} = ?`, '', a + b, 0, maxSum + 3);
+    }
+    case 'sub': {
+      const maxStart = (age === 6 ? 12 : 20) + hard;
+      const a = randInt(2, maxStart);
+      const b = randInt(1, a - 1);
+      return numericQ(`${a} - ${b} = ?`, '', a - b, 0, maxStart);
+    }
+    case 'compareBig':
+    case 'compareSmall': {
+      const max = age <= 5 ? 10 : 20;
+      const a = randInt(1, max);
+      let b = randInt(1, max);
+      while (b === a) b = randInt(1, max);
+      const big = type === 'compareBig';
+      const answerValue = big ? Math.max(a, b) : Math.min(a, b);
+      const choices = shuffle([String(a), String(b)]);
+      return { prompt: big ? 'Số nào LỚN hơn?' : 'Số nào NHỎ hơn?', visual: '', choices, answer: choices.indexOf(String(answerValue)) };
+    }
+    case 'pattern': {
+      const a = pick(SHAPES);
+      let b = pick(SHAPES);
+      while (b === a) b = pick(SHAPES);
+      let c = pick(SHAPES);
+      while (c === a || c === b) c = pick(SHAPES);
+      // Dãy lặp A B A B ? -> tiếp theo là A
+      const choices = shuffle([a, b, c]);
+      return { prompt: 'Hình nào tiếp theo trong dãy?', visual: `${a}${b}${a}${b}❓`, choices, answer: choices.indexOf(a) };
+    }
+    case 'shape': {
+      const target = pick(SHAPE_OBJS);
+      const pool = shuffle(SHAPE_OBJS.filter((s) => s.emoji !== target.emoji)).slice(0, 2);
+      const choices = shuffle([target.emoji, ...pool.map((s) => s.emoji)]);
+      return { prompt: `Đâu là ${target.name}?`, visual: '', choices, answer: choices.indexOf(target.emoji) };
+    }
+    case 'seq': {
+      const max = age === 6 ? 15 : 22;
+      const step = pick([1, 2, 2, 3]);
+      const start = randInt(1, Math.max(1, max - step * 4));
+      const s2 = start + step, s3 = start + 2 * step, next = start + 3 * step;
+      return numericQ(`${start}, ${s2}, ${s3}, ?`, '', next, 0, next + step + 2);
+    }
+    default:
+      return null;
   }
-  return out;
 }
 
-function padTo(questions: KnightQuestion[], count: number, age: number): KnightQuestion[] {
-  if (questions.length >= count) return questions.slice(0, count);
-  const extra = fallbackQuestions(age, count - questions.length);
-  return questions.concat(extra).slice(0, count);
-}
-
-// ---- Fallback tĩnh: luôn tạo được đề hợp lệ theo tuổi (không cần API) ----
-const COUNT_EMOJIS = ['🍎', '🍌', '⭐', '🐤', '🎈', '🐟', '🍭', '🌸', '🚗', '🐞'];
-const SHAPES: Array<{ emoji: string; name: string }> = [
-  { emoji: '🔺', name: 'tam giác' },
-  { emoji: '🟦', name: 'hình vuông' },
-  { emoji: '🔵', name: 'hình tròn' },
-  { emoji: '⭐', name: 'ngôi sao' },
-];
-
-function fallbackQuestions(age: number, count: number): KnightQuestion[] {
-  const list: KnightQuestion[] = [];
-  for (let i = 0; i < count; i++) {
-    list.push(age <= 5 ? youngQuestion(i) : olderQuestion(i));
-  }
-  return list;
-}
-
-// 4-5 tuổi: đếm số lượng, quy luật hình, nhận diện hình khối.
-function youngQuestion(seed: number): KnightQuestion {
-  const kind = seed % 3;
-  if (kind === 0) {
-    const emoji = pick(COUNT_EMOJIS);
-    const n = randInt(1, 5);
-    return numberChoiceQuestion(`Đếm xem có tất cả mấy ${emoji}?`, emoji.repeat(n), n, 1, 5);
-  }
-  if (kind === 1) {
-    const a = pick(SHAPES);
-    let b = pick(SHAPES);
-    while (b.emoji === a.emoji) b = pick(SHAPES);
-    const visual = `${a.emoji}${b.emoji}${a.emoji}${b.emoji}❓`;
-    const choices = shuffleWithAnswer([a.emoji, b.emoji, pick(SHAPES).emoji], a.emoji);
-    return { prompt: 'Hình nào tiếp theo trong dãy?', visual, choices: choices.list, answer: choices.answer };
-  }
-  const target = pick(SHAPES);
-  const others = SHAPES.filter((s) => s.emoji !== target.emoji);
-  const choices = shuffleWithAnswer([target.emoji, others[0].emoji, others[1].emoji], target.emoji);
-  return { prompt: `Đâu là ${target.name}?`, visual: '', choices: choices.list, answer: choices.answer };
-}
-
-// 6-7 tuổi: cộng/trừ phạm vi 20, so sánh.
-function olderQuestion(seed: number): KnightQuestion {
-  const kind = seed % 3;
-  if (kind === 0) {
-    const a = randInt(1, 9);
-    const b = randInt(1, 9);
-    return numberChoiceQuestion(`${a} + ${b} = ?`, '', a + b, 0, 20);
-  }
-  if (kind === 1) {
-    const a = randInt(3, 12);
-    const b = randInt(1, a);
-    return numberChoiceQuestion(`${a} - ${b} = ?`, '', a - b, 0, 20);
-  }
-  const a = randInt(1, 15);
-  let b = randInt(1, 15);
-  while (b === a) b = randInt(1, 15);
-  const bigger = Math.max(a, b);
-  const choices = shuffleWithAnswer([String(a), String(b)], String(bigger));
-  return { prompt: `Số nào LỚN hơn: ${a} hay ${b}?`, visual: '', choices: choices.list, answer: choices.answer };
-}
-
-function numberChoiceQuestion(prompt: string, visual: string, answerValue: number, min: number, max: number): KnightQuestion {
+// Tạo câu trắc nghiệm số: 3 lựa chọn, đáp án đúng nằm trong đó (distractor gần & khác nhau).
+function numericQ(prompt: string, visual: string, answerValue: number, min: number, max: number): KnightQuestion {
   const options = new Set<number>([answerValue]);
-  let guard = 0;
-  while (options.size < 3 && guard++ < 30) {
-    const delta = pick([-2, -1, 1, 2]);
-    const cand = answerValue + delta;
+  const deltas = shuffle([-3, -2, -1, 1, 2, 3]);
+  for (const d of deltas) {
+    if (options.size >= 3) break;
+    const cand = answerValue + d;
     if (cand >= min && cand <= max) options.add(cand);
   }
+  // Bảo hiểm nếu vẫn thiếu (đáp án ở biên): nới ra.
+  let extra = max + 1;
+  while (options.size < 3 && extra <= max + 4) options.add(extra++);
   const arr = shuffle(Array.from(options));
   return { prompt, visual, choices: arr.map(String), answer: arr.indexOf(answerValue) };
 }
 
+// ---- Chủ đề hình theo ghi chú ----
+const COUNT_EMOJIS = ['🍎', '🍌', '⭐', '🐤', '🎈', '🐟', '🍭', '🌸', '🚗', '🐞', '🐰', '🍓'];
+const THEMES: Array<{ kw: RegExp; e: string[] }> = [
+  { kw: /(khủng long|khung long|dinosaur|dino)/i, e: ['🦖', '🦕'] },
+  { kw: /(mèo|meo|con mèo|cat)/i, e: ['🐱', '🐈'] },
+  { kw: /(chó|cho|con chó|dog|cún|cun)/i, e: ['🐶', '🐕'] },
+  { kw: /(cá|con cá|fish)/i, e: ['🐟', '🐠'] },
+  { kw: /(hoa|flower|bông|bong)/i, e: ['🌸', '🌼', '🌺'] },
+  { kw: /(xe|ô tô|o to|car)/i, e: ['🚗', '🚙'] },
+  { kw: /(sao|star|ngôi sao|ngoi sao)/i, e: ['⭐', '🌟'] },
+  { kw: /(kẹo|keo|bánh|banh|candy|cake)/i, e: ['🍭', '🍬', '🍰'] },
+  { kw: /(bóng|bong|ball)/i, e: ['⚽', '🏀', '🎈'] },
+  { kw: /(khủng|thỏ|tho|rabbit)/i, e: ['🐰'] },
+];
+function themeEmojis(notes: string): string[] {
+  const hits: string[] = [];
+  for (const t of THEMES) if (t.kw.test(notes)) hits.push(...t.e);
+  // Trộn chủ đề riêng của bé với bộ mặc định để vừa quen vừa đa dạng.
+  return hits.length ? Array.from(new Set([...hits, ...hits, ...COUNT_EMOJIS])) : COUNT_EMOJIS;
+}
+
+const SHAPES = ['🔺', '🟦', '🔵', '⭐', '❤️', '🟩'];
+const SHAPE_OBJS = [
+  { emoji: '🔺', name: 'tam giác' },
+  { emoji: '🟦', name: 'hình vuông' },
+  { emoji: '🔵', name: 'hình tròn' },
+  { emoji: '⭐', name: 'ngôi sao' },
+  { emoji: '❤️', name: 'trái tim' },
+  { emoji: '🟩', name: 'hình vuông xanh' },
+];
+
+// Chữ ký để loại câu trùng trong cùng một ải.
+function signature(q: KnightQuestion): string {
+  return q.prompt + '|' + q.visual + '|' + q.choices.slice().sort().join(',');
+}
+
 // ---- helpers ----
-function shuffleWithAnswer(pool: string[], answerValue: string): { list: string[]; answer: number } {
-  const unique = Array.from(new Set(pool));
-  const list = shuffle(unique);
-  return { list, answer: list.indexOf(answerValue) };
+function repeat(s: string, n: number): string {
+  return Array.from({ length: n }, () => s).join('');
 }
 function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -194,5 +218,6 @@ function shuffle<T>(arr: T[]): T[] {
   return copy;
 }
 function clamp(n: number, min: number, max: number): number {
+  if (!Number.isFinite(n)) return min;
   return Math.max(min, Math.min(max, Math.round(n)));
 }

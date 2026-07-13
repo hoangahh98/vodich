@@ -79,8 +79,19 @@
     enterMap();
   }
 
-  async function deleteCharacter(c) {
-    if (!window.confirm('Xoá hiệp sĩ "' + c.name + '"? Tiến trình sẽ mất.')) return;
+  // Hộp xác nhận TRONG app (nhiều webview mobile chặn window.confirm -> nút xoá "không ăn").
+  function deleteCharacter(c) {
+    showOverlay({
+      emoji: '🗑️', title: 'Xoá hiệp sĩ?', stars: 0,
+      text: 'Xoá "' + c.name + '"? Toàn bộ tiến trình của bạn ấy sẽ mất.',
+      actions: [
+        { label: '🗑️ Xoá luôn', primary: true, fn: () => doDeleteCharacter(c) },
+        { label: 'Huỷ', primary: false, fn: hideOverlay },
+      ],
+    });
+  }
+
+  async function doDeleteCharacter(c) {
     try {
       const res = await fetch('/games/hiep-si/character/delete', {
         method: 'POST', headers: { 'content-type': 'application/json' },
@@ -89,8 +100,14 @@
       if (res.ok) {
         S.characters = S.characters.filter((x) => x.id !== c.id);
         renderCharList();
+        if (!S.characters.length) { resetCreateForm(); showScreen('create'); }
+      } else {
+        const d = await res.json().catch(() => ({}));
+        showOverlay({ emoji: '⚠️', title: 'Không xoá được', stars: 0, text: d.error || 'Thử lại nhé.', actions: [{ label: 'OK', primary: true, fn: hideOverlay }] });
       }
-    } catch (_) {}
+    } catch (_) {
+      showOverlay({ emoji: '⚠️', title: 'Lỗi mạng', stars: 0, text: 'Không kết nối được, thử lại nhé.', actions: [{ label: 'OK', primary: true, fn: hideOverlay }] });
+    }
   }
 
   // ========================= MÀN 2: TẠO NHÂN VẬT =========================
