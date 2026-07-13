@@ -17,18 +17,21 @@ export interface Stage {
   monster: Monster;
 }
 
-// 10 ải: quái thường (1 HP) → tinh anh (2-3 HP) → boss (10 HP). Ải 10 cứu công chúa/hoàng tử.
+// Mỗi ải cần trả lời đúng 10 câu để hạ quái (kể cả ải boss). Độ khó tăng dần theo ải.
+export const QUESTIONS_PER_STAGE = 10;
+
+// 10 ải: quái thường → tinh anh → boss. Tất cả 10 HP (10 câu). Ải 10 cứu công chúa/hoàng tử.
 export const STAGES: Stage[] = [
-  { stage: 1, title: 'Rừng Khởi Đầu', scene: 'Bìa rừng xanh mát', monster: { name: 'Sâu Bột', emoji: '🐛', type: 'normal', hp: 1 } },
-  { stage: 2, title: 'Hang Dơi', scene: 'Hang động tối lấp lánh', monster: { name: 'Dơi Đêm', emoji: '🦇', type: 'normal', hp: 1 } },
-  { stage: 3, title: 'Đầm Lầy', scene: 'Đầm lầy sương mù', monster: { name: 'Rắn Lục', emoji: '🐍', type: 'elite', hp: 2 } },
-  { stage: 4, title: 'Sa Mạc Cát Vàng', scene: 'Sa mạc nắng cháy', monster: { name: 'Bọ Cạp', emoji: '🦂', type: 'elite', hp: 3 } },
-  { stage: 5, title: 'Núi Lửa', scene: 'Miệng núi lửa rực đỏ', monster: { name: 'Quỷ Lửa', emoji: '👹', type: 'boss', hp: 10 } },
-  { stage: 6, title: 'Khu Rừng Nhện', scene: 'Rừng giăng đầy tơ nhện', monster: { name: 'Nhện Độc', emoji: '🕷️', type: 'normal', hp: 1 } },
-  { stage: 7, title: 'Đồng Tuyết', scene: 'Cánh đồng tuyết trắng', monster: { name: 'Sói Xám', emoji: '🐺', type: 'elite', hp: 2 } },
-  { stage: 8, title: 'Thung Lũng Cổ', scene: 'Thung lũng khủng long', monster: { name: 'Khủng Long', emoji: '🦖', type: 'elite', hp: 3 } },
-  { stage: 9, title: 'Nghĩa Địa', scene: 'Nghĩa địa u ám', monster: { name: 'Xác Sống', emoji: '🧟', type: 'elite', hp: 3 } },
-  { stage: 10, title: 'Lâu Đài Rồng', scene: 'Đỉnh tháp lâu đài', monster: { name: 'Rồng Chúa', emoji: '🐉', type: 'boss', hp: 10 } },
+  { stage: 1, title: 'Rừng Khởi Đầu', scene: 'Bìa rừng xanh mát', monster: { name: 'Sâu Bột', emoji: '🐛', type: 'normal', hp: QUESTIONS_PER_STAGE } },
+  { stage: 2, title: 'Hang Dơi', scene: 'Hang động tối lấp lánh', monster: { name: 'Dơi Đêm', emoji: '🦇', type: 'normal', hp: QUESTIONS_PER_STAGE } },
+  { stage: 3, title: 'Đầm Lầy', scene: 'Đầm lầy sương mù', monster: { name: 'Rắn Lục', emoji: '🐍', type: 'elite', hp: QUESTIONS_PER_STAGE } },
+  { stage: 4, title: 'Sa Mạc Cát Vàng', scene: 'Sa mạc nắng cháy', monster: { name: 'Bọ Cạp', emoji: '🦂', type: 'elite', hp: QUESTIONS_PER_STAGE } },
+  { stage: 5, title: 'Núi Lửa', scene: 'Miệng núi lửa rực đỏ', monster: { name: 'Quỷ Lửa', emoji: '👹', type: 'boss', hp: QUESTIONS_PER_STAGE } },
+  { stage: 6, title: 'Khu Rừng Nhện', scene: 'Rừng giăng đầy tơ nhện', monster: { name: 'Nhện Độc', emoji: '🕷️', type: 'normal', hp: QUESTIONS_PER_STAGE } },
+  { stage: 7, title: 'Đồng Tuyết', scene: 'Cánh đồng tuyết trắng', monster: { name: 'Sói Xám', emoji: '🐺', type: 'elite', hp: QUESTIONS_PER_STAGE } },
+  { stage: 8, title: 'Thung Lũng Cổ', scene: 'Thung lũng khủng long', monster: { name: 'Khủng Long', emoji: '🦖', type: 'elite', hp: QUESTIONS_PER_STAGE } },
+  { stage: 9, title: 'Nghĩa Địa', scene: 'Nghĩa địa u ám', monster: { name: 'Xác Sống', emoji: '🧟', type: 'elite', hp: QUESTIONS_PER_STAGE } },
+  { stage: 10, title: 'Lâu Đài Rồng', scene: 'Đỉnh tháp lâu đài', monster: { name: 'Rồng Chúa', emoji: '🐉', type: 'boss', hp: QUESTIONS_PER_STAGE } },
 ];
 
 export const MAX_STAGE = STAGES.length;

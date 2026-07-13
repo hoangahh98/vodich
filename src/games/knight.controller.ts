@@ -48,7 +48,7 @@ export class KnightController {
 
   // Sinh đề cho một ải: trả về cấu hình quái + bộ câu hỏi (AI cá nhân hoá theo tuổi/ghi chú).
   @Post('/games/hiep-si/quiz')
-  async quiz(@Req() req: Request, @Res() res: Response, @Body() body: { characterId?: string; stage?: unknown }) {
+  async quiz(@Req() req: Request, @Res() res: Response, @Body() body: { characterId?: string; stage?: unknown; level?: string }) {
     if (!req.session.user) return res.status(401).json({ error: 'Cần đăng nhập' });
     const id = parseBigId(body?.characterId);
     if (!id) return res.status(400).json({ error: 'Thiếu nhân vật' });
@@ -63,9 +63,11 @@ export class KnightController {
     const limit = this.rateLimit.consume(`ai:knight:${req.ip || 'unknown'}`, { max: 20, windowMs: 60_000 });
     if (!limit.allowed) return res.status(429).json({ error: `Chờ chút nhé, thử lại sau ${limit.retryAfterSeconds}s.` });
 
-    const count = Math.min(12, Math.max(6, stage.monster.hp + 5));
+    const level = body?.level === 'easy' || body?.level === 'hard' ? body.level : 'medium';
+    // 14 câu duy nhất/ải: đủ để hạ quái 10 máu kể cả khi có vài câu sai.
+    const count = 14;
     try {
-      const questions = await this.knightAi.generateQuestions({ age: character.age, notes: character.notes, monster: stage.monster, count });
+      const questions = await this.knightAi.generateQuestions({ age: character.age, notes: character.notes, monster: stage.monster, count, level, stage: stage.stage });
       return res.json({ stage: { stage: stage.stage, title: stage.title, scene: stage.scene, monster: stage.monster }, questions });
     } catch (error) {
       return res.status(502).json({ error: error instanceof Error ? error.message : 'Không tạo được câu hỏi' });

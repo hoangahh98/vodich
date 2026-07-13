@@ -19,11 +19,15 @@ export interface KnightQuestion {
   pairs?: KnightPair[]; // các cặp cần nối (chỉ dùng khi type 'match')
 }
 
+export type KnightLevel = 'easy' | 'medium' | 'hard';
+
 export interface GenerateParams {
   age: number; // 4..7
   notes: string; // ghi chú điểm mạnh/yếu -> cá nhân hoá dạng câu hỏi & hình
-  monster: Monster; // độ khó theo loại quái
+  monster: Monster; // loại quái (để chọn emoji/flavor)
   count: number; // số câu cần sinh (không trùng nhau)
+  level: KnightLevel; // độ khó do người chơi chọn
+  stage: number; // ải hiện tại (1..10) -> khó tăng dần theo ải
 }
 
 /**
@@ -41,16 +45,18 @@ export class KnightAiService {
     const count = clamp(params.count, 3, 14);
     const age = clamp(params.age, 4, 7);
     const emojis = themeEmojis(params.notes || '');
-    const pool = typePool(age, params.monster.type, params.notes || '');
+    // Độ khó = mốc theo mức chọn + tiến trình theo ải (ải càng cao càng khó).
+    const hardness = clamp(levelBase(params.level) + (clamp(params.stage, 1, 20) - 1), 0, 16);
+    const pool = typePool(age, params.notes || '', hardness);
 
     const out: KnightQuestion[] = [];
     const seen = new Set<string>();
-    const maxAttempts = count * 60;
+    const maxAttempts = count * 80;
     let attempts = 0;
     while (out.length < count && attempts < maxAttempts) {
       attempts++;
       const type = pool[randInt(0, pool.length - 1)];
-      const q = build(type, age, params.monster.type, emojis);
+      const q = build(type, age, emojis, hardness);
       if (!q) continue;
       const sig = signature(q);
       if (seen.has(sig)) continue; // không trùng nhau
@@ -61,10 +67,14 @@ export class KnightAiService {
   }
 }
 
+function levelBase(level: KnightLevel): number {
+  return level === 'hard' ? 6 : level === 'medium' ? 3 : 0;
+}
+
 // ---- Cá nhân hoá loại câu hỏi theo tuổi + ghi chú ----
 type QType = 'count' | 'addPic' | 'subPic' | 'add' | 'sub' | 'compareBig' | 'compareSmall' | 'pattern' | 'shape' | 'seq' | 'seqMissing' | 'match';
 
-function typePool(age: number, monster: Monster['type'], notes: string): QType[] {
+function typePool(age: number, notes: string, hardness: number): QType[] {
   const n = notes.toLowerCase();
   let pool: QType[];
   if (age <= 4) pool = ['count', 'count', 'pattern', 'shape', 'addPic', 'compareBig', 'match'];
@@ -80,47 +90,48 @@ function typePool(age: number, monster: Monster['type'], notes: string): QType[]
   if (/(so sánh|so sanh|lớn|nhỏ|lon hon|nho hon)/.test(n)) { boost('compareBig'); boost('compareSmall'); }
   if (/(hình|hinh|khối|khoi|quy luật|quy luat|pattern)/.test(n)) { boost('pattern'); boost('shape'); }
 
-  // Boss/tinh anh: nhích khó hơn (ưu tiên tính & dãy số).
-  if (monster === 'boss') { boost('add'); boost('sub'); boost('seq'); }
+  // Độ khó cao: ưu tiên phép tính & dãy số (bớt tỉ trọng câu dễ như đếm/hình).
+  if (hardness >= 4) { boost('compareBig'); boost('seqMissing'); if (age >= 6) { boost('add'); boost('sub'); } else { boost('addPic'); boost('subPic'); } }
+  if (hardness >= 8 && age >= 6) { boost('add'); boost('sub'); boost('seq'); }
   return pool;
 }
 
-function build(type: QType, age: number, monster: Monster['type'], emojis: string[]): KnightQuestion | null {
-  const hard = monster === 'boss' ? 2 : monster === 'elite' ? 1 : 0;
+function build(type: QType, age: number, emojis: string[], hardness: number): KnightQuestion | null {
   const e = pick(emojis);
+  const cap = (base: number, growth: number, min: number, max: number) => clamp(base + Math.round(hardness * growth), min, max);
   switch (type) {
     case 'count': {
-      const max = age <= 4 ? 6 : age === 5 ? 8 : 9;
+      const max = cap(age <= 4 ? 6 : age === 5 ? 8 : 9, 0.5, 4, 15);
       const n = randInt(1, max);
       return numericQ(`Đếm xem có tất cả mấy ${e}?`, repeat(e, n), n, 0, max + 2);
     }
     case 'addPic': {
-      const maxSum = age <= 4 ? 5 : age === 5 ? 8 : 10;
+      const maxSum = cap(age <= 4 ? 5 : age === 5 ? 8 : 10, 0.4, 4, 12); // giới hạn 12 để hàng emoji không quá dài
       const a = randInt(1, maxSum - 1);
       const b = randInt(1, maxSum - a);
       return numericQ(`Có ${a} ${e}, thêm ${b} ${e} nữa. Tất cả mấy?`, `${repeat(e, a)} ➕ ${repeat(e, b)}`, a + b, 0, maxSum + 2);
     }
     case 'subPic': {
-      const maxStart = age <= 5 ? 7 : 10;
+      const maxStart = cap(age <= 5 ? 7 : 10, 0.3, 4, 12);
       const a = randInt(2, maxStart);
       const b = randInt(1, a - 1);
       return numericQ(`Có ${a} ${e}, bớt đi ${b}. Còn lại mấy?`, repeat(e, a), a - b, 0, maxStart);
     }
     case 'add': {
-      const maxSum = (age === 6 ? 15 : 20) + hard;
+      const maxSum = cap(age === 6 ? 15 : 20, 1.4, 8, 40);
       const a = randInt(1, maxSum - 1);
       const b = randInt(1, maxSum - a);
       return numericQ(`${a} + ${b} = ?`, '', a + b, 0, maxSum + 3);
     }
     case 'sub': {
-      const maxStart = (age === 6 ? 12 : 20) + hard;
+      const maxStart = cap(age === 6 ? 12 : 20, 1.4, 6, 40);
       const a = randInt(2, maxStart);
       const b = randInt(1, a - 1);
       return numericQ(`${a} - ${b} = ?`, '', a - b, 0, maxStart);
     }
     case 'compareBig':
     case 'compareSmall': {
-      const max = age <= 5 ? 10 : 20;
+      const max = cap(age <= 5 ? 10 : 20, 1.6, 5, 60);
       const k = age <= 4 ? 2 : pick([2, 3, 3]); // giống "khoanh số lớn nhất" (2-3 số)
       const set = new Set<number>();
       while (set.size < k) set.add(randInt(1, max));
@@ -147,7 +158,7 @@ function build(type: QType, age: number, monster: Monster['type'], emojis: strin
       return { prompt: `Đâu là ${target.name}?`, visual: '', choices, answer: choices.indexOf(target.emoji) };
     }
     case 'seq': {
-      const max = age === 6 ? 15 : 22;
+      const max = cap(age === 6 ? 15 : 22, 1.4, 10, 40);
       const step = pick([1, 2, 2, 3]);
       const start = randInt(1, Math.max(1, max - step * 4));
       const s2 = start + step, s3 = start + 2 * step, next = start + 3 * step;
@@ -155,7 +166,7 @@ function build(type: QType, age: number, monster: Monster['type'], emojis: strin
     }
     case 'seqMissing': {
       // Điền số CÒN THIẾU ở giữa dãy (giống câu 3: 0, ?, 2).
-      const max = age <= 5 ? 10 : age === 6 ? 15 : 22;
+      const max = cap(age <= 5 ? 10 : age === 6 ? 15 : 22, 1.2, 6, 40);
       const step = pick([1, 1, 2]);
       const start = randInt(1, Math.max(1, max - 2 * step));
       const mid = start + step, end = start + 2 * step;
@@ -164,7 +175,7 @@ function build(type: QType, age: number, monster: Monster['type'], emojis: strin
     case 'match': {
       // Nối SỐ với NHÓM đồ vật có đúng số lượng (giống câu "tìm số lượng tương ứng").
       const count = age <= 5 ? pick([2, 3]) : 3;
-      const maxN = age <= 4 ? 5 : age <= 5 ? 6 : 9;
+      const maxN = cap(age <= 4 ? 5 : age <= 5 ? 6 : 9, 0.3, 3, 12);
       const ns = new Set<number>();
       while (ns.size < count) ns.add(randInt(1, maxN)); // số lượng phân biệt -> nối 1-1 không mơ hồ
       const uniqEmojis = shuffle(Array.from(new Set(emojis)));

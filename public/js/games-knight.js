@@ -35,6 +35,7 @@
     timeLeft: CONFIG.QUESTION_TIME,
     genderForm: 'boy',
     ageForm: 5,
+    level: 'medium', // độ khó do người chơi chọn (dễ/vừa/khó)
   };
 
   const $ = (sel) => stage.querySelector(sel);
@@ -171,6 +172,17 @@
     renderMap();
   }
 
+  // Chọn độ khó (Dễ/Vừa/Khó) — áp dụng cho các ải chơi sau đó.
+  const diffRow = $('[data-diff]');
+  if (diffRow) {
+    diffRow.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-level]');
+      if (!btn) return;
+      S.level = btn.dataset.level;
+      diffRow.querySelectorAll('.knight-diff-btn').forEach((b) => b.classList.toggle('active', b === btn));
+    });
+  }
+
   function renderMap() {
     const c = S.character;
     const map = $('[data-map]');
@@ -217,7 +229,7 @@
     try {
       const res = await fetch('/games/hiep-si/quiz', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ characterId: c.id, stage: stageNumber }),
+        body: JSON.stringify({ characterId: c.id, stage: stageNumber, level: S.level }),
       });
       const data = await res.json();
       if (!data.stage || !Array.isArray(data.questions) || !data.questions.length) {
@@ -356,7 +368,7 @@
             S.locked = true;
             stopTimer();
             $('[data-feedback]').textContent = praise();
-            monsterTakeHitThenContinue();
+            heroAttack();
           } else {
             $('[data-feedback]').textContent = '✅ Đúng rồi! Nối tiếp nào.';
           }
@@ -411,6 +423,7 @@
     if (S.locked) return;
     S.locked = true;
     $('[data-feedback]').textContent = '⏰ Hết giờ! Quái cắn mất 1 máu.';
+    monsterBite();
     takeDamage();
     setTimeout(afterWrong, 900);
   }
@@ -424,7 +437,7 @@
       btn.classList.add('correct');
       sound('correct');
       $('[data-feedback]').textContent = praise();
-      monsterTakeHitThenContinue();
+      heroAttack();
     } else {
       btn.classList.add('wrong');
       // đánh dấu đáp án đúng cho bé học
@@ -433,6 +446,7 @@
       sound('wrong');
       S.wrongThisStage += 1;
       $('[data-feedback]').textContent = encourage();
+      monsterBite();
       takeDamage();
       setTimeout(afterWrong, 1100);
     }
@@ -458,6 +472,33 @@
     m.classList.remove('hit'); void m.offsetWidth; m.classList.add('hit');
   }
 
+  // Đúng: hiệp sĩ bắn 1 quả cầu lửa bay sang quái rồi mới trừ máu quái.
+  function heroAttack() {
+    shootFireball();
+    setTimeout(monsterTakeHitThenContinue, 360);
+  }
+  function shootFireball() {
+    const arena = $('.knight-arena');
+    if (!arena) return;
+    const fb = document.createElement('span');
+    fb.className = 'knight-fireball';
+    fb.textContent = '🔥';
+    arena.appendChild(fb);
+    setTimeout(() => fb.remove(), 650);
+  }
+  // Sai/hết giờ: quái vật lao vào cắn hiệp sĩ.
+  function monsterBite() {
+    const m = $('.knight-monster');
+    if (m) { m.classList.remove('bite'); void m.offsetWidth; m.classList.add('bite'); }
+    const arena = $('.knight-arena');
+    if (!arena) return;
+    const b = document.createElement('span');
+    b.className = 'knight-bite';
+    b.textContent = '💥';
+    arena.appendChild(b);
+    setTimeout(() => b.remove(), 600);
+  }
+
   // ---- Kết thúc ải ----
   async function stageCleared() {
     stopTimer();
@@ -468,11 +509,7 @@
     const isFinal = stageNum >= CONFIG.maxStage;
     await saveProgress({ stage: stageNum, hp: S.playerHp, cleared: true, stars });
     if (isFinal) {
-      showOverlay({
-        emoji: '👑', title: 'CHIẾN THẮNG!', stars,
-        text: 'Hiệp sĩ ' + S.character.name + ' đã đánh bại Rồng Chúa và cứu được công chúa! 🎉',
-        actions: [{ label: '🗺️ Về bản đồ', primary: true, fn: enterMap }],
-      });
+      showVictory();
     } else {
       showOverlay({
         emoji: S.stageMeta.monster.emoji, title: 'Qua ải rồi!', stars,
@@ -536,7 +573,53 @@
     });
     $('[data-overlay]').classList.remove('hidden');
   }
-  function hideOverlay() { $('[data-overlay]').classList.add('hidden'); }
+  function hideOverlay() {
+    const ov = $('[data-overlay]');
+    ov.classList.add('hidden');
+    ov.classList.remove('knight-overlay-victory');
+  }
+
+  // Cảnh chiến thắng: pháo hoa + hoàng tử bế công chúa ăn mừng.
+  function showVictory() {
+    const heroIsGirl = S.character && S.character.gender === 'girl';
+    // Hoàng tử bế công chúa (nếu bé là bạn gái thì công chúa được hoàng tử đón).
+    $('[data-overlay-emoji]').innerHTML = '<span class="knight-royal">🤴</span><span class="knight-royal-heart">💞</span><span class="knight-royal knight-royal-b">👸</span>';
+    $('[data-overlay-title]').textContent = '🎆 CỨU ĐƯỢC CÔNG CHÚA! 🎆';
+    $('[data-overlay-stars]').textContent = '⭐⭐⭐';
+    $('[data-overlay-text]').textContent = 'Hoàng tử bế công chúa ăn mừng! Hiệp sĩ ' + (S.character ? S.character.name : '') + ' đã thắng và cứu được ' + (heroIsGirl ? 'hoàng tử' : 'công chúa') + '! 👑';
+    const actions = $('[data-overlay-actions]');
+    actions.innerHTML = '';
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'knight-btn knight-btn-primary';
+    btn.textContent = '🗺️ Về bản đồ';
+    btn.addEventListener('click', () => { hideOverlay(); enterMap(); });
+    actions.appendChild(btn);
+    const ov = $('[data-overlay]');
+    ov.classList.add('knight-overlay-victory');
+    ov.classList.remove('hidden');
+    launchFireworks(8);
+    let bursts = 0;
+    const ci = setInterval(() => { confetti(); if (++bursts >= 5) clearInterval(ci); }, 650);
+  }
+
+  function launchFireworks(times) {
+    const emojis = ['🎆', '🎇', '✨', '💥', '🌟'];
+    let n = 0;
+    const iv = setInterval(() => {
+      for (let i = 0; i < 5; i++) {
+        const s = document.createElement('span');
+        s.className = 'knight-firework';
+        s.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+        s.style.left = (8 + Math.random() * 84) + 'vw';
+        s.style.top = (8 + Math.random() * 55) + 'vh';
+        s.style.animationDelay = (Math.random() * 0.25) + 's';
+        document.body.appendChild(s);
+        setTimeout(() => s.remove(), 1400);
+      }
+      if (++n >= times) clearInterval(iv);
+    }, 550);
+  }
 
   // ---- Nút chung ----
   $('[data-map-back]').addEventListener('click', () => { S.character = null; showScreen('select'); });
