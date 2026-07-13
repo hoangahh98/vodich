@@ -661,7 +661,7 @@
         emoji: '🏆', title: 'Qua ải rồi!', stars,
         text: 'Tuyệt vời! Đã dọn sạch cả đợt quái. Sẵn sàng cho ải tiếp theo chưa?',
         actions: [
-          { label: '➡️ Ải tiếp theo', primary: true, fn: () => startStage(stageNum + 1) },
+          { label: '⚔️ Ải tiếp theo', primary: true, fn: () => startStage(stageNum + 1) },
           { label: '🗺️ Bản đồ', primary: false, fn: enterMap },
         ],
       });
