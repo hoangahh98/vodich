@@ -18,6 +18,16 @@ export interface KnightQuestion {
   answer: number; // chỉ số đáp án ĐÚNG trong choices (-1 khi type 'match')
   pairs?: KnightPair[]; // các cặp cần nối (chỉ dùng khi type 'match')
   clock?: number; // giờ (1..12) để client vẽ đồng hồ kim rõ ràng
+  balance?: KnightBalance; // câu "cân thăng bằng/thay thế" (client vẽ cân bằng hình)
+}
+
+// Cân thăng bằng: 1 big = k small. Hỏi: qty của một bên = mấy của bên kia.
+export interface KnightBalance {
+  big: string; // emoji vật lớn
+  small: string; // emoji vật nhỏ
+  k: number; // 1 big = k small
+  side: 'big' | 'small'; // bên được cho sẵn số lượng trong câu hỏi
+  qty: number; // số lượng đã cho của "side"
 }
 
 export type KnightLevel = 'easy' | 'medium' | 'hard';
@@ -78,7 +88,9 @@ type QType =
   | 'compareBig' | 'compareSmall' | 'pattern' | 'shape' | 'seq' | 'seqMissing' | 'match'
   // Dạng mở rộng từ ngân hàng 350 câu tư duy 5-7 tuổi:
   | 'compareSign' | 'beforeAfter' | 'shapeSides' | 'realShape' | 'oddOneOut'
-  | 'heavier' | 'shareCandy' | 'legsWheels' | 'clock' | 'dayShift' | 'transitive';
+  | 'heavier' | 'shareCandy' | 'legsWheels' | 'clock' | 'dayShift' | 'transitive'
+  // Dạng cân thăng bằng / thay thế (nhiều hình, ít chữ):
+  | 'balance';
 
 function typePool(age: number, notes: string, hardness: number): QType[] {
   const n = notes.toLowerCase();
@@ -101,8 +113,8 @@ function typePool(age: number, notes: string, hardness: number): QType[] {
   if (hardness >= 8 && age >= 6) { boost('add'); boost('sub'); boost('seq'); }
 
   // Dạng mở rộng từ ngân hàng 350 câu (tư duy tổng hợp) — thêm cho phong phú.
-  ['compareSign', 'beforeAfter', 'shapeSides', 'oddOneOut', 'shareCandy', 'heavier', 'realShape'].forEach((t) => pool.push(t as QType));
-  if (age >= 5) ['legsWheels', 'clock'].forEach((t) => pool.push(t as QType));
+  ['compareSign', 'beforeAfter', 'shapeSides', 'oddOneOut', 'shareCandy', 'heavier', 'realShape', 'balance'].forEach((t) => pool.push(t as QType));
+  if (age >= 5) ['legsWheels', 'clock', 'balance'].forEach((t) => pool.push(t as QType));
   if (age >= 6) ['clock', 'dayShift', 'transitive', 'legsWheels'].forEach((t) => pool.push(t as QType));
   return pool;
 }
@@ -264,6 +276,29 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       const choices = shuffle([ans, ...others]);
       return { prompt: `Hôm nay là ${DAYS[today]}, vậy ${next ? 'ngày mai' : 'hôm qua'} là thứ mấy?`, visual: '', choices, answer: choices.indexOf(ans) };
     }
+    case 'balance': {
+      // 1 [big] = k [small]. Hỏi bằng mấy (cả chiều nhân & chiều chia).
+      const it = pick(BALANCE_ITEMS);
+      const reverse = pick([false, true, true]); // ưu tiên chiều ngược (ví dụ 10 chanh = ? cam)
+      let k: number, side: 'big' | 'small', qty: number, answer: number, targetEmoji: string;
+      if (reverse) {
+        k = randInt(2, 3);
+        const m = randInt(2, 4);
+        qty = k * m; // số vật nhỏ cho trước (chia hết cho k)
+        answer = m; // = mấy vật lớn
+        side = 'small';
+        targetEmoji = it.big;
+      } else {
+        k = randInt(2, age <= 5 ? 3 : 4);
+        qty = randInt(2, 4); // số vật lớn cho trước
+        answer = qty * k; // = mấy vật nhỏ
+        side = 'big';
+        targetEmoji = it.small;
+      }
+      const q = numericQ(`⚖️ = mấy ${targetEmoji}?`, '', answer, 0, answer + 4);
+      q.balance = { big: it.big, small: it.small, k, side, qty };
+      return q;
+    }
     case 'transitive': {
       const trio = shuffle(PEOPLE).slice(0, 3); // A > B > C theo đặc điểm
       const [a, b, c] = trio;
@@ -361,6 +396,15 @@ const LEGS = [
   { name: 'ô tô', emoji: '🚗', per: 4, part: 'bánh' },
 ];
 const PEOPLE = ['An', 'Bi', 'Bo', 'Ken', 'Su', 'Ti', 'Na', 'Lu', 'Ni', 'Mi'];
+// Cặp vật cho câu cân thăng bằng: 1 [big] = k [small].
+const BALANCE_ITEMS = [
+  { big: '🍉', small: '🍎' },
+  { big: '🍊', small: '🍋' },
+  { big: '🎂', small: '🍬' },
+  { big: '🎁', small: '🔴' },
+  { big: '🍈', small: '🍒' },
+  { big: '🥥', small: '🥜' },
+];
 
 // Chữ ký để loại câu trùng trong cùng một ải.
 function signature(q: KnightQuestion): string {

@@ -326,7 +326,11 @@
       renderMatch(q, box);
     } else {
       const vis = $('[data-visual]');
-      if (typeof q.clock === 'number') {
+      if (q.balance) {
+        vis.innerHTML = '';
+        vis.appendChild(buildBalance(q.balance));
+        vis.classList.remove('hidden');
+      } else if (typeof q.clock === 'number') {
         vis.innerHTML = '';
         vis.appendChild(buildClock(q.clock));
         vis.classList.remove('hidden');
@@ -344,6 +348,29 @@
       });
     }
     startTimer();
+  }
+
+  // Vẽ thẻ CÂN THĂNG BẰNG (ít chữ, nhiều hình): 1 [lớn] ⚖️ k×[nhỏ]; rồi hỏi bằng mấy.
+  function buildBalance(b) {
+    const given = b.side === 'big' ? b.big : b.small;
+    const target = b.side === 'big' ? b.small : b.big;
+    const wrap = document.createElement('div');
+    wrap.className = 'knight-balance';
+    const rule = document.createElement('div');
+    rule.className = 'knight-balance-row';
+    rule.innerHTML =
+      '<span class="kb-one">1</span><span class="kb-emo">' + b.big + '</span>' +
+      '<span class="kb-scale">⚖️</span>' +
+      '<span class="kb-emo">' + repeatEmoji(b.small, b.k) + '</span>';
+    const ask = document.createElement('div');
+    ask.className = 'knight-balance-row knight-balance-ask';
+    ask.innerHTML =
+      '<span class="kb-emo">' + repeatEmoji(given, b.qty) + '</span>' +
+      '<span class="kb-eq">=</span><span class="kb-q">?</span>' +
+      '<span class="kb-emo">' + target + '</span>';
+    wrap.appendChild(rule);
+    wrap.appendChild(ask);
+    return wrap;
   }
 
   // Vẽ đồng hồ kim rõ ràng cho câu "mấy giờ" (kim ngắn = giờ, kim dài = số 12).
