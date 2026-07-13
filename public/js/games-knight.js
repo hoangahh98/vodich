@@ -29,6 +29,8 @@
     playerHp: CONFIG.maxHp,
     monsterHp: 0,
     monsterMaxHp: 0,
+    wave: [], // đợt quái của ải
+    mobIndex: 0, // con quái đang đánh
     wrongThisStage: 0,
     locked: false,
     timerId: null,
@@ -239,12 +241,11 @@
       }
       S.stageMeta = data.stage;
       S.questions = data.questions;
-      S.monsterMaxHp = data.stage.monster.hp;
-      S.monsterHp = data.stage.monster.hp;
+      // Đợt quái: mảng quái, đánh lần lượt từng con.
+      S.wave = Array.isArray(data.wave) && data.wave.length ? data.wave : [{ name: 'Quái', emoji: '👾', type: 'normal', hp: 10 }];
+      S.mobIndex = 0;
       $('[data-stage-name]').textContent = 'Ải ' + data.stage.stage + ': ' + data.stage.title;
-      $('[data-monster-avatar]').textContent = data.stage.monster.emoji;
-      $('[data-monster-name]').textContent = data.stage.monster.name + (data.stage.monster.type === 'boss' ? ' 👑' : '');
-      renderHp();
+      spawnMonster();
       S.locked = false;
       loadQuestion();
     } catch (_) {
@@ -262,6 +263,24 @@
     btn.textContent = '🔄 Thử lại';
     btn.addEventListener('click', () => startStage(stageNumber));
     box.appendChild(btn);
+  }
+
+  // Hiện con quái hiện tại của đợt.
+  function spawnMonster() {
+    const m = S.wave[S.mobIndex] || { name: 'Quái', emoji: '👾', type: 'normal', hp: 1 };
+    S.monsterMaxHp = m.hp;
+    S.monsterHp = m.hp;
+    const isBoss = m.type === 'boss';
+    const av = $('[data-monster-avatar]');
+    av.textContent = m.emoji;
+    av.classList.toggle('boss', isBoss);
+    $('[data-monster-name]').textContent = (isBoss ? '👑 BOSS: ' : '') + m.name;
+    const wp = $('[data-wave-progress]');
+    if (wp) wp.textContent = isBoss ? '👑 BOSS xuất hiện!' : ('👾 Quái ' + (S.mobIndex + 1) + '/' + S.wave.length);
+    renderHp();
+    const mm = $('.knight-monster');
+    if (mm) { mm.classList.remove('spawn'); void mm.offsetWidth; mm.classList.add('spawn'); }
+    if (isBoss) sound('win');
   }
 
   function renderHp() {
@@ -396,7 +415,15 @@
     renderHp();
     hitMonster();
     confetti();
-    if (S.monsterHp <= 0) { setTimeout(stageCleared, 700); return; }
+    if (S.monsterHp <= 0) {
+      // Con quái hiện tại gục -> sang con tiếp theo, hoặc hết đợt thì qua ải.
+      const mm = $('.knight-monster');
+      if (mm) { mm.classList.remove('faint'); void mm.offsetWidth; mm.classList.add('faint'); }
+      S.mobIndex += 1;
+      if (S.mobIndex >= S.wave.length) { setTimeout(stageCleared, 750); return; }
+      setTimeout(() => { spawnMonster(); loadNext(); }, 800);
+      return;
+    }
     setTimeout(loadNext, 800);
   }
 

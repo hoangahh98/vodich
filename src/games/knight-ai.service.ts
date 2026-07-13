@@ -42,7 +42,7 @@ export class KnightAiService {
   }
 
   async generateQuestions(params: GenerateParams): Promise<KnightQuestion[]> {
-    const count = clamp(params.count, 3, 14);
+    const count = clamp(params.count, 3, 40);
     const age = clamp(params.age, 4, 7);
     const emojis = themeEmojis(params.notes || '');
     // Độ khó = mốc theo mức chọn + tiến trình theo ải (ải càng cao càng khó).
@@ -72,7 +72,12 @@ function levelBase(level: KnightLevel): number {
 }
 
 // ---- Cá nhân hoá loại câu hỏi theo tuổi + ghi chú ----
-type QType = 'count' | 'addPic' | 'subPic' | 'add' | 'sub' | 'compareBig' | 'compareSmall' | 'pattern' | 'shape' | 'seq' | 'seqMissing' | 'match';
+type QType =
+  | 'count' | 'addPic' | 'subPic' | 'add' | 'sub'
+  | 'compareBig' | 'compareSmall' | 'pattern' | 'shape' | 'seq' | 'seqMissing' | 'match'
+  // Dạng mở rộng từ ngân hàng 350 câu tư duy 5-7 tuổi:
+  | 'compareSign' | 'beforeAfter' | 'shapeSides' | 'realShape' | 'oddOneOut'
+  | 'heavier' | 'shareCandy' | 'legsWheels' | 'clock' | 'dayShift' | 'transitive';
 
 function typePool(age: number, notes: string, hardness: number): QType[] {
   const n = notes.toLowerCase();
@@ -93,6 +98,11 @@ function typePool(age: number, notes: string, hardness: number): QType[] {
   // Độ khó cao: ưu tiên phép tính & dãy số (bớt tỉ trọng câu dễ như đếm/hình).
   if (hardness >= 4) { boost('compareBig'); boost('seqMissing'); if (age >= 6) { boost('add'); boost('sub'); } else { boost('addPic'); boost('subPic'); } }
   if (hardness >= 8 && age >= 6) { boost('add'); boost('sub'); boost('seq'); }
+
+  // Dạng mở rộng từ ngân hàng 350 câu (tư duy tổng hợp) — thêm cho phong phú.
+  ['compareSign', 'beforeAfter', 'shapeSides', 'oddOneOut', 'shareCandy', 'heavier', 'realShape'].forEach((t) => pool.push(t as QType));
+  if (age >= 5) ['legsWheels', 'clock'].forEach((t) => pool.push(t as QType));
+  if (age >= 6) ['clock', 'dayShift', 'transitive', 'legsWheels'].forEach((t) => pool.push(t as QType));
   return pool;
 }
 
@@ -182,6 +192,88 @@ function build(type: QType, age: number, emojis: string[], hardness: number): Kn
       const pairs = Array.from(ns).map((num, i) => ({ n: num, emoji: uniqEmojis[i % uniqEmojis.length] }));
       return { type: 'match', prompt: 'Nối số với nhóm có đúng số lượng', visual: '', choices: [], answer: -1, pairs };
     }
+    case 'compareSign': {
+      const max = cap(age <= 5 ? 10 : 20, 1.4, 5, 50);
+      const a = randInt(1, max);
+      const b = randInt(1, max);
+      const ans = a > b ? '>' : a < b ? '<' : '=';
+      const choices = ['>', '<', '='];
+      return { prompt: `Chọn dấu đúng:  ${a} ? ${b}`, visual: `${a}   ${b}`, choices, answer: choices.indexOf(ans) };
+    }
+    case 'beforeAfter': {
+      const max = cap(age <= 5 ? 10 : 20, 1.2, 5, 50);
+      if (pick([true, false])) {
+        const n = randInt(2, max);
+        return numericQ(`Số liền TRƯỚC của ${n} là số mấy?`, '', n - 1, 0, max);
+      }
+      const n = randInt(1, max - 1);
+      return numericQ(`Số liền SAU của ${n} là số mấy?`, '', n + 1, 0, max + 1);
+    }
+    case 'shapeSides': {
+      const s = pick(SHAPE_SIDES);
+      return numericQ(`${s.name} có mấy cạnh?`, s.emoji, s.sides, 0, 6);
+    }
+    case 'realShape': {
+      const r = pick(REAL_SHAPES);
+      const distract = shuffle(ALL_SHAPES.filter((x) => x !== r.shape)).slice(0, 2);
+      const choices = shuffle([r.shape, ...distract]);
+      return { prompt: `${r.obj} ${r.emoji} có dạng hình gì?`, visual: '', choices, answer: choices.indexOf(r.shape) };
+    }
+    case 'oddOneOut': {
+      const cats = Object.keys(ODD_CATEGORIES);
+      const baseCat = pick(cats);
+      let oddCat = pick(cats);
+      while (oddCat === baseCat) oddCat = pick(cats);
+      const base = shuffle(ODD_CATEGORIES[baseCat]).slice(0, 3);
+      const odd = pick(ODD_CATEGORIES[oddCat]);
+      const choices = shuffle([...base, odd]);
+      return { prompt: 'Hình nào KHÁC nhóm?', visual: '', choices, answer: choices.indexOf(odd) };
+    }
+    case 'heavier': {
+      let i = randInt(0, ANIMAL_WEIGHT.length - 1);
+      let j = randInt(0, ANIMAL_WEIGHT.length - 1);
+      while (j === i) j = randInt(0, ANIMAL_WEIGHT.length - 1);
+      const heavier = i > j ? ANIMAL_WEIGHT[i] : ANIMAL_WEIGHT[j];
+      const choices = shuffle([ANIMAL_WEIGHT[i], ANIMAL_WEIGHT[j]]);
+      return { prompt: 'Con nào NẶNG hơn?', visual: '', choices, answer: choices.indexOf(heavier) };
+    }
+    case 'shareCandy': {
+      const maxHalf = cap(age <= 5 ? 4 : 6, 0.3, 2, 9);
+      const half = randInt(1, maxHalf);
+      const total = half * 2;
+      return numericQ(`Có ${total} 🍬 chia đều cho 2 bạn. Mỗi bạn được mấy cái?`, repeat('🍬', total), half, 0, total);
+    }
+    case 'legsWheels': {
+      const l = pick(LEGS);
+      const count = randInt(2, age <= 5 ? 3 : 4);
+      return numericQ(`Mỗi ${l.name} ${l.emoji} có ${l.per} ${l.part}. ${count} ${l.name} có mấy ${l.part}?`, repeat(l.emoji, count), l.per * count, 0, l.per * count + 3);
+    }
+    case 'clock': {
+      const h = randInt(1, 12);
+      return numericQ('Đồng hồ chỉ mấy giờ?', CLOCK_BY_HOUR[h], h, 1, 12);
+    }
+    case 'dayShift': {
+      const today = randInt(0, 6);
+      const next = pick([true, false]);
+      const ansIdx = next ? (today + 1) % 7 : (today + 6) % 7;
+      const ans = DAYS[ansIdx];
+      const others = shuffle(DAYS.filter((d) => d !== ans)).slice(0, 2);
+      const choices = shuffle([ans, ...others]);
+      return { prompt: `Hôm nay là ${DAYS[today]}, vậy ${next ? 'ngày mai' : 'hôm qua'} là thứ mấy?`, visual: '', choices, answer: choices.indexOf(ans) };
+    }
+    case 'transitive': {
+      const trio = shuffle(PEOPLE).slice(0, 3); // A > B > C theo đặc điểm
+      const [a, b, c] = trio;
+      const t = pick([
+        { rel: 'cao hơn', ask: 'cao nhất', top: true },
+        { rel: 'cao hơn', ask: 'thấp nhất', top: false },
+        { rel: 'chạy nhanh hơn', ask: 'chạy nhanh nhất', top: true },
+        { rel: 'chạy nhanh hơn', ask: 'chạy chậm nhất', top: false },
+      ]);
+      const ans = t.top ? a : c;
+      const choices = shuffle([a, b, c]);
+      return { prompt: `${a} ${t.rel} ${b}. ${b} ${t.rel} ${c}. Ai ${t.ask}?`, visual: '', choices, answer: choices.indexOf(ans) };
+    }
     default:
       return null;
   }
@@ -233,6 +325,40 @@ const SHAPE_OBJS = [
   { emoji: '❤️', name: 'trái tim' },
   { emoji: '🟩', name: 'hình vuông xanh' },
 ];
+
+// ---- Dữ liệu cho các dạng mở rộng (ngân hàng 350 câu) ----
+const SHAPE_SIDES = [
+  { emoji: '🔺', name: 'Tam giác', sides: 3 },
+  { emoji: '🟦', name: 'Hình vuông', sides: 4 },
+  { emoji: '🟥', name: 'Hình chữ nhật', sides: 4 },
+  { emoji: '🔵', name: 'Hình tròn', sides: 0 },
+];
+const REAL_SHAPES = [
+  { obj: 'Bánh xe đạp', emoji: '🚲', shape: '🔵' },
+  { obj: 'Mặt đồng hồ', emoji: '🕐', shape: '🔵' },
+  { obj: 'Quả bóng', emoji: '⚽', shape: '🔵' },
+  { obj: 'Cửa sổ lớp học', emoji: '🪟', shape: '🟦' },
+  { obj: 'Viên gạch', emoji: '🧱', shape: '🟥' },
+];
+const ALL_SHAPES = ['🔵', '🟦', '🟥', '🔺'];
+const ODD_CATEGORIES: Record<string, string[]> = {
+  animal: ['🐶', '🐱', '🐷', '🐰', '🐮', '🐔', '🐸', '🐵'],
+  fruit: ['🍎', '🍌', '🍓', '🍉', '🍊', '🍇', '🍑', '🍐'],
+  vehicle: ['🚗', '🚌', '✈️', '🚂', '🚲', '🚢', '🚚'],
+  school: ['✏️', '📕', '📏', '🎒', '📐', '🖊️'],
+};
+// Nhẹ -> nặng dần (chỉ số càng lớn càng nặng).
+const ANIMAL_WEIGHT = ['🐜', '🐭', '🐹', '🐰', '🐱', '🐶', '🐷', '🐺', '🐴', '🐻', '🦁', '🐘', '🦏', '🐋'];
+const CLOCK_BY_HOUR: Record<number, string> = { 1: '🕐', 2: '🕑', 3: '🕒', 4: '🕓', 5: '🕔', 6: '🕕', 7: '🕖', 8: '🕗', 9: '🕘', 10: '🕙', 11: '🕚', 12: '🕛' };
+const DAYS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+const LEGS = [
+  { name: 'con chó', emoji: '🐶', per: 4, part: 'chân' },
+  { name: 'con mèo', emoji: '🐱', per: 4, part: 'chân' },
+  { name: 'con gà', emoji: '🐔', per: 2, part: 'chân' },
+  { name: 'xe đạp', emoji: '🚲', per: 2, part: 'bánh' },
+  { name: 'ô tô', emoji: '🚗', per: 4, part: 'bánh' },
+];
+const PEOPLE = ['An', 'Bi', 'Bo', 'Ken', 'Su', 'Ti', 'Na', 'Lu', 'Ni', 'Mi'];
 
 // Chữ ký để loại câu trùng trong cùng một ải.
 function signature(q: KnightQuestion): string {

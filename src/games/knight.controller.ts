@@ -5,7 +5,14 @@ import { RateLimitService } from '../common/rate-limit.service';
 import { render } from '../common/view';
 import { KnightService } from './knight.service';
 import { KnightAiService } from './knight-ai.service';
-import { getStage, MAX_HP, MAX_STAGE, STAGES } from './knight.constants';
+import { BOSS_HP, getStage, MAX_HP, MAX_STAGE, STAGES, WAVE_SIZE } from './knight.constants';
+
+interface WaveMonster {
+  name: string;
+  emoji: string;
+  type: string;
+  hp: number;
+}
 
 @Controller()
 export class KnightController {
@@ -64,11 +71,20 @@ export class KnightController {
     if (!limit.allowed) return res.status(429).json({ error: `Chờ chút nhé, thử lại sau ${limit.retryAfterSeconds}s.` });
 
     const level = body?.level === 'easy' || body?.level === 'hard' ? body.level : 'medium';
-    // 14 câu duy nhất/ải: đủ để hạ quái 10 máu kể cả khi có vài câu sai.
-    const count = 14;
+
+    // Một đợt: 10 quái thường (mỗi con 1-3 máu) + boss (nếu ải 5/10).
+    const wave: WaveMonster[] = [];
+    for (let i = 0; i < WAVE_SIZE; i++) {
+      wave.push({ name: stage.monster.name, emoji: stage.monster.emoji, type: 'normal', hp: 1 + Math.floor(Math.random() * 3) });
+    }
+    if (stage.boss) wave.push({ name: stage.boss.name, emoji: stage.boss.emoji, type: 'boss', hp: BOSS_HP });
+    const totalHp = wave.reduce((sum, m) => sum + m.hp, 0);
+    // Đủ câu duy nhất để hạ cả đợt + dự phòng khi có câu sai.
+    const count = Math.min(40, totalHp + 6);
+
     try {
       const questions = await this.knightAi.generateQuestions({ age: character.age, notes: character.notes, monster: stage.monster, count, level, stage: stage.stage });
-      return res.json({ stage: { stage: stage.stage, title: stage.title, scene: stage.scene, monster: stage.monster }, questions });
+      return res.json({ stage: { stage: stage.stage, title: stage.title, scene: stage.scene }, wave, questions });
     } catch (error) {
       return res.status(502).json({ error: error instanceof Error ? error.message : 'Không tạo được câu hỏi' });
     }

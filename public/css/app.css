@@ -673,6 +673,13 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .knight-overlay-actions .knight-btn { width: 100%; }
 .knight-ai-note { width: 100%; max-width: 620px; text-align: center; background: rgba(0,0,0,.22); border-radius: 12px; padding: 8px 14px; font-weight: 600; font-size: 14px; }
 .knight-flee { flex: 0 0 auto; }
+.knight-wave { width: 100%; max-width: 760px; text-align: center; font-weight: 800; font-size: 15px; background: rgba(0,0,0,.2); border-radius: 999px; padding: 5px 12px; }
+.knight-avatar.boss { font-size: 84px; filter: drop-shadow(0 0 12px rgba(255,80,80,.8)); animation: knight-boss-idle 1.2s ease-in-out infinite; }
+@keyframes knight-boss-idle { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.knight-monster.spawn { animation: knight-spawn .4s ease; }
+.knight-monster.faint { animation: knight-faint .5s ease forwards; }
+@keyframes knight-spawn { 0% { transform: scale(0) rotate(-20deg); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes knight-faint { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(.2) translateY(20px); opacity: 0; } }
 
 /* Chọn độ khó */
 .knight-diff { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; justify-content: center; }
