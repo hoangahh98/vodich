@@ -649,6 +649,18 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .knight-choice.wrong { background: #e74c3c; color: #fff; animation: game-shake .3s; }
 .knight-feedback { min-height: 26px; font-size: 19px; font-weight: 800; text-align: center; }
 
+/* Câu NỐI (chạm số -> chạm nhóm hình) */
+.knight-match { position: relative; display: flex; justify-content: space-between; gap: 26px; width: 100%; }
+.knight-match-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; z-index: 0; }
+.knight-match-line { stroke: #ffd166; stroke-width: 5; stroke-linecap: round; }
+.knight-match-col { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+.knight-match-item { position: relative; z-index: 1; border: 0; border-radius: 16px; padding: 14px 8px; font-weight: 900; cursor: pointer; background: #fff; color: #333; box-shadow: 0 5px 0 rgba(0,0,0,.18); min-height: 56px; display: flex; align-items: center; justify-content: center; }
+.knight-match-num { font-size: 32px; }
+.knight-match-group { font-size: 24px; line-height: 1.25; flex-wrap: wrap; word-break: break-word; }
+.knight-match-item.active { outline: 4px solid #ffd166; background: #fff7dd; }
+.knight-match-item.done { background: #2ecc71; color: #fff; box-shadow: 0 5px 0 rgba(0,0,0,.14); cursor: default; }
+.knight-match-item.shake { animation: game-shake .3s; }
+
 /* Overlay kết quả */
 .knight-overlay { position: fixed; inset: 0; z-index: 70; background: rgba(10,6,30,.72); display: flex; align-items: center; justify-content: center; padding: 20px; }
 .knight-overlay.hidden { display: none; }

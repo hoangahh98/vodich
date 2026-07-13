@@ -1,12 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { Monster } from './knight.constants';
 
-// Một câu hỏi trực quan cho trẻ: emoji minh hoạ + các thẻ đáp án bấm chọn (không gõ phím).
+// Một cặp để nối: số <-> nhóm đồ vật có đúng số lượng đó.
+export interface KnightPair {
+  n: number;
+  emoji: string;
+}
+
+// Một câu hỏi trực quan cho trẻ.
+// - type 'choice' (mặc định): emoji minh hoạ + thẻ đáp án bấm chọn.
+// - type 'match': nối SỐ với NHÓM hình có đúng số lượng (chạm nối).
 export interface KnightQuestion {
+  type?: 'choice' | 'match';
   prompt: string;
   visual: string; // chuỗi emoji minh hoạ (có thể rỗng)
-  choices: string[]; // 2-4 lựa chọn hiển thị dạng thẻ
-  answer: number; // chỉ số đáp án ĐÚNG trong choices
+  choices: string[]; // 2-4 lựa chọn hiển thị dạng thẻ (rỗng khi type 'match')
+  answer: number; // chỉ số đáp án ĐÚNG trong choices (-1 khi type 'match')
+  pairs?: KnightPair[]; // các cặp cần nối (chỉ dùng khi type 'match')
 }
 
 export interface GenerateParams {
@@ -52,15 +62,15 @@ export class KnightAiService {
 }
 
 // ---- Cá nhân hoá loại câu hỏi theo tuổi + ghi chú ----
-type QType = 'count' | 'addPic' | 'subPic' | 'add' | 'sub' | 'compareBig' | 'compareSmall' | 'pattern' | 'shape' | 'seq' | 'seqMissing';
+type QType = 'count' | 'addPic' | 'subPic' | 'add' | 'sub' | 'compareBig' | 'compareSmall' | 'pattern' | 'shape' | 'seq' | 'seqMissing' | 'match';
 
 function typePool(age: number, monster: Monster['type'], notes: string): QType[] {
   const n = notes.toLowerCase();
   let pool: QType[];
-  if (age <= 4) pool = ['count', 'count', 'pattern', 'shape', 'addPic', 'compareBig'];
-  else if (age === 5) pool = ['count', 'addPic', 'subPic', 'pattern', 'shape', 'compareBig', 'compareSmall', 'seqMissing'];
-  else if (age === 6) pool = ['add', 'addPic', 'sub', 'subPic', 'compareBig', 'compareSmall', 'seq', 'seqMissing', 'count'];
-  else pool = ['add', 'sub', 'compareBig', 'compareSmall', 'seq', 'seqMissing', 'addPic', 'subPic'];
+  if (age <= 4) pool = ['count', 'count', 'pattern', 'shape', 'addPic', 'compareBig', 'match'];
+  else if (age === 5) pool = ['count', 'addPic', 'subPic', 'pattern', 'shape', 'compareBig', 'compareSmall', 'seqMissing', 'match'];
+  else if (age === 6) pool = ['add', 'addPic', 'sub', 'subPic', 'compareBig', 'compareSmall', 'seq', 'seqMissing', 'count', 'match'];
+  else pool = ['add', 'sub', 'compareBig', 'compareSmall', 'seq', 'seqMissing', 'addPic', 'subPic', 'match'];
 
   // Bám ghi chú của bố mẹ để luyện đúng điểm yếu (thêm trọng số).
   const boost = (t: QType, times = 2) => { for (let i = 0; i < times; i++) pool.push(t); };
@@ -151,6 +161,16 @@ function build(type: QType, age: number, monster: Monster['type'], emojis: strin
       const mid = start + step, end = start + 2 * step;
       return numericQ(`Số còn thiếu: ${start}, ?, ${end}`, '', mid, 0, end + 2);
     }
+    case 'match': {
+      // Nối SỐ với NHÓM đồ vật có đúng số lượng (giống câu "tìm số lượng tương ứng").
+      const count = age <= 5 ? pick([2, 3]) : 3;
+      const maxN = age <= 4 ? 5 : age <= 5 ? 6 : 9;
+      const ns = new Set<number>();
+      while (ns.size < count) ns.add(randInt(1, maxN)); // số lượng phân biệt -> nối 1-1 không mơ hồ
+      const uniqEmojis = shuffle(Array.from(new Set(emojis)));
+      const pairs = Array.from(ns).map((num, i) => ({ n: num, emoji: uniqEmojis[i % uniqEmojis.length] }));
+      return { type: 'match', prompt: 'Nối số với nhóm có đúng số lượng', visual: '', choices: [], answer: -1, pairs };
+    }
     default:
       return null;
   }
@@ -205,6 +225,9 @@ const SHAPE_OBJS = [
 
 // Chữ ký để loại câu trùng trong cùng một ải.
 function signature(q: KnightQuestion): string {
+  if (q.type === 'match' && q.pairs) {
+    return 'match|' + q.pairs.map((p) => p.n + ':' + p.emoji).slice().sort().join(',');
+  }
   return q.prompt + '|' + q.visual + '|' + q.choices.slice().sort().join(',');
 }
 

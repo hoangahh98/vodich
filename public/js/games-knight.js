@@ -267,20 +267,125 @@
     const q = S.questions[S.qIndex % S.questions.length];
     S.locked = false;
     $('[data-feedback]').textContent = '';
-    $('[data-visual]').textContent = q.visual || '';
-    $('[data-visual]').classList.toggle('hidden', !q.visual);
-    $('[data-question]').textContent = q.prompt;
     const box = $('[data-choices]');
     box.innerHTML = '';
-    q.choices.forEach((choice, idx) => {
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'knight-choice';
-      btn.textContent = choice;
-      btn.addEventListener('click', () => answer(idx, btn, q));
-      box.appendChild(btn);
-    });
+    $('[data-question]').textContent = q.prompt;
+    if (q.type === 'match' && Array.isArray(q.pairs)) {
+      $('[data-visual]').textContent = '';
+      $('[data-visual]').classList.add('hidden');
+      renderMatch(q, box);
+    } else {
+      $('[data-visual]').textContent = q.visual || '';
+      $('[data-visual]').classList.toggle('hidden', !q.visual);
+      q.choices.forEach((choice, idx) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'knight-choice';
+        btn.textContent = choice;
+        btn.addEventListener('click', () => answer(idx, btn, q));
+        box.appendChild(btn);
+      });
+    }
     startTimer();
+  }
+
+  const repeatEmoji = (e, n) => Array.from({ length: n }, () => e).join('');
+
+  // Câu NỐI: chạm 1 số bên trái -> chạm nhóm hình bên phải, đúng số lượng thì nối lại.
+  function renderMatch(q, box) {
+    const SVGNS = 'http://www.w3.org/2000/svg';
+    const wrap = document.createElement('div');
+    wrap.className = 'knight-match';
+    const svg = document.createElementNS(SVGNS, 'svg');
+    svg.setAttribute('class', 'knight-match-svg');
+    const leftCol = document.createElement('div');
+    leftCol.className = 'knight-match-col';
+    const rightCol = document.createElement('div');
+    rightCol.className = 'knight-match-col';
+    const leftData = window.GameCore.shuffle(q.pairs.slice());
+    const rightData = window.GameCore.shuffle(q.pairs.slice());
+    const total = q.pairs.length;
+    let selLeft = null;
+    let done = 0;
+
+    function drawLine(a, b) {
+      const wr = wrap.getBoundingClientRect();
+      const ra = a.getBoundingClientRect();
+      const rb = b.getBoundingClientRect();
+      const line = document.createElementNS(SVGNS, 'line');
+      line.setAttribute('x1', String(ra.right - wr.left));
+      line.setAttribute('y1', String(ra.top + ra.height / 2 - wr.top));
+      line.setAttribute('x2', String(rb.left - wr.left));
+      line.setAttribute('y2', String(rb.top + rb.height / 2 - wr.top));
+      line.setAttribute('class', 'knight-match-line');
+      svg.appendChild(line);
+    }
+
+    leftData.forEach((p) => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'knight-match-item knight-match-num';
+      el.textContent = String(p.n);
+      el.dataset.n = String(p.n);
+      el.addEventListener('click', () => {
+        if (S.locked || el.classList.contains('done')) return;
+        leftCol.querySelectorAll('.knight-match-item').forEach((x) => x.classList.remove('active'));
+        el.classList.add('active');
+        selLeft = el;
+      });
+      leftCol.appendChild(el);
+    });
+
+    rightData.forEach((p) => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'knight-match-item knight-match-group';
+      el.textContent = repeatEmoji(p.emoji, p.n);
+      el.dataset.n = String(p.n);
+      el.addEventListener('click', () => {
+        if (S.locked || el.classList.contains('done')) return;
+        if (!selLeft) { $('[data-feedback]').textContent = '👉 Chạm một SỐ bên trái trước nhé'; return; }
+        if (Number(selLeft.dataset.n) === Number(el.dataset.n)) {
+          selLeft.classList.add('done'); selLeft.classList.remove('active');
+          el.classList.add('done');
+          drawLine(selLeft, el);
+          sound('correct');
+          selLeft = null;
+          done += 1;
+          if (done === total) {
+            S.locked = true;
+            stopTimer();
+            $('[data-feedback]').textContent = praise();
+            monsterTakeHitThenContinue();
+          } else {
+            $('[data-feedback]').textContent = '✅ Đúng rồi! Nối tiếp nào.';
+          }
+        } else {
+          el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake');
+          if (selLeft) selLeft.classList.remove('active');
+          selLeft = null;
+          sound('wrong');
+          S.wrongThisStage += 1;
+          $('[data-feedback]').textContent = 'Chưa đúng, đếm lại rồi nối nhé 😊';
+        }
+      });
+      rightCol.appendChild(el);
+    });
+
+    wrap.appendChild(svg);
+    wrap.appendChild(leftCol);
+    wrap.appendChild(rightCol);
+    box.appendChild(wrap);
+  }
+
+  // Đánh trúng quái 1 đòn rồi sang câu tiếp / kết thúc ải (dùng chung cho câu chọn & câu nối).
+  function monsterTakeHitThenContinue() {
+    S.monsterHp -= 1;
+    renderHp();
+    hitMonster();
+    confetti();
+    if (S.monsterHp <= 0) { setTimeout(stageCleared, 700); return; }
+    setTimeout(loadNext, 800);
   }
 
   function startTimer() {
@@ -318,13 +423,8 @@
     if (correct) {
       btn.classList.add('correct');
       sound('correct');
-      S.monsterHp -= 1;
-      renderHp();
-      hitMonster();
       $('[data-feedback]').textContent = praise();
-      confetti();
-      if (S.monsterHp <= 0) { setTimeout(stageCleared, 700); return; }
-      setTimeout(loadNext, 800);
+      monsterTakeHitThenContinue();
     } else {
       btn.classList.add('wrong');
       // đánh dấu đáp án đúng cho bé học
