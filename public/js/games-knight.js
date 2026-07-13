@@ -62,7 +62,9 @@
     if (!(opts && opts.silent)) showNet('⏳ Đang xử lý...');
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+        // Timeout mỗi lần gọi để không treo vô hạn khi mạng lag.
+        const signal = (window.AbortSignal && AbortSignal.timeout) ? AbortSignal.timeout(15000) : undefined;
+        const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal });
         if (res.ok) { hideNet(); return { ok: true, data: await res.json() }; }
         if ((res.status >= 500 || res.status === 429) && attempt < maxAttempts) {
           showNet('⏳ Máy chủ bận, thử lại (' + attempt + '/' + maxAttempts + ')...');
@@ -644,34 +646,33 @@
     setTimeout(() => b.remove(), 600);
   }
 
-  // ---- Kết thúc ải ----
-  async function stageCleared() {
+  // ---- Kết thúc ải ---- (hiện kết quả NGAY, lưu chạy nền để mạng chậm không chặn màn ăn mừng)
+  function stageCleared() {
     stopTimer();
     sound('win');
     confetti();
     const stars = S.wrongThisStage === 0 ? 3 : S.wrongThisStage <= 2 ? 2 : 1;
     const stageNum = S.stageMeta.stage;
     const isFinal = stageNum >= CONFIG.maxStage;
-    await saveProgress({ stage: stageNum, hp: S.playerHp, cleared: true, stars, mobIndex: 0 });
     if (isFinal) {
       showVictory();
     } else {
       showOverlay({
-        emoji: S.stageMeta.monster.emoji, title: 'Qua ải rồi!', stars,
-        text: 'Tuyệt vời! Sẵn sàng cho ải tiếp theo chưa?',
+        emoji: '🏆', title: 'Qua ải rồi!', stars,
+        text: 'Tuyệt vời! Đã dọn sạch cả đợt quái. Sẵn sàng cho ải tiếp theo chưa?',
         actions: [
           { label: '➡️ Ải tiếp theo', primary: true, fn: () => startStage(stageNum + 1) },
           { label: '🗺️ Bản đồ', primary: false, fn: enterMap },
         ],
       });
     }
+    saveProgress({ stage: stageNum, hp: S.playerHp, cleared: true, stars, mobIndex: 0 }, true);
   }
 
-  async function heroDown() {
+  function heroDown() {
     stopTimer();
     sound('wrong');
     const stageNum = S.stageMeta.stage;
-    await saveProgress({ stage: stageNum, hp: 0, cleared: false, mobIndex: 0 });
     showOverlay({
       emoji: '😴', title: 'Hiệp sĩ cần nghỉ ngơi', stars: -1,
       text: 'Hết máu rồi! Nghỉ một chút rồi thử lại ải này nhé — tiến trình các ải đã qua vẫn được giữ.',
@@ -680,6 +681,7 @@
         { label: '🗺️ Bản đồ', primary: false, fn: enterMap },
       ],
     });
+    saveProgress({ stage: stageNum, hp: 0, cleared: false, mobIndex: 0 }, true);
   }
 
   async function saveProgress(payload, silent) {

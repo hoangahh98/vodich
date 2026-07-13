@@ -53,7 +53,7 @@ export class KnightAiService {
   }
 
   async generateQuestions(params: GenerateParams): Promise<KnightQuestion[]> {
-    const count = clamp(params.count, 3, 40);
+    const count = clamp(params.count, 3, 50);
     const age = clamp(params.age, 4, 7);
     const emojis = themeEmojis(params.notes || '');
     // Độ khó = mốc theo mức chọn + tiến trình theo ải (ải càng cao càng khó).

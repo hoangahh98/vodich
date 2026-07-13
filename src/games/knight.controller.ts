@@ -79,8 +79,9 @@ export class KnightController {
     }
     if (stage.boss) wave.push({ name: stage.boss.name, emoji: stage.boss.emoji, type: 'boss', hp: BOSS_HP });
     const totalHp = wave.reduce((sum, m) => sum + m.hp, 0);
-    // Đủ câu duy nhất để hạ cả đợt + dự phòng khi có câu sai.
-    const count = Math.min(40, totalHp + 6);
+    // Đủ câu DUY NHẤT cho cả trường hợp xấu nhất: hạ hết đợt (totalHp câu đúng)
+    // + tối đa MAX_HP-1 câu sai trước khi hết máu -> không bao giờ phải lặp lại câu.
+    const count = Math.min(50, totalHp + MAX_HP);
 
     try {
       const questions = await this.knightAi.generateQuestions({ age: character.age, notes: character.notes, monster: stage.monster, count, level, stage: stage.stage });
