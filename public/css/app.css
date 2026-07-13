@@ -833,9 +833,11 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .game-body button { -webkit-appearance: none; appearance: none; }
 
 /* ===== Game: Lật Hình Trí Nhớ ===== */
-.match-stage { position: fixed; inset: 0; background: linear-gradient(160deg,#667eea,#764ba2); overflow: hidden; touch-action: manipulation; }
-.match-hint { position: fixed; top: 56px; left: 0; right: 0; text-align: center; color: #fff; font-weight: 800; font-size: 18px; text-shadow: 0 2px 6px rgba(0,0,0,.3); }
-.match-grid { position: absolute; inset: 96px 12px 16px; display: grid; gap: 10px; justify-content: center; align-content: center; place-content: center; }
+.match-stage { position: fixed; inset: 0; background: linear-gradient(160deg,#667eea,#764ba2); overflow-y: auto; touch-action: manipulation; display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 54px 12px 18px; }
+.match-stage .game-levels { margin-top: 2px; }
+.match-hint { text-align: center; color: #fff; font-weight: 800; font-size: 18px; text-shadow: 0 2px 6px rgba(0,0,0,.3); }
+.match-moves { color: #fff; font-weight: 800; font-size: 14.5px; text-shadow: 0 1px 4px rgba(0,0,0,.3); opacity: .95; }
+.match-grid { display: grid; gap: 10px; justify-content: center; align-content: center; margin: auto 0; }
 .match-card { position: relative; width: 100%; aspect-ratio: 1; border: 0; background: transparent; cursor: pointer; perspective: 600px; padding: 0; }
 .match-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .35s; }
 .match-card.flipped .match-inner, .match-card.matched .match-inner { transform: rotateY(180deg); }

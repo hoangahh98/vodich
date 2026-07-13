@@ -2,7 +2,13 @@
 <body class="game-body">
   <div class="match-stage" data-game="match">
     <a class="game-back peek-back" href="/games">Về</a>
+    <div class="game-levels" data-levels>
+      <button class="game-level active" data-level="easy" type="button">😀 Dễ</button>
+      <button class="game-level" data-level="medium" type="button">😎 Vừa</button>
+      <button class="game-level" data-level="hard" type="button">🤯 Khó</button>
+    </div>
     <div class="match-hint" data-match-hint>Lật 2 hình giống nhau nhé! 🃏</div>
+    <div class="match-moves" data-match-moves></div>
     <div class="match-grid" data-match-grid></div>
   </div>
   <script src="/js/games-core.js"></script>
