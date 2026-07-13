@@ -350,27 +350,48 @@
     startTimer();
   }
 
-  // Vẽ thẻ CÂN THĂNG BẰNG (ít chữ, nhiều hình): 1 [lớn] ⚖️ k×[nhỏ]; rồi hỏi bằng mấy.
+  // Vẽ thẻ CÂN THĂNG BẰNG (ít chữ, nhiều hình): cái cân 2 đĩa cho biết 1 [lớn] = k [nhỏ],
+  // rồi hàng dưới hỏi: [nhỏ]×qty = ? [lớn] (hoặc ngược lại).
   function buildBalance(b) {
     const given = b.side === 'big' ? b.big : b.small;
     const target = b.side === 'big' ? b.small : b.big;
     const wrap = document.createElement('div');
     wrap.className = 'knight-balance';
-    const rule = document.createElement('div');
-    rule.className = 'knight-balance-row';
-    rule.innerHTML =
-      '<span class="kb-one">1</span><span class="kb-emo">' + b.big + '</span>' +
-      '<span class="kb-scale">⚖️</span>' +
-      '<span class="kb-emo">' + repeatEmoji(b.small, b.k) + '</span>';
+    wrap.appendChild(buildScale(b.big, repeatEmoji(b.small, b.k)));
     const ask = document.createElement('div');
     ask.className = 'knight-balance-row knight-balance-ask';
     ask.innerHTML =
       '<span class="kb-emo">' + repeatEmoji(given, b.qty) + '</span>' +
       '<span class="kb-eq">=</span><span class="kb-q">?</span>' +
       '<span class="kb-emo">' + target + '</span>';
-    wrap.appendChild(rule);
     wrap.appendChild(ask);
     return wrap;
+  }
+
+  // Cái cân thăng bằng 2 đĩa: đĩa trái đặt leftEmoji, đĩa phải đặt rightEmojis (đã cân bằng).
+  function buildScale(leftEmoji, rightEmojis) {
+    const NS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 220 122');
+    svg.setAttribute('class', 'knight-scale');
+    const add = (tag, attrs, text) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text != null) e.textContent = text; svg.appendChild(e); return e; };
+    // trụ + đế
+    add('line', { x1: 110, y1: 32, x2: 110, y2: 104, stroke: '#caa14a', 'stroke-width': 6, 'stroke-linecap': 'round' });
+    add('polygon', { points: '86,108 134,108 110,90', fill: '#caa14a' });
+    add('rect', { x: 80, y: 106, width: 60, height: 6, rx: 3, fill: '#8a6d2f' });
+    // đòn cân + trục
+    add('line', { x1: 30, y1: 32, x2: 190, y2: 32, stroke: '#caa14a', 'stroke-width': 6, 'stroke-linecap': 'round' });
+    add('circle', { cx: 110, cy: 32, r: 6, fill: '#8a6d2f' });
+    // dây treo
+    add('line', { x1: 30, y1: 32, x2: 30, y2: 62, stroke: '#ffffff', 'stroke-width': 2, opacity: '.8' });
+    add('line', { x1: 190, y1: 32, x2: 190, y2: 62, stroke: '#ffffff', 'stroke-width': 2, opacity: '.8' });
+    // 2 đĩa cân
+    add('path', { d: 'M8,62 A24,11 0 0 0 52,62', fill: 'rgba(255,255,255,.18)', stroke: '#caa14a', 'stroke-width': 4 });
+    add('path', { d: 'M168,62 A24,11 0 0 0 212,62', fill: 'rgba(255,255,255,.18)', stroke: '#caa14a', 'stroke-width': 4 });
+    // vật đặt trên đĩa
+    add('text', { x: 30, y: 58, 'text-anchor': 'middle', 'font-size': 26 }, leftEmoji);
+    add('text', { x: 190, y: 58, 'text-anchor': 'middle', 'font-size': 15 }, rightEmojis);
+    return svg;
   }
 
   // Vẽ đồng hồ kim rõ ràng cho câu "mấy giờ" (kim ngắn = giờ, kim dài = số 12).
