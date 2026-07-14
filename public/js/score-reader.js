@@ -171,16 +171,20 @@
     return String(playerNumber) === '1' ? '2' : '1';
   }
 
-  function scoreText() {
+  // Trả về [đoạn điểm, đoạn số tay (kèm lời chúc nếu đã thắng)] để đọc có ngắt nhịp.
+  function scoreParts() {
     const speech = window.VodichScoreSpeech || {};
     const read = speech.readVietnameseNumber || ((value) => String(value));
     const servingScore = state.servingTeam === 'A' ? state.scoreA : state.scoreB;
     const otherScore = state.servingTeam === 'A' ? state.scoreB : state.scoreA;
-    const base = `${read(servingScore)} ${read(otherScore)} ${read(state.scoreOrder)}`;
+    const scorePair = `${read(servingScore)} ${read(otherScore)}`;
     const winner = winnerTeam();
-    if (!winner) return base;
-    const name = winner === 'A' ? state.teamAName : state.teamBName;
-    return `${base}. Chúc mừng ${name || `đội ${winner}`} chiến thắng`;
+    let orderPart = read(state.scoreOrder);
+    if (winner) {
+      const name = winner === 'A' ? state.teamAName : state.teamBName;
+      orderPart = `${orderPart}. Chúc mừng ${name || `đội ${winner}`} chiến thắng`;
+    }
+    return [scorePair, orderPart];
   }
 
   function refreshVoices() {
@@ -188,19 +192,25 @@
   }
 
   function speak() {
-    const text = scoreText();
     if (!('speechSynthesis' in window)) {
       status('Trình duyệt này không hỗ trợ đọc điểm.', 'text-danger');
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(text);
+    const speech = window.VodichScoreSpeech || {};
+    const parts = scoreParts();
+    const text = parts.join(' ');
     refreshVoices();
     const viVoice = voices.find((voice) => voice.lang && voice.lang.toLowerCase().startsWith('vi'));
-    if (viVoice) utterance.voice = viVoice;
-    utterance.lang = 'vi-VN';
-    utterance.rate = 1.05;
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(utterance);
+    if (speech.speakSequence) {
+      speech.speakSequence(parts, { gap: 300, rate: 1.05, voice: viVoice || null });
+    } else {
+      const utterance = new SpeechSynthesisUtterance(text);
+      if (viVoice) utterance.voice = viVoice;
+      utterance.lang = 'vi-VN';
+      utterance.rate = 1.05;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+    }
     status(text);
   }
 

@@ -27,9 +27,11 @@
     window.speechSynthesis.speak(utterance);
   };
 
-  // Đọc lần lượt từng đoạn, chèn khoảng ngắt (mặc định ~0.45s) giữa các đoạn.
-  const speakSequence = (parts, gap = 450) => {
+  // Đọc lần lượt từng đoạn, chèn khoảng ngắt (mặc định ~0.3s) giữa các đoạn.
+  // options: { gap, rate, lang, voice } — hoặc truyền thẳng số để đặt gap.
+  const speakSequence = (parts, options = {}) => {
     if (!('speechSynthesis' in window)) return;
+    const { gap = 300, rate = 0.95, lang = 'vi-VN', voice = null } = typeof options === 'number' ? { gap: options } : (options || {});
     const list = (Array.isArray(parts) ? parts : [parts])
       .map((part) => String(part == null ? '' : part).trim())
       .filter(Boolean);
@@ -42,8 +44,9 @@
       if (token !== sequenceToken || index >= list.length) return;
       const utterance = new SpeechSynthesisUtterance(list[index]);
       index += 1;
-      utterance.lang = 'vi-VN';
-      utterance.rate = 0.95;
+      utterance.lang = lang;
+      utterance.rate = rate;
+      if (voice) utterance.voice = voice;
       utterance.onend = () => {
         if (token === sequenceToken && index < list.length) window.setTimeout(playNext, gap);
       };
