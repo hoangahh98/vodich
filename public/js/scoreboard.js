@@ -26,6 +26,7 @@
   const playStep = document.getElementById('scorePlayStep');
   const setupContinue = document.getElementById('scoreSetupContinue');
   const backToSetup = document.getElementById('scoreBackToSetup');
+  const swapCourt = document.getElementById('scoreSwapCourt');
   const scoreTeamA = document.getElementById('scoreTeamA');
   const scoreTeamB = document.getElementById('scoreTeamB');
   const scoreValueA = document.getElementById('scoreInputA');
@@ -53,7 +54,7 @@
   };
 
   let activeRow = null;
-  let state = { scoreA: 0, scoreB: 0, servingTeam: 'A', servingPlayer: '1', firstServerActive: true, scoreHistory: [], scoreOrder: 2, positions: { A: { 1: '1', 2: '2' }, B: { 1: '1', 2: '2' } } };
+  let state = { scoreA: 0, scoreB: 0, servingTeam: 'A', servingPlayer: '1', firstServerActive: true, scoreHistory: [], scoreOrder: 2, sidesSwapped: false, positions: { A: { 1: '1', 2: '2' }, B: { 1: '1', 2: '2' } } };
   let lastWinnerKey = '';
   let saveTimer = null;
   let speakTimer = null;
@@ -93,12 +94,18 @@
     saveStatus.textContent = text;
   };
 
+  const renderTeamLabels = () => {
+    if (scoreTeamA) scoreTeamA.textContent = dom.formatTeam?.(teamDisplayName(teamOnSide('A'))) || teamDisplayName(teamOnSide('A'));
+    if (scoreTeamB) scoreTeamB.textContent = dom.formatTeam?.(teamDisplayName(teamOnSide('B'))) || teamDisplayName(teamOnSide('B'));
+  };
+
   const renderModal = () => {
     if (!scoreValueA || !scoreValueB) return;
-    scoreValueA.textContent = String(state.scoreA);
-    scoreValueB.textContent = String(state.scoreB);
-    scoreSideA?.classList.toggle('serving-team', state.servingTeam === 'A');
-    scoreSideB?.classList.toggle('serving-team', state.servingTeam === 'B');
+    scoreValueA.textContent = String(teamScore(teamOnSide('A')));
+    scoreValueB.textContent = String(teamScore(teamOnSide('B')));
+    scoreSideA?.classList.toggle('serving-team', state.servingTeam === teamOnSide('A'));
+    scoreSideB?.classList.toggle('serving-team', state.servingTeam === teamOnSide('B'));
+    renderTeamLabels();
     dom.bindOptionState?.(state);
     renderCourt();
     if (!canEditSetup() && setupStep && !setupStep.classList.contains('hidden')) showPlayStep();
@@ -116,6 +123,7 @@
   const defaultSetup = (row) => ({
     players: { A: teamNames(row.dataset.teamA), B: teamNames(row.dataset.teamB) },
     positions: { A: { 1: '1', 2: '2' }, B: { 1: '1', 2: '2' } },
+    sidesSwapped: false,
   });
 
   const loadSetup = (row) => {
@@ -129,17 +137,27 @@
   const saveSetup = () => {
     const key = setupKey();
     if (!key) return;
-    window.localStorage.setItem(key, JSON.stringify({ players: state.players, positions: state.positions }));
+    window.localStorage.setItem(key, JSON.stringify({ players: state.players, positions: state.positions, sidesSwapped: state.sidesSwapped }));
   };
 
   const playerName = (team, playerNumber) => state.players?.[team]?.[Number(playerNumber) - 1] || `Tay ${playerNumber}`;
   const playerAtSlot = (team, slot) => state.positions?.[team]?.[slot] || '1';
   const otherPlayer = (playerNumber) => String(playerNumber) === '1' ? '2' : '1';
 
+  // Ánh xạ giữa vị trí hiển thị trên màn (ô bên trái = 'A', bên phải = 'B') và đội thật.
+  // Khi "đổi sân" thì hai đội tráo vị trí hiển thị, còn điểm/người giao/ô1-ô2 giữ nguyên.
+  const teamOnSide = (side) => (state.sidesSwapped ? (side === 'A' ? 'B' : 'A') : side);
+  const teamScore = (team) => (team === 'A' ? state.scoreA : state.scoreB);
+  const teamDisplayName = (team) => (team === 'A' ? (activeRow?.dataset.teamA || 'Đội A') : (activeRow?.dataset.teamB || 'Đội B'));
+  // Người giao bóng luôn ở ô1 khi đang là người phát đầu tiên (0-0-2), ngược lại theo thứ tự đánh.
+  const serverSlot = () => (state.firstServerActive ? 1 : state.scoreOrder);
+  const syncServingPlayer = () => { state.servingPlayer = playerAtSlot(state.servingTeam, serverSlot()); };
+
   const renderCourt = () => {
-    ['A', 'B'].forEach((team) => {
+    ['A', 'B'].forEach((side) => {
+      const team = teamOnSide(side);
       [1, 2].forEach((slot) => {
-        const marker = courtSlots[`${team}${slot}`];
+        const marker = courtSlots[`${side}${slot}`];
         if (!marker) return;
         const playerNumber = playerAtSlot(team, slot);
         marker.textContent = playerName(team, playerNumber);
@@ -161,9 +179,10 @@
   };
 
   const renderPlayerSettings = () => {
-    ['A', 'B'].forEach((team) => {
-      const refs = playerRefs[team];
-      if (refs.title) refs.title.textContent = team === 'A' ? (activeRow?.dataset.teamA || 'Đội A') : (activeRow?.dataset.teamB || 'Đội B');
+    ['A', 'B'].forEach((side) => {
+      const team = teamOnSide(side);
+      const refs = playerRefs[side];
+      if (refs.title) refs.title.textContent = teamDisplayName(team);
       fillSelect(refs.first, state.players[team], playerAtSlot(team, 1));
       fillSelect(refs.second, state.players[team], playerAtSlot(team, 2));
     });
@@ -214,18 +233,21 @@
 
   const speakCurrentScore = () => {
     const read = speech.readVietnameseNumber || ((value) => String(value));
-    const scoreText = state.servingTeam === 'B'
-      ? `${read(state.scoreB)} ${read(state.scoreA)} ${read(state.scoreOrder)}`
-      : `${read(state.scoreA)} ${read(state.scoreB)} ${read(state.scoreOrder)}`;
+    // Đọc "điểm giao - điểm nhận" trước, ngắt một nhịp rồi mới đọc số thứ tự đánh (tay).
+    const scorePair = state.servingTeam === 'B'
+      ? `${read(state.scoreB)} ${read(state.scoreA)}`
+      : `${read(state.scoreA)} ${read(state.scoreB)}`;
+    const orderText = read(state.scoreOrder);
+    const speakParts = speech.speakSequence || ((parts) => speech.speak?.(parts.join(' ')));
     const winner = winnerName();
     const winnerKey = activeRow ? `${activeRow.dataset.matchId}:${winner}:${state.scoreA}-${state.scoreB}` : '';
     if (winner && winnerKey !== lastWinnerKey) {
       lastWinnerKey = winnerKey;
       const prefix = winner.includes(' và ') ? 'đội ' : '';
-      speech.speak?.(`${scoreText}. Chúc mừng ${prefix}${winner} giành chiến thắng`);
+      speakParts([scorePair, `${orderText}. Chúc mừng ${prefix}${winner} giành chiến thắng`]);
       return;
     }
-    speech.speak?.(scoreText);
+    speakParts([scorePair, orderText]);
   };
 
   const scheduleSpeak = (delay = 220) => {
@@ -273,8 +295,6 @@
     } else {
       state.servingPlayer = playerAtSlot(state.servingTeam, state.scoreOrder);
     }
-    scoreTeamA.textContent = dom.formatTeam?.(row.dataset.teamA) || row.dataset.teamA;
-    scoreTeamB.textContent = dom.formatTeam?.(row.dataset.teamB) || row.dataset.teamB;
     setStatus('Chưa thay đổi');
     renderPlayerSettings();
     renderModal();
@@ -291,8 +311,9 @@
     activeRow = null;
   };
 
-  const stepScore = (side, delta) => {
+  const stepScore = (displaySide, delta) => {
     if (!activeRow) return;
+    const side = teamOnSide(displaySide);
     if (side !== state.servingTeam) {
       setStatus('Chỉ đội đang giao được ghi điểm. Muốn đổi đội giao phải ở tay 2.', 'text-danger');
       return;
@@ -341,6 +362,7 @@
         scoreHistory: state.scoreHistory || [],
         players: state.players,
         positions: state.positions,
+        sidesSwapped: state.sidesSwapped,
       };
       renderModal();
       setStatus('Đã tự lưu', 'text-success');
@@ -373,8 +395,9 @@
     item.addEventListener('click', (event) => {
       const clicked = event.target instanceof Element ? event.target : null;
       if (clicked?.closest('[data-score-target]')) return;
-      const side = item.dataset.servingSelect || item.dataset.servingSide;
-      if (!side || !activeRow) return;
+      const displaySide = item.dataset.servingSelect || item.dataset.servingSide;
+      if (!displaySide || !activeRow) return;
+      const side = teamOnSide(displaySide);
       const selectingFirstServer = Boolean(setupStep?.contains(item));
       if (side !== state.servingTeam && selectingFirstServer && isInitialServeState()) {
         const nextServingTeam = side === 'B' ? 'B' : 'A';
@@ -459,20 +482,32 @@
     showSetupStep();
   });
 
-  ['A', 'B'].forEach((team) => {
-    const refs = playerRefs[team];
+  swapCourt?.addEventListener('click', () => {
+    if (!activeRow) return;
+    // Chỉ tráo vị trí hiển thị hai đội trên sân; điểm, người giao và ô1/ô2 giữ nguyên.
+    state.sidesSwapped = !state.sidesSwapped;
+    renderPlayerSettings();
+    renderModal();
+    saveSetup();
+    setStatus('Đã đổi sân hiển thị', 'text-primary');
+  });
+
+  ['A', 'B'].forEach((side) => {
+    const refs = playerRefs[side];
     refs.first?.addEventListener('change', () => {
+      const team = teamOnSide(side);
       state.positions[team][1] = refs.first.value;
       normalizePositionAfterChange(team, '1');
-      if (state.servingTeam === team && state.scoreOrder === 1) state.servingPlayer = playerAtSlot(team, 1);
+      if (state.servingTeam === team) syncServingPlayer();
       renderPlayerSettings();
       renderModal();
       saveSetup();
     });
     refs.second?.addEventListener('change', () => {
+      const team = teamOnSide(side);
       state.positions[team][2] = refs.second.value;
       normalizePositionAfterChange(team, '2');
-      if (state.servingTeam === team && state.scoreOrder === 2 && !state.firstServerActive) state.servingPlayer = playerAtSlot(team, 2);
+      if (state.servingTeam === team) syncServingPlayer();
       renderPlayerSettings();
       renderModal();
       saveSetup();

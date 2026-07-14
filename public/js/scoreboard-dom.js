@@ -35,8 +35,9 @@
     document.querySelectorAll('[data-score-target]').forEach((button) => {
       button.disabled = false;
     });
+    const servingSide = state.sidesSwapped ? (state.servingTeam === 'A' ? 'B' : 'A') : state.servingTeam;
     document.querySelectorAll('[data-serving-select]').forEach((button) => {
-      button.classList.toggle('btn-primary', button.dataset.servingSelect === state.servingTeam);
+      button.classList.toggle('btn-primary', button.dataset.servingSelect === servingSide);
     });
     document.querySelectorAll('[data-score-order-select]').forEach((button) => {
       button.classList.toggle('btn-primary', Number(button.dataset.scoreOrderSelect) === state.scoreOrder);
