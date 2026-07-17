@@ -68,7 +68,7 @@ export class AuthService implements OnModuleInit {
   async featureSet(user?: CurrentUser): Promise<Set<AppFeature>> {
     if (!user) return new Set();
     if (user.role === 'CLIENT') return new Set(['TOURNAMENTS', 'TEAMS', 'TRAVEL']);
-    if (this.isRoot(user)) return new Set(['TOURNAMENTS', 'TEAMS', 'TRAVEL', 'MEDICAL', 'PERMISSIONS']);
+    if (this.isRoot(user)) return new Set(['TOURNAMENTS', 'TEAMS', 'TRAVEL', 'MEDICAL', 'HOUSEHOLD', 'PERMISSIONS']);
     const permissions = await this.prisma.adminFeaturePermission.findMany({ where: { adminId: BigInt(user.id) } });
     return new Set(permissions.map((permission) => permission.feature as AppFeature));
   }

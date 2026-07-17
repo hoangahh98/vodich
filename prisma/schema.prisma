@@ -508,3 +508,64 @@ model TravelTripExpenseSplit {
   @@unique([expenseId, memberId])
   @@map("travel_trip_expense_split")
 }
+
+// ─── Module Quản Lý Chi Tiêu (household) ───
+// Quét email VPBank (tiền RA) từ 1 hòm Gmail chung của 2 vợ chồng, đối chiếu với
+// ngân sách tuần (cộng dồn phần dư) và mức tiết kiệm tháng. Xem docs/quan-ly-chi-tieu.md.
+
+/// Cấu hình dùng chung, chỉ có đúng 1 dòng (id = 1).
+model HouseholdConfig {
+  id             Int      @id @default(1)
+  weeklyBudget   BigInt   @default(0) @map("weekly_budget")
+  monthlySavings BigInt   @default(0) @map("monthly_savings")
+  weekStartDow   Int      @default(1) @map("week_start_dow") // 1 = Thứ Hai
+  anchorDate     DateTime @default(now()) @map("anchor_date") @db.Date
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("household_config")
+}
+
+/// Số tài khoản "của nhà" để gắn nhãn giao dịch (Chồng/Vợ). KHÔNG dùng để loại
+/// trừ: chuyển nội bộ giữa 2 vợ chồng qua VPBank vẫn tính là chi tiêu.
+model HouseholdAccount {
+  id            BigInt   @id @default(autoincrement())
+  accountNumber String   @unique @map("account_number") @db.VarChar(40)
+  ownerLabel    String   @map("owner_label") @db.VarChar(80)
+  kind          String   @default("spending") @db.VarChar(20) // spending | savings
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("household_account")
+}
+
+/// Mỗi email giao dịch VPBank = 1 dòng. txnCode để chống trùng (upsert).
+model HouseholdTxn {
+  id            BigInt   @id @default(autoincrement())
+  txnCode       String   @unique @map("txn_code") @db.VarChar(160)
+  occurredAt    DateTime @map("occurred_at")
+  performedBy   String   @default("") @map("performed_by") @db.VarChar(255)
+  debitAccount  String   @default("") @map("debit_account") @db.VarChar(40)
+  creditAccount String   @default("") @map("credit_account") @db.VarChar(40)
+  beneficiary   String   @default("") @db.VarChar(255)
+  amount        BigInt   @default(0)
+  fee           BigInt   @default(0)
+  description   String   @default("")
+  category      String   @default("spending") @db.VarChar(20) // spending | excluded
+  note          String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@index([occurredAt])
+  @@map("household_txn")
+}
+
+/// Sổ tiết kiệm: mỗi lần "lẹm" (bù sang chi tiêu, giảm tiết kiệm) hoặc điều chỉnh tay.
+model HouseholdSavingsEntry {
+  id         BigInt   @id @default(autoincrement())
+  kind       String   @default("topup") @db.VarChar(20) // topup = bù sang chi tiêu | adjust = điều chỉnh tay
+  amount     BigInt   @default(0)
+  note       String   @default("")
+  needsNote  Boolean  @default(false) @map("needs_note")
+  occurredAt DateTime @default(now()) @map("occurred_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("household_savings_entry")
+}

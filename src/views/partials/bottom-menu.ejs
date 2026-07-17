@@ -9,6 +9,7 @@
       <% if (featureSet.has('TEAMS')) { %><a class="" href="/teams"><span class="pickleball-icon" aria-hidden="true"></span> Đội bóng</a><% } %>
       <% if (featureSet.has('TRAVEL')) { %><a class="" href="/travel">🌴 Du lịch</a><% } %>
       <% if (featureSet.has('MEDICAL')) { %><a class="" href="/medical">🩺 Y tế</a><% } %>
+      <% if (featureSet.has('HOUSEHOLD')) { %><a class="" href="/household">💰 Chi tiêu</a><% } %>
       <% if (featureSet.has('PERMISSIONS')) { %><a class="" href="/permissions">🔐 Phân quyền</a><% } %>
       <% if (isRoot) { %><a class="" href="/logs">📜 Log</a><% } %>
     <% } else if ((currentPath.startsWith('/tournaments') || currentPath.startsWith('/players')) && featureSet.has('TOURNAMENTS')) { %>
@@ -20,6 +21,8 @@
       <a class="active" href="/travel">🌴 Du lịch</a>
     <% } else if (currentPath.startsWith('/medical') && featureSet.has('MEDICAL')) { %>
       <a class="active" href="/medical">🩺 Y tế</a>
+    <% } else if (currentPath.startsWith('/household') && featureSet.has('HOUSEHOLD')) { %>
+      <a class="active" href="/household">💰 Chi tiêu</a>
     <% } else if (currentPath.startsWith('/permissions') && featureSet.has('PERMISSIONS')) { %>
       <a class="active" href="/permissions">🔐 Phân quyền</a>
     <% } else if (currentPath.startsWith('/logs') && isRoot) { %>

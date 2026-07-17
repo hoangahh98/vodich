@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma.service';
 
-const ADMIN_FEATURES = ['TOURNAMENTS', 'TEAMS', 'TRAVEL', 'MEDICAL', 'PERMISSIONS'] as const;
+const ADMIN_FEATURES = ['TOURNAMENTS', 'TEAMS', 'TRAVEL', 'MEDICAL', 'HOUSEHOLD', 'PERMISSIONS'] as const;
 
 @Injectable()
 export class AdminService {

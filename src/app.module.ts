@@ -16,6 +16,9 @@ import { KnightAiService } from './games/knight-ai.service';
 import { MedicalController } from './medical/medical.controller';
 import { MedicalService } from './medical/medical.service';
 import { MedicalAiService } from './medical/medical-ai.service';
+import { HouseholdController } from './household/household.controller';
+import { HouseholdService } from './household/household.service';
+import { HouseholdEmailService } from './household/household-email.service';
 import { PlayersController } from './players/players.controller';
 import { PlayersService } from './players/players.service';
 import { TournamentService } from './tournaments/tournament.service';
@@ -52,7 +55,7 @@ import { RateLimitService } from './common/rate-limit.service';
 import { FeatureGuard } from './common/feature.guard';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, MedicalController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, MedicalController, HouseholdController, AdminController],
   providers: [
     PrismaService,
     AuthService,
@@ -80,6 +83,8 @@ import { FeatureGuard } from './common/feature.guard';
     TravelAiService,
     MedicalService,
     MedicalAiService,
+    HouseholdService,
+    HouseholdEmailService,
     AiService,
     MatchGateway,
     LocalsMiddleware,

@@ -14,6 +14,7 @@
     <% if (featureSet.has('TRAVEL')) { %><a class="card-lite module-card home-tile ht-travel" href="/travel"><div class="module-icon">🌴</div><h3>Du Lịch</h3><p class="muted">Mục thu chi chuyến đi.</p></a><% } %>
     <% if (currentUser && currentUser.role === 'ADMIN' && featureSet.has('TOURNAMENTS')) { %><a class="card-lite module-card home-tile ht-member" href="/players"><div class="module-icon">👤</div><h3>Thành Viên</h3><p class="muted">Danh sách thành viên dùng chung.</p></a><% } %>
     <% if (featureSet.has('MEDICAL')) { %><a class="card-lite module-card home-tile ht-medical" href="/medical"><div class="module-icon">🩺</div><h3>Y Tế</h3><p class="muted">Hồ sơ &amp; phân tích đơn thuốc bằng AI.</p></a><% } %>
+    <% if (featureSet.has('HOUSEHOLD')) { %><a class="card-lite module-card home-tile ht-household" href="/household"><div class="module-icon">💰</div><h3>Chi Tiêu</h3><p class="muted">Quét email VPBank, ngân sách tuần &amp; tiết kiệm.</p></a><% } %>
     <a class="card-lite module-card home-tile ht-games" href="/games"><div class="module-icon">🎮</div><h3>Học Vui</h3><p class="muted">Game Toán &amp; Tiếng Anh cho bé.</p></a>
     <% if (featureSet.has('PERMISSIONS')) { %><a class="card-lite module-card home-tile ht-perm" href="/permissions"><div class="module-icon">⚙️</div><h3>Phân Quyền</h3><p class="muted">Cấp quyền module cho admin.</p></a><% } %>
     <% if (isRoot) { %><a class="card-lite module-card home-tile ht-log" href="/logs"><div class="module-icon">🧾</div><h3>Theo Dõi Log</h3><p class="muted">Theo dõi thao tác và lỗi.</p></a><% } %>
