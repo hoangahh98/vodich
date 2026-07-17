@@ -22,7 +22,10 @@
     <% } else if (currentPath.startsWith('/medical') && featureSet.has('MEDICAL')) { %>
       <a class="active" href="/medical">🩺 Y tế</a>
     <% } else if (currentPath.startsWith('/household') && featureSet.has('HOUSEHOLD')) { %>
-      <a class="active" href="/household">💰 Chi tiêu</a>
+      <a class="<%= currentPath === '/household' ? 'active' : '' %>" href="/household">📊 Tổng quan</a>
+      <a class="<%= currentPath === '/household/giao-dich' ? 'active' : '' %>" href="/household/giao-dich">🧾 Giao dịch</a>
+      <a class="<%= currentPath === '/household/tiet-kiem' ? 'active' : '' %>" href="/household/tiet-kiem">🐷 Tiết kiệm</a>
+      <a class="<%= currentPath === '/household/cau-hinh' ? 'active' : '' %>" href="/household/cau-hinh">⚙️ Cấu hình</a>
     <% } else if (currentPath.startsWith('/permissions') && featureSet.has('PERMISSIONS')) { %>
       <a class="active" href="/permissions">🔐 Phân quyền</a>
     <% } else if (currentPath.startsWith('/logs') && isRoot) { %>

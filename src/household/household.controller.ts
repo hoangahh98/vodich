@@ -7,6 +7,8 @@ import { render } from '../common/view';
 import { HouseholdEmailService } from './household-email.service';
 import { HouseholdService } from './household.service';
 
+const SECTIONS = ['tong-quan', 'giao-dich', 'tiet-kiem', 'cau-hinh'];
+
 /**
  * Module Quản Lý Chi Tiêu — CHỈ dành cho admin (tài chính riêng của gia đình).
  * Gác quyền như các module quản trị khác: cần feature HOUSEHOLD + là admin.
@@ -21,8 +23,9 @@ export class HouseholdController {
     private readonly email: HouseholdEmailService,
   ) {}
 
-  @Get('/household')
-  async index(@Res() res: Response, @Query('msg') msg?: string, @Query('err') err?: string) {
+  @Get(['/household', '/household/:section'])
+  async index(@Res() res: Response, @Param('section') section?: string, @Query('msg') msg?: string, @Query('err') err?: string) {
+    const active = SECTIONS.includes(String(section)) ? String(section) : 'tong-quan';
     const [config, summary, txns, accounts, savings, pendingNotes] = await Promise.all([
       this.household.getConfig(),
       this.household.summary(),
@@ -32,6 +35,7 @@ export class HouseholdController {
       this.household.pendingNoteEntries(),
     ]);
     return render(res, 'household/index', {
+      section: active,
       config,
       summary,
       txns,
@@ -55,13 +59,13 @@ export class HouseholdController {
   @Post('/household/config')
   async saveConfig(@Res() res: Response, @Body() body: Record<string, string>) {
     await this.household.updateConfig(body);
-    return res.redirect('/household?msg=' + encodeURIComponent('Đã lưu cấu hình'));
+    return res.redirect('/household/cau-hinh?msg=' + encodeURIComponent('Đã lưu cấu hình'));
   }
 
   @Post('/household/accounts')
   async addAccount(@Res() res: Response, @Body() body: Record<string, string>) {
     await this.household.addAccount(body);
-    return res.redirect('/household');
+    return res.redirect('/household/cau-hinh');
   }
 
   @Post('/household/accounts/:id/delete')
@@ -69,7 +73,7 @@ export class HouseholdController {
     const accId = parseBigId(id);
     if (!accId) return notFound(res);
     await this.household.deleteAccount(accId);
-    return res.redirect('/household');
+    return res.redirect('/household/cau-hinh');
   }
 
   @Post('/household/txns/:id/category')
@@ -77,7 +81,7 @@ export class HouseholdController {
     const txnId = parseBigId(id);
     if (!txnId) return notFound(res);
     await this.household.setTxnCategory(txnId, body.category, body.note);
-    return res.redirect('/household');
+    return res.redirect('/household/giao-dich');
   }
 
   @Post('/household/savings/:id/note')
@@ -85,15 +89,15 @@ export class HouseholdController {
     const entryId = parseBigId(id);
     if (!entryId) return notFound(res);
     if (!String(body.note || '').trim()) {
-      return res.redirect('/household?err=' + encodeURIComponent('Cần nhập lý do lẹm tiết kiệm'));
+      return res.redirect('/household/tiet-kiem?err=' + encodeURIComponent('Cần nhập lý do lẹm tiết kiệm'));
     }
     await this.household.acknowledgeSavings(entryId, body.note);
-    return res.redirect('/household?msg=' + encodeURIComponent('Đã ghi chú khoản lẹm tiết kiệm'));
+    return res.redirect('/household/tiet-kiem?msg=' + encodeURIComponent('Đã ghi chú khoản lẹm tiết kiệm'));
   }
 
   @Post('/household/savings/adjust')
   async adjustSavings(@Res() res: Response, @Body() body: Record<string, string>) {
     await this.household.adjustSavings(body);
-    return res.redirect('/household');
+    return res.redirect('/household/tiet-kiem');
   }
 }

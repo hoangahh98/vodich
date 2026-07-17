@@ -810,6 +810,9 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .medical-form-wide { grid-column: 1 / -1; }
 .medical-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 @media (max-width: 560px) { .medical-form { grid-template-columns: 1fr 1fr; } .medical-form-wide, .medical-form-actions { grid-column: 1 / -1; } }
+/* Bỏ giao diện native của ô ngày để không bị phình/tràn khỏi ô trên mobile (iOS/Android). */
+.medical-form input[type="date"] { -webkit-appearance: none; -moz-appearance: none; appearance: none; width: 100%; max-width: 100%; min-width: 0; }
+.medical-form input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 
 /* Ô đầu bảng khoản chi: checkbox chọn + tên khoản */
 .travel-exp-check { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
@@ -839,6 +842,12 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .ht-games h3, .ht-games .muted { color: #5a3d00; }
 .ht-perm { background: linear-gradient(135deg,#485563,#29323c); }
 .ht-log { background: linear-gradient(135deg,#3a6073,#16222a); }
+.ht-household { background: linear-gradient(135deg,#1e7a46,#d4af37); }
+
+/* Tab các phần của module Quản lý chi tiêu (cuộn ngang trên mobile) */
+.household-tabs { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.household-tab { flex: 0 0 auto; padding: 8px 14px; border-radius: 999px; background: #fff; border: 1px solid var(--line); color: #333; text-decoration: none; font-weight: 600; white-space: nowrap; }
+.household-tab.active { background: var(--brand); color: #fff; border-color: var(--brand); }
 
 /* Cài đặt chat (nhập tên/tuổi người học) */
 .chat-setup { width: 100%; max-width: 640px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.25); border-radius: 14px; padding: 12px; }

@@ -55,7 +55,11 @@ export class HouseholdEmailService implements OnModuleInit {
         host: process.env.HOUSEHOLD_GMAIL_HOST || 'imap.gmail.com',
         port: Number.parseInt(process.env.HOUSEHOLD_GMAIL_PORT || '993', 10),
         secure: true,
-        auth: { user: process.env.HOUSEHOLD_GMAIL_USER, pass: process.env.HOUSEHOLD_GMAIL_APP_PASSWORD },
+        // Google hiển thị app password dạng "abcd efgh ijkl mnop" — bỏ hết dấu cách để tránh sai.
+        auth: {
+          user: (process.env.HOUSEHOLD_GMAIL_USER || '').trim(),
+          pass: (process.env.HOUSEHOLD_GMAIL_APP_PASSWORD || '').replace(/\s+/g, ''),
+        },
         logger: false,
       });
 
@@ -81,7 +85,11 @@ export class HouseholdEmailService implements OnModuleInit {
       return { ok: true, scanned, added, message: `Đã quét ${scanned} email, thêm ${added} giao dịch mới` };
     } catch (error) {
       console.error('[household] scan lỗi:', error);
-      const message = error instanceof Error ? error.message : 'Quét email thất bại';
+      const raw = String((error as any)?.responseText || (error as any)?.message || 'Quét email thất bại');
+      let message = raw;
+      if (/auth|credential|login|invalid|application-specific|AUTHENTICATIONFAILED/i.test(raw)) {
+        message = `Đăng nhập Gmail thất bại. Kiểm tra: (1) App password đúng, 16 ký tự, KHÔNG dấu cách; (2) đã BẬT IMAP trong Gmail (Cài đặt → Chuyển tiếp và POP/IMAP → Bật IMAP); (3) dùng đúng email hòm chung. Chi tiết: ${raw}`;
+      }
       return { ok: false, scanned: 0, added: 0, message };
     } finally {
       this.scanning = false;
