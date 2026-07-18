@@ -45,7 +45,9 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
     const end = toStamp(group.date, addMinutes(group.time, 15));
     const antibiotic = group.lines.some((line) => line.isAntibiotic);
     const suffix = options.prescriptionLabel ? ` · đơn ${options.prescriptionLabel}` : '';
-    const title = `${antibiotic ? '💊⚠️' : '💊'} Cữ thuốc ${group.time}${suffix}`;
+    // Nói thẳng "có kháng sinh" thay vì chỉ một biểu tượng — nhìn cái tam giác cảnh báo
+    // trên điện thoại không ai đoán ra nó nghĩa là gì.
+    const title = `${antibiotic ? '💊❗' : '💊'} Cữ thuốc ${group.time}${antibiotic ? ' (có kháng sinh)' : ''}${suffix}`;
     const body = group.lines.map(describeLine).join('\n');
     lines.push(
       'BEGIN:VEVENT',

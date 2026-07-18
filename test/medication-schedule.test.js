@@ -224,6 +224,17 @@ test('lệnh huỷ cữ đơn cũ dùng đúng UID cũ và đánh dấu CANCELLE
   assert.ok(!newBlock.includes('STATUS:CANCELLED'));
 });
 
+test('cữ có kháng sinh được nói thẳng bằng chữ, không chỉ dùng biểu tượng', () => {
+  const withAbx = buildSchedule([item({ days: 1, timesPerDay: 1, isAntibiotic: true })], '2026-07-18', 'SANG').groups;
+  const noAbx = buildSchedule([item({ days: 1, timesPerDay: 1, isAntibiotic: false })], '2026-07-18', 'SANG').groups;
+  const title = (groups) => buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' }).match(/SUMMARY:[^\r\n]+/)[0];
+
+  assert.ok(title(withAbx).includes('(có kháng sinh)'), title(withAbx));
+  assert.ok(title(withAbx).includes('❗'));
+  assert.ok(!title(noAbx).includes('kháng sinh'), 'cữ không có kháng sinh thì không được ghi');
+  assert.ok(!title(noAbx).includes('❗'));
+});
+
 test('không có gì để huỷ thì file .ics không chứa CANCELLED', () => {
   const { groups } = buildSchedule([item({ days: 1 })], '2026-07-18', 'SANG');
   const ics = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' });
