@@ -759,6 +759,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .med-row-nums { display: flex; gap: 14px; margin: 8px 0 0 32px; }
 .med-row-nums label { display: flex; align-items: center; gap: 6px; font-size: 14px; margin: 0; }
 .med-num { width: 64px; min-width: 64px; text-align: center; padding: 6px 4px; }
+/* Thẻ người thân có thêm nút nạp lịch nên phần thân mới là link, không phải cả thẻ. */
+.module-card-main { display: block; text-decoration: none; color: inherit; }
 /* Thuốc người dùng bỏ tick: làm mờ để nhìn phát biết ngay dòng nào không dùng. */
 .med-item-off { opacity: .45; }
 

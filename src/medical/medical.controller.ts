@@ -24,7 +24,24 @@ export class MedicalController {
   @Get('/medical')
   async index(@Req() req: Request, @Res() res: Response) {
     const patients = await this.medical.listPatients(currentUser(req));
-    return render(res, 'medical/index', { patients });
+    const today = todayInVietnam();
+    // Người thân nào đang có lịch đã chốt và CÒN cữ phải uống thì hiện luôn nút nạp
+    // lịch ngoài danh sách. Uống hết liệu trình là nút tự biến mất.
+    const activeSchedules = patients.map((patient) => {
+      const prescription = patient.prescriptions[0];
+      if (!prescription?.scheduleStart) return null;
+      const startDate = prescription.scheduleStart.toISOString().slice(0, 10);
+      const startSlot = safeStartSlot(prescription.scheduleSlot);
+      const { groups } = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
+      const remaining = remainingFrom(groups, today, '00:00');
+      if (!remaining.length) return null;
+      return {
+        prescriptionId: prescription.id.toString(),
+        remainingCount: remaining.length,
+        lastDate: remaining[remaining.length - 1].date,
+      };
+    });
+    return render(res, 'medical/index', { patients, activeSchedules });
   }
 
   @Post('/medical/patients')

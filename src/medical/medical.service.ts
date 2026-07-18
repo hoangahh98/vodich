@@ -22,7 +22,16 @@ export class MedicalService {
     return this.prisma.medPatient.findMany({
       where: this.scopeFor(user),
       orderBy: [{ name: 'asc' }],
-      include: { _count: { select: { prescriptions: true } } },
+      include: {
+        _count: { select: { prescriptions: true } },
+        // Đơn đã chốt lịch gần nhất, để danh sách hiện thẳng nút nạp lịch nhắc.
+        prescriptions: {
+          where: { scheduleStart: { not: null } },
+          orderBy: [{ scheduleStart: 'desc' }, { id: 'desc' }],
+          take: 1,
+          include: { items: true },
+        },
+      },
     });
   }
 

@@ -24,12 +24,23 @@
   <section class="card-lite p">
     <div class="section-heading mb"><div><span class="feature-icon">👨‍👩‍👧</span><h2 class="section-title">Người thân</h2></div><span class="badge"><%= patients.length %></span></div>
     <div class="grid module-grid">
-      <% patients.forEach((patient) => { %>
-        <a class="card-lite module-card" href="/medical/patients/<%= patient.id %>">
-          <div class="module-icon">🧑‍⚕️</div>
-          <h3><%= patient.name %></h3>
-          <p class="muted"><%= patient.birthYear ? (new Date().getFullYear() - patient.birthYear) + ' tuổi' : 'Chưa rõ tuổi' %> · <%= patient._count.prescriptions %> đơn thuốc</p>
-        </a>
+      <% patients.forEach((patient, i) => { %>
+        <%
+          const active = activeSchedules[i];
+          const [ly, lm, ld] = active ? active.lastDate.split('-') : [];
+        %>
+        <%# Không bọc cả thẻ trong <a> nữa vì bên trong có nút nạp lịch — lồng <a> trong <a> là HTML sai. %>
+        <div class="card-lite module-card">
+          <a class="module-card-main" href="/medical/patients/<%= patient.id %>">
+            <div class="module-icon">🧑‍⚕️</div>
+            <h3><%= patient.name %></h3>
+            <p class="muted"><%= patient.birthYear ? (new Date().getFullYear() - patient.birthYear) + ' tuổi' : 'Chưa rõ tuổi' %> · <%= patient._count.prescriptions %> đơn thuốc</p>
+          </a>
+          <% if (active) { %>
+            <p class="muted">💊 Còn <strong><%= active.remainingCount %></strong> cữ, đến hết <%= ld %>/<%= lm %></p>
+            <a class="btn btn-sm btn-success" href="/medical/prescriptions/<%= active.prescriptionId %>/lich.ics">📥 Nạp lịch nhắc</a>
+          <% } %>
+        </div>
       <% }) %>
       <% if (!patients.length) { %><p class="muted">Chưa có người thân nào. Thêm ở trên nhé.</p><% } %>
     </div>

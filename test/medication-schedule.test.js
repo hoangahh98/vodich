@@ -22,7 +22,7 @@ test('buildSchedule sinh đủ số liều = số lần/ngày x số ngày', () 
   const doses = groups.reduce((sum, g) => sum + g.lines.length, 0);
   assert.equal(doses, 10);
   assert.equal(groups[0].date, '2026-07-18');
-  assert.equal(groups[0].time, '07:30');
+  assert.equal(groups[0].time, '07:00');
 });
 
 test('bắt đầu buổi tối thì bỏ cữ sáng ngày đầu nhưng KHÔNG hụt liều', () => {
@@ -30,47 +30,47 @@ test('bắt đầu buổi tối thì bỏ cữ sáng ngày đầu nhưng KHÔNG 
   const doses = groups.reduce((sum, g) => sum + g.lines.length, 0);
   assert.equal(doses, 10, 'vẫn phải đủ 10 liều');
   assert.equal(groups[0].date, '2026-07-18');
-  assert.equal(groups[0].time, '19:30', 'cữ đầu là tối hôm bắt đầu');
+  assert.equal(groups[0].time, '19:00', 'cữ đầu là tối hôm bắt đầu');
   // 10 liều, 2 cữ/ngày, lệch nửa ngày -> liều cuối rơi vào sáng ngày thứ 6
   const last = groups[groups.length - 1];
   assert.equal(last.date, '2026-07-23');
-  assert.equal(last.time, '07:30');
+  assert.equal(last.time, '07:00');
 });
 
 test('bắt đầu từ cữ TRƯA thì cữ đầu là mốc trưa, không phải sáng hay tối', () => {
-  // Thuốc nhỏ mũi ngày 3 lần: 07:30 / 14:00 / 20:00
+  // Thuốc nhỏ mũi ngày 3 lần: 07:00 / 12:00 / 19:00
   const { groups } = buildSchedule([item({ timesPerDay: 3, days: 7 })], '2026-07-18', 'TRUA');
   assert.equal(groups[0].date, '2026-07-18');
-  assert.equal(groups[0].time, '14:00');
+  assert.equal(groups[0].time, '12:00');
   assert.equal(groups.reduce((s, g) => s + g.lines.length, 0), 21, 'vẫn đủ 3 x 7 liều');
 });
 
 test('ba buổi cho ra ba mốc đầu khác nhau trên cùng một thuốc', () => {
   const first = (slot) => buildSchedule([item({ timesPerDay: 3, days: 2 })], '2026-07-18', slot).groups[0];
-  assert.equal(first('SANG').time, '07:30');
-  assert.equal(first('TRUA').time, '14:00');
-  assert.equal(first('TOI').time, '20:00');
+  assert.equal(first('SANG').time, '07:00');
+  assert.equal(first('TRUA').time, '12:00');
+  assert.equal(first('TOI').time, '19:00');
   // Ngày đầu phải giống nhau, chỉ khác mốc giờ
   ['SANG', 'TRUA', 'TOI'].forEach((slot) => assert.equal(first(slot).date, '2026-07-18'));
 });
 
 test('thuốc uống 2 lần/ngày mà chọn cữ TRƯA thì rơi vào cữ tối, không ép uống sai giờ', () => {
-  // 2 lần/ngày chỉ có 07:30 và 19:30, không có mốc trưa
+  // 2 lần/ngày chỉ có 07:00 và 19:00, không có mốc trưa
   const { groups } = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-18', 'TRUA');
-  assert.equal(groups[0].time, '19:30');
+  assert.equal(groups[0].time, '19:00');
   assert.equal(groups[0].date, '2026-07-18');
 });
 
 test('uống 1 lần buổi sáng mà chọn bắt đầu buổi tối thì dời sang hôm sau', () => {
   const { groups } = buildSchedule([item({ timesPerDay: 1, days: 3, timing: '' })], '2026-07-18', 'TOI');
-  assert.equal(groups[0].date, '2026-07-19', 'không ép uống lúc 07:30 đã trôi qua');
-  assert.equal(groups[0].time, '07:30');
+  assert.equal(groups[0].date, '2026-07-19', 'không ép uống lúc 07:00 đã trôi qua');
+  assert.equal(groups[0].time, '07:00');
   assert.equal(groups.reduce((s, g) => s + g.lines.length, 0), 3);
 });
 
 test('thuốc uống 1 lần trước khi ngủ được xếp vào cữ tối, không phải cữ sáng', () => {
   assert.deepEqual(slotsFor({ timesPerDay: 1, timing: 'TRUOC_NGU' }), ['20:30']);
-  assert.deepEqual(slotsFor({ timesPerDay: 1, timing: '' }), ['07:30']);
+  assert.deepEqual(slotsFor({ timesPerDay: 1, timing: '' }), ['07:00']);
 });
 
 test('số ngày lẻ 2,5 cho ra đúng 5 liều và kết thúc giữa ngày thứ 3', () => {
@@ -80,7 +80,7 @@ test('số ngày lẻ 2,5 cho ra đúng 5 liều và kết thúc giữa ngày th
   assert.equal(doses, 5, 'đúng 5 ống, không hơn không kém');
   const last = groups[groups.length - 1];
   assert.equal(last.date, '2026-07-20', 'hết vào ngày thứ 3');
-  assert.equal(last.time, '07:30', 'và là cữ sáng, không phải cữ tối');
+  assert.equal(last.time, '07:00', 'và là cữ sáng, không phải cữ tối');
 });
 
 test('nửa ngày (1 liều duy nhất) vẫn lên lịch được, không bị loại nhầm', () => {
@@ -132,13 +132,13 @@ test('remainingFrom chỉ giữ phần liệu trình còn lại cho máy lấy l
   assert.ok(left.length < groups.length, 'phải bớt đi so với cả liệu trình');
   assert.ok(left.every((g) => g.date >= '2026-07-21'), 'không được còn cữ nào trước ngày lấy');
   assert.equal(left[0].date, '2026-07-21');
-  assert.equal(left[0].time, '07:30');
+  assert.equal(left[0].time, '07:00');
 });
 
 test('remainingFrom giữ lại cữ rơi đúng vào mốc đang xét, không làm mất liều sắp uống', () => {
   const { groups } = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-18', 'SANG');
-  const left = remainingFrom(groups, '2026-07-18', '07:30');
-  assert.equal(left[0].time, '07:30', 'cữ đúng mốc phải được giữ');
+  const left = remainingFrom(groups, '2026-07-18', '07:00');
+  assert.equal(left[0].time, '07:00', 'cữ đúng mốc phải được giữ');
 });
 
 test('remainingFrom trả rỗng khi liệu trình đã xong', () => {
@@ -171,8 +171,8 @@ test('buildIcs sinh file hợp lệ, escape ký tự đặc biệt và dùng CRL
   assert.ok(ics.includes('Thuốc A\\; liều 1\\,5ml'), 'phải escape dấu ; và ,');
   assert.ok(!/[^\\];/.test(ics.match(/DESCRIPTION:.*/)[0]), 'không được còn dấu ; chưa escape trong DESCRIPTION');
   assert.ok(ics.includes('BEGIN:VALARM'), 'phải có chuông báo');
-  assert.ok(ics.includes('DTSTART:20260718T073000'), 'giờ floating, không có hậu tố Z');
-  assert.ok(!ics.includes('DTSTART:20260718T073000Z'), 'không được ép về UTC');
+  assert.ok(ics.includes('DTSTART:20260718T070000'), 'giờ floating, không có hậu tố Z');
+  assert.ok(!ics.includes('DTSTART:20260718T070000Z'), 'không được ép về UTC');
   assert.ok(ics.includes('SUMMARY:🏥 Tái khám'));
   assert.ok(ics.includes('TRIGGER:-P1D'), 'tái khám nhắc trước 1 ngày');
 });
@@ -190,5 +190,5 @@ test('UID ổn định theo đơn + ngày + giờ để import lại không nhâ
   const second = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx7' });
   const uidOf = (ics) => ics.match(/UID:(.+)/)[1].trim();
   assert.equal(uidOf(first), uidOf(second));
-  assert.equal(uidOf(first), 'rx7-20260718-0730@vodich');
+  assert.equal(uidOf(first), 'rx7-20260718-0700@vodich');
 });

@@ -63,14 +63,22 @@ export interface ScheduleResult {
   lastDate: string;
 }
 
-// Mốc giờ theo số lần uống mỗi ngày. Chọn giờ gắn với bữa ăn để dễ nhớ và đỡ quên.
+// Mốc giờ theo số lần uống mỗi ngày. Ba mốc chuẩn do người dùng chốt:
+// sáng 07:00, trưa 12:00, tối 19:00. Các trường hợp 4-6 lần/ngày phải chia nhỏ
+// hơn nên giãn đều quanh ba mốc đó.
+const MORNING = '07:00';
+const NOON = '12:00';
+const EVENING = '19:00';
+
 const SLOTS: Record<number, string[]> = {
-  1: ['07:30'],
-  2: ['07:30', '19:30'],
-  3: ['07:30', '14:00', '20:00'],
-  4: ['07:00', '12:00', '17:00', '21:00'],
-  5: ['07:00', '11:00', '15:00', '19:00', '22:00'],
-  6: ['07:00', '10:30', '14:00', '17:30', '21:00', '23:30'],
+  1: [MORNING],
+  2: [MORNING, EVENING],
+  3: [MORNING, NOON, EVENING],
+  // Từ 4 lần/ngày trở lên phải giãn đều trong ngày thức, giữ được mốc sáng và tối;
+  // bám cứng cả ba mốc sẽ dồn cục buổi sáng rồi hở một khoảng dài qua đêm.
+  4: [MORNING, NOON, '17:00', '21:00'],
+  5: [MORNING, '11:00', '15:00', EVENING, '23:00'],
+  6: [MORNING, '10:00', '13:00', '16:00', EVENING, '22:00'],
 };
 
 // Thuốc uống trước khi ngủ thì mốc duy nhất phải là buổi tối, không phải 07:30.
