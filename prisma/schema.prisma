@@ -22,6 +22,7 @@ model AppUser {
   teamPermissions       TeamClubPermission[]
   ownedTravelTrips      TravelTrip[]             @relation("TravelTripOwner")
   travelPermissions     TravelTripPermission[]
+  medicalPermissions    MedPatientPermission[]
   knightCharacters      KnightCharacter[]        @relation("KnightCharacterOwner")
 
   @@map("app_user")
@@ -311,8 +312,26 @@ model MedPatient {
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
   prescriptions MedPrescription[]
+  permissions   MedPatientPermission[]
 
   @@map("med_patient")
+}
+
+/**
+ * Hồ sơ y tế chỉ admin tạo ra mới xem được; muốn cho admin khác xem thì cấp quyền
+ * ở đây. Cùng mẫu với TravelTripPermission/TeamClubPermission.
+ */
+model MedPatientPermission {
+  id        BigInt   @id @default(autoincrement())
+  patientId BigInt   @map("patient_id")
+  adminId   BigInt   @map("admin_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  patient MedPatient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  admin   AppUser    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, adminId])
+  @@map("med_patient_permission")
 }
 
 model MedPrescription {

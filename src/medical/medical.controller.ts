@@ -22,8 +22,8 @@ export class MedicalController {
   ) {}
 
   @Get('/medical')
-  async index(@Res() res: Response) {
-    const patients = await this.medical.listPatients();
+  async index(@Req() req: Request, @Res() res: Response) {
+    const patients = await this.medical.listPatients(currentUser(req));
     return render(res, 'medical/index', { patients });
   }
 
@@ -34,13 +34,14 @@ export class MedicalController {
   }
 
   @Get('/medical/patients/:id')
-  async patient(@Res() res: Response, @Param('id') id: string, @Query('err') err?: string) {
-    const patientId = parseBigId(id);
-    if (!patientId) return notFound(res);
-    const patient = await this.medical.getPatient(patientId);
-    if (!patient) return notFound(res);
+  async patient(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Query('err') err?: string) {
+    const patient = await this.scopedPatient(req, res, id);
+    if (!patient) return;
     return render(res, 'medical/patient', {
       patient,
+      // Chỉ chủ hồ sơ mới được cấp/thu quyền, người được cấp thì không.
+      isOwner: patient.ownerAdminId?.toString() === currentUser(req).id.toString(),
+      availableAdmins: await this.medical.availableAdmins(patient.id, patient.ownerAdminId),
       aiConfigured: this.ai.isConfigured(),
       disclaimer: this.ai.disclaimer(),
       aiError: String(err || ''),
@@ -48,27 +49,47 @@ export class MedicalController {
   }
 
   @Post('/medical/patients/:id/edit')
-  async editPatient(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    const patientId = parseBigId(id);
-    if (!patientId) return notFound(res);
-    await this.medical.updatePatient(patientId, body);
-    return res.redirect(`/medical/patients/${patientId}`);
+  async editPatient(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    const patient = await this.scopedPatient(req, res, id);
+    if (!patient) return;
+    await this.medical.updatePatient(patient.id, body);
+    return res.redirect(`/medical/patients/${patient.id}`);
   }
 
   @Post('/medical/patients/:id/delete')
-  async deletePatient(@Res() res: Response, @Param('id') id: string) {
-    const patientId = parseBigId(id);
-    if (!patientId) return notFound(res);
-    await this.medical.deletePatient(patientId);
+  async deletePatient(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const patient = await this.scopedPatient(req, res, id);
+    if (!patient) return;
+    await this.medical.deletePatient(patient.id);
     return res.redirect('/medical');
+  }
+
+  /** Cho admin khác xem cùng hồ sơ này. Chỉ chủ hồ sơ được làm. */
+  @Post('/medical/patients/:id/permissions')
+  async addPermission(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('adminId') adminId: string) {
+    const patient = await this.ownedPatient(req, res, id);
+    if (!patient) return;
+    const target = parseBigId(adminId);
+    if (!target) return notFound(res);
+    await this.medical.addPermission(patient.id, target);
+    return res.redirect(`/medical/patients/${patient.id}`);
+  }
+
+  @Post('/medical/patients/:patientId/permissions/:permissionId/delete')
+  async removePermission(@Req() req: Request, @Res() res: Response, @Param('patientId') patientId: string, @Param('permissionId') permissionId: string) {
+    const patient = await this.ownedPatient(req, res, patientId);
+    if (!patient) return;
+    const permId = parseBigId(permissionId);
+    if (!permId) return notFound(res);
+    await this.medical.removePermission(patient.id, permId);
+    return res.redirect(`/medical/patients/${patient.id}`);
   }
 
   @Post('/medical/patients/:id/prescriptions')
   async addPrescription(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    const patientId = parseBigId(id);
-    if (!patientId) return notFound(res);
-    const patient = await this.medical.getPatient(patientId);
-    if (!patient) return notFound(res);
+    const patient = await this.scopedPatient(req, res, id);
+    if (!patient) return;
+    const patientId = patient.id;
     const back = `/medical/patients/${patientId}`;
     if (!this.ai.isConfigured()) return res.redirect(`${back}?err=${encodeURIComponent('Chưa cấu hình AI trên server (GROQ_API_KEY)')}`);
     const limit = this.rateLimit.consume(`ai:medical:${req.ip || 'unknown'}`, { max: 15, windowMs: 60_000 });
@@ -79,7 +100,7 @@ export class MedicalController {
       const extracted = await this.ai.extractFromImage(image.data, image.mime);
       if (!extracted.items.length) return res.redirect(`${back}?err=${encodeURIComponent('AI không đọc được thuốc trong ảnh, thử ảnh rõ hơn')}`);
       const prescription = await this.medical.createPrescription(patientId, extracted, image);
-      await this.runAnalysis(patientId, prescription.id);
+      await this.runAnalysis(patientId, prescription.id, currentUser(req));
     } catch (error) {
       return res.redirect(`${back}?err=${encodeURIComponent(error instanceof Error ? error.message : 'Xử lý đơn thất bại')}`);
     }
@@ -88,15 +109,13 @@ export class MedicalController {
 
   @Post('/medical/prescriptions/:id/reanalyze')
   async reanalyze(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
-    const prescriptionId = parseBigId(id);
-    if (!prescriptionId) return notFound(res);
-    const prescription = await this.medical.getPrescription(prescriptionId);
-    if (!prescription) return notFound(res);
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
     const back = `/medical/patients/${prescription.patientId}`;
     const limit = this.rateLimit.consume(`ai:medical:${req.ip || 'unknown'}`, { max: 15, windowMs: 60_000 });
     if (!limit.allowed) return res.redirect(`${back}?err=${encodeURIComponent(`Thao tác quá nhanh, thử lại sau ${limit.retryAfterSeconds}s`)}`);
     try {
-      await this.runAnalysis(prescription.patientId, prescriptionId);
+      await this.runAnalysis(prescription.patientId, prescription.id, currentUser(req));
     } catch (error) {
       return res.redirect(`${back}?err=${encodeURIComponent(error instanceof Error ? error.message : 'Phân tích thất bại')}`);
     }
@@ -104,33 +123,27 @@ export class MedicalController {
   }
 
   @Post('/medical/prescriptions/:id/delete')
-  async deletePrescription(@Res() res: Response, @Param('id') id: string) {
-    const prescriptionId = parseBigId(id);
-    if (!prescriptionId) return notFound(res);
-    const prescription = await this.medical.getPrescription(prescriptionId);
-    if (!prescription) return notFound(res);
-    await this.medical.deletePrescription(prescriptionId);
+  async deletePrescription(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
+    await this.medical.deletePrescription(prescription.id);
     return res.redirect(`/medical/patients/${prescription.patientId}`);
   }
 
   /** Bước xác nhận: giữ/bỏ từng thuốc và sửa số lần/ngày trước khi lên lịch. */
   @Post('/medical/prescriptions/:id/items')
-  async saveItems(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
-    const prescriptionId = parseBigId(id);
-    if (!prescriptionId) return notFound(res);
-    const prescription = await this.medical.getPrescription(prescriptionId);
-    if (!prescription) return notFound(res);
-    await this.medical.saveItemDecisions(prescriptionId, parseDecisions(body, prescription.items));
-    return res.redirect(`/medical/prescriptions/${prescriptionId}/lich`);
+  async saveItems(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
+    await this.medical.saveItemDecisions(prescription.id, parseDecisions(body, prescription.items));
+    return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
   }
 
   /** Màn hình tổng quan lịch uống thuốc trước khi tải về iPhone. */
   @Get('/medical/prescriptions/:id/lich')
-  async schedule(@Res() res: Response, @Param('id') id: string, @Query('start') start?: string, @Query('slot') slot?: string) {
-    const prescriptionId = parseBigId(id);
-    if (!prescriptionId) return notFound(res);
-    const prescription = await this.medical.getPrescription(prescriptionId);
-    if (!prescription) return notFound(res);
+  async schedule(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Query('start') start?: string, @Query('slot') slot?: string) {
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
     // Lịch đã chốt thì mặc định hiện đúng lịch đó, không lấy lại hôm nay làm ngày bắt đầu.
     const confirmedStart = prescription.scheduleStart ? prescription.scheduleStart.toISOString().slice(0, 10) : '';
     const startDate = safeDate(start) || confirmedStart || todayInVietnam();
@@ -155,15 +168,13 @@ export class MedicalController {
 
   /** Chốt lịch để máy khác lấy về đúng phần liệu trình còn lại. */
   @Post('/medical/prescriptions/:id/lich/chot')
-  async confirmSchedule(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    const prescriptionId = parseBigId(id);
-    if (!prescriptionId) return notFound(res);
-    const prescription = await this.medical.getPrescription(prescriptionId);
-    if (!prescription) return notFound(res);
+  async confirmSchedule(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
     const startDate = safeDate(body.start) || todayInVietnam();
     const startSlot: StartSlot = body.slot === 'SANG' ? 'SANG' : 'TOI';
-    await this.medical.saveSchedule(prescriptionId, startDate, startSlot);
-    return res.redirect(`/medical/prescriptions/${prescriptionId}/lich`);
+    await this.medical.saveSchedule(prescription.id, startDate, startSlot);
+    return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
   }
 
   /**
@@ -174,16 +185,16 @@ export class MedicalController {
    */
   @Get('/medical/prescriptions/:id/lich.ics')
   async scheduleIcs(
+    @Req() req: Request,
     @Res() res: Response,
     @Param('id') id: string,
     @Query('start') start?: string,
     @Query('slot') slot?: string,
     @Query('full') full?: string,
   ) {
-    const prescriptionId = parseBigId(id);
-    if (!prescriptionId) return notFound(res);
-    const prescription = await this.medical.getPrescription(prescriptionId);
-    if (!prescription) return notFound(res);
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
+    const prescriptionId = prescription.id;
     const confirmedStart = prescription.scheduleStart ? prescription.scheduleStart.toISOString().slice(0, 10) : '';
     const startDate = safeDate(start) || confirmedStart || todayInVietnam();
     const startSlot: StartSlot = (slot || prescription.scheduleSlot) === 'SANG' ? 'SANG' : 'TOI';
@@ -204,21 +215,66 @@ export class MedicalController {
   }
 
   @Get('/medical/prescriptions/:id/image')
-  async image(@Res() res: Response, @Param('id') id: string) {
-    const prescriptionId = parseBigId(id);
-    if (!prescriptionId) return notFound(res);
-    const prescription = await this.medical.getPrescription(prescriptionId);
-    if (!prescription?.imageData) return notFound(res, 'Không có ảnh');
+  async image(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    // Ảnh đơn thuốc là dữ liệu nhạy cảm nhất ở đây (tên, tuổi, chẩn đoán của bé)
+    // nên phải qua đúng bộ lọc quyền như mọi route khác.
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
+    if (!prescription.imageData) return notFound(res, 'Không có ảnh');
     const buffer = Buffer.from(prescription.imageData, 'base64');
     res.setHeader('Content-Type', prescription.imageMime || 'image/jpeg');
     res.setHeader('Cache-Control', 'private, max-age=3600');
     return res.send(buffer);
   }
 
-  private async runAnalysis(patientId: bigint, prescriptionId: bigint) {
+  /**
+   * Lấy người thân theo id NHƯNG chỉ khi người dùng có quyền; nếu không thì trả 404
+   * (đã gửi response) và trả null. Cố ý dùng 404 chứ không 403: 403 sẽ tiết lộ rằng
+   * hồ sơ đó có tồn tại.
+   */
+  private async scopedPatient(req: Request, res: Response, idParam: string) {
+    const patientId = parseBigId(idParam);
+    if (!patientId) {
+      notFound(res);
+      return null;
+    }
+    const patient = await this.medical.getPatient(patientId, currentUser(req));
+    if (!patient) {
+      notFound(res);
+      return null;
+    }
+    return patient;
+  }
+
+  /** Như scopedPatient nhưng đòi đúng chủ hồ sơ — dùng cho việc cấp/thu quyền. */
+  private async ownedPatient(req: Request, res: Response, idParam: string) {
+    const patient = await this.scopedPatient(req, res, idParam);
+    if (!patient) return null;
+    if (patient.ownerAdminId?.toString() !== currentUser(req).id.toString()) {
+      forbidden(res, 'Chỉ người tạo hồ sơ mới được phân quyền');
+      return null;
+    }
+    return patient;
+  }
+
+  private async scopedPrescription(req: Request, res: Response, idParam: string) {
+    const prescriptionId = parseBigId(idParam);
+    if (!prescriptionId) {
+      notFound(res);
+      return null;
+    }
+    const prescription = await this.medical.getPrescription(prescriptionId, currentUser(req));
+    if (!prescription) {
+      notFound(res);
+      return null;
+    }
+    return prescription;
+  }
+
+  private async runAnalysis(patientId: bigint, prescriptionId: bigint, user: CurrentUser) {
     const [prescription, patient, history] = await Promise.all([
-      this.medical.getPrescription(prescriptionId),
-      this.medical.getPatient(patientId),
+      this.medical.getPrescription(prescriptionId, user),
+      this.medical.getPatient(patientId, user),
       this.medical.historyForPatient(patientId, prescriptionId),
     ]);
     if (!prescription || !patient) return;
@@ -239,6 +295,10 @@ export class MedicalController {
     );
     await this.medical.saveAnalysis(prescriptionId, analysis.risk, analysis.summary);
   }
+}
+
+function currentUser(req: Request): CurrentUser {
+  return req.session.user as CurrentUser;
 }
 
 type ItemRow = { id: bigint; timesPerDay: number; days: number };

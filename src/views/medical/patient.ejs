@@ -91,6 +91,39 @@
     <% }) %>
   </section>
 
+  <% if (isOwner) { %>
+    <details class="card-lite p mb">
+      <summary><strong>🔐 Ai được xem hồ sơ này</strong></summary>
+      <p class="muted mt">Mặc định chỉ mình bạn xem được. Cấp quyền để admin khác cùng theo dõi thuốc của bé.</p>
+      <% if (patient.permissions.length) { %>
+        <% patient.permissions.forEach((perm) => { %>
+          <div class="flex between center gap med-row">
+            <span><%= perm.admin.displayName || perm.admin.username %></span>
+            <form method="post" action="/medical/patients/<%= patient.id %>/permissions/<%= perm.id %>/delete" data-confirm="Thu quyền xem hồ sơ của người này?">
+              <button class="btn btn-sm btn-danger" data-loading-text="...">Thu quyền</button>
+            </form>
+          </div>
+        <% }) %>
+      <% } else { %>
+        <p class="muted">Chưa cấp cho ai.</p>
+      <% } %>
+      <% if (availableAdmins.length) { %>
+        <form method="post" action="/medical/patients/<%= patient.id %>/permissions" class="mt">
+          <label>Cho admin khác xem cùng</label>
+          <div class="flex gap center">
+            <select name="adminId" required>
+              <option value="">-- Chọn admin --</option>
+              <% availableAdmins.forEach((admin) => { %>
+                <option value="<%= admin.id %>"><%= admin.displayName || admin.username %></option>
+              <% }) %>
+            </select>
+            <button class="btn btn-primary" data-loading-text="...">Cấp quyền</button>
+          </div>
+        </form>
+      <% } %>
+    </details>
+  <% } %>
+
   <details class="card-lite p mb">
     <summary><strong>✏️ Sửa thông tin / xóa người thân</strong></summary>
     <form class="medical-form mt" method="post" action="/medical/patients/<%= patient.id %>/edit">

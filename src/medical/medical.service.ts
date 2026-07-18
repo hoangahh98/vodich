@@ -8,23 +8,62 @@ import { ExtractedPrescription } from './medical-ai.service';
 export class MedicalService {
   constructor(private readonly prisma: PrismaService) {}
 
-  listPatients() {
+  /**
+   * Hồ sơ y tế là dữ liệu nhạy cảm: chỉ admin tạo ra, hoặc admin được cấp quyền, mới
+   * thấy. Cùng mẫu với travel/teams. Cố ý KHÔNG cho admin gốc xem hết — bệnh án gia
+   * đình người khác thì phải được cấp quyền tường minh mới xem được.
+   */
+  private scopeFor(user: CurrentUser) {
+    const adminId = BigInt(user.id);
+    return { OR: [{ ownerAdminId: adminId }, { permissions: { some: { adminId } } }] };
+  }
+
+  listPatients(user: CurrentUser) {
     return this.prisma.medPatient.findMany({
+      where: this.scopeFor(user),
       orderBy: [{ name: 'asc' }],
       include: { _count: { select: { prescriptions: true } } },
     });
   }
 
-  getPatient(id: bigint) {
-    return this.prisma.medPatient.findUnique({
-      where: { id },
+  /** Trả null nếu không tồn tại HOẶC người dùng không có quyền — controller xử như 404. */
+  getPatient(id: bigint, user: CurrentUser) {
+    return this.prisma.medPatient.findFirst({
+      where: { id, ...this.scopeFor(user) },
       include: {
         prescriptions: {
           orderBy: [{ prescribedDate: 'desc' }, { id: 'desc' }],
           include: { items: { orderBy: { id: 'asc' } } },
         },
+        permissions: { include: { admin: { select: { id: true, displayName: true, username: true } } } },
       },
     });
+  }
+
+  /** Admin khác chưa được cấp quyền, để đổ vào ô chọn "cho ai xem cùng". */
+  availableAdmins(patientId: bigint, ownerAdminId?: bigint | null) {
+    return this.prisma.appUser.findMany({
+      where: {
+        role: 'ADMIN',
+        id: { notIn: [ownerAdminId || 0n] },
+        medicalPermissions: { none: { patientId } },
+      },
+      select: { id: true, displayName: true, username: true },
+      orderBy: { displayName: 'asc' },
+    });
+  }
+
+  addPermission(patientId: bigint, adminId: bigint) {
+    return this.prisma.medPatientPermission.upsert({
+      where: { patientId_adminId: { patientId, adminId } },
+      create: { patientId, adminId },
+      update: {},
+    });
+  }
+
+  /** Ràng cả patientId để không xoá nhầm quyền của hồ sơ khác qua id truyền tay. */
+  removePermission(patientId: bigint, permissionId: bigint) {
+    return this.prisma.medPatientPermission.deleteMany({ where: { id: permissionId, patientId } });
   }
 
   createPatient(user: CurrentUser, body: Record<string, string>) {
@@ -134,8 +173,12 @@ export class MedicalService {
     });
   }
 
-  getPrescription(id: bigint) {
-    return this.prisma.medPrescription.findUnique({ where: { id }, include: { items: true, patient: true } });
+  /** Đơn thuốc cũng phải soi qua quyền của người thân sở hữu nó, không chỉ theo id. */
+  getPrescription(id: bigint, user: CurrentUser) {
+    return this.prisma.medPrescription.findFirst({
+      where: { id, patient: this.scopeFor(user) },
+      include: { items: true, patient: true },
+    });
   }
 
   deletePrescription(id: bigint) {
