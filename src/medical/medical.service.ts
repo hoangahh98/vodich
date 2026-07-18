@@ -231,31 +231,46 @@ export class MedicalService {
   }
 
   /**
-   * Áp quyết định "đơn mới thay đơn cũ": thuốc nào còn dùng tiếp thì giữ, còn lại tắt.
-   * Tắt hết thuốc của đơn cũ thì đánh dấu dừng luôn lịch đơn đó.
+   * Đơn mới thay đơn cũ: thuốc còn dùng tiếp được CHUYỂN HẲN sang đơn mới (kèm số ngày
+   * còn lại), thuốc ngừng thì tắt. Đơn cũ dừng hoàn toàn.
+   *
+   * Cố ý chuyển sang đơn mới chứ không để nguyên ở đơn cũ: nếu để nguyên thì lúc nào
+   * cũng có hai lịch chạy song song, xoá nhóm lịch cũ trên iPhone là mất nhắc mấy thuốc
+   * đang uống dở, mà giữ lại thì hai nhóm chồng nhau. Gộp về một đơn thì mỗi lúc chỉ có
+   * đúng một lịch — xoá nhóm cũ, nạp nhóm mới là xong.
    */
-  async applyTransition(oldPrescriptionId: bigint, keepItemIds: string[]) {
-    const items = await this.prisma.medPrescriptionItem.findMany({
-      where: { prescriptionId: oldPrescriptionId },
-      select: { id: true },
-    });
-    const keep = new Set(keepItemIds);
-    await this.prisma.$transaction(
-      items.map((item) =>
-        this.prisma.medPrescriptionItem.update({
-          where: { id: item.id },
-          data: { enabled: keep.has(item.id.toString()) },
+  async applyTransition(oldPrescriptionId: bigint, newPrescriptionId: bigint, carryOver: CarryOverItem[]) {
+    await this.prisma.$transaction([
+      // Toàn bộ thuốc đơn cũ đều tắt: thứ còn dùng đã sang đơn mới, thứ ngừng thì thôi.
+      this.prisma.medPrescriptionItem.updateMany({
+        where: { prescriptionId: oldPrescriptionId },
+        data: { enabled: false },
+      }),
+      // Giữ nguyên scheduleStart dù đã dừng: còn cần để dựng lại đúng các cữ đã xuất ra
+      // iPhone mà gửi lệnh huỷ.
+      this.prisma.medPrescription.update({
+        where: { id: oldPrescriptionId },
+        data: { scheduleStopped: true },
+      }),
+      ...carryOver.map((item) =>
+        this.prisma.medPrescriptionItem.create({
+          data: {
+            prescriptionId: newPrescriptionId,
+            drugName: item.drugName.slice(0, 255),
+            isAntibiotic: item.isAntibiotic,
+            dosage: item.dosage,
+            frequency: item.frequency,
+            duration: `còn ${item.days} ngày (chuyển từ đơn cũ)`,
+            note: item.note,
+            timesPerDay: item.timesPerDay,
+            days: item.days,
+            quantity: item.quantity,
+            route: item.route,
+            timing: item.timing,
+          },
         }),
       ),
-    );
-    const stillOn = items.some((item) => keep.has(item.id.toString()));
-    // Giữ nguyên scheduleStart dù đã dừng: còn cần để dựng lại đúng các cữ đã xuất ra
-    // iPhone mà gửi lệnh huỷ.
-    await this.prisma.medPrescription.update({
-      where: { id: oldPrescriptionId },
-      data: { scheduleStopped: !stillOn },
-    });
-    return stillOn;
+    ]);
   }
 
   /** Lịch sử đơn thuốc trước đó của bệnh nhân (để AI đối chiếu). */
@@ -267,6 +282,20 @@ export class MedicalService {
       include: { items: true },
     });
   }
+}
+
+/** Thuốc đơn cũ được chuyển sang đơn mới, số ngày đã trừ phần đã uống. */
+export interface CarryOverItem {
+  drugName: string;
+  isAntibiotic: boolean;
+  dosage: string;
+  frequency: string;
+  note: string;
+  timesPerDay: number;
+  days: number;
+  quantity: string;
+  route: string;
+  timing: string;
 }
 
 export interface ItemDecision {

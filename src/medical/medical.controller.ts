@@ -6,11 +6,11 @@ import { FeatureGuard } from '../common/feature.guard';
 import { render } from '../common/view';
 import { CurrentUser } from '../types';
 import { MedicalAiService } from './medical-ai.service';
-import { ItemDecision, MedicalService } from './medical.service';
+import { CarryOverItem, ItemDecision, MedicalService } from './medical.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { buildIcs } from './ics';
 import { CabinetService } from './cabinet.service';
-import { Leftover, leftoverOf } from './cabinet';
+import { Leftover, leftoverOf, parseCountable } from './cabinet';
 import {
   DoseTimes,
   START_SLOT_LABELS,
@@ -301,12 +301,14 @@ export class MedicalController {
     const doseTimes = doseTimesOf(prescription.patient);
     const today = todayInVietnam();
     for (const other of others) {
-      // Ghi thuốc thừa vào tủ TRƯỚC khi tắt, vì sau khi tắt thì không dựng lại được
-      // số liều đã uống nữa.
       const stopped = other.items.filter((item) => !keep.includes(item.id.toString()));
+      const kept = other.items.filter((item) => keep.includes(item.id.toString()));
+      // Ghi thuốc thừa vào tủ TRƯỚC khi tắt, vì sau khi tắt thì không dựng lại được
+      // số liều đã uống nữa. Cùng lý do với việc tính số ngày còn lại ngay tại đây.
       const leftovers = leftoversFor(other, stopped, doseTimes, today);
       if (leftovers.length) await this.cabinet.addLeftovers(currentUser(req), leftovers, other.prescribedDate);
-      await this.medical.applyTransition(other.id, keep);
+      const carryOver = carryOverFor(other, kept, doseTimes, today);
+      await this.medical.applyTransition(other.id, prescription.id, carryOver);
     }
     return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
   }
@@ -571,6 +573,49 @@ function leftoversFor(
       return leftoverOf({ drugName: String(item.drugName || ''), quantity: String(item.quantity || ''), dosesTaken: taken });
     })
     .filter((entry): entry is Leftover => Boolean(entry));
+}
+
+/**
+ * Thuốc đơn cũ còn dùng tiếp -> chuyển sang đơn mới với số ngày CÒN LẠI.
+ *
+ * Trừ đúng phần đã uống, nếu không bé sẽ bị kê lại từ đầu cả liệu trình. Số ngày để số
+ * thực (bội 0,5) vì phần còn lại hay rơi vào nửa ngày. Còn dưới nửa ngày thì coi như
+ * xong, không chuyển.
+ */
+function carryOverFor(
+  prescription: { scheduleStart: Date | null; scheduleSlot: string },
+  keptItems: Array<ItemRow & Record<string, unknown>>,
+  doseTimes: DoseTimes,
+  today: string,
+): CarryOverItem[] {
+  if (!prescription.scheduleStart) return [];
+  const startDate = prescription.scheduleStart.toISOString().slice(0, 10);
+  const slot = safeStartSlot(prescription.scheduleSlot);
+  return keptItems
+    .map((item) => {
+      const timesPerDay = Number(item.timesPerDay || 0);
+      if (!timesPerDay) return null;
+      const scheduled = buildSchedule(toScheduleItems([{ ...item, enabled: true }]), startDate, slot, doseTimes);
+      const total = scheduled.groups.reduce((sum, g) => sum + g.lines.length, 0);
+      const taken = scheduled.groups.filter((g) => g.date <= today).reduce((sum, g) => sum + g.lines.length, 0);
+      const leftDoses = Math.max(0, total - taken);
+      const days = Math.round((leftDoses / timesPerDay) * 2) / 2;
+      if (days < 0.5) return null;
+      return {
+        drugName: String(item.drugName || ''),
+        isAntibiotic: Boolean(item.isAntibiotic),
+        dosage: String(item.dosage || ''),
+        frequency: String(item.frequency || ''),
+        note: String(item.note || ''),
+        timesPerDay,
+        days,
+        // Số lượng còn lại, không phải số lượng cấp ban đầu.
+        quantity: `${leftDoses} ${parseCountable(String(item.quantity || ''))?.unit || ''}`.trim(),
+        route: String(item.route || ''),
+        timing: String(item.timing || ''),
+      };
+    })
+    .filter((entry): entry is CarryOverItem => Boolean(entry));
 }
 
 type PatientTimes = { doseTimeMorning: string; doseTimeNoon: string; doseTimeEvening: string; doseTimeBedtime: string };

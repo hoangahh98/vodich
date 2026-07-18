@@ -15,7 +15,7 @@
 
   <div class="alert-lite warn mb">
     <%= patient.name %> vẫn còn đơn cũ chưa uống xong. <strong>Thuốc nào bác sĩ dặn dùng tiếp thì tick lại</strong>,
-    thuốc nào ngừng thì bỏ trống — lịch nhắc của thuốc đó sẽ được gỡ.
+    thuốc nào ngừng thì bỏ trống.
   </div>
 
   <form method="post" action="/medical/prescriptions/<%= prescription.id %>/chuyen-don">
@@ -46,8 +46,12 @@
 
     <section class="card-lite p mb">
       <p class="muted">
-        Thuốc bỏ trống: app ngừng nhắc, và file lịch của đơn mới sẽ kèm lệnh gỡ các cữ cũ khỏi Lịch iPhone.
-        Thuốc tick lại: sẽ có <strong>hai bộ nhắc song song</strong>, tên sự kiện ghi rõ ngày đơn để phân biệt.
+        <strong>Thuốc tick lại sẽ được chuyển hẳn sang đơn mới</strong>, số ngày tự trừ phần đã uống.
+        Thuốc bỏ trống thì ngừng nhắc, phần thừa đếm được (gói/viên/ống) tự vào tủ thuốc.
+      </p>
+      <p class="muted">
+        Nhờ vậy chỉ còn <strong>một lịch duy nhất</strong> đang chạy: trên iPhone bạn xoá nhóm lịch cũ rồi nạp
+        nhóm mới là đủ, không sợ mất nhắc mấy thuốc đang uống dở.
       </p>
       <div class="text-right mt">
         <button class="btn btn-primary" data-loading-text="Đang áp dụng...">Xong, xem lịch đơn mới</button>
