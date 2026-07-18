@@ -25,7 +25,12 @@
       entry.doses++;
     });
   });
-  const icsUrl = `/medical/prescriptions/${prescription.id}/lich.ics?start=${startDate}&slot=${startSlot}`;
+  const q = `start=${startDate}&slot=${startSlot}`;
+  const icsUrl = `/medical/prescriptions/${prescription.id}/lich.ics?${q}`;
+  const icsFullUrl = `${icsUrl}&full=1`;
+  const isConfirmed = Boolean(confirmedStart);
+  // Lịch bắt đầu trong quá khứ nghĩa là đang uống dở -> nạp cả liệu trình sẽ ra cữ cũ.
+  const started = startDate < today;
 %>
 <main class="app-shell">
   <section class="feature-hero p mb">
@@ -78,8 +83,40 @@
         <div><span class="feature-icon">📲</span><h2 class="section-title">Đặt vào Lịch iPhone</h2>
         <p class="muted"><%= result.groups.length %> cữ thuốc, từ <%= viDate(startDate) %> đến hết <%= viDate(result.lastDate) %>.</p></div>
       </div>
-      <p class="muted">Bấm nút dưới để tải file lịch. iPhone sẽ hỏi <strong>"Add All"</strong> — đồng ý là mỗi cữ thành một sự kiện có chuông báo đúng giờ.</p>
-      <div class="text-right mt"><a class="btn btn-success" href="<%= icsUrl %>">📥 Tải lịch nhắc về máy</a></div>
+
+      <% if (isConfirmed) { %>
+        <div class="alert-lite mb">✅ Lịch đã chốt từ <strong><%= viDate(confirmedStart) %></strong>. Máy nào mở trang này cũng thấy đúng lịch đó.</div>
+      <% } else { %>
+        <form method="post" action="/medical/prescriptions/<%= prescription.id %>/lich/chot" class="mb">
+          <input type="hidden" name="start" value="<%= startDate %>">
+          <input type="hidden" name="slot" value="<%= startSlot %>">
+          <p class="muted">Chốt lịch để những máy khác trong nhà lấy về đúng lịch này, không phải chọn lại ngày.</p>
+          <div class="text-right"><button class="btn" data-loading-text="Đang chốt...">📌 Chốt lịch này</button></div>
+        </form>
+      <% } %>
+
+      <p class="muted">Bấm nút dưới để nạp lịch. iPhone sẽ hỏi <strong>"Add All"</strong> — đồng ý là mỗi cữ thành một sự kiện có chuông báo đúng giờ.</p>
+
+      <% if (started) { %>
+        <%# Đang uống dở: mặc định chỉ nạp phần còn lại để máy mới không đầy cữ quá khứ. %>
+        <div class="alert-lite mb">
+          🕒 Liệu trình đã bắt đầu từ <%= viDate(startDate) %>.
+          <% if (remainingCount) { %>
+            Máy này sẽ chỉ nhận <strong><%= remainingCount %> cữ còn lại</strong>, đến hết <%= viDate(remainingLast) %>.
+          <% } else { %>
+            Không còn cữ nào cần nhắc — liệu trình đã xong.
+          <% } %>
+        </div>
+      <% } %>
+
+      <div class="text-right mt">
+        <% if (remainingCount) { %>
+          <a class="btn btn-success" href="<%= icsUrl %>">📥 Nạp <%= started ? remainingCount + ' cữ còn lại' : 'lịch nhắc' %></a>
+        <% } %>
+        <% if (started) { %>
+          <div class="mt"><a class="muted" href="<%= icsFullUrl %>">Nạp lại cả liệu trình từ đầu (gồm cữ đã qua)</a></div>
+        <% } %>
+      </div>
     </section>
 
     <section class="card-lite p mb">

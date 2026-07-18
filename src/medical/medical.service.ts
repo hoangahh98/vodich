@@ -118,6 +118,14 @@ export class MedicalService {
     if (updates.length) await this.prisma.$transaction(updates);
   }
 
+  /** Chốt lịch: ghi nhớ ngày bắt đầu + cữ đầu để máy khác lấy đúng phần còn lại. */
+  saveSchedule(prescriptionId: bigint, startDate: string, slot: string) {
+    return this.prisma.medPrescription.update({
+      where: { id: prescriptionId },
+      data: { scheduleStart: new Date(`${startDate}T00:00:00Z`), scheduleSlot: slot },
+    });
+  }
+
   saveAnalysis(prescriptionId: bigint, risk: string, summary: string) {
     return this.prisma.medPrescription.update({
       where: { id: prescriptionId },

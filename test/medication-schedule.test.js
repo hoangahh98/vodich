@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { buildSchedule, addDays, slotsFor } = require('../dist/medical/medication-schedule');
+const { buildSchedule, addDays, slotsFor, remainingFrom } = require('../dist/medical/medication-schedule');
 const { buildIcs } = require('../dist/medical/ics');
 
 const item = (over) => ({
@@ -76,6 +76,36 @@ test('thuốc kết thúc sớm không bị nhắc tiếp ở những ngày sau'
   for (const group of lastDay) {
     assert.deepEqual(group.lines.map((l) => l.drugName), ['Dài'], 'ngày cuối chỉ còn thuốc dài ngày');
   }
+});
+
+test('remainingFrom chỉ giữ phần liệu trình còn lại cho máy lấy lịch giữa chừng', () => {
+  const { groups } = buildSchedule([item({ timesPerDay: 2, days: 5 })], '2026-07-18', 'SANG');
+  // Máy thứ hai lấy lịch sáng ngày 21/07, khi đã uống 3 ngày
+  const left = remainingFrom(groups, '2026-07-21', '00:00');
+  assert.ok(left.length < groups.length, 'phải bớt đi so với cả liệu trình');
+  assert.ok(left.every((g) => g.date >= '2026-07-21'), 'không được còn cữ nào trước ngày lấy');
+  assert.equal(left[0].date, '2026-07-21');
+  assert.equal(left[0].time, '07:30');
+});
+
+test('remainingFrom giữ lại cữ rơi đúng vào mốc đang xét, không làm mất liều sắp uống', () => {
+  const { groups } = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-18', 'SANG');
+  const left = remainingFrom(groups, '2026-07-18', '07:30');
+  assert.equal(left[0].time, '07:30', 'cữ đúng mốc phải được giữ');
+});
+
+test('remainingFrom trả rỗng khi liệu trình đã xong', () => {
+  const { groups } = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-18', 'SANG');
+  assert.deepEqual(remainingFrom(groups, '2026-08-01', '00:00'), []);
+});
+
+test('UID giữ nguyên giữa bản đầy đủ và bản còn lại nên máy cũ không bị nhân đôi sự kiện', () => {
+  const { groups } = buildSchedule([item({ timesPerDay: 2, days: 5 })], '2026-07-18', 'SANG');
+  const left = remainingFrom(groups, '2026-07-21', '00:00');
+  const uids = (ics) => (ics.match(/UID:[^\r\n]+/g) || []);
+  const fullUids = uids(buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx5' }));
+  const leftUids = uids(buildIcs(left, { calendarName: 'T', uidPrefix: 'rx5' }));
+  assert.ok(leftUids.length && leftUids.every((uid) => fullUids.includes(uid)));
 });
 
 test('addDays qua mốc cuối tháng và năm nhuận', () => {

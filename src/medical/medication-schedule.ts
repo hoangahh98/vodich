@@ -133,6 +133,17 @@ export function buildSchedule(items: ScheduleItem[], startDate: string, startSlo
   return { groups, skipped, lastDate: groups.length ? groups[groups.length - 1].date : startDate };
 }
 
+/**
+ * Cắt bỏ các cữ đã qua, chỉ giữ phần liệu trình còn lại tính từ mốc (fromDate, fromTime).
+ *
+ * Dùng khi lịch đã chốt và người dùng nạp lịch vào máy thứ hai, hoặc lấy lại sau vài
+ * ngày: nếu sinh lại cả liệu trình từ đầu thì máy mới sẽ có một loạt cữ trong quá khứ.
+ * Cữ đang diễn ra ngay tại fromTime vẫn được giữ (>=), tránh làm mất cữ sắp phải uống.
+ */
+export function remainingFrom(groups: DoseGroup[], fromDate: string, fromTime: string): DoseGroup[] {
+  return groups.filter((group) => group.date > fromDate || (group.date === fromDate && group.time >= fromTime));
+}
+
 /** Cộng ngày trên chuỗi YYYY-MM-DD, tính bằng UTC để không lệch do múi giờ máy chủ. */
 export function addDays(date: string, days: number): string {
   const [year, month, day] = date.split('-').map(Number);

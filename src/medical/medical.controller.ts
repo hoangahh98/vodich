@@ -9,7 +9,7 @@ import { MedicalAiService } from './medical-ai.service';
 import { ItemDecision, MedicalService } from './medical.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { buildIcs } from './ics';
-import { ScheduleItem, StartSlot, buildSchedule } from './medication-schedule';
+import { ScheduleItem, StartSlot, buildSchedule, remainingFrom } from './medication-schedule';
 
 @Controller()
 @UseGuards(FeatureGuard)
@@ -131,30 +131,65 @@ export class MedicalController {
     if (!prescriptionId) return notFound(res);
     const prescription = await this.medical.getPrescription(prescriptionId);
     if (!prescription) return notFound(res);
-    const startDate = safeDate(start) || todayInVietnam();
-    const startSlot: StartSlot = slot === 'SANG' ? 'SANG' : 'TOI';
+    // Lịch đã chốt thì mặc định hiện đúng lịch đó, không lấy lại hôm nay làm ngày bắt đầu.
+    const confirmedStart = prescription.scheduleStart ? prescription.scheduleStart.toISOString().slice(0, 10) : '';
+    const startDate = safeDate(start) || confirmedStart || todayInVietnam();
+    const startSlot: StartSlot = (slot || prescription.scheduleSlot) === 'SANG' ? 'SANG' : 'TOI';
     const result = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
+    const today = todayInVietnam();
+    const remaining = remainingFrom(result.groups, today, '00:00');
     return render(res, 'medical/schedule', {
       patient: prescription.patient,
       prescription,
       startDate,
       startSlot,
       result,
+      confirmedStart,
+      today,
+      // Số cữ còn phải uống tính từ hôm nay — dùng để hiện trên nút nạp vào máy khác.
+      remainingCount: remaining.length,
+      remainingLast: remaining.length ? remaining[remaining.length - 1].date : '',
       disclaimer: this.ai.disclaimer(),
     });
   }
 
-  /** Tải file .ics để nạp thẳng vào Lịch trên iPhone. */
-  @Get('/medical/prescriptions/:id/lich.ics')
-  async scheduleIcs(@Res() res: Response, @Param('id') id: string, @Query('start') start?: string, @Query('slot') slot?: string) {
+  /** Chốt lịch để máy khác lấy về đúng phần liệu trình còn lại. */
+  @Post('/medical/prescriptions/:id/lich/chot')
+  async confirmSchedule(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     const prescriptionId = parseBigId(id);
     if (!prescriptionId) return notFound(res);
     const prescription = await this.medical.getPrescription(prescriptionId);
     if (!prescription) return notFound(res);
-    const startDate = safeDate(start) || todayInVietnam();
-    const startSlot: StartSlot = slot === 'SANG' ? 'SANG' : 'TOI';
-    const { groups } = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
-    if (!groups.length) return notFound(res, 'Chưa có thuốc nào đủ thông tin để lên lịch');
+    const startDate = safeDate(body.start) || todayInVietnam();
+    const startSlot: StartSlot = body.slot === 'SANG' ? 'SANG' : 'TOI';
+    await this.medical.saveSchedule(prescriptionId, startDate, startSlot);
+    return res.redirect(`/medical/prescriptions/${prescriptionId}/lich`);
+  }
+
+  /**
+   * Tải file .ics để nạp thẳng vào Lịch trên iPhone.
+   *
+   * `full=1` nạp cả liệu trình. Mặc định chỉ nạp phần CÒN LẠI tính từ hôm nay: máy thứ
+   * hai lấy lịch vào giữa liệu trình mà nạp lại từ đầu thì sẽ đầy cữ trong quá khứ.
+   */
+  @Get('/medical/prescriptions/:id/lich.ics')
+  async scheduleIcs(
+    @Res() res: Response,
+    @Param('id') id: string,
+    @Query('start') start?: string,
+    @Query('slot') slot?: string,
+    @Query('full') full?: string,
+  ) {
+    const prescriptionId = parseBigId(id);
+    if (!prescriptionId) return notFound(res);
+    const prescription = await this.medical.getPrescription(prescriptionId);
+    if (!prescription) return notFound(res);
+    const confirmedStart = prescription.scheduleStart ? prescription.scheduleStart.toISOString().slice(0, 10) : '';
+    const startDate = safeDate(start) || confirmedStart || todayInVietnam();
+    const startSlot: StartSlot = (slot || prescription.scheduleSlot) === 'SANG' ? 'SANG' : 'TOI';
+    const built = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
+    const groups = full === '1' ? built.groups : remainingFrom(built.groups, todayInVietnam(), '00:00');
+    if (!groups.length) return notFound(res, 'Không còn cữ thuốc nào cần nhắc');
     const ics = buildIcs(groups, {
       calendarName: `Thuốc của ${prescription.patient.name}`,
       // UID gắn với id đơn: import lại lần 2 sẽ ghi đè chứ không nhân đôi sự kiện.
