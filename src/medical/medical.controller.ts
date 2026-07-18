@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { forbidden, notFound, parseBigId } from '../common/controller-utils';
+import { forbidden, notFound, parseBigId, safeNext } from '../common/controller-utils';
 import { FeatureAccess } from '../common/feature.decorator';
 import { FeatureGuard } from '../common/feature.guard';
 import { render } from '../common/view';
@@ -9,7 +9,15 @@ import { MedicalAiService } from './medical-ai.service';
 import { ItemDecision, MedicalService } from './medical.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { buildIcs } from './ics';
-import { START_SLOT_LABELS, ScheduleItem, buildSchedule, remainingFrom, safeStartSlot } from './medication-schedule';
+import {
+  DoseTimes,
+  START_SLOT_LABELS,
+  ScheduleItem,
+  buildSchedule,
+  remainingFrom,
+  safeDoseTimes,
+  safeStartSlot,
+} from './medication-schedule';
 
 @Controller()
 @UseGuards(FeatureGuard)
@@ -32,7 +40,7 @@ export class MedicalController {
       if (!prescription?.scheduleStart) return null;
       const startDate = prescription.scheduleStart.toISOString().slice(0, 10);
       const startSlot = safeStartSlot(prescription.scheduleSlot);
-      const { groups } = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
+      const { groups } = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot, doseTimesOf(patient));
       const remaining = remainingFrom(groups, today, '00:00');
       if (!remaining.length) return null;
       return {
@@ -73,7 +81,7 @@ export class MedicalController {
     const patient = await this.scopedPatient(req, res, id);
     if (!patient) return;
     await this.medical.updatePatient(patient.id, body);
-    return res.redirect(`/medical/patients/${patient.id}`);
+    return res.redirect(`/medical/patients/${patient.id}/cau-hinh`);
   }
 
   @Post('/medical/patients/:id/delete')
@@ -84,6 +92,31 @@ export class MedicalController {
     return res.redirect('/medical');
   }
 
+  /** Trang cấu hình của một người thân: giờ nhắc, ai được xem, sửa/xóa hồ sơ. */
+  @Get('/medical/patients/:id/cau-hinh')
+  async patientSettings(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const patient = await this.scopedPatient(req, res, id);
+    if (!patient) return;
+    return render(res, 'medical/settings', {
+      patient,
+      menuPatientId: patient.id.toString(),
+      menuPrescriptionId: patient.prescriptions[0]?.id.toString() || '',
+      doseTimes: doseTimesOf(patient),
+      isOwner: patient.ownerAdminId?.toString() === currentUser(req).id.toString(),
+      availableAdmins: await this.medical.availableAdmins(patient.id, patient.ownerAdminId),
+    });
+  }
+
+  /** Lưu giờ nhắc uống thuốc. Gọi từ cả trang cấu hình lẫn trang lịch. */
+  @Post('/medical/patients/:id/gio-uong')
+  async saveDoseTimes(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    const patient = await this.scopedPatient(req, res, id);
+    if (!patient) return;
+    await this.medical.saveDoseTimes(patient.id, safeDoseTimes(body));
+    const next = safeNext(body.next);
+    return res.redirect(next || `/medical/patients/${patient.id}/cau-hinh`);
+  }
+
   /** Cho admin khác xem cùng hồ sơ này. Chỉ chủ hồ sơ được làm. */
   @Post('/medical/patients/:id/permissions')
   async addPermission(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('adminId') adminId: string) {
@@ -92,7 +125,7 @@ export class MedicalController {
     const target = parseBigId(adminId);
     if (!target) return notFound(res);
     await this.medical.addPermission(patient.id, target);
-    return res.redirect(`/medical/patients/${patient.id}`);
+    return res.redirect(`/medical/patients/${patient.id}/cau-hinh`);
   }
 
   @Post('/medical/patients/:patientId/permissions/:permissionId/delete')
@@ -102,7 +135,7 @@ export class MedicalController {
     const permId = parseBigId(permissionId);
     if (!permId) return notFound(res);
     await this.medical.removePermission(patient.id, permId);
-    return res.redirect(`/medical/patients/${patient.id}`);
+    return res.redirect(`/medical/patients/${patient.id}/cau-hinh`);
   }
 
   @Post('/medical/patients/:id/prescriptions')
@@ -169,9 +202,27 @@ export class MedicalController {
     const confirmedStart = prescription.scheduleStart ? prescription.scheduleStart.toISOString().slice(0, 10) : '';
     const startDate = safeDate(start) || confirmedStart || todayInVietnam();
     const startSlot = safeStartSlot(slot || prescription.scheduleSlot);
-    const result = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
+    const result = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot, doseTimesOf(prescription.patient));
     const today = todayInVietnam();
     const remaining = remainingFrom(result.groups, today, '00:00');
+    const doseTimes = doseTimesOf(prescription.patient);
+    // Đơn cũ chưa uống xong mà nạp thêm lịch đơn mới thì trong Lịch iPhone sẽ có 2 sự
+    // kiện chồng cùng giờ, dễ cho uống nhầm gấp đôi. Phải cảnh báo tường minh.
+    const others = await this.medical.otherScheduled(prescription.patientId, prescription.id);
+    const overlaps = others
+      .map((other) => {
+        const otherStart = other.scheduleStart!.toISOString().slice(0, 10);
+        const built = buildSchedule(toScheduleItems(other.items), otherStart, safeStartSlot(other.scheduleSlot), doseTimes);
+        const left = remainingFrom(built.groups, today, '00:00');
+        if (!left.length) return null;
+        return {
+          date: other.prescribedDate ? other.prescribedDate.toISOString().slice(0, 10) : '',
+          remainingCount: left.length,
+          lastDate: left[left.length - 1].date,
+          drugs: [...new Set(left.flatMap((g) => g.lines.map((l) => l.drugName)))],
+        };
+      })
+      .filter(Boolean);
     return render(res, 'medical/schedule', {
       patient: prescription.patient,
       prescription,
@@ -180,6 +231,8 @@ export class MedicalController {
       startDate,
       startSlot,
       slotLabels: START_SLOT_LABELS,
+      doseTimes,
+      overlaps,
       result,
       confirmedStart,
       today,
@@ -221,13 +274,16 @@ export class MedicalController {
     const confirmedStart = prescription.scheduleStart ? prescription.scheduleStart.toISOString().slice(0, 10) : '';
     const startDate = safeDate(start) || confirmedStart || todayInVietnam();
     const startSlot = safeStartSlot(slot || prescription.scheduleSlot);
-    const built = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
+    const built = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot, doseTimesOf(prescription.patient));
     const groups = full === '1' ? built.groups : remainingFrom(built.groups, todayInVietnam(), '00:00');
     if (!groups.length) return notFound(res, 'Không còn cữ thuốc nào cần nhắc');
     const ics = buildIcs(groups, {
       calendarName: `Thuốc của ${prescription.patient.name}`,
       // UID gắn với id đơn: import lại lần 2 sẽ ghi đè chứ không nhân đôi sự kiện.
       uidPrefix: `rx${prescriptionId}`,
+      prescriptionLabel: prescription.prescribedDate
+        ? prescription.prescribedDate.toISOString().slice(0, 10).split('-').reverse().slice(0, 2).join('/')
+        : '',
       followUpNote: [prescription.clinic, prescription.doctor].filter(Boolean).join(' - '),
     });
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
@@ -322,6 +378,17 @@ export class MedicalController {
 
 function currentUser(req: Request): CurrentUser {
   return req.session.user as CurrentUser;
+}
+
+type PatientTimes = { doseTimeMorning: string; doseTimeNoon: string; doseTimeEvening: string; doseTimeBedtime: string };
+
+function doseTimesOf(patient: PatientTimes): DoseTimes {
+  return {
+    morning: patient.doseTimeMorning,
+    noon: patient.doseTimeNoon,
+    evening: patient.doseTimeEvening,
+    bedtime: patient.doseTimeBedtime,
+  };
 }
 
 type ItemRow = { id: bigint; timesPerDay: number; days: number };

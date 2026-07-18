@@ -1,7 +1,14 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { buildSchedule, addDays, slotsFor, remainingFrom } = require('../dist/medical/medication-schedule');
+const {
+  buildSchedule,
+  addDays,
+  slotsFor,
+  remainingFrom,
+  safeDoseTimes,
+  DEFAULT_DOSE_TIMES,
+} = require('../dist/medical/medication-schedule');
 const { buildIcs } = require('../dist/medical/ics');
 
 const item = (over) => ({
@@ -71,6 +78,46 @@ test('uống 1 lần buổi sáng mà chọn bắt đầu buổi tối thì dờ
 test('thuốc uống 1 lần trước khi ngủ được xếp vào cữ tối, không phải cữ sáng', () => {
   assert.deepEqual(slotsFor({ timesPerDay: 1, timing: 'TRUOC_NGU' }), ['20:30']);
   assert.deepEqual(slotsFor({ timesPerDay: 1, timing: '' }), ['07:00']);
+});
+
+const TIMES = { morning: '06:30', noon: '11:30', evening: '18:00', bedtime: '21:00' };
+
+test('giờ nhắc tuỳ chỉnh được dùng thay cho mốc mặc định', () => {
+  const { groups } = buildSchedule([item({ timesPerDay: 3, days: 2 })], '2026-07-18', 'SANG', TIMES);
+  assert.deepEqual(groups.slice(0, 3).map((g) => g.time), ['06:30', '11:30', '18:00']);
+});
+
+test('ngưỡng "bắt đầu từ trưa/tối" bám theo giờ đã cấu hình, không cắm cứng', () => {
+  const first = (slot) => buildSchedule([item({ timesPerDay: 3, days: 2 })], '2026-07-18', slot, TIMES).groups[0];
+  assert.equal(first('TRUA').time, '11:30', 'trưa 11:30 vẫn phải nhận là cữ trưa');
+  assert.equal(first('TOI').time, '18:00', 'tối 18:00 vẫn phải nhận là cữ tối');
+});
+
+test('thuốc trước khi ngủ dùng đúng mốc trước-ngủ đã cấu hình', () => {
+  assert.deepEqual(slotsFor({ timesPerDay: 1, timing: 'TRUOC_NGU' }, TIMES), ['21:00']);
+});
+
+test('từ 4 lần/ngày trở lên vẫn neo vào giờ sáng đã đặt và giãn đều, không dồn cục', () => {
+  const times4 = slotsFor({ timesPerDay: 4, timing: '' }, TIMES);
+  const times6 = slotsFor({ timesPerDay: 6, timing: '' }, TIMES);
+  assert.equal(times4[0], '06:30', 'luôn bắt đầu từ giờ sáng đã đặt');
+  assert.equal(times6[0], '06:30');
+  const gaps = (list) => list.slice(1).map((t, i) => toMin(t) - toMin(list[i]));
+  // Không được có khoảng cách âm (mốc lùi) hay quá 8 tiếng giữa 2 cữ trong ngày
+  [times4, times6].forEach((list) => {
+    gaps(list).forEach((g) => {
+      assert.ok(g > 0, `mốc phải tăng dần: ${list.join(',')}`);
+      assert.ok(g <= 8 * 60, `không được hở quá 8 tiếng: ${list.join(',')}`);
+    });
+  });
+});
+
+const toMin = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3));
+
+test('safeDoseTimes chặn giờ rác, rơi về mặc định', () => {
+  assert.deepEqual(safeDoseTimes({ morning: '25:00', noon: 'abc', evening: '', bedtime: '7:5' }), DEFAULT_DOSE_TIMES);
+  assert.equal(safeDoseTimes({ morning: '06:30' }).morning, '06:30');
+  assert.equal(safeDoseTimes({ morning: '06:30' }).noon, DEFAULT_DOSE_TIMES.noon, 'trường thiếu thì lấy mặc định');
 });
 
 test('số ngày lẻ 2,5 cho ra đúng 5 liều và kết thúc giữa ngày thứ 3', () => {

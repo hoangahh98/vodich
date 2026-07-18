@@ -11,6 +11,12 @@ export interface IcsOptions {
   calendarName: string;
   /** Tiền tố UID, cần ổn định để import lại lần 2 ghi đè chứ không nhân đôi sự kiện. */
   uidPrefix: string;
+  /**
+   * Ngày kê đơn (dd/mm), gắn vào tiêu đề sự kiện. Đơn cũ chưa uống xong mà có đơn mới
+   * thì trong Lịch sẽ có 2 sự kiện chồng cùng giờ — không ghi rõ đơn nào thì không
+   * tài nào phân biệt được trên màn hình điện thoại.
+   */
+  prescriptionLabel?: string;
   /** Ngày tái khám YYYY-MM-DD (nếu có) -> thêm 1 sự kiện nhắc. */
   followUpDate?: string;
   followUpNote?: string;
@@ -31,7 +37,8 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
     const start = toStamp(group.date, group.time);
     const end = toStamp(group.date, addMinutes(group.time, 15));
     const antibiotic = group.lines.some((line) => line.isAntibiotic);
-    const title = `${antibiotic ? '💊⚠️' : '💊'} Cữ thuốc ${group.time}`;
+    const suffix = options.prescriptionLabel ? ` · đơn ${options.prescriptionLabel}` : '';
+    const title = `${antibiotic ? '💊⚠️' : '💊'} Cữ thuốc ${group.time}${suffix}`;
     const body = group.lines.map(describeLine).join('\n');
     lines.push(
       'BEGIN:VEVENT',

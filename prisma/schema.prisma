@@ -311,6 +311,13 @@ model MedPatient {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
+  // Giờ nhắc uống thuốc theo nếp sinh hoạt từng nhà, đặt ở người thân để dùng chung
+  // cho mọi đơn thuốc chứ không phải khai lại mỗi lần có đơn mới.
+  doseTimeMorning String @default("07:00") @map("dose_time_morning") @db.VarChar(5)
+  doseTimeNoon    String @default("12:00") @map("dose_time_noon") @db.VarChar(5)
+  doseTimeEvening String @default("19:00") @map("dose_time_evening") @db.VarChar(5)
+  doseTimeBedtime String @default("20:30") @map("dose_time_bedtime") @db.VarChar(5)
+
   prescriptions MedPrescription[]
   permissions   MedPatientPermission[]
 

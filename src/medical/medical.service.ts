@@ -3,6 +3,7 @@ import { blankToNull } from '../common/controller-utils';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
 import { ExtractedPrescription } from './medical-ai.service';
+import { DoseTimes } from './medication-schedule';
 
 @Injectable()
 export class MedicalService {
@@ -167,6 +168,19 @@ export class MedicalService {
     if (updates.length) await this.prisma.$transaction(updates);
   }
 
+  /** Giờ nhắc uống thuốc theo nếp nhà, lưu ở người thân nên mọi đơn dùng chung. */
+  saveDoseTimes(patientId: bigint, times: DoseTimes) {
+    return this.prisma.medPatient.update({
+      where: { id: patientId },
+      data: {
+        doseTimeMorning: times.morning,
+        doseTimeNoon: times.noon,
+        doseTimeEvening: times.evening,
+        doseTimeBedtime: times.bedtime,
+      },
+    });
+  }
+
   /** Chốt lịch: ghi nhớ ngày bắt đầu + cữ đầu để máy khác lấy đúng phần còn lại. */
   saveSchedule(prescriptionId: bigint, startDate: string, slot: string) {
     return this.prisma.medPrescription.update({
@@ -192,6 +206,15 @@ export class MedicalService {
 
   deletePrescription(id: bigint) {
     return this.prisma.medPrescription.delete({ where: { id } });
+  }
+
+  /** Các đơn KHÁC của cùng người thân đã chốt lịch — để cảnh báo trùng giờ nhắc. */
+  otherScheduled(patientId: bigint, excludeId: bigint) {
+    return this.prisma.medPrescription.findMany({
+      where: { patientId, id: { not: excludeId }, scheduleStart: { not: null } },
+      orderBy: [{ scheduleStart: 'desc' }],
+      include: { items: true },
+    });
   }
 
   /** Lịch sử đơn thuốc trước đó của bệnh nhân (để AI đối chiếu). */

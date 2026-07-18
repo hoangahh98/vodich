@@ -9,15 +9,9 @@
 export type StartSlot = 'SANG' | 'TRUA' | 'TOI';
 
 /**
- * Mốc sớm nhất trong ngày mà cữ đầu tiên được phép rơi vào.
  * Đi khám về lúc nào thì chọn buổi đó, lịch tự bỏ các cữ đã trôi qua của ngày đầu.
+ * Ngưỡng từng buổi tính trong buildSchedule theo giờ người dùng cấu hình.
  */
-const SLOT_FLOOR: Record<StartSlot, string> = {
-  SANG: '00:00',
-  TRUA: '11:00',
-  TOI: '17:00',
-};
-
 export const START_SLOT_LABELS: Record<StartSlot, string> = {
   SANG: 'Bắt đầu từ cữ sáng',
   TRUA: 'Bắt đầu từ cữ trưa',
@@ -63,32 +57,78 @@ export interface ScheduleResult {
   lastDate: string;
 }
 
-// Mốc giờ theo số lần uống mỗi ngày. Ba mốc chuẩn do người dùng chốt:
-// sáng 07:00, trưa 12:00, tối 19:00. Các trường hợp 4-6 lần/ngày phải chia nhỏ
-// hơn nên giãn đều quanh ba mốc đó.
-const MORNING = '07:00';
-const NOON = '12:00';
-const EVENING = '19:00';
+/** Giờ nhắc theo nếp sinh hoạt từng nhà, cấu hình được ở trang lịch. */
+export interface DoseTimes {
+  morning: string;
+  noon: string;
+  evening: string;
+  bedtime: string;
+}
 
-const SLOTS: Record<number, string[]> = {
-  1: [MORNING],
-  2: [MORNING, EVENING],
-  3: [MORNING, NOON, EVENING],
-  // Từ 4 lần/ngày trở lên phải giãn đều trong ngày thức, giữ được mốc sáng và tối;
-  // bám cứng cả ba mốc sẽ dồn cục buổi sáng rồi hở một khoảng dài qua đêm.
-  4: [MORNING, NOON, '17:00', '21:00'],
-  5: [MORNING, '11:00', '15:00', EVENING, '23:00'],
-  6: [MORNING, '10:00', '13:00', '16:00', EVENING, '22:00'],
+export const DEFAULT_DOSE_TIMES: DoseTimes = {
+  morning: '07:00',
+  noon: '12:00',
+  evening: '19:00',
+  bedtime: '20:30',
 };
 
-// Thuốc uống trước khi ngủ thì mốc duy nhất phải là buổi tối, không phải 07:30.
-const BEDTIME = '20:30';
+/**
+ * Mốc giờ theo số lần uống mỗi ngày.
+ *
+ * Từ 4 lần/ngày trở lên không bám cứng ba mốc sáng/trưa/tối được: nhét thêm cữ quanh
+ * ba mốc đó sẽ dồn cục buổi sáng rồi hở một khoảng dài qua đêm. Những trường hợp này
+ * chia đều khoảng cách giữa mốc sáng và mốc cuối ngày, vẫn neo vào giờ người dùng đặt.
+ */
+function slotTable(times: DoseTimes): Record<number, string[]> {
+  const { morning, noon, evening } = times;
+  return {
+    1: [morning],
+    2: [morning, evening],
+    3: [morning, noon, evening],
+    4: [morning, noon, evening, addHours(evening, 2)],
+    5: spread(morning, addHours(evening, 4), 5),
+    6: spread(morning, addHours(evening, 3), 6),
+  };
+}
 
-export function slotsFor(item: { timesPerDay: number; timing: string }): string[] {
-  const times = SLOTS[item.timesPerDay];
-  if (!times) return [];
-  if (item.timesPerDay === 1 && item.timing === 'TRUOC_NGU') return [BEDTIME];
-  return times;
+export function slotsFor(item: { timesPerDay: number; timing: string }, times: DoseTimes = DEFAULT_DOSE_TIMES): string[] {
+  const table = slotTable(times);
+  const slots = table[item.timesPerDay];
+  if (!slots) return [];
+  // Thuốc uống 1 lần trước khi ngủ phải rơi vào cữ tối muộn, không phải cữ sáng.
+  if (item.timesPerDay === 1 && item.timing === 'TRUOC_NGU') return [times.bedtime];
+  return slots;
+}
+
+/** Chia đều `count` mốc từ `from` đến `to` (đã kẹp trong ngày), làm tròn về 5 phút. */
+function spread(from: string, to: string, count: number): string[] {
+  const start = toMinutes(from);
+  const end = Math.min(toMinutes(to), 23 * 60 + 55);
+  const step = (end - start) / (count - 1);
+  return Array.from({ length: count }, (_, i) => toHHMM(Math.round((start + step * i) / 5) * 5));
+}
+
+function addHours(time: string, hours: number): string {
+  return toHHMM(Math.min(toMinutes(time) + hours * 60, 23 * 60 + 55));
+}
+
+function toMinutes(time: string): number {
+  const [h, m] = time.split(':').map(Number);
+  return h * 60 + m;
+}
+
+function toHHMM(minutes: number): string {
+  const clamped = Math.max(0, Math.min(minutes, 23 * 60 + 59));
+  return `${String(Math.floor(clamped / 60)).padStart(2, '0')}:${String(clamped % 60).padStart(2, '0')}`;
+}
+
+/** Chỉ nhận HH:MM hợp lệ; giá trị rác từ form sẽ rơi về mặc định. */
+export function safeDoseTimes(raw: Partial<Record<keyof DoseTimes, unknown>> = {}): DoseTimes {
+  const pick = (key: keyof DoseTimes) => {
+    const value = String(raw[key] ?? '').trim();
+    return /^([01]\d|2[0-3]):[0-5]\d$/.test(value) ? value : DEFAULT_DOSE_TIMES[key];
+  };
+  return { morning: pick('morning'), noon: pick('noon'), evening: pick('evening'), bedtime: pick('bedtime') };
 }
 
 export const ROUTE_LABELS: Record<string, string> = {
@@ -113,12 +153,24 @@ export const TIMING_LABELS: Record<string, string> = {
  * buổi chiều, cữ đầu là tối nay). Số cữ tổng vẫn đủ timesPerDay*days nên cữ sáng bị bỏ
  * của ngày đầu sẽ được đẩy sang ngày cuối — không bị hụt liều.
  */
-export function buildSchedule(items: ScheduleItem[], startDate: string, startSlot: StartSlot): ScheduleResult {
+export function buildSchedule(
+  items: ScheduleItem[],
+  startDate: string,
+  startSlot: StartSlot,
+  doseTimes: DoseTimes = DEFAULT_DOSE_TIMES,
+): ScheduleResult {
   const skipped: Array<{ drugName: string; reason: string }> = [];
   const byKey = new Map<string, DoseGroup>();
+  // Ngưỡng lấy từ chính giờ người dùng đặt, không cắm cứng: đặt cữ trưa lúc 13:00
+  // thì "bắt đầu từ trưa" phải hiểu theo 13:00.
+  const floor: Record<StartSlot, string> = {
+    SANG: '00:00',
+    TRUA: doseTimes.noon,
+    TOI: doseTimes.evening,
+  };
 
   for (const item of items) {
-    const times = slotsFor(item);
+    const times = slotsFor(item, doseTimes);
     if (!times.length) {
       skipped.push({ drugName: item.drugName, reason: 'chưa rõ số lần uống mỗi ngày' });
       continue;
@@ -131,7 +183,7 @@ export function buildSchedule(items: ScheduleItem[], startDate: string, startSlo
       continue;
     }
     // Cữ đầu tiên: bỏ các mốc đã trôi qua của ngày đầu theo buổi người dùng chọn.
-    let slotIndex = times.findIndex((time) => time >= SLOT_FLOOR[startSlot]);
+    let slotIndex = times.findIndex((time) => time >= floor[startSlot]);
     // Thuốc không có mốc nào từ buổi đó trở đi (vd uống 1 lần buổi sáng mà chọn bắt
     // đầu buổi tối) -> dời hẳn cữ đầu sang hôm sau, không ép uống sai giờ.
     if (slotIndex < 0) slotIndex = times.length;

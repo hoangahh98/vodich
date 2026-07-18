@@ -62,7 +62,40 @@
       </div>
       <div class="text-right mt"><button class="btn" data-loading-text="Đang tính...">↻ Tính lại lịch</button></div>
     </form>
+
+    <%# Giờ nhắc lưu ở người thân nên form này POST riêng rồi quay lại đúng lịch đang xem. %>
+    <details class="mt">
+      <summary><strong>⏰ Giờ nhắc: sáng <%= doseTimes.morning %> · trưa <%= doseTimes.noon %> · tối <%= doseTimes.evening %> · trước ngủ <%= doseTimes.bedtime %></strong></summary>
+      <form method="post" action="/medical/patients/<%= patient.id %>/gio-uong" class="mt">
+        <input type="hidden" name="next" value="/medical/prescriptions/<%= prescription.id %>/lich?<%= q %>">
+        <div class="row">
+          <div class="col-6"><label>Cữ sáng</label><input type="time" name="morning" value="<%= doseTimes.morning %>" required></div>
+          <div class="col-6"><label>Cữ trưa</label><input type="time" name="noon" value="<%= doseTimes.noon %>" required></div>
+          <div class="col-6"><label>Cữ tối</label><input type="time" name="evening" value="<%= doseTimes.evening %>" required></div>
+          <div class="col-6"><label>Trước khi ngủ</label><input type="time" name="bedtime" value="<%= doseTimes.bedtime %>" required></div>
+        </div>
+        <p class="muted mt">Áp dụng cho mọi đơn thuốc của <%= patient.name %>.</p>
+        <div class="text-right mt"><button class="btn btn-primary" data-loading-text="Đang lưu...">💾 Lưu giờ &amp; tính lại</button></div>
+      </form>
+    </details>
   </section>
+
+  <% if (overlaps.length) { %>
+    <div class="alert-lite warn mb">
+      <strong>⚠️ Người thân này còn đơn khác đang uống dở</strong>
+      <ul>
+        <% overlaps.forEach((o) => { %>
+          <li>
+            Đơn <%= o.date ? o.date.split('-').reverse().slice(0, 2).join('/') : 'không rõ ngày' %>:
+            còn <strong><%= o.remainingCount %></strong> cữ đến hết <%= o.lastDate.split('-').reverse().slice(0, 2).join('/') %>
+            (<%= o.drugs.join(', ') %>)
+          </li>
+        <% }) %>
+      </ul>
+      Nạp thêm lịch này thì trong Lịch iPhone sẽ có <strong>hai sự kiện chồng nhau cùng giờ</strong>. Tên sự kiện có ghi ngày đơn để phân biệt,
+      nhưng nếu bác sĩ đã thay thuốc thì nên vào đơn cũ bỏ tick hết thuốc rồi lưu lại, và xoá loạt sự kiện cũ trong Lịch trước khi nạp lịch mới.
+    </div>
+  <% } %>
 
   <% if (result.skipped.length) { %>
     <div class="alert-lite warn mb">

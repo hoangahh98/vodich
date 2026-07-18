@@ -1,0 +1,85 @@
+<%- include('../partials/head', { title: 'Cấu hình - ' + patient.name }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>⚙️ Cấu hình</h1>
+        <div class="muted strong-muted"><%= patient.name %></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb">
+      <div><span class="feature-icon">⏰</span><h2 class="section-title">Giờ nhắc uống thuốc</h2>
+      <p class="muted">Đặt theo nếp sinh hoạt nhà bạn. Áp dụng cho mọi đơn thuốc của <%= patient.name %>.</p></div>
+    </div>
+    <form method="post" action="/medical/patients/<%= patient.id %>/gio-uong">
+      <div class="row">
+        <div class="col-6"><label>Cữ sáng</label><input type="time" name="morning" value="<%= doseTimes.morning %>" required></div>
+        <div class="col-6"><label>Cữ trưa</label><input type="time" name="noon" value="<%= doseTimes.noon %>" required></div>
+        <div class="col-6"><label>Cữ tối</label><input type="time" name="evening" value="<%= doseTimes.evening %>" required></div>
+        <div class="col-6"><label>Trước khi ngủ</label><input type="time" name="bedtime" value="<%= doseTimes.bedtime %>" required></div>
+      </div>
+      <p class="muted mt">Thuốc uống 1 lần "trước khi đi ngủ" dùng mốc riêng ở trên. Thuốc từ 4 lần/ngày trở lên được giãn đều trong ngày, neo theo giờ sáng và tối bạn đặt.</p>
+      <div class="text-right mt"><button class="btn btn-primary" data-loading-text="Đang lưu...">💾 Lưu giờ nhắc</button></div>
+    </form>
+  </section>
+
+  <% if (isOwner) { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb">
+        <div><span class="feature-icon">🔐</span><h2 class="section-title">Ai được xem hồ sơ này</h2>
+        <p class="muted">Mặc định chỉ mình bạn xem được. Cấp quyền để admin khác cùng theo dõi thuốc của bé.</p></div>
+      </div>
+      <% if (patient.permissions.length) { %>
+        <% patient.permissions.forEach((perm) => { %>
+          <div class="flex between center gap med-row">
+            <span><%= perm.admin.displayName || perm.admin.username %></span>
+            <form method="post" action="/medical/patients/<%= patient.id %>/permissions/<%= perm.id %>/delete" data-confirm="Thu quyền xem hồ sơ của người này?">
+              <button class="btn btn-sm btn-danger" data-loading-text="...">Thu quyền</button>
+            </form>
+          </div>
+        <% }) %>
+      <% } else { %>
+        <p class="muted">Chưa cấp cho ai.</p>
+      <% } %>
+      <% if (availableAdmins.length) { %>
+        <form method="post" action="/medical/patients/<%= patient.id %>/permissions" class="mt">
+          <label>Cho admin khác xem cùng</label>
+          <div class="flex gap center">
+            <select name="adminId" required>
+              <option value="">-- Chọn admin --</option>
+              <% availableAdmins.forEach((admin) => { %>
+                <option value="<%= admin.id %>"><%= admin.displayName || admin.username %></option>
+              <% }) %>
+            </select>
+            <button class="btn btn-primary" data-loading-text="...">Cấp quyền</button>
+          </div>
+        </form>
+      <% } %>
+    </section>
+  <% } %>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">✏️</span><h2 class="section-title">Thông tin người thân</h2></div></div>
+    <form class="medical-form" method="post" action="/medical/patients/<%= patient.id %>/edit">
+      <div><label>Họ tên</label><input name="name" value="<%= patient.name %>" required></div>
+      <div><label>Năm sinh</label><input name="birthYear" type="number" value="<%= patient.birthYear || '' %>"></div>
+      <div><label>Giới tính</label><select name="gender"><option value="">--</option><option value="Nam" <%= patient.gender==='Nam'?'selected':'' %>>Nam</option><option value="Nữ" <%= patient.gender==='Nữ'?'selected':'' %>>Nữ</option></select></div>
+      <div><label>Dị ứng</label><input name="allergies" value="<%= patient.allergies || '' %>"></div>
+      <div class="medical-form-wide"><label>Bệnh nền</label><input name="conditions" value="<%= patient.conditions || '' %>"></div>
+      <div class="medical-form-wide"><label>Ghi chú</label><input name="notes" value="<%= patient.notes || '' %>"></div>
+      <div class="medical-form-actions"><button class="btn btn-primary" data-loading-text="Đang lưu...">💾 Lưu thay đổi</button></div>
+    </form>
+  </section>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">🗑️</span><h2 class="section-title">Xóa người thân</h2><p class="muted">Xóa cả hồ sơ và toàn bộ đơn thuốc đã lưu. Không khôi phục lại được.</p></div></div>
+    <form method="post" action="/medical/patients/<%= patient.id %>/delete" data-confirm="Xóa người thân này và toàn bộ đơn thuốc?">
+      <button class="btn btn-danger">Xóa <%= patient.name %></button>
+    </form>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>
