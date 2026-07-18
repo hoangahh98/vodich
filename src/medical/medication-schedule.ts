@@ -6,7 +6,28 @@
  * chữ trong ảnh (times_per_day, days...), người dùng sửa lại được trước khi lên lịch.
  */
 
-export type StartSlot = 'SANG' | 'TOI';
+export type StartSlot = 'SANG' | 'TRUA' | 'TOI';
+
+/**
+ * Mốc sớm nhất trong ngày mà cữ đầu tiên được phép rơi vào.
+ * Đi khám về lúc nào thì chọn buổi đó, lịch tự bỏ các cữ đã trôi qua của ngày đầu.
+ */
+const SLOT_FLOOR: Record<StartSlot, string> = {
+  SANG: '00:00',
+  TRUA: '11:00',
+  TOI: '17:00',
+};
+
+export const START_SLOT_LABELS: Record<StartSlot, string> = {
+  SANG: 'Bắt đầu từ cữ sáng',
+  TRUA: 'Bắt đầu từ cữ trưa',
+  TOI: 'Bắt đầu từ cữ tối',
+};
+
+export function safeStartSlot(value: unknown): StartSlot {
+  const slot = String(value || '').toUpperCase();
+  return slot === 'SANG' || slot === 'TRUA' ? slot : 'TOI';
+}
 
 export interface ScheduleItem {
   id: string;
@@ -101,9 +122,11 @@ export function buildSchedule(items: ScheduleItem[], startDate: string, startSlo
       skipped.push({ drugName: item.drugName, reason: 'chưa rõ dùng trong bao nhiêu ngày' });
       continue;
     }
-    // Cữ đầu tiên: nếu bắt đầu buổi tối thì bỏ các mốc trước 12:00 của ngày đầu.
-    let slotIndex = startSlot === 'TOI' ? times.findIndex((time) => time >= '12:00') : 0;
-    if (slotIndex < 0) slotIndex = times.length; // toàn mốc sáng -> dời hẳn sang hôm sau
+    // Cữ đầu tiên: bỏ các mốc đã trôi qua của ngày đầu theo buổi người dùng chọn.
+    let slotIndex = times.findIndex((time) => time >= SLOT_FLOOR[startSlot]);
+    // Thuốc không có mốc nào từ buổi đó trở đi (vd uống 1 lần buổi sáng mà chọn bắt
+    // đầu buổi tối) -> dời hẳn cữ đầu sang hôm sau, không ép uống sai giờ.
+    if (slotIndex < 0) slotIndex = times.length;
     let dayOffset = 0;
     if (slotIndex >= times.length) {
       slotIndex = 0;

@@ -28,7 +28,7 @@ export class ViewExceptionFilter implements ExceptionFilter {
     res.locals.currentUser = res.locals.currentUser ?? req.session?.user;
     res.locals.featureSet = res.locals.featureSet ?? new Set<string>();
     res.locals.isRoot = res.locals.isRoot ?? false;
-    res.locals.path = res.locals.path ?? req.path;
+    res.locals.path = res.locals.path ?? req.originalUrl.split('?')[0];
 
     try {
       res.status(status).render('error', { message });

@@ -1,3 +1,22 @@
+/**
+ * Nút "Lưu thay đổi" của từng đơn thuốc chỉ sáng khi có sửa thật.
+ * So với giá trị lúc trang vừa tải, nên sửa rồi sửa về như cũ thì nút tắt lại.
+ */
+(() => {
+  document.querySelectorAll('[data-med-items]').forEach((form) => {
+    const save = form.querySelector('[data-med-save]');
+    if (!save) return;
+    const fields = [...form.querySelectorAll('input')];
+    const initial = fields.map((field) => (field.type === 'checkbox' ? field.checked : field.value));
+    const refresh = () => {
+      const dirty = fields.some((field, i) => (field.type === 'checkbox' ? field.checked : field.value) !== initial[i]);
+      save.disabled = !dirty;
+    };
+    form.addEventListener('input', refresh);
+    form.addEventListener('change', refresh);
+  });
+})();
+
 (() => {
   const form = document.querySelector('[data-medical-upload]');
   if (!form) return;

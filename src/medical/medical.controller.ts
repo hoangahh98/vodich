@@ -9,7 +9,7 @@ import { MedicalAiService } from './medical-ai.service';
 import { ItemDecision, MedicalService } from './medical.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { buildIcs } from './ics';
-import { ScheduleItem, StartSlot, buildSchedule, remainingFrom } from './medication-schedule';
+import { START_SLOT_LABELS, ScheduleItem, buildSchedule, remainingFrom, safeStartSlot } from './medication-schedule';
 
 @Controller()
 @UseGuards(FeatureGuard)
@@ -39,11 +39,14 @@ export class MedicalController {
     if (!patient) return;
     return render(res, 'medical/patient', {
       patient,
+      // Điều hướng nằm ở menu ba gạch, không dùng nút mũi tên trong trang.
+      // Lịch nhắc trỏ vào đơn mới nhất (danh sách đã sắp giảm dần theo ngày kê).
+      menuPatientId: patient.id.toString(),
+      menuPrescriptionId: patient.prescriptions[0]?.id.toString() || '',
       // Chỉ chủ hồ sơ mới được cấp/thu quyền, người được cấp thì không.
       isOwner: patient.ownerAdminId?.toString() === currentUser(req).id.toString(),
       availableAdmins: await this.medical.availableAdmins(patient.id, patient.ownerAdminId),
       aiConfigured: this.ai.isConfigured(),
-      disclaimer: this.ai.disclaimer(),
       aiError: String(err || ''),
     });
   }
@@ -136,7 +139,8 @@ export class MedicalController {
     const prescription = await this.scopedPrescription(req, res, id);
     if (!prescription) return;
     await this.medical.saveItemDecisions(prescription.id, parseDecisions(body, prescription.items));
-    return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
+    // Lưu xong ở lại trang đơn thuốc; muốn lên lịch thì vào "📅 Lịch uống" ở menu.
+    return res.redirect(`/medical/patients/${prescription.patientId}`);
   }
 
   /** Màn hình tổng quan lịch uống thuốc trước khi tải về iPhone. */
@@ -147,22 +151,24 @@ export class MedicalController {
     // Lịch đã chốt thì mặc định hiện đúng lịch đó, không lấy lại hôm nay làm ngày bắt đầu.
     const confirmedStart = prescription.scheduleStart ? prescription.scheduleStart.toISOString().slice(0, 10) : '';
     const startDate = safeDate(start) || confirmedStart || todayInVietnam();
-    const startSlot: StartSlot = (slot || prescription.scheduleSlot) === 'SANG' ? 'SANG' : 'TOI';
+    const startSlot = safeStartSlot(slot || prescription.scheduleSlot);
     const result = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
     const today = todayInVietnam();
     const remaining = remainingFrom(result.groups, today, '00:00');
     return render(res, 'medical/schedule', {
       patient: prescription.patient,
       prescription,
+      menuPatientId: prescription.patientId.toString(),
+      menuPrescriptionId: prescription.id.toString(),
       startDate,
       startSlot,
+      slotLabels: START_SLOT_LABELS,
       result,
       confirmedStart,
       today,
       // Số cữ còn phải uống tính từ hôm nay — dùng để hiện trên nút nạp vào máy khác.
       remainingCount: remaining.length,
       remainingLast: remaining.length ? remaining[remaining.length - 1].date : '',
-      disclaimer: this.ai.disclaimer(),
     });
   }
 
@@ -172,7 +178,7 @@ export class MedicalController {
     const prescription = await this.scopedPrescription(req, res, id);
     if (!prescription) return;
     const startDate = safeDate(body.start) || todayInVietnam();
-    const startSlot: StartSlot = body.slot === 'SANG' ? 'SANG' : 'TOI';
+    const startSlot = safeStartSlot(body.slot);
     await this.medical.saveSchedule(prescription.id, startDate, startSlot);
     return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
   }
@@ -197,7 +203,7 @@ export class MedicalController {
     const prescriptionId = prescription.id;
     const confirmedStart = prescription.scheduleStart ? prescription.scheduleStart.toISOString().slice(0, 10) : '';
     const startDate = safeDate(start) || confirmedStart || todayInVietnam();
-    const startSlot: StartSlot = (slot || prescription.scheduleSlot) === 'SANG' ? 'SANG' : 'TOI';
+    const startSlot = safeStartSlot(slot || prescription.scheduleSlot);
     const built = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
     const groups = full === '1' ? built.groups : remainingFrom(built.groups, todayInVietnam(), '00:00');
     if (!groups.length) return notFound(res, 'Không còn cữ thuốc nào cần nhắc');

@@ -37,6 +37,37 @@ test('bắt đầu buổi tối thì bỏ cữ sáng ngày đầu nhưng KHÔNG 
   assert.equal(last.time, '07:30');
 });
 
+test('bắt đầu từ cữ TRƯA thì cữ đầu là mốc trưa, không phải sáng hay tối', () => {
+  // Thuốc nhỏ mũi ngày 3 lần: 07:30 / 14:00 / 20:00
+  const { groups } = buildSchedule([item({ timesPerDay: 3, days: 7 })], '2026-07-18', 'TRUA');
+  assert.equal(groups[0].date, '2026-07-18');
+  assert.equal(groups[0].time, '14:00');
+  assert.equal(groups.reduce((s, g) => s + g.lines.length, 0), 21, 'vẫn đủ 3 x 7 liều');
+});
+
+test('ba buổi cho ra ba mốc đầu khác nhau trên cùng một thuốc', () => {
+  const first = (slot) => buildSchedule([item({ timesPerDay: 3, days: 2 })], '2026-07-18', slot).groups[0];
+  assert.equal(first('SANG').time, '07:30');
+  assert.equal(first('TRUA').time, '14:00');
+  assert.equal(first('TOI').time, '20:00');
+  // Ngày đầu phải giống nhau, chỉ khác mốc giờ
+  ['SANG', 'TRUA', 'TOI'].forEach((slot) => assert.equal(first(slot).date, '2026-07-18'));
+});
+
+test('thuốc uống 2 lần/ngày mà chọn cữ TRƯA thì rơi vào cữ tối, không ép uống sai giờ', () => {
+  // 2 lần/ngày chỉ có 07:30 và 19:30, không có mốc trưa
+  const { groups } = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-18', 'TRUA');
+  assert.equal(groups[0].time, '19:30');
+  assert.equal(groups[0].date, '2026-07-18');
+});
+
+test('uống 1 lần buổi sáng mà chọn bắt đầu buổi tối thì dời sang hôm sau', () => {
+  const { groups } = buildSchedule([item({ timesPerDay: 1, days: 3, timing: '' })], '2026-07-18', 'TOI');
+  assert.equal(groups[0].date, '2026-07-19', 'không ép uống lúc 07:30 đã trôi qua');
+  assert.equal(groups[0].time, '07:30');
+  assert.equal(groups.reduce((s, g) => s + g.lines.length, 0), 3);
+});
+
 test('thuốc uống 1 lần trước khi ngủ được xếp vào cữ tối, không phải cữ sáng', () => {
   assert.deepEqual(slotsFor({ timesPerDay: 1, timing: 'TRUOC_NGU' }), ['20:30']);
   assert.deepEqual(slotsFor({ timesPerDay: 1, timing: '' }), ['07:30']);

@@ -13,11 +13,9 @@
           <% if (patient.conditions) { %> · Bệnh nền: <%= patient.conditions %><% } %>
         </div>
       </div>
-      <a class="btn btn-sm" href="/medical">Danh sách</a>
     </div>
   </section>
 
-  <div class="alert-lite warn mb"><%= disclaimer %></div>
   <% if (aiError) { %><div class="alert-lite warn mb">⚠️ <%= aiError %></div><% } %>
   <% if (!aiConfigured) { %><div class="alert-lite warn mb">Chưa cấu hình <code>GROQ_API_KEY</code> trên server nên chưa dùng được phân tích AI.</div><% } %>
 
@@ -56,7 +54,7 @@
           </div>
         </div>
         <% if (rx.diagnosis) { %><p class="muted mb">Chẩn đoán: <%= rx.diagnosis %></p><% } %>
-        <form method="post" action="/medical/prescriptions/<%= rx.id %>/items">
+        <form method="post" action="/medical/prescriptions/<%= rx.id %>/items" data-med-items>
           <%
             /* Cố ý KHÔNG dùng <table>: 6 cột làm ô "Số ngày" rơi ra ngoài màn hình điện thoại,
                phải kéo ngang mới thấy — trong khi đó lại đúng là ô người dùng cần soát nhất. */
@@ -82,7 +80,8 @@
             </div>
           <% }) %>
           <p class="muted mt">Bỏ tick thuốc không dùng (bác sĩ gạch, hoặc nhà đã có). Số lần/ngày và số ngày do AI đọc từ ảnh — đối chiếu tờ đơn giấy rồi sửa nếu sai.</p>
-          <div class="text-right mt"><button class="btn btn-primary" data-loading-text="Đang tính lịch...">📅 Lưu &amp; đặt lịch nhắc</button></div>
+          <%# Nút chỉ sáng khi có thay đổi thật (xem public/js/medical-upload.js). %>
+          <div class="text-right mt"><button class="btn btn-primary" data-med-save disabled data-loading-text="Đang lưu...">💾 Lưu thay đổi</button></div>
         </form>
         <% if (rx.aiSummary) { %>
           <div class="medical-analysis mt"><strong>🤖 Phân tích AI:</strong><div class="medical-analysis-body"><%= rx.aiSummary %></div></div>

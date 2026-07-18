@@ -12,6 +12,12 @@
       <% if (featureSet.has('HOUSEHOLD')) { %><a class="" href="/household">💰 Chi tiêu</a><% } %>
       <% if (featureSet.has('PERMISSIONS')) { %><a class="" href="/permissions">🔐 Phân quyền</a><% } %>
       <% if (isRoot) { %><a class="" href="/logs">📜 Log</a><% } %>
+    <% } else { %>
+      <%# Menu theo từng mục chỉ liệt kê trang trong mục đó, nên phải có lối về trang chủ
+          để còn sang module khác, nếu không menu thành ngõ cụt. %>
+      <a class="" href="/">🏠 Trang chủ</a>
+    <% } %>
+    <% if (currentPath === '/') { %>
     <% } else if ((currentPath.startsWith('/tournaments') || currentPath.startsWith('/players')) && featureSet.has('TOURNAMENTS')) { %>
       <a class="<%= currentPath.startsWith('/tournaments') ? 'active' : '' %>" href="/tournaments">🏆 Giải đấu</a>
       <% if (currentUser && currentUser.role === 'ADMIN') { %><a class="<%= currentPath.startsWith('/players') ? 'active' : '' %>" href="/players">👥 Thành viên</a><% } %>
@@ -20,7 +26,14 @@
     <% } else if (currentPath.startsWith('/travel') && featureSet.has('TRAVEL')) { %>
       <a class="active" href="/travel">🌴 Du lịch</a>
     <% } else if (currentPath.startsWith('/medical') && featureSet.has('MEDICAL')) { %>
-      <a class="active" href="/medical">🩺 Y tế</a>
+      <%# Điều hướng y tế nằm hết ở đây, không dùng nút mũi tên trong trang. %>
+      <a class="<%= currentPath === '/medical' ? 'active' : '' %>" href="/medical">🩺 Danh sách</a>
+      <% if (typeof menuPatientId !== 'undefined' && menuPatientId) { %>
+        <a class="<%= currentPath.startsWith('/medical/patients/') ? 'active' : '' %>" href="/medical/patients/<%= menuPatientId %>">💊 Đơn thuốc</a>
+      <% } %>
+      <% if (typeof menuPrescriptionId !== 'undefined' && menuPrescriptionId) { %>
+        <a class="<%= currentPath.includes('/lich') ? 'active' : '' %>" href="/medical/prescriptions/<%= menuPrescriptionId %>/lich">📅 Lịch uống</a>
+      <% } %>
     <% } else if (currentPath.startsWith('/household') && featureSet.has('HOUSEHOLD')) { %>
       <a class="<%= currentPath === '/household' ? 'active' : '' %>" href="/household">📊 Tổng quan</a>
       <a class="<%= currentPath === '/household/giao-dich' ? 'active' : '' %>" href="/household/giao-dich">🧾 Giao dịch</a>

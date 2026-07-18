@@ -42,11 +42,9 @@
           <% if (prescription.prescribedDate) { %> · đơn ngày <%= new Date(prescription.prescribedDate).toLocaleDateString('vi-VN') %><% } %>
         </div>
       </div>
-      <a class="btn btn-sm" href="/medical/patients/<%= patient.id %>">← Đơn thuốc</a>
     </div>
   </section>
 
-  <div class="alert-lite warn mb"><%= disclaimer %></div>
 
   <section class="card-lite p mb">
     <div class="section-heading mb"><div><span class="feature-icon">⏱️</span><h2 class="section-title">Bắt đầu uống từ khi nào?</h2></div></div>
@@ -56,8 +54,9 @@
         <div class="col-6">
           <label>Cữ đầu tiên</label>
           <select name="slot">
-            <option value="TOI" <%= startSlot === 'TOI' ? 'selected' : '' %>>Bắt đầu từ cữ tối hôm đó</option>
-            <option value="SANG" <%= startSlot === 'SANG' ? 'selected' : '' %>>Bắt đầu từ cữ sáng hôm đó</option>
+            <% ['SANG', 'TRUA', 'TOI'].forEach((key) => { %>
+              <option value="<%= key %>" <%= startSlot === key ? 'selected' : '' %>><%= slotLabels[key] %></option>
+            <% }) %>
           </select>
         </div>
       </div>

@@ -91,19 +91,12 @@ function clampInt(value: unknown, min: number, max: number): number {
   return Math.min(parsed, max);
 }
 
-const MED_DISCLAIMER =
-  'LƯU Ý QUAN TRỌNG: Đây là phân tích tham khảo bằng AI, KHÔNG thay thế tư vấn của bác sĩ/dược sĩ. Luôn hỏi ý kiến chuyên môn trước khi dùng, ngừng hay đổi thuốc.';
-
 @Injectable()
 export class MedicalAiService {
   constructor(private readonly ai: AiService) {}
 
   isConfigured() {
     return this.ai.isConfigured();
-  }
-
-  disclaimer() {
-    return MED_DISCLAIMER;
   }
 
   /** Đọc ảnh đơn thuốc và trích xuất thông tin có cấu trúc. */
@@ -149,12 +142,13 @@ export class MedicalAiService {
       `Lịch sử đơn cũ (mới nhất trước): ${JSON.stringify(history)}`,
       'Hãy xét: (1) trùng/lặp hoạt chất; (2) kháng sinh: có đang dùng liên tiếp/lặp lại quá gần, đủ liệu trình chưa, nguy cơ kháng thuốc; (3) tương tác thuốc bất lợi; (4) chống chỉ định theo dị ứng/bệnh nền/độ tuổi (đặc biệt trẻ em); (5) tác dụng phụ đáng chú ý và dấu hiệu cần đi khám ngay.',
       'Trả về JSON: { "risk": "LOW|MEDIUM|HIGH", "summary": "phân tích bằng tiếng Việt, gạch đầu dòng ngắn gọn theo 5 mục trên, nêu rõ nếu KHÔNG có vấn đề" }.',
-      `Bắt buộc kết thúc summary bằng đúng câu: "${MED_DISCLAIMER}". Chỉ trả JSON.`,
+      'Viết gọn, đi thẳng vào vấn đề, không thêm câu miễn trừ trách nhiệm. Chỉ trả JSON.',
     ].join('\n');
     const result = await this.ai.generateJson<SafetyAnalysis>(prompt, { temperature: 0.3 });
     const risk = ['LOW', 'MEDIUM', 'HIGH'].includes(result.risk) ? result.risk : 'MEDIUM';
     let summary = String(result.summary || '').trim();
-    if (!summary.includes('KHÔNG thay thế')) summary = `${summary}\n\n${MED_DISCLAIMER}`;
+    // Người dùng đã tắt câu lưu ý ở giao diện, nên cũng cắt nốt nếu model tự thêm vào.
+    summary = summary.replace(/LƯU Ý QUAN TRỌNG:[\s\S]*$/i, '').trim();
     return { risk, summary };
   }
 }
