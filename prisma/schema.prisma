@@ -400,6 +400,33 @@ model MedPrescriptionItem {
   @@map("med_prescription_item")
 }
 
+/**
+ * Tủ thuốc của gia đình (theo admin, dùng chung cho mọi người thân).
+ * Chỉ theo dõi dạng ĐẾM ĐƯỢC (gói/viên/ống). Chai/lọ/siro bỏ qua vì đã mở nắp thì
+ * hạn dùng phụ thuộc cách bảo quản, đếm tồn không có ý nghĩa.
+ */
+model MedCabinetItem {
+  id           BigInt   @id @default(autoincrement())
+  ownerAdminId BigInt   @map("owner_admin_id")
+  drugName     String   @map("drug_name") @db.VarChar(255)
+  /** Tên đã chuẩn hoá (bỏ dấu, bỏ hàm lượng, bỏ tên biệt dược trong ngoặc) để đối chiếu đơn mới. */
+  matchKey     String   @map("match_key") @db.VarChar(255)
+  unit         String   @default("") @db.VarChar(20)
+  quantity     Int      @default(0)
+  /** Ngày mua = ngày kê đơn, dùng để AI ước lượng hạn khi người dùng không điền. */
+  purchasedAt  DateTime? @map("purchased_at") @db.Date
+  expiryDate   DateTime? @map("expiry_date") @db.Date
+  /** Kết quả AI ước lượng hạn (chỉ dùng khi expiryDate trống). */
+  aiExpiryNote String?  @map("ai_expiry_note")
+  aiExpiryRisk String?  @map("ai_expiry_risk") @db.VarChar(20)
+  note         String   @default("")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@index([ownerAdminId, matchKey])
+  @@map("med_cabinet_item")
+}
+
 model TravelDestination {
   id        BigInt   @id @default(autoincrement())
   name      String   @unique @db.VarChar(255)

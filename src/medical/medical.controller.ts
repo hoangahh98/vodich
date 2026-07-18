@@ -9,6 +9,8 @@ import { MedicalAiService } from './medical-ai.service';
 import { ItemDecision, MedicalService } from './medical.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { buildIcs } from './ics';
+import { CabinetService } from './cabinet.service';
+import { Leftover, leftoverOf } from './cabinet';
 import {
   DoseTimes,
   START_SLOT_LABELS,
@@ -27,6 +29,7 @@ export class MedicalController {
     private readonly medical: MedicalService,
     private readonly ai: MedicalAiService,
     private readonly rateLimit: RateLimitService,
+    private readonly cabinet: CabinetService,
   ) {}
 
   @Get('/medical')
@@ -52,6 +55,76 @@ export class MedicalController {
     return render(res, 'medical/index', { patients, activeSchedules });
   }
 
+  @Get('/medical/tu-thuoc')
+  async cabinetPage(@Req() req: Request, @Res() res: Response, @Query('err') err?: string) {
+    const items = await this.cabinet.list(currentUser(req));
+    return render(res, 'medical/cabinet', {
+      items,
+      today: todayInVietnam(),
+      aiConfigured: this.ai.isConfigured(),
+      aiError: String(err || ''),
+    });
+  }
+
+  @Post('/medical/tu-thuoc')
+  async cabinetCreate(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
+    await this.cabinet.create(currentUser(req), body);
+    return res.redirect('/medical/tu-thuoc');
+  }
+
+  @Post('/medical/tu-thuoc/:id/edit')
+  async cabinetUpdate(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    const itemId = parseBigId(id);
+    if (!itemId) return notFound(res);
+    const updated = await this.cabinet.update(currentUser(req), itemId, body);
+    if (!updated) return notFound(res);
+    return res.redirect('/medical/tu-thuoc');
+  }
+
+  @Post('/medical/tu-thuoc/:id/delete')
+  async cabinetDelete(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const itemId = parseBigId(id);
+    if (!itemId) return notFound(res);
+    if (!(await this.cabinet.remove(currentUser(req), itemId))) return notFound(res);
+    return res.redirect('/medical/tu-thuoc');
+  }
+
+  /** Nhờ AI ước lượng hạn cho những thuốc CHƯA điền hạn. */
+  @Post('/medical/tu-thuoc/kiem-tra-han')
+  async cabinetCheckExpiry(@Req() req: Request, @Res() res: Response) {
+    const user = currentUser(req);
+    const back = '/medical/tu-thuoc';
+    if (!this.ai.isConfigured()) return res.redirect(`${back}?err=${encodeURIComponent('Chưa cấu hình AI trên server (GROQ_API_KEY)')}`);
+    const limit = this.rateLimit.consume(`ai:cabinet:${req.ip || 'unknown'}`, { max: 10, windowMs: 60_000 });
+    if (!limit.allowed) return res.redirect(`${back}?err=${encodeURIComponent(`Thao tác quá nhanh, thử lại sau ${limit.retryAfterSeconds}s`)}`);
+    const items = await this.cabinet.list(user);
+    // Chỉ hỏi AI những thuốc chưa có hạn thật; đã điền hạn thì không cần đoán.
+    const pending = items.filter((item) => !item.expiryDate);
+    if (!pending.length) return res.redirect(`${back}?err=${encodeURIComponent('Mọi thuốc đều đã có hạn dùng, không cần đoán')}`);
+    try {
+      const verdicts = await this.ai.assessExpiry(
+        pending.map((item) => ({
+          drugName: item.drugName,
+          unit: item.unit,
+          quantity: item.quantity,
+          purchasedAt: item.purchasedAt ? item.purchasedAt.toISOString().slice(0, 10) : 'không rõ',
+        })),
+        todayInVietnam(),
+      );
+      for (const item of pending) {
+        const verdict = verdicts.find((entry) => entry.drugName === item.drugName);
+        if (!verdict) continue;
+        const note = [verdict.estimatedExpiry ? `Ước lượng hạn: ${verdict.estimatedExpiry}` : '', verdict.advice]
+          .filter(Boolean)
+          .join('. ');
+        await this.cabinet.saveExpiryVerdict(item.id, verdict.risk, note);
+      }
+    } catch (error) {
+      return res.redirect(`${back}?err=${encodeURIComponent(error instanceof Error ? error.message : 'Ước lượng hạn thất bại')}`);
+    }
+    return res.redirect(back);
+  }
+
   @Post('/medical/patients')
   async createPatient(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const patient = await this.medical.createPatient(req.session.user as CurrentUser, body);
@@ -71,6 +144,11 @@ export class MedicalController {
       // Chỉ chủ hồ sơ mới được cấp/thu quyền, người được cấp thì không.
       isOwner: patient.ownerAdminId?.toString() === currentUser(req).id.toString(),
       availableAdmins: await this.medical.availableAdmins(patient.id, patient.ownerAdminId),
+      // Đơn mới nhất có thuốc nào nhà đang còn sẵn không — để khỏi mua trùng.
+      cabinetMatches: await this.cabinet.matchFor(
+        currentUser(req),
+        (patient.prescriptions[0]?.items || []).map((item) => item.drugName),
+      ),
       aiConfigured: this.ai.isConfigured(),
       aiError: String(err || ''),
     });
@@ -224,7 +302,14 @@ export class MedicalController {
     const keep = others.flatMap((other) =>
       other.items.map((item) => item.id.toString()).filter((itemId) => body[`keep_${itemId}`] !== undefined),
     );
+    const doseTimes = doseTimesOf(prescription.patient);
+    const today = todayInVietnam();
     for (const other of others) {
+      // Ghi thuốc thừa vào tủ TRƯỚC khi tắt, vì sau khi tắt thì không dựng lại được
+      // số liều đã uống nữa.
+      const stopped = other.items.filter((item) => !keep.includes(item.id.toString()));
+      const leftovers = leftoversFor(other, stopped, doseTimes, today);
+      if (leftovers.length) await this.cabinet.addLeftovers(currentUser(req), leftovers, other.prescribedDate);
       await this.medical.applyTransition(other.id, keep);
     }
     return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
@@ -435,6 +520,29 @@ export class MedicalController {
 
 function currentUser(req: Request): CurrentUser {
   return req.session.user as CurrentUser;
+}
+
+/**
+ * Số thuốc còn thừa của các thuốc bị ngừng: lấy số lượng được cấp trừ số liều đã lên
+ * lịch tới hôm nay. Cữ của đúng hôm nay tính là đã uống cho an toàn — thà báo tồn ít
+ * hơn thực tế còn hơn báo thừa rồi không mua đủ.
+ */
+function leftoversFor(
+  prescription: { scheduleStart: Date | null; scheduleSlot: string },
+  stoppedItems: Array<ItemRow & Record<string, unknown>>,
+  doseTimes: DoseTimes,
+  today: string,
+): Leftover[] {
+  if (!prescription.scheduleStart) return [];
+  const startDate = prescription.scheduleStart.toISOString().slice(0, 10);
+  const slot = safeStartSlot(prescription.scheduleSlot);
+  return stoppedItems
+    .map((item) => {
+      const scheduled = buildSchedule(toScheduleItems([{ ...item, enabled: true }]), startDate, slot, doseTimes);
+      const taken = scheduled.groups.filter((group) => group.date <= today).reduce((sum, g) => sum + g.lines.length, 0);
+      return leftoverOf({ drugName: String(item.drugName || ''), quantity: String(item.quantity || ''), dosesTaken: taken });
+    })
+    .filter((entry): entry is Leftover => Boolean(entry));
 }
 
 type PatientTimes = { doseTimeMorning: string; doseTimeNoon: string; doseTimeEvening: string; doseTimeBedtime: string };

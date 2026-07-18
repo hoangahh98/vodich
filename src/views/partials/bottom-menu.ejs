@@ -28,6 +28,7 @@
     <% } else if (currentPath.startsWith('/medical') && featureSet.has('MEDICAL')) { %>
       <%# Điều hướng y tế nằm hết ở đây, không dùng nút mũi tên trong trang. %>
       <a class="<%= currentPath === '/medical' ? 'active' : '' %>" href="/medical">🩺 Danh sách</a>
+      <a class="<%= currentPath === '/medical/tu-thuoc' ? 'active' : '' %>" href="/medical/tu-thuoc">🧰 Tủ thuốc</a>
       <% if (typeof menuPatientId !== 'undefined' && menuPatientId) { %>
         <a class="<%= currentPath === '/medical/patients/' + menuPatientId ? 'active' : '' %>" href="/medical/patients/<%= menuPatientId %>">💊 Đơn thuốc</a>
       <% } %>

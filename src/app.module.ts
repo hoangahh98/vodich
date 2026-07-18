@@ -16,6 +16,7 @@ import { KnightAiService } from './games/knight-ai.service';
 import { MedicalController } from './medical/medical.controller';
 import { MedicalService } from './medical/medical.service';
 import { MedicalAiService } from './medical/medical-ai.service';
+import { CabinetService } from './medical/cabinet.service';
 import { HouseholdController } from './household/household.controller';
 import { HouseholdService } from './household/household.service';
 import { HouseholdEmailService } from './household/household-email.service';
@@ -83,6 +84,7 @@ import { FeatureGuard } from './common/feature.guard';
     TravelAiService,
     MedicalService,
     MedicalAiService,
+    CabinetService,
     HouseholdService,
     HouseholdEmailService,
     AiService,

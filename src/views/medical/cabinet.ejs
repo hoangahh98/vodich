@@ -1,0 +1,88 @@
+<%- include('../partials/head', { title: 'Tủ thuốc' }) %>
+<%- include('../partials/topbar') %>
+<%
+  const viDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
+  const iso = (d) => d ? new Date(d).toISOString().slice(0, 10) : '';
+  const riskInfo = {
+    OK: { c: 'bg-success', t: '🟢 Nhiều khả năng còn tốt' },
+    CHECK: { c: 'bg-info text-dark', t: '🟠 Kiểm tra vỏ thuốc' },
+    BO: { c: 'bg-danger', t: '🔴 Nên bỏ' },
+  };
+  // Hạn thật luôn thắng phần AI đoán.
+  const expired = (item) => item.expiryDate && iso(item.expiryDate) < today;
+  const pending = items.filter((i) => !i.expiryDate).length;
+%>
+<main class="app-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div><h1>🧰 Tủ thuốc</h1><div class="muted strong-muted">Thuốc còn tồn của cả nhà. Chỉ đếm dạng gói / viên / ống.</div></div>
+      <div class="feature-hero-art">🧰</div>
+    </div>
+  </section>
+
+  <% if (aiError) { %><div class="alert-lite warn mb">⚠️ <%= aiError %></div><% } %>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">💊</span><h2 class="section-title">Đang có</h2></div><span class="badge"><%= items.length %></span></div>
+    <% if (!items.length) { %>
+      <p class="muted">Tủ thuốc trống. Thuốc thừa sẽ tự được ghi vào đây khi bạn ngừng thuốc lúc đổi đơn, hoặc thêm tay ở dưới.</p>
+    <% } %>
+    <% items.forEach((item) => { %>
+      <details class="med-row">
+        <summary>
+          <strong><%= item.drugName %></strong>
+          <span class="badge"><%= item.quantity %> <%= item.unit %></span>
+          <% if (expired(item)) { %> <span class="badge bg-danger">🔴 Hết hạn</span>
+          <% } else if (item.expiryDate) { %> <span class="badge bg-success">HSD <%= viDate(item.expiryDate) %></span>
+          <% } else if (item.aiExpiryRisk && riskInfo[item.aiExpiryRisk]) { %> <span class="badge <%= riskInfo[item.aiExpiryRisk].c %>"><%= riskInfo[item.aiExpiryRisk].t %></span>
+          <% } else { %> <span class="badge bg-info text-dark">Chưa rõ hạn</span><% } %>
+        </summary>
+
+        <div class="muted med-row-detail">
+          <% if (item.purchasedAt) { %>Mua ngày <%= viDate(item.purchasedAt) %><% } else { %>Không rõ ngày mua<% } %>
+          <% if (item.note) { %><div><%= item.note %></div><% } %>
+          <% if (!item.expiryDate && item.aiExpiryNote) { %>
+            <div class="medical-analysis mt"><strong>🤖 AI ước lượng:</strong><div class="medical-analysis-body"><%= item.aiExpiryNote %></div></div>
+          <% } %>
+        </div>
+
+        <form class="medical-form mt" method="post" action="/medical/tu-thuoc/<%= item.id %>/edit">
+          <div><label>Tên thuốc</label><input name="drugName" value="<%= item.drugName %>" required></div>
+          <div><label>Số lượng</label><input name="quantity" type="number" min="0" max="9999" value="<%= item.quantity %>"></div>
+          <div><label>Đơn vị</label><input name="unit" value="<%= item.unit %>" placeholder="gói / viên / ống"></div>
+          <div><label>Ngày mua</label><input name="purchasedAt" type="date" value="<%= iso(item.purchasedAt) %>"></div>
+          <div><label>Hạn dùng (nếu có trên vỏ)</label><input name="expiryDate" type="date" value="<%= iso(item.expiryDate) %>"></div>
+          <div class="medical-form-wide"><label>Ghi chú</label><input name="note" value="<%= item.note %>"></div>
+          <div class="medical-form-actions"><button class="btn btn-primary" data-loading-text="Đang lưu...">💾 Lưu</button></div>
+        </form>
+        <form method="post" action="/medical/tu-thuoc/<%= item.id %>/delete" data-confirm="Bỏ thuốc này khỏi tủ?" class="mt">
+          <button class="btn btn-danger btn-sm">Bỏ khỏi tủ</button>
+        </form>
+      </details>
+    <% }) %>
+
+    <% if (pending) { %>
+      <form method="post" action="/medical/tu-thuoc/kiem-tra-han" class="mt">
+        <p class="muted">
+          Có <strong><%= pending %></strong> thuốc chưa điền hạn dùng. AI có thể ước lượng từ ngày mua và loại thuốc.
+          Đây chỉ là phỏng đoán — ngày mua không phải ngày sản xuất, nên vẫn nên xem hạn in trên vỏ nếu còn.
+        </p>
+        <div class="text-right"><button class="btn" data-loading-text="AI đang xem..." <%= aiConfigured ? '' : 'disabled' %>>🤖 Nhờ AI đoán hạn &amp; khuyên có nên mua lại</button></div>
+      </form>
+    <% } %>
+  </section>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">➕</span><h2 class="section-title">Thêm thuốc vào tủ</h2></div></div>
+    <form class="medical-form" method="post" action="/medical/tu-thuoc">
+      <div><label>Tên thuốc</label><input name="drugName" required placeholder="VD: Montelukast 4mg"></div>
+      <div><label>Số lượng</label><input name="quantity" type="number" min="1" max="9999" placeholder="VD 6"></div>
+      <div><label>Đơn vị</label><input name="unit" placeholder="gói / viên / ống"></div>
+      <div><label>Ngày mua</label><input name="purchasedAt" type="date"></div>
+      <div><label>Hạn dùng (nếu có)</label><input name="expiryDate" type="date"></div>
+      <div class="medical-form-wide"><label>Ghi chú</label><input name="note"></div>
+      <div class="medical-form-actions"><button class="btn btn-success" data-loading-text="Đang lưu...">Thêm vào tủ</button></div>
+    </form>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

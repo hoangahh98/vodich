@@ -28,6 +28,22 @@ export interface ExtractedPrescription {
 /** Phần thông tin thuốc mà bước phân tích an toàn cần — không kéo theo field lên lịch. */
 export type AnalyzeItem = Pick<ExtractedItem, 'drugName' | 'isAntibiotic' | 'dosage' | 'frequency' | 'duration' | 'note'>;
 
+export interface ExpiryQuery {
+  drugName: string;
+  unit: string;
+  quantity: number;
+  /** Ngày mua (= ngày kê đơn), YYYY-MM-DD. */
+  purchasedAt: string;
+}
+
+export interface ExpiryVerdict {
+  drugName: string;
+  /** OK = nhiều khả năng còn tốt, CHECK = phải xem vỏ, BO = nên bỏ. */
+  risk: 'OK' | 'CHECK' | 'BO';
+  estimatedExpiry: string;
+  advice: string;
+}
+
 export interface SafetyAnalysis {
   risk: 'LOW' | 'MEDIUM' | 'HIGH';
   summary: string;
@@ -129,6 +145,40 @@ export class MedicalAiService {
         ? result.items.map(normalizeItem).map((item) => ({ ...item, days: inferDays(item) }))
         : [],
     };
+  }
+
+  /**
+   * Ước lượng hạn dùng cho thuốc tồn KHÔNG điền hạn.
+   *
+   * Chỉ dùng khi người dùng không nhập hạn thật trên vỏ. Bản chất là phỏng đoán: ngày
+   * kê đơn KHÔNG phải ngày sản xuất, và thuốc lẻ cắt ra khỏi vỉ/hộp gốc thì mất luôn
+   * thông tin hạn. Vì thế prompt bắt AI trả lời thiên về thận trọng và luôn nhắc kiểm
+   * tra vỏ, không được khuyến khích dùng lại thuốc cũ một cách vô điều kiện.
+   */
+  async assessExpiry(items: ExpiryQuery[], today: string): Promise<ExpiryVerdict[]> {
+    if (!items.length) return [];
+    const prompt = [
+      'Bạn là dược sĩ. Với mỗi thuốc còn tồn trong tủ thuốc gia đình dưới đây, hãy ước lượng thuốc còn dùng được không.',
+      `Hôm nay là ${today}.`,
+      JSON.stringify(items),
+      'Với mỗi thuốc, xét: (1) dạng bào chế và hạn dùng thông thường của loại đó khi còn nguyên vỏ;',
+      '(2) đã bao lâu kể từ ngày mua; (3) thuốc lẻ cắt khỏi vỉ/hộp gốc thì bảo quản kém hơn nhiều.',
+      'Quy tắc bắt buộc:',
+      '- Ngày mua KHÔNG phải ngày sản xuất, nên đây chỉ là ƯỚC LƯỢNG. Luôn thiên về thận trọng.',
+      '- Kháng sinh còn thừa từ đợt trước: LUÔN khuyên không tự dùng lại mà phải hỏi bác sĩ.',
+      '- risk="OK" nếu nhiều khả năng còn tốt, "CHECK" nếu cần xem kỹ vỏ/hạn, "BO" nếu nhiều khả năng nên bỏ.',
+      'Trả về JSON: { "items": [ { "drugName": "đúng tên đã cho", "risk": "OK|CHECK|BO",',
+      '  "estimatedExpiry": "MM/YYYY hoặc rỗng nếu không đoán được", "advice": "1-2 câu tiếng Việt, nói rõ có nên mua mới không" } ] }',
+      'Chỉ trả JSON.',
+    ].join('\n');
+    const result = await this.ai.generateJson<{ items?: ExpiryVerdict[] }>(prompt, { temperature: 0.2 });
+    const list = Array.isArray(result.items) ? result.items : [];
+    return list.map((entry) => ({
+      drugName: String(entry.drugName || ''),
+      risk: ['OK', 'CHECK', 'BO'].includes(String(entry.risk)) ? (entry.risk as ExpiryVerdict['risk']) : 'CHECK',
+      estimatedExpiry: String(entry.estimatedExpiry || ''),
+      advice: String(entry.advice || ''),
+    }));
   }
 
   /** Phân tích an toàn đơn mới dựa trên thông tin bệnh nhân + lịch sử đơn cũ. */

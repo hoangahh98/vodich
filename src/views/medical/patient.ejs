@@ -16,6 +16,23 @@
     </div>
   </section>
 
+  <% if (cabinetMatches.length) { %>
+    <div class="alert-lite mb">
+      <strong>🧰 Tủ thuốc nhà đang còn sẵn:</strong>
+      <ul>
+        <% cabinetMatches.forEach((c) => { %>
+          <li>
+            <%= c.drugName %> — <strong><%= c.quantity %> <%= c.unit %></strong>
+            <% if (c.expiryDate) { %>(HSD <%= new Date(c.expiryDate).toLocaleDateString('vi-VN') %>)
+            <% } else if (c.aiExpiryRisk === 'BO') { %><span class="badge bg-danger">AI: nên bỏ</span>
+            <% } else { %><span class="badge bg-info text-dark">chưa rõ hạn</span><% } %>
+          </li>
+        <% }) %>
+      </ul>
+      Kiểm tra hạn trên vỏ trước khi dùng. Kháng sinh thừa từ đợt trước thì hỏi bác sĩ, đừng tự dùng lại.
+    </div>
+  <% } %>
+
   <% if (aiError) { %><div class="alert-lite warn mb">⚠️ <%= aiError %></div><% } %>
   <% if (!aiConfigured) { %><div class="alert-lite warn mb">Chưa cấu hình <code>GROQ_API_KEY</code> trên server nên chưa dùng được phân tích AI.</div><% } %>
 
