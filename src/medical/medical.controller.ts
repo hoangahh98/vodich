@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
-import { forbidden, notFound, parseBigId, safeNext } from '../common/controller-utils';
+import { forbidden, notFound, parseBigId } from '../common/controller-utils';
 import { FeatureAccess } from '../common/feature.decorator';
 import { FeatureGuard } from '../common/feature.guard';
 import { render } from '../common/view';
@@ -186,20 +186,9 @@ export class MedicalController {
       patient,
       menuPatientId: patient.id.toString(),
       menuPrescriptionId: patient.prescriptions[0]?.id.toString() || '',
-      doseTimes: doseTimesOf(patient),
       isOwner: patient.ownerAdminId?.toString() === currentUser(req).id.toString(),
       availableAdmins: await this.medical.availableAdmins(patient.id, patient.ownerAdminId),
     });
-  }
-
-  /** Lưu giờ nhắc uống thuốc. Gọi từ cả trang cấu hình lẫn trang lịch. */
-  @Post('/medical/patients/:id/gio-uong')
-  async saveDoseTimes(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    const patient = await this.scopedPatient(req, res, id);
-    if (!patient) return;
-    await this.medical.saveDoseTimes(patient.id, safeDoseTimes(body));
-    const next = safeNext(body.next);
-    return res.redirect(next || `/medical/patients/${patient.id}/cau-hinh`);
   }
 
   /** Cho admin khác xem cùng hồ sơ này. Chỉ chủ hồ sơ được làm. */
@@ -371,6 +360,21 @@ export class MedicalController {
     });
   }
 
+  /**
+   * Lưu giờ nhắc + tính lại lịch trong một thao tác.
+   * Gộp làm một vì tách hai nút "tính lại" và "lưu giờ" chỉ tổ rối, người dùng bấm
+   * nhầm là lịch ra một đằng giờ lưu một nẻo.
+   */
+  @Post('/medical/prescriptions/:id/lich/tinh-lai')
+  async recalculate(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
+    await this.medical.saveDoseTimes(prescription.patientId, safeDoseTimes(body));
+    const startDate = safeDate(body.start) || todayInVietnam();
+    const startSlot = safeStartSlot(body.slot);
+    return res.redirect(`/medical/prescriptions/${prescription.id}/lich?start=${startDate}&slot=${startSlot}`);
+  }
+
   /** Chốt lịch để máy khác lấy về đúng phần liệu trình còn lại. */
   @Post('/medical/prescriptions/:id/lich/chot')
   async confirmSchedule(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
@@ -400,8 +404,11 @@ export class MedicalController {
   ) {
     const prescription = await this.scopedPrescription(req, res, id);
     if (!prescription) return;
+    // Chưa chốt lịch thì chưa cho nạp: chốt xong lịch mới cố định, nạp trước rồi đổi
+    // ngày/giờ sau là sinh ra một mớ sự kiện lệch nhau trong Lịch iPhone.
+    if (!prescription.scheduleStart) return notFound(res, 'Bạn phải bấm vào nút chốt lịch này trước');
     const prescriptionId = prescription.id;
-    const confirmedStart = prescription.scheduleStart ? prescription.scheduleStart.toISOString().slice(0, 10) : '';
+    const confirmedStart = prescription.scheduleStart.toISOString().slice(0, 10);
     const startDate = safeDate(start) || confirmedStart || todayInVietnam();
     const startSlot = safeStartSlot(slot || prescription.scheduleSlot);
     const built = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot, doseTimesOf(prescription.patient));

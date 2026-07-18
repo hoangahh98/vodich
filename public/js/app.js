@@ -79,6 +79,17 @@ document.addEventListener('submit', (event) => {
   });
 });
 
+// Nút bị khoá: chặn bấm và nói rõ vì sao, thay vì im lặng không phản ứng.
+document.addEventListener('click', (event) => {
+  const target = event.target instanceof Element ? event.target : null;
+  const blocked = target?.closest('[data-blocked]');
+  if (!blocked) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const message = blocked.getAttribute('data-blocked');
+  if (message) window.alert(message);
+}, true);
+
 document.addEventListener('click', (event) => {
   if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
   const target = event.target instanceof Element ? event.target : null;

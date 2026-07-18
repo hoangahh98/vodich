@@ -10,22 +10,8 @@
     </div>
   </section>
 
-  <section class="card-lite p mb">
-    <div class="section-heading mb">
-      <div><span class="feature-icon">⏰</span><h2 class="section-title">Giờ nhắc uống thuốc</h2>
-      <p class="muted">Đặt theo nếp sinh hoạt nhà bạn. Áp dụng cho mọi đơn thuốc của <%= patient.name %>.</p></div>
-    </div>
-    <form method="post" action="/medical/patients/<%= patient.id %>/gio-uong">
-      <div class="row">
-        <div class="col-6"><label>Cữ sáng</label><input type="time" name="morning" value="<%= doseTimes.morning %>" required></div>
-        <div class="col-6"><label>Cữ trưa</label><input type="time" name="noon" value="<%= doseTimes.noon %>" required></div>
-        <div class="col-6"><label>Cữ tối</label><input type="time" name="evening" value="<%= doseTimes.evening %>" required></div>
-        <div class="col-6"><label>Trước khi ngủ</label><input type="time" name="bedtime" value="<%= doseTimes.bedtime %>" required></div>
-      </div>
-      <p class="muted mt">Thuốc uống 1 lần "trước khi đi ngủ" dùng mốc riêng ở trên. Thuốc từ 4 lần/ngày trở lên được giãn đều trong ngày, neo theo giờ sáng và tối bạn đặt.</p>
-      <div class="text-right mt"><button class="btn btn-primary" data-loading-text="Đang lưu...">💾 Lưu giờ nhắc</button></div>
-    </form>
-  </section>
+  <%# Giờ nhắc cố ý chỉ đặt ở trang lịch uống: đặt hai nơi thì dễ sửa một chỗ rồi tưởng
+      chỗ kia cũng đổi theo. %>
 
   <% if (isOwner) { %>
     <section class="card-lite p mb">

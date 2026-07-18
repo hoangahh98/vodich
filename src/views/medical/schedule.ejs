@@ -46,39 +46,36 @@
   </section>
 
 
-  <section class="card-lite p mb">
-    <div class="section-heading mb"><div><span class="feature-icon">⏱️</span><h2 class="section-title">Bắt đầu uống từ khi nào?</h2></div></div>
-    <form method="get" action="/medical/prescriptions/<%= prescription.id %>/lich">
-      <div class="row">
-        <div class="col-6"><label>Ngày bắt đầu</label><input type="date" name="start" value="<%= startDate %>"></div>
-        <div class="col-6">
-          <label>Cữ đầu tiên</label>
-          <select name="slot">
-            <% ['SANG', 'TRUA', 'TOI'].forEach((key) => { %>
-              <option value="<%= key %>" <%= startSlot === key ? 'selected' : '' %>><%= slotLabels[key] %></option>
-            <% }) %>
-          </select>
+  <%# Chốt lịch xong thì khoá luôn phần này: đổi ngày/giờ sau khi đã nạp vào iPhone sẽ
+      sinh ra một mớ sự kiện lệch nhau mà không xoá được. %>
+  <% if (!isConfirmed) { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">⏱️</span><h2 class="section-title">Bắt đầu uống từ khi nào?</h2></div></div>
+      <form method="post" action="/medical/prescriptions/<%= prescription.id %>/lich/tinh-lai">
+        <div class="row">
+          <div class="col-6"><label>Ngày bắt đầu</label><input type="date" name="start" value="<%= startDate %>"></div>
+          <div class="col-6">
+            <label>Cữ đầu tiên</label>
+            <select name="slot">
+              <% ['SANG', 'TRUA', 'TOI'].forEach((key) => { %>
+                <option value="<%= key %>" <%= startSlot === key ? 'selected' : '' %>><%= slotLabels[key] %></option>
+              <% }) %>
+            </select>
+          </div>
         </div>
-      </div>
-      <div class="text-right mt"><button class="btn" data-loading-text="Đang tính...">↻ Tính lại lịch</button></div>
-    </form>
 
-    <%# Giờ nhắc lưu ở người thân nên form này POST riêng rồi quay lại đúng lịch đang xem. %>
-    <details class="mt">
-      <summary><strong>⏰ Giờ nhắc: sáng <%= doseTimes.morning %> · trưa <%= doseTimes.noon %> · tối <%= doseTimes.evening %> · trước ngủ <%= doseTimes.bedtime %></strong></summary>
-      <form method="post" action="/medical/patients/<%= patient.id %>/gio-uong" class="mt">
-        <input type="hidden" name="next" value="/medical/prescriptions/<%= prescription.id %>/lich?<%= q %>">
+        <h3 class="mt">⏰ Giờ nhắc</h3>
         <div class="row">
           <div class="col-6"><label>Cữ sáng</label><input type="time" name="morning" value="<%= doseTimes.morning %>" required></div>
           <div class="col-6"><label>Cữ trưa</label><input type="time" name="noon" value="<%= doseTimes.noon %>" required></div>
           <div class="col-6"><label>Cữ tối</label><input type="time" name="evening" value="<%= doseTimes.evening %>" required></div>
           <div class="col-6"><label>Trước khi ngủ</label><input type="time" name="bedtime" value="<%= doseTimes.bedtime %>" required></div>
         </div>
-        <p class="muted mt">Áp dụng cho mọi đơn thuốc của <%= patient.name %>.</p>
-        <div class="text-right mt"><button class="btn btn-primary" data-loading-text="Đang lưu...">💾 Lưu giờ &amp; tính lại</button></div>
+        <p class="muted mt">Giờ nhắc áp dụng cho mọi đơn thuốc của <%= patient.name %>.</p>
+        <div class="text-right mt"><button class="btn btn-primary" data-loading-text="Đang tính...">💾 Lưu giờ và tính lại</button></div>
       </form>
-    </details>
-  </section>
+    </section>
+  <% } %>
 
   <% if (overlaps.length) { %>
     <div class="alert-lite warn mb">
@@ -116,20 +113,21 @@
         <p class="muted"><%= result.groups.length %> cữ thuốc, từ <%= viDate(startDate) %> đến hết <%= viDate(result.lastDate) %>.</p></div>
       </div>
 
-      <% if (isConfirmed) { %>
-        <div class="alert-lite mb">✅ Lịch đã chốt từ <strong><%= viDate(confirmedStart) %></strong>. Máy nào mở trang này cũng thấy đúng lịch đó.</div>
-      <% } else { %>
+      <% if (!isConfirmed) { %>
         <form method="post" action="/medical/prescriptions/<%= prescription.id %>/lich/chot" class="mb">
           <input type="hidden" name="start" value="<%= startDate %>">
           <input type="hidden" name="slot" value="<%= startSlot %>">
-          <p class="muted">Chốt lịch để những máy khác trong nhà lấy về đúng lịch này, không phải chọn lại ngày.</p>
-          <div class="text-right"><button class="btn" data-loading-text="Đang chốt...">📌 Chốt lịch này</button></div>
+          <p class="muted">Chốt lịch trước đã. Chốt xong thì ngày bắt đầu và giờ nhắc được khoá lại, tránh nạp vào iPhone rồi mới đổi.</p>
+          <div class="text-right"><button class="btn btn-primary" data-loading-text="Đang chốt...">📌 Chốt lịch này</button></div>
         </form>
+      <% } else { %>
+        <div class="alert-lite mb">
+          ✅ Lịch đã chốt từ <strong><%= viDate(confirmedStart) %></strong>.<br>
+          Vui lòng vào Lịch và tạo thêm nhóm lịch. Sau đó bấm nạp lịch vào nhóm mới tạo nhé.
+        </div>
       <% } %>
 
-      <p class="muted">Bấm nút dưới để nạp lịch. iPhone sẽ hỏi <strong>"Add All"</strong> — đồng ý là mỗi cữ thành một sự kiện có chuông báo đúng giờ.</p>
-
-      <% if (started) { %>
+      <% if (started && isConfirmed) { %>
         <%# Đang uống dở: mặc định chỉ nạp phần còn lại để máy mới không đầy cữ quá khứ. %>
         <div class="alert-lite mb">
           🕒 Liệu trình đã bắt đầu từ <%= viDate(startDate) %>.
@@ -142,12 +140,15 @@
       <% } %>
 
       <div class="text-right mt">
-        <% if (remainingCount) { %>
+        <% if (!isConfirmed) { %>
+          <%# Chưa chốt thì khoá nút lại; server cũng chặn nên bấm tay vào link cũng không được. %>
+          <button type="button" class="btn btn-success" data-blocked="Bạn phải bấm vào nút chốt lịch này trước">📥 Nạp lịch nhắc</button>
+        <% } else if (remainingCount) { %>
           <%# data-no-busy: file .ics giao cho app Lịch, trang không điều hướng nên đừng bật spinner. %>
           <a class="btn btn-success" data-no-busy href="<%= icsUrl %>">📥 Nạp <%= started ? remainingCount + ' cữ còn lại' : 'lịch nhắc' %></a>
-        <% } %>
-        <% if (started) { %>
-          <div class="mt"><a class="muted" data-no-busy href="<%= icsFullUrl %>">Nạp lại cả liệu trình từ đầu (gồm cữ đã qua)</a></div>
+          <% if (started) { %>
+            <div class="mt"><a class="muted" data-no-busy href="<%= icsFullUrl %>">Nạp lại cả liệu trình từ đầu (gồm cữ đã qua)</a></div>
+          <% } %>
         <% } %>
       </div>
     </section>
