@@ -3,7 +3,8 @@ import { Injectable } from '@nestjs/common';
 /**
  * Client gọi AI qua Groq (chuẩn OpenAI, không cần thẻ). Cần env GROQ_API_KEY.
  * - Model text mặc định: llama-3.3-70b-versatile (đổi qua GROQ_MODEL).
- * - Model đọc ảnh mặc định: llama-4-scout (đổi qua GROQ_VISION_MODEL) — dùng cho đơn thuốc.
+ * - Model đọc ảnh mặc định: qwen/qwen3.6-27b (đổi qua GROQ_VISION_MODEL) — dùng cho đơn thuốc.
+ *   Lưu ý: llama-4-scout đã bị Groq gỡ (lỗi 404 model_not_found), đừng dùng lại.
  */
 export interface AiImage {
   mimeType: string;
@@ -20,6 +21,9 @@ export interface AiOptions {
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 // Chặn treo: huỷ request nếu Groq không phản hồi trong thời gian này (đổi qua AI_TIMEOUT_MS).
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 20000;
+// Model suy luận (qwen...) chèn phần "think" vào câu trả lời làm hỏng JSON.
+// Với những model này phải gửi reasoning_format=hidden; model thường sẽ báo lỗi 400 nếu gửi.
+const REASONING_MODELS = /qwen|deepseek|gpt-oss/i;
 
 @Injectable()
 export class AiService {
@@ -32,7 +36,7 @@ export class AiService {
   }
 
   private visionModel() {
-    return process.env.GROQ_VISION_MODEL || 'meta-llama/llama-4-scout-17b-16e-instruct';
+    return process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b';
   }
 
   async generate(prompt: string, options: AiOptions = {}): Promise<string> {
@@ -53,8 +57,8 @@ export class AiService {
       model,
       messages: [{ role: 'user', content }],
       temperature: options.temperature ?? 0.7,
-      // response_format json chỉ dùng khi không kèm ảnh (model vision có thể không hỗ trợ).
-      ...(options.json && !hasImages ? { response_format: { type: 'json_object' } } : {}),
+      ...(options.json ? { response_format: { type: 'json_object' } } : {}),
+      ...(REASONING_MODELS.test(model) ? { reasoning_format: 'hidden' } : {}),
     };
 
     const maxAttempts = 3;

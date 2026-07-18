@@ -33,16 +33,17 @@ async function bootstrap() {
     });
   }
   // CSP: chặn XSS. script-src 'self' (không inline script) — đã bỏ hết inline handler.
-  // style-src cho phép inline + Bootstrap CDN; bỏ upgrade-insecure-requests để dev/e2e chạy http localhost được.
+  // Bootstrap đã self-host nên không cần mở cho cdn.jsdelivr.net nữa.
+  // Bỏ upgrade-insecure-requests để dev/e2e chạy http localhost được.
   app.use(
     helmet.default({
       contentSecurityPolicy: {
         useDefaults: true,
         directives: {
           'script-src': ["'self'"],
-          'style-src': ["'self'", "'unsafe-inline'", 'https://cdn.jsdelivr.net'],
+          'style-src': ["'self'", "'unsafe-inline'"],
           'img-src': ["'self'", 'data:'],
-          'font-src': ["'self'", 'https://cdn.jsdelivr.net', 'data:'],
+          'font-src': ["'self'", 'data:'],
           'connect-src': ["'self'"],
           'upgrade-insecure-requests': null,
         },
@@ -50,7 +51,15 @@ async function bootstrap() {
     }),
   );
   app.use(await getSessionMiddleware());
-  app.useStaticAssets(join(__dirname, '..', 'public'));
+  // Không đặt maxAge dài: css/js không có hash trong tên nên deploy mới sẽ bị kẹt bản cũ.
+  // Việc giữ giao diện khi server ngủ do service worker (public/sw.js) lo, còn ở đây chỉ
+  // cần ETag mặc định của express để revalidate rẻ. Riêng sw.js phải luôn tươi, nếu không
+  // bản vá service worker sẽ không bao giờ tới được máy người dùng.
+  app.useStaticAssets(join(__dirname, '..', 'public'), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('sw.js')) res.setHeader('Cache-Control', 'no-cache');
+    },
+  });
   app.setBaseViewsDir(join(__dirname, 'views'));
   app.setViewEngine('ejs');
   app.useGlobalFilters(new ViewExceptionFilter());

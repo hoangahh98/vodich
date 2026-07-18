@@ -29,7 +29,8 @@
       <div class="row">
         <div class="col-6">
           <label>Ảnh đơn thuốc</label>
-          <input type="file" accept="image/*" capture="environment" data-image-file>
+          <!-- Không đặt capture: iOS sẽ ép mở thẳng camera, không cho chọn ảnh có sẵn trong Thư viện. -->
+          <input type="file" accept="image/*" data-image-file>
         </div>
         <div class="col-6"><img data-image-preview class="medical-preview hidden" alt="Xem trước"></div>
       </div>
