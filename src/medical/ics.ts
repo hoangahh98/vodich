@@ -23,11 +23,13 @@ export interface IcsOptions {
    */
   sequence?: number;
   /**
-   * Ngày kê đơn (dd/mm), gắn vào tiêu đề sự kiện. Đơn cũ chưa uống xong mà có đơn mới
-   * thì trong Lịch sẽ có 2 sự kiện chồng cùng giờ — không ghi rõ đơn nào thì không
+   * Ngày kê đơn (dd/mm/yyyy), gắn vào tiêu đề sự kiện. Đơn cũ chưa uống xong mà có đơn
+   * mới thì trong Lịch sẽ có 2 sự kiện chồng cùng giờ — không ghi rõ đơn nào thì không
    * tài nào phân biệt được trên màn hình điện thoại.
    */
   prescriptionLabel?: string;
+  /** Tên người thân, để nhà nhiều người còn biết lời nhắc này của ai. */
+  patientName?: string;
   /** Ngày tái khám YYYY-MM-DD (nếu có) -> thêm 1 sự kiện nhắc. */
   followUpDate?: string;
   followUpNote?: string;
@@ -60,11 +62,10 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
     // Không nhắc lại giờ trong tiêu đề: app Lịch đã hiện giờ ngay bên dưới rồi.
     // Tiêu đề chỉ cần đủ để phân biệt hai đơn chồng nhau, nên ghi ngày kê đơn.
     // "có kháng sinh" nói thẳng bằng chữ vì nhìn biểu tượng không ai đoán ra nghĩa gì.
-    const label = options.prescriptionLabel ? `Đơn ${options.prescriptionLabel}` : 'Thuốc';
-    // Danh sách thuốc đưa luôn lên tiêu đề: thông báo trên điện thoại chỉ hiện tiêu đề,
-    // để trong phần mô tả thì phải mở sự kiện ra mới biết cữ này uống những gì.
-    const drugs = group.lines.map((line) => [line.drugName, line.dosage].filter(Boolean).join(' ')).join(' · ');
-    const title = `${antibiotic ? '💊❗' : '💊'} ${label}${antibiotic ? ' (có kháng sinh)' : ''} · ${drugs}`;
+    // Tiêu đề để gọn: chỉ đủ phân biệt hai đơn chồng nhau. Giờ thì Lịch đã hiện sẵn
+    // ngay bên dưới, chi tiết thuốc nằm ở phần mô tả.
+    const label = ['Đơn thuốc', options.patientName, options.prescriptionLabel].filter(Boolean).join(' ');
+    const title = `${antibiotic ? '💊❗' : '💊'} ${label}${antibiotic ? ' (có kháng sinh)' : ''}`;
     const body = group.lines.map(describeLine).join('\n');
     lines.push(
       'BEGIN:VEVENT',

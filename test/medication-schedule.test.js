@@ -226,11 +226,20 @@ test('tiêu đề sự kiện chỉ ghi ngày đơn, không lặp lại giờ (L
   const groups = buildSchedule([item({ days: 1, timesPerDay: 1 })], '2026-07-18', 'SANG').groups;
   const title = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', prescriptionLabel: '18/07/2026' })
     .match(/SUMMARY:[^\r\n]+/)[0];
-  assert.ok(title.startsWith('SUMMARY:💊 Đơn 18/07/2026 · '), title);
+  assert.equal(title, 'SUMMARY:💊 Đơn thuốc 18/07/2026');
   assert.ok(!title.includes('07:00'), 'không được nhắc lại giờ trong tiêu đề');
   assert.ok(!title.includes('Cữ thuốc'));
-  // Tên thuốc + liều phải nằm luôn trên tiêu đề, vì thông báo chỉ hiện tiêu đề
-  assert.ok(title.includes('Thuốc 4ml'), title);
+  assert.ok(!title.includes('4ml'), 'chi tiết thuốc để ở phần mô tả, không nhét lên tiêu đề');
+});
+
+test('tiêu đề có tên người thân để nhà nhiều người còn biết nhắc ai', () => {
+  const groups = buildSchedule([item({ days: 1, timesPerDay: 1 })], '2026-07-18', 'SANG').groups;
+  const title = (opts) => buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', ...opts }).match(/SUMMARY:[^\r\n]+/)[0];
+
+  assert.equal(title({ patientName: 'Khắc Minh', prescriptionLabel: '18/07/2026' }), 'SUMMARY:💊 Đơn thuốc Khắc Minh 18/07/2026');
+  // Thiếu trường nào thì bỏ trường đó, không để lại khoảng trắng thừa
+  assert.equal(title({ patientName: 'Khắc Minh' }), 'SUMMARY:💊 Đơn thuốc Khắc Minh');
+  assert.equal(title({}), 'SUMMARY:💊 Đơn thuốc');
 });
 
 test('cữ có kháng sinh được nói thẳng bằng chữ, không chỉ dùng biểu tượng', () => {

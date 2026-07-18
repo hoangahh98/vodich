@@ -414,6 +414,7 @@ export class MedicalController {
       // xong nạp lại sẽ không ăn.
       sequence: Math.floor((Date.now() - Date.UTC(2020, 0, 1)) / 60000),
       calendarName: `Thuốc của ${prescription.patient.name}`,
+      patientName: prescription.patient.name,
       // UID gắn với id đơn: import lại lần 2 sẽ ghi đè chứ không nhân đôi sự kiện.
       uidPrefix: `rx${prescriptionId}`,
       prescriptionLabel: prescription.prescribedDate
