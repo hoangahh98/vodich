@@ -78,13 +78,17 @@
           %>
           <% rx.items.forEach((item) => { %>
             <div class="med-row <%= item.enabled ? '' : 'med-item-off' %>">
-              <label class="med-row-use">
-                <input type="checkbox" name="enabled_<%= item.id %>" <%= item.enabled ? 'checked' : '' %>>
+              <%# Cố ý KHÔNG bọc trong <label>: bên trong có ô sửa tên, bấm vào ô đó mà
+                  bị tick/bỏ tick nhầm thuốc thì nguy. Checkbox đứng riêng. %>
+              <div class="med-row-use">
+                <input type="checkbox" name="enabled_<%= item.id %>" <%= item.enabled ? 'checked' : '' %> aria-label="Dùng thuốc này">
                 <span class="med-row-name">
-                  <strong><%= item.drugName %></strong>
+                  <%# Tên sửa được: AI đọc ảnh hay sai chính tả, mà tên này đi thẳng vào
+                      tiêu đề lời nhắc trên điện thoại. %>
+                  <input type="text" name="name_<%= item.id %>" value="<%= item.drugName %>" maxlength="255" aria-label="Tên thuốc">
                   <% if (item.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %>
                 </span>
-              </label>
+              </div>
               <div class="muted med-row-detail">
                 <%= [item.dosage, item.frequency, item.quantity].filter(Boolean).join(' · ') %>
                 <% if (item.note) { %><div><%= item.note %></div><% } %>

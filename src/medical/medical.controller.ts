@@ -567,14 +567,17 @@ function doseTimesOf(patient: PatientTimes): DoseTimes {
 type ItemRow = { id: bigint; timesPerDay: number; days: number };
 
 /**
- * Form gửi lên dạng enabled_<id>=on, times_<id>=2, days_<id>=5.
+ * Form gửi lên dạng enabled_<id>=on, name_<id>=..., times_<id>=2, days_<id>=5.
  * Checkbox không tick thì trình duyệt KHÔNG gửi field -> vắng mặt nghĩa là bỏ thuốc đó.
  */
 function parseDecisions(body: Record<string, unknown>, items: ItemRow[]): ItemDecision[] {
   return items.map((item) => {
     const key = item.id.toString();
+    // Tên để trống thì giữ tên cũ, không cho xoá trắng thành thuốc vô danh.
+    const name = String(body[`name_${key}`] ?? '').trim();
     return {
       id: key,
+      drugName: name.slice(0, 255),
       enabled: body[`enabled_${key}`] !== undefined,
       timesPerDay: Number(body[`times_${key}`] ?? item.timesPerDay),
       days: Number(body[`days_${key}`] ?? item.days),
