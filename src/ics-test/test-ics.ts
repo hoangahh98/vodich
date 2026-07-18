@@ -142,6 +142,43 @@ export function buildTestCleanupIcs(groups: DoseGroup[], options: TestIcsOptions
   return finish(lines);
 }
 
+/**
+ * PHÉP THỬ D — ghi đè có ăn không?
+ *
+ * Cùng UID, SEQUENCE cao hơn, KHÔNG có STATUS:CANCELLED. Đổi cả tiêu đề lẫn giờ để nhìn
+ * là biết ngay, và bỏ luôn VALARM.
+ *
+ * Đây là giả định chống đỡ toàn bộ lịch thuốc: cả cách đánh UID theo số thứ tự cữ trong
+ * medication-schedule.ts lẫn việc tăng SEQUENCE mỗi lần xuất đều dựa vào "nạp lại thì ghi
+ * đè đúng chỗ". Nếu ghi đè không ăn thì mỗi lần sửa giờ uống rồi nạp lại là NHÂN ĐÔI lịch
+ * chứ không phải cập nhật — nguy hiểm hơn nhiều so với chuyện không xoá được.
+ *
+ * Dời 2 tiếng chứ không dời vài phút: phải đủ xa để trên màn hình điện thoại không lẫn
+ * được sự kiện đã ghi đè với sự kiện gốc.
+ */
+export function buildTestOverwriteIcs(groups: DoseGroup[], options: TestIcsOptions): string {
+  const stamp = nowStamp();
+  const lines = header('PUBLISH', options.calendarName);
+
+  for (const group of groups) {
+    const moved = addMinutes(group.time, 120);
+    lines.push(
+      'BEGIN:VEVENT',
+      `UID:${doseUid(options.uidPrefix, group.index)}`,
+      `DTSTAMP:${stamp}`,
+      `SEQUENCE:${options.sequence}`,
+      `DTSTART:${toStamp(group.date, moved)}`,
+      `DTEND:${toStamp(group.date, addMinutes(moved, 15))}`,
+      `SUMMARY:${escapeText(`[THU] DA GHI DE - cu ${group.index}`)}`,
+      `DESCRIPTION:${escapeText('Sự kiện này đã được ghi đè: dời 2 tiếng, đổi tên, gỡ chuông báo.')}`,
+      'END:VEVENT',
+    );
+  }
+
+  lines.push('END:VCALENDAR');
+  return finish(lines);
+}
+
 function header(method: 'PUBLISH' | 'CANCEL', calendarName: string): string[] {
   return [
     'BEGIN:VCALENDAR',

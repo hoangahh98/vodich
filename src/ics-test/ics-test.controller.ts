@@ -18,10 +18,10 @@ import { FeatureGuard } from '../common/feature.guard';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
 import { buildSchedule } from '../medical/medication-schedule';
-import { buildTestCancelIcs, buildTestCleanupIcs, buildTestPublishIcs } from './test-ics';
+import { buildTestCancelIcs, buildTestCleanupIcs, buildTestOverwriteIcs, buildTestPublishIcs } from './test-ics';
 
 /** Kiểu file cần dựng. cleanup = bản sao của tính năng dọn dẹp đang chạy thật. */
-type IcsKind = 'publish' | 'cancel' | 'cleanup';
+type IcsKind = 'publish' | 'cancel' | 'cleanup' | 'overwrite';
 
 /** Tên cắm cứng: vừa để tìm lại, vừa để nhìn trong danh sách là biết ngay hồ sơ rác. */
 const TEST_PATIENT_NAME = 'THU LICH ICS (xoa duoc)';
@@ -102,6 +102,12 @@ export class IcsTestController {
     return this.sendIcs(req, res, email, 'cleanup');
   }
 
+  /** Phép thử D: ghi đè có ăn không — giả định chống đỡ toàn bộ lịch thuốc. */
+  @Get('/ics-test/overwrite.ics')
+  async overwrite(@Req() req: Request, @Res() res: Response, @Query('email') email?: string) {
+    return this.sendIcs(req, res, email, 'overwrite');
+  }
+
   private async sendIcs(req: Request, res: Response, email: string | undefined, kind: IcsKind) {
     const patient = await this.findTestPatient(req);
     const prescription = patient?.prescriptions[0];
@@ -140,7 +146,12 @@ export class IcsTestController {
       sequence: Math.floor((Date.now() - Date.UTC(2020, 0, 1)) / 1000) + (kind === 'publish' ? 0 : 1),
     };
 
-    const builders = { publish: buildTestPublishIcs, cancel: buildTestCancelIcs, cleanup: buildTestCleanupIcs };
+    const builders = {
+      publish: buildTestPublishIcs,
+      cancel: buildTestCancelIcs,
+      cleanup: buildTestCleanupIcs,
+      overwrite: buildTestOverwriteIcs,
+    };
     const ics = builders[kind](groups, options);
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     // inline: Safari trên iOS mở thẳng màn hình xử lý của Lịch, giống hệt lịch thuốc thật.
@@ -211,20 +222,24 @@ ngày kia</b> phải có 4 sự kiện <b>[THU]</b> lúc 07:00 và 19:00.</p>
 <a class="btn" href="/ics-test/publish.ics">1. Nạp lịch (PUBLISH)</a>
 
 <hr>
-<h2>Phép thử C — đúng thứ đang chạy thật</h2>
-<p class="note">PUBLISH + STATUS:CANCELLED, bản sao của tính năng dọn dẹp trong
-<code>ics.ts</code>. Kèm một sự kiện <b>CHUNG NHAN</b> lúc 12:00 để biết iPhone có thật
-sự đọc file hay không.</p>
-<p class="note"><b>Đọc kết quả:</b> thấy CHUNG NHAN mà 4 cữ [THU] vẫn còn → lệnh huỷ bị
-bỏ qua, tính năng dọn dẹp thật <b>vô dụng</b>. Cả CHUNG NHAN lẫn 4 cữ đều biến mất →
-tính năng chạy đúng. Không thấy CHUNG NHAN → iPhone từ chối cả file, báo lại mình.</p>
-<a class="btn" href="/ics-test/cleanup.ics">3. Dọn lịch (PUBLISH + STATUS:CANCELLED)</a>
+<h2>Phép thử D — GHI ĐÈ có ăn không?</h2>
+<p class="note">Cùng UID, SEQUENCE cao hơn, không có STATUS:CANCELLED. Đổi tên thành
+<b>DA GHI DE</b>, dời <b>muộn 2 tiếng</b> (07:00→09:00, 19:00→21:00), gỡ chuông báo.</p>
+<p class="note">Đây là giả định chống đỡ toàn bộ lịch thuốc. Nếu ghi đè không ăn thì sửa
+giờ uống rồi nạp lại là <b>nhân đôi lịch</b> chứ không phải cập nhật.</p>
+<p class="note"><b>Đọc kết quả:</b> vẫn 4 sự kiện nhưng đổi tên và sang 09:00/21:00 →
+ghi đè ĂN. Thành 8 sự kiện (4 cũ + 4 mới) → ghi đè KHÔNG ăn, hỏng nặng.</p>
+<a class="btn" href="/ics-test/overwrite.ics">4. Ghi đè (PUBLISH, cùng UID)</a>
 
 <hr>
-<h2>Phép thử A — METHOD:CANCEL</h2>
-<p class="note">Đã thử 19/07/2026: iPhone hiện màn hình "Thêm tất cả" rồi không làm gì —
-METHOD bị bỏ qua hoàn toàn. Giữ nút lại để thử lại nếu cần.</p>
+<h2>Đã thử rồi — cả hai đều trượt</h2>
+<p class="note"><b>A · METHOD:CANCEL</b> (19/07/2026): iPhone hiện "Thêm tất cả" rồi không
+làm gì. METHOD bị bỏ qua hoàn toàn trên đường tải file.</p>
 <a class="btn" href="/ics-test/cancel.ics">2. Huỷ lịch (CANCEL)</a>
+<p class="note"><b>C · PUBLISH + STATUS:CANCELLED</b> (19/07/2026): sự kiện CHUNG NHAN hiện
+lên nhưng 4 cữ không bị xoá. iPhone đọc file rồi phớt lờ lệnh huỷ — nghĩa là tính năng
+dọn dẹp trong <code>ics.ts</code> chưa bao giờ hoạt động.</p>
+<a class="btn" href="/ics-test/cleanup.ics">3. Dọn lịch (PUBLISH + STATUS:CANCELLED)</a>
 
 <hr>
 <h2>Phép thử B — có ORGANIZER/ATTENDEE</h2>
