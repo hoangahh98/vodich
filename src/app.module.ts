@@ -54,11 +54,9 @@ import { AiService } from './common/ai.service';
 import { LocalsMiddleware } from './common/locals.middleware';
 import { RateLimitService } from './common/rate-limit.service';
 import { FeatureGuard } from './common/feature.guard';
-// TẠM THỜI: module thử METHOD:CANCEL. Xoá dòng này + src/ics-test là gỡ sạch.
-import { IcsTestController } from './ics-test/ics-test.controller';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, MedicalController, HouseholdController, AdminController, IcsTestController],
+  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, MedicalController, HouseholdController, AdminController],
   providers: [
     PrismaService,
     AuthService,
