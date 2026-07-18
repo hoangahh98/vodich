@@ -8,6 +8,12 @@ export interface ExtractedItem {
   frequency: string;
   duration: string;
   note: string;
+  // Dạng số/enum để lên lịch nhắc được; 0 nghĩa là đọc không ra, người dùng sẽ tự điền.
+  timesPerDay: number;
+  days: number;
+  quantity: string;
+  route: string;
+  timing: string;
 }
 
 export interface ExtractedPrescription {
@@ -17,6 +23,9 @@ export interface ExtractedPrescription {
   diagnosis: string;
   items: ExtractedItem[];
 }
+
+/** Phần thông tin thuốc mà bước phân tích an toàn cần — không kéo theo field lên lịch. */
+export type AnalyzeItem = Pick<ExtractedItem, 'drugName' | 'isAntibiotic' | 'dosage' | 'frequency' | 'duration' | 'note'>;
 
 export interface SafetyAnalysis {
   risk: 'LOW' | 'MEDIUM' | 'HIGH';
@@ -34,6 +43,35 @@ interface PatientContext {
 interface HistoryEntry {
   date: string;
   items: Array<{ drugName: string; isAntibiotic: boolean; duration: string }>;
+}
+
+const ROUTES = ['UONG', 'NHO_MUI', 'KHI_DUNG', 'XIT', 'BOI', 'KHAC'];
+const TIMINGS = ['SAU_AN', 'TRUOC_AN', 'TRUOC_NGU'];
+
+/** AI hay trả số dạng chuỗi ("2 lần") hoặc enum lạ — ép về đúng kiểu trước khi vào DB. */
+function normalizeItem(item: Partial<ExtractedItem>): ExtractedItem {
+  const route = String(item.route || '').toUpperCase();
+  const timing = String(item.timing || '').toUpperCase();
+  return {
+    drugName: String(item.drugName || ''),
+    isAntibiotic: Boolean(item.isAntibiotic),
+    dosage: String(item.dosage || ''),
+    frequency: String(item.frequency || ''),
+    duration: String(item.duration || ''),
+    note: String(item.note || ''),
+    // Chặn trên 6 lần/ngày và 90 ngày: quá ngưỡng này gần như chắc chắn AI đọc sai.
+    timesPerDay: clampInt(item.timesPerDay, 0, 6),
+    days: clampInt(item.days, 0, 90),
+    quantity: String(item.quantity || '').slice(0, 80),
+    route: ROUTES.includes(route) ? route : '',
+    timing: TIMINGS.includes(timing) ? timing : '',
+  };
+}
+
+function clampInt(value: unknown, min: number, max: number): number {
+  const parsed = Math.round(Number(String(value ?? '').replace(/[^\d.]/g, '')));
+  if (!Number.isFinite(parsed) || parsed < min) return min;
+  return Math.min(parsed, max);
 }
 
 const MED_DISCLAIMER =
@@ -56,8 +94,16 @@ export class MedicalAiService {
     const prompt = [
       'Bạn là dược sĩ đọc đơn thuốc trong ảnh. Trích xuất chính xác thông tin, trả về JSON đúng schema:',
       '{ "doctor": "", "clinic": "", "prescribedDate": "YYYY-MM-DD hoặc rỗng nếu không rõ", "diagnosis": "chẩn đoán nếu có",',
-      '  "items": [ { "drugName": "tên thuốc (kèm hàm lượng nếu có)", "isAntibiotic": true/false, "dosage": "liều mỗi lần", "frequency": "số lần/ngày, cách dùng", "duration": "số ngày dùng", "note": "ghi chú" } ] }',
-      'Quy tắc: liệt kê MỌI thuốc thấy trong đơn. isAntibiotic=true nếu là kháng sinh (amoxicillin, augmentin, cefixim, azithromycin, cephalexin...). Nếu ảnh mờ/không đọc được thì trả items rỗng. Chỉ trả JSON, không giải thích.',
+      '  "items": [ { "drugName": "tên thuốc (kèm hàm lượng nếu có)", "isAntibiotic": true/false, "dosage": "liều mỗi lần, ví dụ 4ml hoặc 1 gói hoặc 2 giọt/bên",',
+      '    "frequency": "nguyên văn cách dùng trong đơn", "duration": "nguyên văn số ngày trong đơn", "note": "ghi chú, lưu ý",',
+      '    "timesPerDay": số_lần_dùng_mỗi_ngày_dạng_số, "days": số_ngày_dùng_dạng_số, "quantity": "tổng số lượng được cấp, ví dụ 10 gói",',
+      '    "route": "UONG|NHO_MUI|KHI_DUNG|XIT|BOI|KHAC", "timing": "SAU_AN|TRUOC_AN|TRUOC_NGU hoặc rỗng" } ] }',
+      'Quy tắc:',
+      '- Liệt kê MỌI thuốc thấy trong đơn, kể cả thuốc bị gạch bỏ (người dùng sẽ tự quyết định bỏ sau).',
+      '- isAntibiotic=true nếu là kháng sinh (amoxicillin, augmentin, cefixim, azithromycin, cephalexin, ciprofloxacin...).',
+      '- timesPerDay và days BẮT BUỘC là số nguyên. Đọc không chắc thì để 0, TUYỆT ĐỐI không đoán bừa.',
+      '- Đơn ghi khoảng (ví dụ "dùng 5-7 ngày") thì days lấy số NHỎ hơn (5) cho an toàn.',
+      '- Nếu ảnh mờ/không đọc được thì trả items rỗng. Chỉ trả JSON, không giải thích.',
     ].join('\n');
     const result = await this.ai.generateJson<ExtractedPrescription>(prompt, {
       images: [{ mimeType, data: imageBase64 }],
@@ -68,12 +114,12 @@ export class MedicalAiService {
       clinic: String(result.clinic || ''),
       prescribedDate: String(result.prescribedDate || ''),
       diagnosis: String(result.diagnosis || ''),
-      items: Array.isArray(result.items) ? result.items : [],
+      items: Array.isArray(result.items) ? result.items.map(normalizeItem) : [],
     };
   }
 
   /** Phân tích an toàn đơn mới dựa trên thông tin bệnh nhân + lịch sử đơn cũ. */
-  async analyze(patient: PatientContext, currentItems: ExtractedItem[], history: HistoryEntry[]): Promise<SafetyAnalysis> {
+  async analyze(patient: PatientContext, currentItems: AnalyzeItem[], history: HistoryEntry[]): Promise<SafetyAnalysis> {
     const age = patient.birthYear ? new Date().getFullYear() - patient.birthYear : null;
     const prompt = [
       'Bạn là dược sĩ lâm sàng thận trọng. Phân tích ĐỘ AN TOÀN của đơn thuốc MỚI dựa trên bối cảnh bệnh nhân và lịch sử đơn cũ.',

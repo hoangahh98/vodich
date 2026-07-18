@@ -6,8 +6,10 @@ import { FeatureGuard } from '../common/feature.guard';
 import { render } from '../common/view';
 import { CurrentUser } from '../types';
 import { MedicalAiService } from './medical-ai.service';
-import { MedicalService } from './medical.service';
+import { ItemDecision, MedicalService } from './medical.service';
 import { RateLimitService } from '../common/rate-limit.service';
+import { buildIcs } from './ics';
+import { ScheduleItem, StartSlot, buildSchedule } from './medication-schedule';
 
 @Controller()
 @UseGuards(FeatureGuard)
@@ -111,6 +113,61 @@ export class MedicalController {
     return res.redirect(`/medical/patients/${prescription.patientId}`);
   }
 
+  /** Bước xác nhận: giữ/bỏ từng thuốc và sửa số lần/ngày trước khi lên lịch. */
+  @Post('/medical/prescriptions/:id/items')
+  async saveItems(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+    const prescriptionId = parseBigId(id);
+    if (!prescriptionId) return notFound(res);
+    const prescription = await this.medical.getPrescription(prescriptionId);
+    if (!prescription) return notFound(res);
+    await this.medical.saveItemDecisions(prescriptionId, parseDecisions(body, prescription.items));
+    return res.redirect(`/medical/prescriptions/${prescriptionId}/lich`);
+  }
+
+  /** Màn hình tổng quan lịch uống thuốc trước khi tải về iPhone. */
+  @Get('/medical/prescriptions/:id/lich')
+  async schedule(@Res() res: Response, @Param('id') id: string, @Query('start') start?: string, @Query('slot') slot?: string) {
+    const prescriptionId = parseBigId(id);
+    if (!prescriptionId) return notFound(res);
+    const prescription = await this.medical.getPrescription(prescriptionId);
+    if (!prescription) return notFound(res);
+    const startDate = safeDate(start) || todayInVietnam();
+    const startSlot: StartSlot = slot === 'SANG' ? 'SANG' : 'TOI';
+    const result = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
+    return render(res, 'medical/schedule', {
+      patient: prescription.patient,
+      prescription,
+      startDate,
+      startSlot,
+      result,
+      disclaimer: this.ai.disclaimer(),
+    });
+  }
+
+  /** Tải file .ics để nạp thẳng vào Lịch trên iPhone. */
+  @Get('/medical/prescriptions/:id/lich.ics')
+  async scheduleIcs(@Res() res: Response, @Param('id') id: string, @Query('start') start?: string, @Query('slot') slot?: string) {
+    const prescriptionId = parseBigId(id);
+    if (!prescriptionId) return notFound(res);
+    const prescription = await this.medical.getPrescription(prescriptionId);
+    if (!prescription) return notFound(res);
+    const startDate = safeDate(start) || todayInVietnam();
+    const startSlot: StartSlot = slot === 'SANG' ? 'SANG' : 'TOI';
+    const { groups } = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot);
+    if (!groups.length) return notFound(res, 'Chưa có thuốc nào đủ thông tin để lên lịch');
+    const ics = buildIcs(groups, {
+      calendarName: `Thuốc của ${prescription.patient.name}`,
+      // UID gắn với id đơn: import lại lần 2 sẽ ghi đè chứ không nhân đôi sự kiện.
+      uidPrefix: `rx${prescriptionId}`,
+      followUpNote: [prescription.clinic, prescription.doctor].filter(Boolean).join(' - '),
+    });
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    // inline chứ không attachment: iOS Safari mở thẳng màn hình "Add All" của Lịch,
+    // còn attachment thì tải vào Files rồi người dùng phải tự mở thêm một bước nữa.
+    res.setHeader('Content-Disposition', `inline; filename="lich-uong-thuoc-${prescriptionId}.ics"`);
+    return res.send(ics);
+  }
+
   @Get('/medical/prescriptions/:id/image')
   async image(@Res() res: Response, @Param('id') id: string) {
     const prescriptionId = parseBigId(id);
@@ -147,6 +204,53 @@ export class MedicalController {
     );
     await this.medical.saveAnalysis(prescriptionId, analysis.risk, analysis.summary);
   }
+}
+
+type ItemRow = { id: bigint; timesPerDay: number; days: number };
+
+/**
+ * Form gửi lên dạng enabled_<id>=on, times_<id>=2, days_<id>=5.
+ * Checkbox không tick thì trình duyệt KHÔNG gửi field -> vắng mặt nghĩa là bỏ thuốc đó.
+ */
+function parseDecisions(body: Record<string, unknown>, items: ItemRow[]): ItemDecision[] {
+  return items.map((item) => {
+    const key = item.id.toString();
+    return {
+      id: key,
+      enabled: body[`enabled_${key}`] !== undefined,
+      timesPerDay: Number(body[`times_${key}`] ?? item.timesPerDay),
+      days: Number(body[`days_${key}`] ?? item.days),
+    };
+  });
+}
+
+function toScheduleItems(items: Array<ItemRow & Record<string, unknown>>): ScheduleItem[] {
+  return items
+    .filter((item) => item.enabled !== false)
+    .map((item) => ({
+      id: item.id.toString(),
+      drugName: String(item.drugName || ''),
+      dosage: String(item.dosage || ''),
+      route: String(item.route || ''),
+      timing: String(item.timing || ''),
+      timesPerDay: Number(item.timesPerDay || 0),
+      days: Number(item.days || 0),
+      note: String(item.note || ''),
+      isAntibiotic: Boolean(item.isAntibiotic),
+    }));
+}
+
+/** Chỉ nhận YYYY-MM-DD hợp lệ; ngày rác từ query sẽ bị bỏ để rơi về hôm nay. */
+function safeDate(value?: string): string {
+  const raw = String(value || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return '';
+  const date = new Date(`${raw}T00:00:00Z`);
+  return Number.isNaN(date.getTime()) ? '' : raw;
+}
+
+/** Server chạy UTC trên Render, nhưng "hôm nay" phải theo giờ Việt Nam (UTC+7). */
+function todayInVietnam(): string {
+  return new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
 }
 
 /** Tách base64 (bỏ tiền tố data:...;base64,) và giới hạn kích thước. */

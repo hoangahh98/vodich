@@ -16,6 +16,7 @@ export interface AiOptions {
   images?: AiImage[];
   model?: string;
   temperature?: number;
+  maxTokens?: number;
 }
 
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
@@ -23,7 +24,12 @@ const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
 const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 20000;
 // Model suy luận (qwen...) chèn phần "think" vào câu trả lời làm hỏng JSON.
 // Với những model này phải gửi reasoning_format=hidden; model thường sẽ báo lỗi 400 nếu gửi.
+// Kèm reasoning_effort='none': nếu để model suy luận thoải mái nó tiêu hết token vào phần
+// think rồi không kịp sinh JSON -> Groq trả 400 json_validate_failed với nội dung rỗng.
+// (qwen chỉ nhận 'none' hoặc 'default', không có 'low'/'high'.)
 const REASONING_MODELS = /qwen|deepseek|gpt-oss/i;
+// Giới hạn token đầu ra. Cần đặt tường minh vì đơn thuốc nhiều loại sinh JSON khá dài.
+const DEFAULT_MAX_TOKENS = 4096;
 
 @Injectable()
 export class AiService {
@@ -57,8 +63,9 @@ export class AiService {
       model,
       messages: [{ role: 'user', content }],
       temperature: options.temperature ?? 0.7,
+      max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
       ...(options.json ? { response_format: { type: 'json_object' } } : {}),
-      ...(REASONING_MODELS.test(model) ? { reasoning_format: 'hidden' } : {}),
+      ...(REASONING_MODELS.test(model) ? { reasoning_format: 'hidden', reasoning_effort: 'none' } : {}),
     };
 
     const maxAttempts = 3;
@@ -90,7 +97,11 @@ export class AiService {
 
       const detail = await response.text().catch(() => '');
       if ((response.status === 429 || response.status === 503) && attempt < maxAttempts) {
-        await sleep(attempt * 1200);
+        // Groq free tier giới hạn theo token/phút và nói rõ còn bao lâu mới reset
+        // (thường vài chục giây). Chờ theo header thay vì 1.2s cho có lệ, nếu không
+        // mọi lần thử lại đều trượt tiếp. Chặn trên 30s để người dùng không treo mãi.
+        const wait = retryAfterMs(response) ?? attempt * 1200;
+        await sleep(Math.min(wait, 30_000));
         continue;
       }
       throw new Error(friendlyError(response.status, detail));
@@ -116,10 +127,23 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function friendlyError(status: number, detail: string): string {
+/** Đọc thời gian chờ Groq đề nghị: `retry-after` (giây) hoặc `x-ratelimit-reset-tokens` ("52.065s"). */
+export function retryAfterMs(response: { headers: { get(name: string): string | null } }): number | null {
+  const retryAfter = Number(response.headers.get('retry-after'));
+  if (Number.isFinite(retryAfter) && retryAfter > 0) return retryAfter * 1000;
+  const reset = response.headers.get('x-ratelimit-reset-tokens');
+  const seconds = Number(String(reset || '').replace(/s$/, ''));
+  if (Number.isFinite(seconds) && seconds > 0) return Math.ceil(seconds * 1000);
+  return null;
+}
+
+export function friendlyError(status: number, detail: string): string {
   if (status === 429) return 'AI đang bận (hết lượt tạm thời). Thử lại sau ít phút nhé.';
   if (status === 503) return 'AI đang quá tải, thử lại sau chút nhé.';
-  if (status === 401 || (status === 400 && /api key|invalid/i.test(detail))) return 'GROQ_API_KEY không hợp lệ.';
+  // Chỉ quy vào lỗi key khi thông báo nói đúng về key/xác thực.
+  // Trước đây bắt cả /invalid/ nên mọi lỗi 400 (type luôn là "invalid_request_error")
+  // đều bị báo nhầm thành "sai API key", che mất nguyên nhân thật.
+  if (status === 401 || (status === 400 && /api[_ ]?key|authentication/i.test(detail))) return 'GROQ_API_KEY không hợp lệ.';
   return `AI lỗi ${status}: ${detail.slice(0, 200)}`;
 }
 

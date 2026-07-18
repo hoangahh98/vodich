@@ -79,12 +79,43 @@ export class MedicalService {
               frequency: item.frequency || '',
               duration: item.duration || '',
               note: item.note || '',
+              timesPerDay: item.timesPerDay || 0,
+              days: item.days || 0,
+              quantity: (item.quantity || '').slice(0, 80),
+              route: item.route || '',
+              timing: item.timing || '',
             })),
           },
         },
       },
       include: { items: true },
     });
+  }
+
+  /**
+   * Lưu quyết định của người dùng cho từng thuốc trong đơn: giữ hay bỏ, và sửa lại
+   * số lần/ngày + số ngày nếu AI đọc sai. Đây là bước xác nhận trước khi lên lịch nhắc.
+   */
+  async saveItemDecisions(prescriptionId: bigint, decisions: ItemDecision[]) {
+    // Chỉ cho sửa item thuộc đúng đơn này, tránh sửa nhầm đơn khác qua id truyền tay.
+    const owned = await this.prisma.medPrescriptionItem.findMany({
+      where: { prescriptionId },
+      select: { id: true },
+    });
+    const allowed = new Set(owned.map((item) => item.id.toString()));
+    const updates = decisions
+      .filter((decision) => allowed.has(decision.id))
+      .map((decision) =>
+        this.prisma.medPrescriptionItem.update({
+          where: { id: BigInt(decision.id) },
+          data: {
+            enabled: decision.enabled,
+            timesPerDay: clamp(decision.timesPerDay, 0, 6),
+            days: clamp(decision.days, 0, 90),
+          },
+        }),
+      );
+    if (updates.length) await this.prisma.$transaction(updates);
   }
 
   saveAnalysis(prescriptionId: bigint, risk: string, summary: string) {
@@ -111,6 +142,19 @@ export class MedicalService {
       include: { items: true },
     });
   }
+}
+
+export interface ItemDecision {
+  id: string;
+  enabled: boolean;
+  timesPerDay: number;
+  days: number;
+}
+
+function clamp(value: number, min: number, max: number) {
+  const parsed = Math.round(Number(value));
+  if (!Number.isFinite(parsed) || parsed < min) return min;
+  return Math.min(parsed, max);
 }
 
 function toYear(value?: string) {

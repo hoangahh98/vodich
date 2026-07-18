@@ -1,0 +1,123 @@
+<%- include('../partials/head', { title: 'Lịch uống thuốc - ' + patient.name }) %>
+<%- include('../partials/topbar') %>
+<%
+  const WEEKDAYS = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+  const viDate = (iso) => {
+    const [y, m, d] = iso.split('-');
+    return `${WEEKDAYS[new Date(`${iso}T00:00:00Z`).getUTCDay()]}, ${d}/${m}`;
+  };
+  // Gom các cữ theo ngày để hiện thành từng khối cho dễ đọc trên điện thoại.
+  const byDate = new Map();
+  result.groups.forEach((g) => {
+    if (!byDate.has(g.date)) byDate.set(g.date, []);
+    byDate.get(g.date).push(g);
+  });
+  // Tóm tắt theo THUỐC: mỗi thuốc uống mấy giờ, từ ngày nào đến ngày nào.
+  // Danh sách 36 cữ trải dài cả chục màn hình, nhìn không ra thuốc nào hết ngày nào.
+  const byDrug = new Map();
+  result.groups.forEach((g) => {
+    g.lines.forEach((line) => {
+      if (!byDrug.has(line.drugName)) byDrug.set(line.drugName, { line, times: new Set(), first: g.date, last: g.date, doses: 0 });
+      const entry = byDrug.get(line.drugName);
+      entry.times.add(g.time);
+      if (g.date < entry.first) entry.first = g.date;
+      if (g.date > entry.last) entry.last = g.date;
+      entry.doses++;
+    });
+  });
+  const icsUrl = `/medical/prescriptions/${prescription.id}/lich.ics?start=${startDate}&slot=${startSlot}`;
+%>
+<main class="app-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>📅 Lịch uống thuốc</h1>
+        <div class="muted strong-muted">
+          <%= patient.name %>
+          <% if (prescription.prescribedDate) { %> · đơn ngày <%= new Date(prescription.prescribedDate).toLocaleDateString('vi-VN') %><% } %>
+        </div>
+      </div>
+      <a class="btn btn-sm" href="/medical/patients/<%= patient.id %>">← Đơn thuốc</a>
+    </div>
+  </section>
+
+  <div class="alert-lite warn mb"><%= disclaimer %></div>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">⏱️</span><h2 class="section-title">Bắt đầu uống từ khi nào?</h2></div></div>
+    <form method="get" action="/medical/prescriptions/<%= prescription.id %>/lich">
+      <div class="row">
+        <div class="col-6"><label>Ngày bắt đầu</label><input type="date" name="start" value="<%= startDate %>"></div>
+        <div class="col-6">
+          <label>Cữ đầu tiên</label>
+          <select name="slot">
+            <option value="TOI" <%= startSlot === 'TOI' ? 'selected' : '' %>>Bắt đầu từ cữ tối hôm đó</option>
+            <option value="SANG" <%= startSlot === 'SANG' ? 'selected' : '' %>>Bắt đầu từ cữ sáng hôm đó</option>
+          </select>
+        </div>
+      </div>
+      <div class="text-right mt"><button class="btn" data-loading-text="Đang tính...">↻ Tính lại lịch</button></div>
+    </form>
+  </section>
+
+  <% if (result.skipped.length) { %>
+    <div class="alert-lite warn mb">
+      <strong>⚠️ Chưa đưa vào lịch được <%= result.skipped.length %> thuốc:</strong>
+      <ul>
+        <% result.skipped.forEach((s) => { %><li><%= s.drugName %> — <%= s.reason %></li><% }) %>
+      </ul>
+      Quay lại <a href="/medical/patients/<%= patient.id %>">trang đơn thuốc</a> điền số lần/ngày và số ngày cho các thuốc này.
+    </div>
+  <% } %>
+
+  <% if (!result.groups.length) { %>
+    <section class="card-lite p mb"><p class="muted">Chưa có thuốc nào đủ thông tin để lên lịch.</p></section>
+  <% } else { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb">
+        <div><span class="feature-icon">📲</span><h2 class="section-title">Đặt vào Lịch iPhone</h2>
+        <p class="muted"><%= result.groups.length %> cữ thuốc, từ <%= viDate(startDate) %> đến hết <%= viDate(result.lastDate) %>.</p></div>
+      </div>
+      <p class="muted">Bấm nút dưới để tải file lịch. iPhone sẽ hỏi <strong>"Add All"</strong> — đồng ý là mỗi cữ thành một sự kiện có chuông báo đúng giờ.</p>
+      <div class="text-right mt"><a class="btn btn-success" href="<%= icsUrl %>">📥 Tải lịch nhắc về máy</a></div>
+    </section>
+
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">💊</span><h2 class="section-title">Từng thuốc uống thế nào</h2></div></div>
+      <% byDrug.forEach((entry, drugName) => { %>
+        <div class="med-row">
+          <strong><%= drugName %></strong>
+          <% if (entry.line.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %>
+          <div class="muted med-row-detail">
+            <%= [...entry.times].sort().join(' · ') %>
+            <% if (entry.line.dosage) { %> — mỗi lần <%= entry.line.dosage %><% } %>
+            <div><%= viDate(entry.first) %> → hết <%= viDate(entry.last) %> (<%= entry.doses %> lần)</div>
+          </div>
+        </div>
+      <% }) %>
+    </section>
+
+    <details class="card-lite p mb">
+      <summary><strong>🗓️ Xem trước chi tiết từng cữ (<%= result.groups.length %>)</strong></summary>
+      <% byDate.forEach((groups, date) => { %>
+        <div class="card-lite p mb">
+          <strong><%= viDate(date) %></strong>
+          <% groups.forEach((g) => { %>
+            <div class="mt">
+              <strong><%= g.time %></strong>
+              <ul>
+                <% g.lines.forEach((line) => { %>
+                  <li>
+                    <%= line.drugName %><% if (line.dosage) { %> — <%= line.dosage %><% } %>
+                    <% if (line.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %>
+                  </li>
+                <% }) %>
+              </ul>
+            </div>
+          <% }) %>
+        </div>
+      <% }) %>
+    </details>
+  <% } %>
+</main>
+<%- include('../partials/bottom-menu') %>

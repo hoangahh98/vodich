@@ -344,6 +344,19 @@ model MedPrescriptionItem {
   duration       String  @default("")
   note           String  @default("")
 
+  // Các trường dưới phục vụ lên lịch nhắc uống thuốc.
+  // enabled=false là thuốc người dùng quyết định bỏ (bác sĩ gạch, hoặc đã có sẵn ở nhà).
+  enabled     Boolean @default(true)
+  // timesPerDay/days do AI đọc ra nhưng người dùng sửa lại được ở màn hình đơn thuốc.
+  // 0 = chưa xác định -> không đưa vào lịch, bắt người dùng điền.
+  timesPerDay Int     @default(0) @map("times_per_day")
+  days        Int     @default(0)
+  quantity    String  @default("") @db.VarChar(80)
+  // UONG | NHO_MUI | KHI_DUNG | XIT | BOI | KHAC
+  route       String  @default("") @db.VarChar(20)
+  // SAU_AN | TRUOC_AN | TRUOC_NGU | rỗng
+  timing      String  @default("") @db.VarChar(20)
+
   prescription MedPrescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
 
   @@map("med_prescription_item")

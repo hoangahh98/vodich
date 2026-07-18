@@ -56,14 +56,33 @@
           </div>
         </div>
         <% if (rx.diagnosis) { %><p class="muted mb">Chẩn đoán: <%= rx.diagnosis %></p><% } %>
-        <div class="table-wrap"><table><thead><tr><th>Thuốc</th><th>Liều</th><th>Cách dùng</th><th>Số ngày</th><th>Ghi chú</th></tr></thead><tbody>
+        <form method="post" action="/medical/prescriptions/<%= rx.id %>/items">
+          <%
+            /* Cố ý KHÔNG dùng <table>: 6 cột làm ô "Số ngày" rơi ra ngoài màn hình điện thoại,
+               phải kéo ngang mới thấy — trong khi đó lại đúng là ô người dùng cần soát nhất. */
+          %>
           <% rx.items.forEach((item) => { %>
-            <tr>
-              <td><strong><%= item.drugName %></strong><% if (item.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %></td>
-              <td><%= item.dosage || '-' %></td><td><%= item.frequency || '-' %></td><td><%= item.duration || '-' %></td><td class="muted"><%= item.note || '' %></td>
-            </tr>
+            <div class="med-row <%= item.enabled ? '' : 'med-item-off' %>">
+              <label class="med-row-use">
+                <input type="checkbox" name="enabled_<%= item.id %>" <%= item.enabled ? 'checked' : '' %>>
+                <span class="med-row-name">
+                  <strong><%= item.drugName %></strong>
+                  <% if (item.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %>
+                </span>
+              </label>
+              <div class="muted med-row-detail">
+                <%= [item.dosage, item.frequency, item.quantity].filter(Boolean).join(' · ') %>
+                <% if (item.note) { %><div><%= item.note %></div><% } %>
+              </div>
+              <div class="med-row-nums">
+                <label>Lần/ngày<input type="number" name="times_<%= item.id %>" value="<%= item.timesPerDay %>" min="0" max="6" class="med-num"></label>
+                <label>Số ngày<input type="number" name="days_<%= item.id %>" value="<%= item.days %>" min="0" max="90" class="med-num"></label>
+              </div>
+            </div>
           <% }) %>
-        </tbody></table></div>
+          <p class="muted mt">Bỏ tick thuốc không dùng (bác sĩ gạch, hoặc nhà đã có). Số lần/ngày và số ngày do AI đọc từ ảnh — đối chiếu tờ đơn giấy rồi sửa nếu sai.</p>
+          <div class="text-right mt"><button class="btn btn-primary" data-loading-text="Đang tính lịch...">📅 Lưu &amp; đặt lịch nhắc</button></div>
+        </form>
         <% if (rx.aiSummary) { %>
           <div class="medical-analysis mt"><strong>🤖 Phân tích AI:</strong><div class="medical-analysis-body"><%= rx.aiSummary %></div></div>
         <% } %>
