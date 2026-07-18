@@ -358,6 +358,9 @@ model MedPrescription {
   // sinh ra đúng phần liệu trình CÒN LẠI, không nạp lại những cữ đã uống xong.
   scheduleStart DateTime? @map("schedule_start") @db.Date
   scheduleSlot  String    @default("") @map("schedule_slot") @db.VarChar(10)
+  // Đơn đã bị dừng khi có đơn mới thay thế. Vẫn giữ scheduleStart để còn dựng lại đúng
+  // các cữ đã từng xuất ra, phục vụ việc gửi lệnh huỷ chúng trong file .ics của đơn mới.
+  scheduleStopped Boolean @default(false) @map("schedule_stopped")
 
   patient MedPatient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
   items   MedPrescriptionItem[]

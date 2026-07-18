@@ -154,6 +154,9 @@ export class MedicalController {
       if (!extracted.items.length) return res.redirect(`${back}?err=${encodeURIComponent('AI không đọc được thuốc trong ảnh, thử ảnh rõ hơn')}`);
       const prescription = await this.medical.createPrescription(patientId, extracted, image);
       await this.runAnalysis(patientId, prescription.id, currentUser(req));
+      // Đơn cũ chưa uống xong thì hỏi ngay thuốc nào còn dùng tiếp, trước khi lên lịch.
+      const others = await this.medical.otherScheduled(patientId, prescription.id);
+      if (others.length) return res.redirect(`/medical/prescriptions/${prescription.id}/chuyen-don`);
     } catch (error) {
       return res.redirect(`${back}?err=${encodeURIComponent(error instanceof Error ? error.message : 'Xử lý đơn thất bại')}`);
     }
@@ -191,6 +194,40 @@ export class MedicalController {
     await this.medical.saveItemDecisions(prescription.id, parseDecisions(body, prescription.items));
     // Lưu xong ở lại trang đơn thuốc; muốn lên lịch thì vào "📅 Lịch uống" ở menu.
     return res.redirect(`/medical/patients/${prescription.patientId}`);
+  }
+
+  /**
+   * Có đơn mới trong khi đơn cũ chưa uống xong: hỏi thuốc nào còn dùng tiếp.
+   * Bỏ tick hết thì lịch đơn cũ bị dừng và file .ics đơn mới sẽ kèm lệnh huỷ cữ cũ.
+   */
+  @Get('/medical/prescriptions/:id/chuyen-don')
+  async transition(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
+    const others = await this.medical.otherScheduled(prescription.patientId, prescription.id);
+    if (!others.length) return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
+    return render(res, 'medical/transition', {
+      patient: prescription.patient,
+      prescription,
+      others,
+      menuPatientId: prescription.patientId.toString(),
+      menuPrescriptionId: prescription.id.toString(),
+    });
+  }
+
+  @Post('/medical/prescriptions/:id/chuyen-don')
+  async saveTransition(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
+    const others = await this.medical.otherScheduled(prescription.patientId, prescription.id);
+    // Checkbox không tick thì trình duyệt không gửi field -> vắng mặt nghĩa là ngừng thuốc đó.
+    const keep = others.flatMap((other) =>
+      other.items.map((item) => item.id.toString()).filter((itemId) => body[`keep_${itemId}`] !== undefined),
+    );
+    for (const other of others) {
+      await this.medical.applyTransition(other.id, keep);
+    }
+    return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
   }
 
   /** Màn hình tổng quan lịch uống thuốc trước khi tải về iPhone. */
@@ -278,6 +315,7 @@ export class MedicalController {
     const groups = full === '1' ? built.groups : remainingFrom(built.groups, todayInVietnam(), '00:00');
     if (!groups.length) return notFound(res, 'Không còn cữ thuốc nào cần nhắc');
     const ics = buildIcs(groups, {
+      cancels: await this.cancelsFor(prescription.patientId, prescriptionId, doseTimesOf(prescription.patient)),
       calendarName: `Thuốc của ${prescription.patient.name}`,
       // UID gắn với id đơn: import lại lần 2 sẽ ghi đè chứ không nhân đôi sự kiện.
       uidPrefix: `rx${prescriptionId}`,
@@ -348,6 +386,25 @@ export class MedicalController {
       return null;
     }
     return prescription;
+  }
+
+  /**
+   * Dựng lại các cữ mà đơn đã dừng TỪNG xuất ra iPhone, để file .ics đơn mới gửi kèm
+   * lệnh huỷ chúng. Cố ý dựng từ TOÀN BỘ thuốc (kể cả đã tắt) vì lúc xuất lần đầu
+   * chúng đều đang bật — huỷ theo danh sách đã tắt thì sẽ sót đúng những cữ cần huỷ.
+   */
+  private async cancelsFor(patientId: bigint, excludeId: bigint, doseTimes: DoseTimes) {
+    const stopped = await this.medical.stoppedSchedules(patientId, excludeId);
+    const today = todayInVietnam();
+    return stopped
+      .map((old) => {
+        const startDate = old.scheduleStart!.toISOString().slice(0, 10);
+        const items = old.items.map((item) => ({ ...item, enabled: true }));
+        const built = buildSchedule(toScheduleItems(items), startDate, safeStartSlot(old.scheduleSlot), doseTimes);
+        // Chỉ huỷ cữ từ hôm nay trở đi; cữ đã qua thì để nguyên làm lịch sử.
+        return { uidPrefix: `rx${old.id}`, groups: remainingFrom(built.groups, today, '00:00') };
+      })
+      .filter((entry) => entry.groups.length);
   }
 
   private async runAnalysis(patientId: bigint, prescriptionId: bigint, user: CurrentUser) {

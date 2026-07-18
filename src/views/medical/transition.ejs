@@ -1,0 +1,58 @@
+<%- include('../partials/head', { title: 'Đơn mới - ' + patient.name }) %>
+<%- include('../partials/topbar') %>
+<%
+  const viDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : 'không rõ ngày';
+%>
+<main class="app-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>🔄 Đơn mới thay đơn cũ</h1>
+        <div class="muted strong-muted"><%= patient.name %> · đơn mới ngày <%= viDate(prescription.prescribedDate) %></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="alert-lite warn mb">
+    <%= patient.name %> vẫn còn đơn cũ chưa uống xong. <strong>Thuốc nào bác sĩ dặn dùng tiếp thì tick lại</strong>,
+    thuốc nào ngừng thì bỏ trống — lịch nhắc của thuốc đó sẽ được gỡ.
+  </div>
+
+  <form method="post" action="/medical/prescriptions/<%= prescription.id %>/chuyen-don">
+    <% others.forEach((other) => { %>
+      <section class="card-lite p mb">
+        <div class="section-heading mb">
+          <div><span class="feature-icon">💊</span><h2 class="section-title">Đơn ngày <%= viDate(other.prescribedDate) %></h2>
+          <% if (other.diagnosis) { %><p class="muted"><%= other.diagnosis %></p><% } %></div>
+        </div>
+        <% other.items.forEach((item) => { %>
+          <div class="med-row">
+            <label class="med-row-use">
+              <%# Mặc định KHÔNG tick: đơn mới thường thay đơn cũ, bắt người dùng chủ động
+                  chọn giữ lại thì an toàn hơn là mặc định cho uống tiếp. %>
+              <input type="checkbox" name="keep_<%= item.id %>">
+              <span class="med-row-name">
+                <strong><%= item.drugName %></strong>
+                <% if (item.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %>
+              </span>
+            </label>
+            <div class="muted med-row-detail">
+              <%= [item.dosage, item.frequency, item.quantity].filter(Boolean).join(' · ') %>
+            </div>
+          </div>
+        <% }) %>
+      </section>
+    <% }) %>
+
+    <section class="card-lite p mb">
+      <p class="muted">
+        Thuốc bỏ trống: app ngừng nhắc, và file lịch của đơn mới sẽ kèm lệnh gỡ các cữ cũ khỏi Lịch iPhone.
+        Thuốc tick lại: sẽ có <strong>hai bộ nhắc song song</strong>, tên sự kiện ghi rõ ngày đơn để phân biệt.
+      </p>
+      <div class="text-right mt">
+        <button class="btn btn-primary" data-loading-text="Đang áp dụng...">Xong, xem lịch đơn mới</button>
+      </div>
+    </section>
+  </form>
+</main>
+<%- include('../partials/bottom-menu') %>

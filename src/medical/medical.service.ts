@@ -208,13 +208,49 @@ export class MedicalService {
     return this.prisma.medPrescription.delete({ where: { id } });
   }
 
-  /** Các đơn KHÁC của cùng người thân đã chốt lịch — để cảnh báo trùng giờ nhắc. */
+  /** Các đơn KHÁC của cùng người thân còn lịch đang chạy — để cảnh báo trùng giờ nhắc. */
   otherScheduled(patientId: bigint, excludeId: bigint) {
     return this.prisma.medPrescription.findMany({
-      where: { patientId, id: { not: excludeId }, scheduleStart: { not: null } },
+      where: { patientId, id: { not: excludeId }, scheduleStart: { not: null }, scheduleStopped: false },
       orderBy: [{ scheduleStart: 'desc' }],
       include: { items: true },
     });
+  }
+
+  /** Các đơn cũ đã bị dừng — cần gửi lệnh huỷ cữ của chúng kèm file .ics đơn mới. */
+  stoppedSchedules(patientId: bigint, excludeId: bigint) {
+    return this.prisma.medPrescription.findMany({
+      where: { patientId, id: { not: excludeId }, scheduleStart: { not: null }, scheduleStopped: true },
+      include: { items: true },
+    });
+  }
+
+  /**
+   * Áp quyết định "đơn mới thay đơn cũ": thuốc nào còn dùng tiếp thì giữ, còn lại tắt.
+   * Tắt hết thuốc của đơn cũ thì đánh dấu dừng luôn lịch đơn đó.
+   */
+  async applyTransition(oldPrescriptionId: bigint, keepItemIds: string[]) {
+    const items = await this.prisma.medPrescriptionItem.findMany({
+      where: { prescriptionId: oldPrescriptionId },
+      select: { id: true },
+    });
+    const keep = new Set(keepItemIds);
+    await this.prisma.$transaction(
+      items.map((item) =>
+        this.prisma.medPrescriptionItem.update({
+          where: { id: item.id },
+          data: { enabled: keep.has(item.id.toString()) },
+        }),
+      ),
+    );
+    const stillOn = items.some((item) => keep.has(item.id.toString()));
+    // Giữ nguyên scheduleStart dù đã dừng: còn cần để dựng lại đúng các cữ đã xuất ra
+    // iPhone mà gửi lệnh huỷ.
+    await this.prisma.medPrescription.update({
+      where: { id: oldPrescriptionId },
+      data: { scheduleStopped: !stillOn },
+    });
+    return stillOn;
   }
 
   /** Lịch sử đơn thuốc trước đó của bệnh nhân (để AI đối chiếu). */

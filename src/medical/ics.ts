@@ -20,6 +20,13 @@ export interface IcsOptions {
   /** Ngày tái khám YYYY-MM-DD (nếu có) -> thêm 1 sự kiện nhắc. */
   followUpDate?: string;
   followUpNote?: string;
+  /**
+   * Các cữ của đơn CŨ cần huỷ, kèm đúng tiền tố UID đã dùng lúc xuất đơn đó.
+   * Gửi lại chính UID cũ với STATUS:CANCELLED + SEQUENCE tăng là cách duy nhất để
+   * báo cho app Lịch biết những sự kiện đó không còn nữa — server không tự xoá được
+   * sự kiện đã nằm trong máy người dùng.
+   */
+  cancels?: Array<{ uidPrefix: string; groups: DoseGroup[] }>;
 }
 
 export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
@@ -55,6 +62,24 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
       'END:VALARM',
       'END:VEVENT',
     );
+  }
+
+  for (const cancel of options.cancels || []) {
+    for (const group of cancel.groups) {
+      lines.push(
+        'BEGIN:VEVENT',
+        `UID:${cancel.uidPrefix}-${group.date.replace(/-/g, '')}-${group.time.replace(':', '')}@vodich`,
+        `DTSTAMP:${stamp}`,
+        `DTSTART:${toStamp(group.date, group.time)}`,
+        `DTEND:${toStamp(group.date, addMinutes(group.time, 15))}`,
+        'SUMMARY:Đã ngừng',
+        'STATUS:CANCELLED',
+        // SEQUENCE phải lớn hơn bản đã gửi trước (bản đầu không ghi SEQUENCE = 0),
+        // nếu không app Lịch coi đây là bản cũ và bỏ qua.
+        'SEQUENCE:1',
+        'END:VEVENT',
+      );
+    }
   }
 
   if (options.followUpDate) {

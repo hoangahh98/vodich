@@ -202,6 +202,34 @@ test('UID giữ nguyên giữa bản đầy đủ và bản còn lại nên máy
   assert.ok(leftUids.length && leftUids.every((uid) => fullUids.includes(uid)));
 });
 
+test('lệnh huỷ cữ đơn cũ dùng đúng UID cũ và đánh dấu CANCELLED', () => {
+  const { groups: oldGroups } = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-18', 'SANG');
+  const { groups: newGroups } = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-20', 'SANG');
+  const ics = buildIcs(newGroups, {
+    calendarName: 'T',
+    uidPrefix: 'rx9',
+    cancels: [{ uidPrefix: 'rx8', groups: oldGroups }],
+  });
+
+  // UID huỷ phải TRÙNG y hệt UID lúc xuất đơn cũ, nếu không app Lịch không biết huỷ cái gì
+  const oldIcs = buildIcs(oldGroups, { calendarName: 'T', uidPrefix: 'rx8' });
+  const uids = (s) => (s.match(/UID:[^\r\n]+/g) || []);
+  uids(oldIcs).forEach((uid) => assert.ok(ics.includes(uid), `thiếu lệnh huỷ cho ${uid}`));
+
+  assert.equal((ics.match(/STATUS:CANCELLED/g) || []).length, oldGroups.length);
+  // SEQUENCE phải > 0, nếu không app Lịch coi là bản cũ và bỏ qua
+  assert.ok(ics.includes('SEQUENCE:1'));
+  // Sự kiện của đơn mới KHÔNG được dính CANCELLED
+  const newBlock = ics.slice(ics.indexOf('UID:rx9'), ics.indexOf('UID:rx8'));
+  assert.ok(!newBlock.includes('STATUS:CANCELLED'));
+});
+
+test('không có gì để huỷ thì file .ics không chứa CANCELLED', () => {
+  const { groups } = buildSchedule([item({ days: 1 })], '2026-07-18', 'SANG');
+  const ics = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' });
+  assert.ok(!ics.includes('STATUS:CANCELLED'));
+});
+
 test('addDays qua mốc cuối tháng và năm nhuận', () => {
   assert.equal(addDays('2026-07-30', 3), '2026-08-02');
   assert.equal(addDays('2026-12-31', 1), '2027-01-01');
