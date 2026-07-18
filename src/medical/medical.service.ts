@@ -82,6 +82,7 @@ export class MedicalService {
               timesPerDay: item.timesPerDay || 0,
               days: item.days || 0,
               quantity: (item.quantity || '').slice(0, 80),
+              quantityCount: item.quantityCount || 0,
               route: item.route || '',
               timing: item.timing || '',
             })),
@@ -111,7 +112,7 @@ export class MedicalService {
           data: {
             enabled: decision.enabled,
             timesPerDay: clamp(decision.timesPerDay, 0, 6),
-            days: clamp(decision.days, 0, 90),
+            days: clampDays(decision.days),
           },
         }),
       );
@@ -163,6 +164,13 @@ function clamp(value: number, min: number, max: number) {
   const parsed = Math.round(Number(value));
   if (!Number.isFinite(parsed) || parsed < min) return min;
   return Math.min(parsed, max);
+}
+
+/** Số ngày giữ được phần lẻ (2,5 ngày) nhưng chốt về bội của 0,5 để khớp cữ sáng/tối. */
+function clampDays(value: number) {
+  const parsed = Math.round(Number(value) * 2) / 2;
+  if (!Number.isFinite(parsed) || parsed < 0) return 0;
+  return Math.min(parsed, 90);
 }
 
 function toYear(value?: string) {

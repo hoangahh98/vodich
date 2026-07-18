@@ -355,8 +355,12 @@ model MedPrescriptionItem {
   // timesPerDay/days do AI đọc ra nhưng người dùng sửa lại được ở màn hình đơn thuốc.
   // 0 = chưa xác định -> không đưa vào lịch, bắt người dùng điền.
   timesPerDay Int     @default(0) @map("times_per_day")
-  days        Int     @default(0)
+  // Số ngày là số thực, KHÔNG phải số nguyên: đơn hay cấp theo số lượng chứ không theo
+  // ngày (vd Budesonid 5 ống, khí dung ngày 2 lần = 2,5 ngày). Ép về số nguyên là sai liều.
+  days        Float   @default(0)
   quantity    String  @default("") @db.VarChar(80)
+  // Số lượng dạng số đọc từ đơn (5 ống -> 5). Dùng để suy ra số ngày khi đơn không ghi.
+  quantityCount Int   @default(0) @map("quantity_count")
   // UONG | NHO_MUI | KHI_DUNG | XIT | BOI | KHAC
   route       String  @default("") @db.VarChar(20)
   // SAU_AN | TRUOC_AN | TRUOC_NGU | rỗng

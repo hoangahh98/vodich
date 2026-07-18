@@ -42,6 +42,22 @@ test('thuốc uống 1 lần trước khi ngủ được xếp vào cữ tối, 
   assert.deepEqual(slotsFor({ timesPerDay: 1, timing: '' }), ['07:30']);
 });
 
+test('số ngày lẻ 2,5 cho ra đúng 5 liều và kết thúc giữa ngày thứ 3', () => {
+  // Budesonid: 5 ống, khí dung ngày 2 lần -> 2,5 ngày. Ép về số nguyên là sai liều.
+  const { groups } = buildSchedule([item({ drugName: 'Budesonid', timesPerDay: 2, days: 2.5 })], '2026-07-18', 'SANG');
+  const doses = groups.reduce((sum, g) => sum + g.lines.length, 0);
+  assert.equal(doses, 5, 'đúng 5 ống, không hơn không kém');
+  const last = groups[groups.length - 1];
+  assert.equal(last.date, '2026-07-20', 'hết vào ngày thứ 3');
+  assert.equal(last.time, '07:30', 'và là cữ sáng, không phải cữ tối');
+});
+
+test('nửa ngày (1 liều duy nhất) vẫn lên lịch được, không bị loại nhầm', () => {
+  const { groups, skipped } = buildSchedule([item({ timesPerDay: 2, days: 0.5 })], '2026-07-18', 'SANG');
+  assert.equal(skipped.length, 0);
+  assert.equal(groups.reduce((s, g) => s + g.lines.length, 0), 1);
+});
+
 test('thuốc thiếu số lần/ngày hoặc số ngày bị loại ra kèm lý do, không đoán bừa', () => {
   const { groups, skipped } = buildSchedule(
     [item({ drugName: 'Thiếu lần', timesPerDay: 0 }), item({ drugName: 'Thiếu ngày', days: 0 })],

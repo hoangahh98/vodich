@@ -94,12 +94,13 @@ export function buildSchedule(items: ScheduleItem[], startDate: string, startSlo
       skipped.push({ drugName: item.drugName, reason: 'chưa rõ số lần uống mỗi ngày' });
       continue;
     }
-    if (!item.days || item.days < 1) {
+    // Cái quyết định liệu trình là TỔNG SỐ LIỀU, không phải số ngày tròn: đơn cấp
+    // 5 ống dùng ngày 2 lần thì hết vào giữa ngày thứ 3, không phải cuối ngày thứ 2 hay 3.
+    const totalDoses = Math.round(times.length * item.days);
+    if (totalDoses < 1) {
       skipped.push({ drugName: item.drugName, reason: 'chưa rõ dùng trong bao nhiêu ngày' });
       continue;
     }
-
-    const totalDoses = times.length * item.days;
     // Cữ đầu tiên: nếu bắt đầu buổi tối thì bỏ các mốc trước 12:00 của ngày đầu.
     let slotIndex = startSlot === 'TOI' ? times.findIndex((time) => time >= '12:00') : 0;
     if (slotIndex < 0) slotIndex = times.length; // toàn mốc sáng -> dời hẳn sang hôm sau

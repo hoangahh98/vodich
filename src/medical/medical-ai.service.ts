@@ -12,6 +12,7 @@ export interface ExtractedItem {
   timesPerDay: number;
   days: number;
   quantity: string;
+  quantityCount: number;
   route: string;
   timing: string;
 }
@@ -63,9 +64,25 @@ function normalizeItem(item: Partial<ExtractedItem>): ExtractedItem {
     timesPerDay: clampInt(item.timesPerDay, 0, 6),
     days: clampInt(item.days, 0, 90),
     quantity: String(item.quantity || '').slice(0, 80),
+    quantityCount: clampInt(item.quantityCount, 0, 500),
     route: ROUTES.includes(route) ? route : '',
     timing: TIMINGS.includes(timing) ? timing : '',
   };
+}
+
+/**
+ * Đơn không ghi số ngày nhưng có số lượng thì suy ra: 5 ống, ngày 2 lần = 2,5 ngày.
+ * Chỉ áp dụng cho dạng đếm được từng liều (gói, ống, viên). Lọ/chai thì một lọ dùng
+ * nhiều lần nên số lượng không nói lên số ngày -> để 0 cho người dùng tự điền.
+ */
+const COUNTABLE = /gói|ống|viên|vien|goi|ong/i;
+
+export function inferDays(item: ExtractedItem): number {
+  if (item.days > 0) return item.days;
+  if (!item.timesPerDay || !item.quantityCount) return 0;
+  if (!COUNTABLE.test(item.quantity)) return 0;
+  // Làm tròn tới 0,5 ngày: nửa ngày là mức chi tiết nhất còn có nghĩa với cữ sáng/tối.
+  return Math.round((item.quantityCount / item.timesPerDay) * 2) / 2;
 }
 
 function clampInt(value: unknown, min: number, max: number): number {
@@ -97,6 +114,7 @@ export class MedicalAiService {
       '  "items": [ { "drugName": "tên thuốc (kèm hàm lượng nếu có)", "isAntibiotic": true/false, "dosage": "liều mỗi lần, ví dụ 4ml hoặc 1 gói hoặc 2 giọt/bên",',
       '    "frequency": "nguyên văn cách dùng trong đơn", "duration": "nguyên văn số ngày trong đơn", "note": "ghi chú, lưu ý",',
       '    "timesPerDay": số_lần_dùng_mỗi_ngày_dạng_số, "days": số_ngày_dùng_dạng_số, "quantity": "tổng số lượng được cấp, ví dụ 10 gói",',
+    '    "quantityCount": tổng_số_lượng_dạng_số (10 gói -> 10, 5 ống -> 5, 1 lọ -> 1),',
       '    "route": "UONG|NHO_MUI|KHI_DUNG|XIT|BOI|KHAC", "timing": "SAU_AN|TRUOC_AN|TRUOC_NGU hoặc rỗng" } ] }',
       'Quy tắc:',
       '- Liệt kê MỌI thuốc thấy trong đơn, kể cả thuốc bị gạch bỏ (người dùng sẽ tự quyết định bỏ sau).',
@@ -114,7 +132,9 @@ export class MedicalAiService {
       clinic: String(result.clinic || ''),
       prescribedDate: String(result.prescribedDate || ''),
       diagnosis: String(result.diagnosis || ''),
-      items: Array.isArray(result.items) ? result.items.map(normalizeItem) : [],
+      items: Array.isArray(result.items)
+        ? result.items.map(normalizeItem).map((item) => ({ ...item, days: inferDays(item) }))
+        : [],
     };
   }
 
