@@ -86,14 +86,16 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
 
   // Cữ dôi ra so với lần xuất trước (bỏ bớt thuốc / rút ngắn liệu trình): phải huỷ,
   // nếu không chúng nằm lại trong Lịch mãi vì lần này không có gì ghi đè lên.
+  const last = groups[groups.length - 1];
   const surplusStart = groups.length ? Math.max(...groups.map((g) => g.index)) + 1 : 1;
   for (let index = surplusStart; index <= (options.previousDoseCount || 0); index++) {
-    lines.push(...cancelEvent(doseUid(options.uidPrefix, index), stamp, sequence));
+    // Không còn biết giờ gốc của những cữ này, mượn mốc cuối cùng cho hợp lệ.
+    lines.push(...cancelEvent(doseUid(options.uidPrefix, index), stamp, sequence, last?.date || '20200101', last?.time || '07:00'));
   }
 
   for (const cancel of options.cancels || []) {
     for (const group of cancel.groups) {
-      lines.push(...cancelEvent(doseUid(cancel.uidPrefix, group.index), stamp, sequence));
+      lines.push(...cancelEvent(doseUid(cancel.uidPrefix, group.index), stamp, sequence, group.date, group.time));
     }
   }
 
@@ -132,13 +134,22 @@ function doseUid(prefix: string, index: number): string {
   return `${prefix}-d${index}@vodich`;
 }
 
-/** Sự kiện huỷ: chỉ cần UID cũ + STATUS:CANCELLED + SEQUENCE tăng. */
-function cancelEvent(uid: string, stamp: string, sequence: number): string[] {
+/**
+ * Sự kiện huỷ: UID cũ + STATUS:CANCELLED + SEQUENCE tăng.
+ *
+ * DTSTART là BẮT BUỘC với mọi VEVENT theo RFC 5545. Thiếu nó thì iPhone coi cả file là
+ * hỏng và bấm "Thêm tất cả" không ra gì cả — không báo lỗi, chỉ đứng yên. App Lịch đối
+ * chiếu theo UID nên giờ ở đây chỉ cần hợp lệ, không cần trùng giờ gốc.
+ */
+function cancelEvent(uid: string, stamp: string, sequence: number, date: string, time: string): string[] {
   return [
     'BEGIN:VEVENT',
     `UID:${uid}`,
     `DTSTAMP:${stamp}`,
     `SEQUENCE:${sequence}`,
+    `DTSTART:${toStamp(date, time)}`,
+    `DTEND:${toStamp(date, addMinutes(time, 15))}`,
+    'SUMMARY:Đã ngừng',
     'STATUS:CANCELLED',
     'END:VEVENT',
   ];

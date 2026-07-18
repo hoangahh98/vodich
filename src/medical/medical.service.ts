@@ -162,8 +162,6 @@ export class MedicalService {
             enabled: decision.enabled,
             timesPerDay: clamp(decision.timesPerDay, 0, 6),
             days: clampDays(decision.days),
-            // Tên để trống thì giữ nguyên, tránh biến thành thuốc vô danh trong lời nhắc.
-            ...(decision.drugName ? { drugName: decision.drugName } : {}),
           },
         }),
       );
@@ -273,8 +271,6 @@ export class MedicalService {
 
 export interface ItemDecision {
   id: string;
-  /** Rỗng = giữ tên cũ. AI đọc ảnh hay sai chính tả nên tên phải sửa được. */
-  drugName: string;
   enabled: boolean;
   timesPerDay: number;
   days: number;

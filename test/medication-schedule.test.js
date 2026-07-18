@@ -288,6 +288,40 @@ test('bản "chỉ nạp phần còn lại" giữ nguyên số thứ tự gốc,
   assert.equal(left[0].index, 7, '2 cữ/ngày x 3 ngày đã qua -> cữ tiếp theo là số 7');
 });
 
+/**
+ * Chốt chặn: RFC 5545 bắt buộc VEVENT nào cũng phải có UID, DTSTAMP và DTSTART.
+ * Thiếu DTSTART thì iPhone im lặng từ chối CẢ file — bấm "Thêm tất cả" không ra gì,
+ * không báo lỗi. Đúng lỗi đã xảy ra với các sự kiện huỷ.
+ */
+const assertEveryEventValid = (ics, label) => {
+  const blocks = ics.split('BEGIN:VEVENT').slice(1).map((b) => b.split('END:VEVENT')[0]);
+  assert.ok(blocks.length, `${label}: không có VEVENT nào`);
+  blocks.forEach((block, i) => {
+    ['UID:', 'DTSTAMP:', 'DTSTART:'].forEach((field) => {
+      assert.ok(block.includes(field), `${label}: VEVENT #${i + 1} thiếu ${field}\n${block}`);
+    });
+  });
+};
+
+test('mọi VEVENT đều có UID, DTSTAMP, DTSTART — kể cả sự kiện huỷ', () => {
+  const groups = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-18', 'SANG').groups;
+  const older = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-10', 'SANG').groups;
+
+  assertEveryEventValid(buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' }), 'bản thường');
+  assertEveryEventValid(
+    buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', previousDoseCount: 12 }),
+    'bản có huỷ phần dôi',
+  );
+  assertEveryEventValid(
+    buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', cancels: [{ uidPrefix: 'rx0', groups: older }] }),
+    'bản có huỷ đơn cũ',
+  );
+  assertEveryEventValid(
+    buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', followUpDate: '2026-07-25' }),
+    'bản có tái khám',
+  );
+});
+
 test('không có gì để huỷ thì file .ics không chứa CANCELLED', () => {
   const { groups } = buildSchedule([item({ days: 1 })], '2026-07-18', 'SANG');
   const ics = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' });
