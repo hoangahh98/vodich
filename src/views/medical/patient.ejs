@@ -93,6 +93,9 @@
                 <label>Lần/ngày<input type="number" name="times_<%= item.id %>" value="<%= item.timesPerDay %>" min="0" max="6" class="med-num"></label>
                 <%# step 0.5: đơn cấp theo số lượng hay ra số ngày lẻ (5 ống, ngày 2 lần = 2,5 ngày). %>
                 <label>Số ngày<input type="number" name="days_<%= item.id %>" value="<%= item.days %>" min="0" max="90" step="0.5" class="med-num"></label>
+                <%# AI đọc nhầm "Khí dung" thành "Khi dùng" là thuốc duy trì biến mất khỏi
+                    lịch nhắc. Phải sửa tay được. %>
+                <label class="med-row-prn"><input type="checkbox" name="prn_<%= item.id %>" <%= item.asNeeded ? 'checked' : '' %>> chỉ dùng khi cần</label>
               </div>
             </div>
           <% }) %>

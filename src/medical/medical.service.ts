@@ -163,6 +163,7 @@ export class MedicalService {
           where: { id: BigInt(decision.id) },
           data: {
             enabled: decision.enabled,
+            asNeeded: decision.asNeeded,
             timesPerDay: clamp(decision.timesPerDay, 0, 6),
             days: clampDays(decision.days),
           },
@@ -304,6 +305,8 @@ export interface CarryOverItem {
 export interface ItemDecision {
   id: string;
   enabled: boolean;
+  /** Người dùng tự đánh dấu "chỉ dùng khi cần" — AI đọc sai chỗ này là mất lịch nhắc. */
+  asNeeded: boolean;
   timesPerDay: number;
   days: number;
 }

@@ -682,7 +682,7 @@ function doseTimesOf(patient: PatientTimes): DoseTimes {
 type ItemRow = { id: bigint; timesPerDay: number; days: number };
 
 /**
- * Form gửi lên dạng enabled_<id>=on, times_<id>=2, days_<id>=5.
+ * Form gửi lên dạng enabled_<id>=on, times_<id>=2, days_<id>=5, prn_<id>=on.
  * Checkbox không tick thì trình duyệt KHÔNG gửi field -> vắng mặt nghĩa là bỏ thuốc đó.
  */
 function parseDecisions(body: Record<string, unknown>, items: ItemRow[]): ItemDecision[] {
@@ -691,6 +691,7 @@ function parseDecisions(body: Record<string, unknown>, items: ItemRow[]): ItemDe
     return {
       id: key,
       enabled: body[`enabled_${key}`] !== undefined,
+      asNeeded: body[`prn_${key}`] !== undefined,
       timesPerDay: Number(body[`times_${key}`] ?? item.timesPerDay),
       days: Number(body[`days_${key}`] ?? item.days),
     };
