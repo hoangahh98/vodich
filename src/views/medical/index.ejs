@@ -38,7 +38,8 @@
           </a>
           <% if (active) { %>
             <p class="muted">💊 Còn <strong><%= active.remainingCount %></strong> cữ, đến hết <%= ld %>/<%= lm %></p>
-            <a class="btn btn-sm btn-success" href="/medical/prescriptions/<%= active.prescriptionId %>/lich.ics">📥 Nạp lịch nhắc</a>
+            <%# data-no-busy: file .ics giao cho app Lịch, trang không điều hướng nên đừng bật spinner. %>
+            <a class="btn btn-sm btn-success" data-no-busy href="/medical/prescriptions/<%= active.prescriptionId %>/lich.ics">📥 Nạp lịch nhắc</a>
           <% } %>
         </div>
       <% }) %>

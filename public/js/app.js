@@ -40,6 +40,11 @@ const clearPageBusy = () => {
 
 window.addEventListener('pageshow', clearPageBusy);
 window.addEventListener('pagehide', () => document.body.classList.remove('page-busy'));
+// Lưới an toàn: nếu người dùng rời app (mở file sang app khác, chuyển app rồi quay lại)
+// mà trang không hề điều hướng thì spinner sẽ kẹt lại — quay về là dọn luôn.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') clearPageBusy();
+});
 
 document.addEventListener('submit', (event) => {
   const form = event.target;
@@ -80,6 +85,9 @@ document.addEventListener('click', (event) => {
   const link = target?.closest('a[href]');
   if (!(link instanceof HTMLAnchorElement)) return;
   const href = link.getAttribute('href') || '';
+  // data-no-busy: link KHÔNG làm trang điều hướng (vd file .ics giao cho app Lịch của
+  // iPhone, trang đứng nguyên). Bật spinner cho những link này thì nó quay mãi không tắt.
+  if (link.hasAttribute('data-no-busy')) return;
   if (link.target || link.hasAttribute('download') || href.startsWith('#') || href.startsWith('javascript:')) return;
   const url = new URL(link.href, window.location.href);
   if (url.origin !== window.location.origin) return;

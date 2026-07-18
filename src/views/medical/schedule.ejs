@@ -110,10 +110,11 @@
 
       <div class="text-right mt">
         <% if (remainingCount) { %>
-          <a class="btn btn-success" href="<%= icsUrl %>">📥 Nạp <%= started ? remainingCount + ' cữ còn lại' : 'lịch nhắc' %></a>
+          <%# data-no-busy: file .ics giao cho app Lịch, trang không điều hướng nên đừng bật spinner. %>
+          <a class="btn btn-success" data-no-busy href="<%= icsUrl %>">📥 Nạp <%= started ? remainingCount + ' cữ còn lại' : 'lịch nhắc' %></a>
         <% } %>
         <% if (started) { %>
-          <div class="mt"><a class="muted" href="<%= icsFullUrl %>">Nạp lại cả liệu trình từ đầu (gồm cữ đã qua)</a></div>
+          <div class="mt"><a class="muted" data-no-busy href="<%= icsFullUrl %>">Nạp lại cả liệu trình từ đầu (gồm cữ đã qua)</a></div>
         <% } %>
       </div>
     </section>
