@@ -396,6 +396,7 @@ export class MedicalController {
     @Query('start') start?: string,
     @Query('slot') slot?: string,
     @Query('full') full?: string,
+    @Query('cleanup') cleanup?: string,
   ) {
     const prescription = await this.scopedPrescription(req, res, id);
     if (!prescription) return;
@@ -406,9 +407,13 @@ export class MedicalController {
     const built = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot, doseTimesOf(prescription.patient));
     const groups = full === '1' ? built.groups : remainingFrom(built.groups, todayInVietnam(), '00:00');
     if (!groups.length) return notFound(res, 'Không còn cữ thuốc nào cần nhắc');
+    // Sự kiện STATUS:CANCELLED là thứ phi chuẩn trong file METHOD:PUBLISH (RFC 5546 bảo
+    // huỷ thì dùng METHOD:CANCEL riêng). Trộn vào file thường làm tăng rủi ro iPhone từ
+    // chối cả file, nên chỉ đưa vào khi người dùng chủ động chọn bản dọn dẹp.
+    const withCleanup = cleanup === '1';
     const ics = buildIcs(groups, {
-      cancels: await this.cancelsFor(prescription.patientId, prescriptionId, doseTimesOf(prescription.patient)),
-      previousDoseCount: prescription.icsDoseCount,
+      cancels: withCleanup ? await this.cancelsFor(prescription.patientId, prescriptionId, doseTimesOf(prescription.patient)) : [],
+      previousDoseCount: withCleanup ? prescription.icsDoseCount : 0,
       // SEQUENCE lấy theo số phút kể từ 2020: luôn tăng, không cần lưu thêm cột nào.
       // App Lịch chỉ ghi đè khi SEQUENCE lớn hơn bản đã nhận, nếu để 0 thì sửa giờ
       // xong nạp lại sẽ không ăn.
