@@ -119,8 +119,41 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
   }
 
   lines.push('END:VCALENDAR');
-  // iCalendar bắt buộc CRLF.
-  return lines.join('\r\n') + '\r\n';
+  // iCalendar bắt buộc CRLF và gấp dòng ở 75 octet.
+  return lines.map(foldLine).join('\r\n') + '\r\n';
+}
+
+/**
+ * Gấp dòng theo RFC 5545: mỗi dòng tối đa 75 octet, phần nối tiếp bắt đầu bằng một dấu
+ * cách. Không phải chuyện làm đẹp — iPhone từ chối cả file nếu dòng quá dài, mà từ chối
+ * im lặng: bấm "Thêm tất cả" xong không có gì xảy ra, không báo lỗi.
+ *
+ * Đếm theo OCTET chứ không phải ký tự (tiếng Việt có dấu 2 byte, emoji 4 byte), và
+ * tuyệt đối không cắt giữa một ký tự nhiều byte.
+ */
+export function foldLine(line: string): string {
+  const LIMIT = 75;
+  if (Buffer.byteLength(line, 'utf8') <= LIMIT) return line;
+
+  const out: string[] = [];
+  let current = '';
+  let currentBytes = 0;
+  // Dòng nối tiếp tốn 1 octet cho dấu cách đứng đầu.
+  let limit = LIMIT;
+
+  for (const char of line) {
+    const size = Buffer.byteLength(char, 'utf8');
+    if (currentBytes + size > limit) {
+      out.push(current);
+      current = '';
+      currentBytes = 0;
+      limit = LIMIT - 1;
+    }
+    current += char;
+    currentBytes += size;
+  }
+  if (current) out.push(current);
+  return out[0] + out.slice(1).map((part) => `\r\n ${part}`).join('');
 }
 
 /**

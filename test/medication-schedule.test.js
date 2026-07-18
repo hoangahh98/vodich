@@ -303,6 +303,57 @@ const assertEveryEventValid = (ics, label) => {
   });
 };
 
+test('không dòng nào vượt 75 octet — dòng dài làm iPhone từ chối cả file', () => {
+  // Tên thuốc tiếng Việt + emoji rất dễ đẩy SUMMARY/DESCRIPTION vượt giới hạn.
+  const groups = buildSchedule(
+    [
+      item({ drugName: 'Ciprofloxacin (Vinhopro)', dosage: '1 gói', timing: 'SAU_AN', isAntibiotic: true, days: 2 }),
+      item({ id: '2', drugName: 'Ambroxol 30mg/5ml (Justone)', dosage: '4ml', days: 2 }),
+      item({ id: '3', drugName: 'Terbutaline 0.03%, Guaifenesin 1.33% (Olexon S)', dosage: '4ml', days: 2 }),
+    ],
+    '2026-07-18',
+    'SANG',
+  ).groups;
+  const ics = buildIcs(groups, {
+    calendarName: 'Thuốc của Khắc Minh',
+    uidPrefix: 'rx1',
+    prescriptionLabel: '18/07/2026',
+    followUpDate: '2026-07-25',
+  });
+
+  ics.split('\r\n').forEach((line) => {
+    assert.ok(
+      Buffer.byteLength(line, 'utf8') <= 75,
+      `dòng dài ${Buffer.byteLength(line, 'utf8')} octet: ${line.slice(0, 60)}...`,
+    );
+  });
+});
+
+test('gấp dòng không làm hỏng nội dung: gỡ gấp phải ra đúng chuỗi gốc', () => {
+  const { foldLine } = require('../dist/medical/ics');
+  const samples = [
+    'SUMMARY:💊❗ Đơn 18/07/2026 (có kháng sinh) · Ciprofloxacin (Vinhopro) 1 gói · Ambroxol 30mg/5ml (Justone) 4ml',
+    'DESCRIPTION:Uống Ciprofloxacin: 1 gói\\, sau ăn\\nUống Ambroxol 30mg/5ml (Justone): 4ml',
+    'SUMMARY:ngắn',
+    'X-WR-CALNAME:Thuốc của bé Nguyễn Khắc Minh nhà mình ở Dương Nội Hà Đông Hà Nội',
+  ];
+  samples.forEach((sample) => {
+    const folded = foldLine(sample);
+    // Gỡ gấp = bỏ mỗi cặp CRLF+space
+    assert.equal(folded.replace(/\r\n /g, ''), sample, `hỏng nội dung khi gấp: ${sample.slice(0, 40)}`);
+    folded.split('\r\n').forEach((line) => assert.ok(Buffer.byteLength(line, 'utf8') <= 75));
+  });
+});
+
+test('gấp dòng không cắt đôi ký tự nhiều byte', () => {
+  const { foldLine } = require('../dist/medical/ics');
+  // Chuỗi toàn emoji 4 byte + chữ có dấu 3 byte, ép rơi đúng vào ranh giới
+  const line = 'SUMMARY:' + '💊'.repeat(30) + 'ố'.repeat(30);
+  const folded = foldLine(line);
+  assert.equal(folded.replace(/\r\n /g, ''), line);
+  assert.ok(!folded.includes('�'), 'không được sinh ký tự hỏng');
+});
+
 test('mọi VEVENT đều có UID, DTSTAMP, DTSTART — kể cả sự kiện huỷ', () => {
   const groups = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-18', 'SANG').groups;
   const older = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-10', 'SANG').groups;
