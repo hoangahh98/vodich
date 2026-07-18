@@ -348,6 +348,8 @@ model MedPrescription {
   doctor         String    @default("") @db.VarChar(255)
   clinic         String    @default("") @db.VarChar(255)
   diagnosis      String    @default("")
+  /** Ngày tái khám ghi trong đơn — sinh thêm một lời nhắc buổi sáng hôm đó. */
+  followUpDate   DateTime? @map("follow_up_date") @db.Date
   imageData      String?   @map("image_data")
   imageMime      String?   @map("image_mime") @db.VarChar(80)
   aiSummary      String?   @map("ai_summary")
@@ -392,6 +394,12 @@ model MedPrescriptionItem {
   quantity    String  @default("") @db.VarChar(80)
   // Số lượng dạng số đọc từ đơn (5 ống -> 5). Dùng để suy ra số ngày khi đơn không ghi.
   quantityCount Int   @default(0) @map("quantity_count")
+  // days được suy ra TỪ số lượng (không phải đơn ghi). Khi đó số ngày và số lượng khớp
+  // nhau theo định nghĩa nên không được cảnh báo lệch.
+  daysFromQuantity Boolean @default(false) @map("days_from_quantity")
+  // Thuốc dùng KHI CẦN (hạ sốt khi sốt, khí dung khi khó thở): không lên lịch nhắc,
+  // nhắc đều đặn thuốc loại này là sai — nhưng vẫn đếm vào tủ thuốc.
+  asNeeded Boolean @default(false) @map("as_needed")
   // UONG | NHO_MUI | KHI_DUNG | XIT | BOI | KHAC
   route       String  @default("") @db.VarChar(20)
   // SAU_AN | TRUOC_AN | TRUOC_NGU | rỗng

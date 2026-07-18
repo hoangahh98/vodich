@@ -15,12 +15,18 @@ export interface ExtractedItem {
   quantityCount: number;
   route: string;
   timing: string;
+  /** Thuốc dùng khi cần (hạ sốt khi sốt, khí dung khi khó thở) -> không lên lịch nhắc. */
+  asNeeded: boolean;
+  /** days được suy ra từ số lượng chứ không phải đơn ghi rõ. */
+  daysFromQuantity: boolean;
 }
 
 export interface ExtractedPrescription {
   doctor: string;
   clinic: string;
   prescribedDate: string; // YYYY-MM-DD hoặc rỗng
+  /** Ngày tái khám ghi trong đơn, YYYY-MM-DD hoặc rỗng. */
+  followUpDate: string;
   diagnosis: string;
   items: ExtractedItem[];
 }
@@ -83,6 +89,8 @@ function normalizeItem(item: Partial<ExtractedItem>): ExtractedItem {
     quantityCount: clampInt(item.quantityCount, 0, 500),
     route: ROUTES.includes(route) ? route : '',
     timing: TIMINGS.includes(timing) ? timing : '',
+    asNeeded: Boolean(item.asNeeded),
+    daysFromQuantity: false,
   };
 }
 
@@ -120,16 +128,19 @@ export class MedicalAiService {
     const prompt = [
       'Bạn là dược sĩ đọc đơn thuốc trong ảnh. Trích xuất chính xác thông tin, trả về JSON đúng schema:',
       '{ "doctor": "", "clinic": "", "prescribedDate": "YYYY-MM-DD hoặc rỗng nếu không rõ", "diagnosis": "chẩn đoán nếu có",',
+    '  "followUpDate": "ngày tái khám dạng YYYY-MM-DD nếu đơn có ghi (tái khám / hẹn khám lại), rỗng nếu không có",',
       '  "items": [ { "drugName": "tên thuốc (kèm hàm lượng nếu có)", "isAntibiotic": true/false, "dosage": "liều mỗi lần, ví dụ 4ml hoặc 1 gói hoặc 2 giọt/bên",',
       '    "frequency": "nguyên văn cách dùng trong đơn", "duration": "nguyên văn số ngày trong đơn", "note": "ghi chú, lưu ý",',
       '    "timesPerDay": số_lần_dùng_mỗi_ngày_dạng_số, "days": số_ngày_dùng_dạng_số, "quantity": "tổng số lượng được cấp, ví dụ 10 gói",',
     '    "quantityCount": tổng_số_lượng_dạng_số (10 gói -> 10, 5 ống -> 5, 1 lọ -> 1),',
-      '    "route": "UONG|NHO_MUI|KHI_DUNG|XIT|BOI|KHAC", "timing": "SAU_AN|TRUOC_AN|TRUOC_NGU hoặc rỗng" } ] }',
+      '    "route": "UONG|NHO_MUI|KHI_DUNG|XIT|BOI|KHAC", "timing": "SAU_AN|TRUOC_AN|TRUOC_NGU hoặc rỗng",',
+    '    "asNeeded": true nếu thuốc chỉ dùng KHI CẦN (khi sốt, khi ho nhiều, khi khó thở, "nếu...", "khi..."), ngược lại false } ] }',
       'Quy tắc:',
       '- Liệt kê MỌI thuốc thấy trong đơn, kể cả thuốc bị gạch bỏ (người dùng sẽ tự quyết định bỏ sau).',
       '- isAntibiotic=true nếu là kháng sinh (amoxicillin, augmentin, cefixim, azithromycin, cephalexin, ciprofloxacin...).',
       '- timesPerDay và days BẮT BUỘC là số nguyên. Đọc không chắc thì để 0, TUYỆT ĐỐI không đoán bừa.',
       '- Đơn ghi khoảng (ví dụ "dùng 5-7 ngày") thì days lấy số NHỎ hơn (5) cho an toàn.',
+      '- asNeeded=true cho thuốc dùng theo triệu chứng (hạ sốt khi sốt trên 38.5, khí dung khi khó thở). Loại này KHÔNG uống đều đặn hằng ngày.',
       '- Nếu ảnh mờ/không đọc được thì trả items rỗng. Chỉ trả JSON, không giải thích.',
     ].join('\n');
     const result = await this.ai.generateJson<ExtractedPrescription>(prompt, {
@@ -140,9 +151,13 @@ export class MedicalAiService {
       doctor: String(result.doctor || ''),
       clinic: String(result.clinic || ''),
       prescribedDate: String(result.prescribedDate || ''),
+      followUpDate: String(result.followUpDate || ''),
       diagnosis: String(result.diagnosis || ''),
       items: Array.isArray(result.items)
-        ? result.items.map(normalizeItem).map((item) => ({ ...item, days: inferDays(item) }))
+        ? result.items.map(normalizeItem).map((item) => {
+            const days = inferDays(item);
+            return { ...item, days, daysFromQuantity: item.days === 0 && days > 0 };
+          })
         : [],
     };
   }

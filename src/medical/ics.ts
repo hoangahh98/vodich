@@ -30,8 +30,10 @@ export interface IcsOptions {
   prescriptionLabel?: string;
   /** Tên người thân, để nhà nhiều người còn biết lời nhắc này của ai. */
   patientName?: string;
-  /** Ngày tái khám YYYY-MM-DD (nếu có) -> thêm 1 sự kiện nhắc. */
+  /** Ngày tái khám YYYY-MM-DD (nếu có) -> thêm 1 sự kiện nhắc sáng hôm đó. */
   followUpDate?: string;
+  /** Giờ nhắc tái khám — dùng cữ sáng của nhà để báo ngay đầu ngày hôm đó. */
+  followUpTime?: string;
   followUpNote?: string;
   /**
    * Các cữ của đơn CŨ cần huỷ, kèm đúng tiền tố UID đã dùng lúc xuất đơn đó.
@@ -101,19 +103,22 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
   }
 
   if (options.followUpDate) {
+    // Nhắc ngay SÁNG hôm tái khám để hôm đó còn nhớ mà đưa bé đi.
+    const time = options.followUpTime || '07:00';
+    const title = `🏥 Tái khám${options.patientName ? ' ' + options.patientName : ''}`;
     lines.push(
       'BEGIN:VEVENT',
       `UID:${options.uidPrefix}-taikham@vodich`,
       `DTSTAMP:${stamp}`,
-      `DTSTART:${toStamp(options.followUpDate, '09:00')}`,
-      `DTEND:${toStamp(options.followUpDate, '09:30')}`,
-      'SUMMARY:🏥 Tái khám',
+      `SEQUENCE:${sequence}`,
+      `DTSTART:${toStamp(options.followUpDate, time)}`,
+      `DTEND:${toStamp(options.followUpDate, addMinutes(time, 30))}`,
+      `SUMMARY:${escapeText(title)}`,
       `DESCRIPTION:${escapeText(options.followUpNote || 'Tái khám theo hẹn của bác sĩ.')}`,
       'BEGIN:VALARM',
       'ACTION:DISPLAY',
-      'DESCRIPTION:🏥 Tái khám',
-      // Nhắc trước 1 ngày để còn kịp sắp xếp đưa bé đi khám.
-      'TRIGGER:-P1D',
+      `DESCRIPTION:${escapeText(title)}`,
+      'TRIGGER:PT0S',
       'END:VALARM',
       'END:VEVENT',
     );

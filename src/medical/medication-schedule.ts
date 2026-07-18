@@ -33,6 +33,12 @@ export interface ScheduleItem {
   days: number;
   note: string;
   isAntibiotic: boolean;
+  /** Thuốc dùng khi cần: KHÔNG lên lịch, nhắc đều đặn loại này là sai. */
+  asNeeded?: boolean;
+  /** Tổng số lượng được cấp + cờ "số ngày do suy ra" — dùng để soi lệch số lượng. */
+  quantityCount?: number;
+  quantity?: string;
+  daysFromQuantity?: boolean;
 }
 
 export interface DoseLine {
@@ -66,6 +72,14 @@ export interface ScheduleResult {
   groups: DoseGroup[];
   /** Thuốc bị bỏ qua vì thiếu số lần/ngày hoặc số ngày -> hiện cảnh báo cho người dùng điền. */
   skipped: Array<{ drugName: string; reason: string }>;
+  /** Thuốc dùng khi cần — cố ý không lên lịch, chỉ liệt kê để người dùng nhớ là có. */
+  asNeeded: Array<{ drugName: string; dosage: string; note: string }>;
+  /**
+   * Số lượng cấp không khớp số ngày ĐƠN GHI RÕ.
+   * Chỉ soi khi số ngày do đơn ghi; nếu số ngày vốn được suy ra TỪ số lượng thì hai con
+   * số khớp nhau theo định nghĩa, cảnh báo là báo động giả.
+   */
+  quantityMismatch: Array<{ drugName: string; needed: number; given: number; unit: string }>;
   lastDate: string;
 }
 
@@ -172,6 +186,8 @@ export function buildSchedule(
   doseTimes: DoseTimes = DEFAULT_DOSE_TIMES,
 ): ScheduleResult {
   const skipped: Array<{ drugName: string; reason: string }> = [];
+  const asNeeded: ScheduleResult['asNeeded'] = [];
+  const quantityMismatch: ScheduleResult['quantityMismatch'] = [];
   const byKey = new Map<string, DoseGroup>();
   // Ngưỡng lấy từ chính giờ người dùng đặt, không cắm cứng: đặt cữ trưa lúc 13:00
   // thì "bắt đầu từ trưa" phải hiểu theo 13:00.
@@ -182,6 +198,11 @@ export function buildSchedule(
   };
 
   for (const item of items) {
+    // Thuốc khi cần: cố ý không lên lịch. Nhắc uống hạ sốt lúc bé không sốt là sai.
+    if (item.asNeeded) {
+      asNeeded.push({ drugName: item.drugName, dosage: item.dosage, note: item.note });
+      continue;
+    }
     const times = slotsFor(item, doseTimes);
     if (!times.length) {
       skipped.push({ drugName: item.drugName, reason: 'chưa rõ số lần uống mỗi ngày' });
@@ -193,6 +214,18 @@ export function buildSchedule(
     if (totalDoses < 1) {
       skipped.push({ drugName: item.drugName, reason: 'chưa rõ dùng trong bao nhiêu ngày' });
       continue;
+    }
+    // Soi lệch số lượng: chỉ khi số ngày do ĐƠN GHI RÕ. Nếu số ngày vốn suy ra từ số
+    // lượng thì hai con số khớp theo định nghĩa (5 ống, ngày 2 lần = 2,5 ngày), cảnh
+    // báo lúc đó chỉ là báo động giả.
+    const given = item.quantityCount || 0;
+    if (given > 0 && !item.daysFromQuantity) {
+      const unit = /gói|goi/i.test(item.quantity || '') ? 'gói'
+        : /ống|ong/i.test(item.quantity || '') ? 'ống'
+        : /viên|vien/i.test(item.quantity || '') ? 'viên' : '';
+      if (unit && given < totalDoses) {
+        quantityMismatch.push({ drugName: item.drugName, needed: totalDoses, given, unit });
+      }
     }
     // Cữ đầu tiên: bỏ các mốc đã trôi qua của ngày đầu theo buổi người dùng chọn.
     let slotIndex = times.findIndex((time) => time >= floor[startSlot]);
@@ -230,7 +263,7 @@ export function buildSchedule(
   groups.forEach((group, i) => {
     group.index = i + 1;
   });
-  return { groups, skipped, lastDate: groups.length ? groups[groups.length - 1].date : startDate };
+  return { groups, skipped, asNeeded, quantityMismatch, lastDate: groups.length ? groups[groups.length - 1].date : startDate };
 }
 
 /**

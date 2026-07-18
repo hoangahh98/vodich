@@ -136,6 +136,63 @@ test('nửa ngày (1 liều duy nhất) vẫn lên lịch được, không bị 
   assert.equal(groups.reduce((s, g) => s + g.lines.length, 0), 1);
 });
 
+test('thuốc dùng KHI CẦN không lên lịch nhắc, chỉ liệt kê ra', () => {
+  // Nhắc uống hạ sốt lúc bé không sốt là sai, nên loại này cố ý không có cữ nào.
+  const { groups, asNeeded, skipped } = buildSchedule(
+    [
+      item({ drugName: 'Hạ sốt', asNeeded: true, timesPerDay: 4, days: 3, note: 'khi sốt trên 38.5' }),
+      item({ id: '2', drugName: 'Thuốc thường', timesPerDay: 2, days: 2 }),
+    ],
+    '2026-07-18',
+    'SANG',
+  );
+  assert.equal(asNeeded.length, 1);
+  assert.equal(asNeeded[0].drugName, 'Hạ sốt');
+  assert.equal(asNeeded[0].note, 'khi sốt trên 38.5');
+  assert.equal(skipped.length, 0, 'khi cần không phải là "thiếu thông tin"');
+  const names = new Set(groups.flatMap((g) => g.lines.map((l) => l.drugName)));
+  assert.ok(!names.has('Hạ sốt'), 'thuốc khi cần không được có cữ nào');
+  assert.ok(names.has('Thuốc thường'));
+});
+
+test('cảnh báo khi số lượng cấp không đủ cho số ngày ĐƠN GHI RÕ', () => {
+  // Đơn ghi "dùng 5 ngày", ngày 2 lần = 10 liều, nhưng chỉ cấp 5 ống.
+  const { quantityMismatch } = buildSchedule(
+    [item({ drugName: 'Budesonid', timesPerDay: 2, days: 5, quantity: '5 ống', quantityCount: 5, daysFromQuantity: false })],
+    '2026-07-18',
+    'SANG',
+  );
+  assert.equal(quantityMismatch.length, 1);
+  assert.deepEqual(quantityMismatch[0], { drugName: 'Budesonid', needed: 10, given: 5, unit: 'ống' });
+});
+
+test('KHÔNG cảnh báo khi số ngày vốn được suy ra từ số lượng', () => {
+  // "5 ống, ngày 2 lần" -> app tự suy 2,5 ngày. Hai con số khớp theo định nghĩa,
+  // cảnh báo lúc này chỉ là báo động giả.
+  const { quantityMismatch } = buildSchedule(
+    [item({ drugName: 'Budesonid', timesPerDay: 2, days: 2.5, quantity: '5 ống', quantityCount: 5, daysFromQuantity: true })],
+    '2026-07-18',
+    'SANG',
+  );
+  assert.deepEqual(quantityMismatch, []);
+});
+
+test('không cảnh báo khi số lượng đủ hoặc dư', () => {
+  const enough = buildSchedule(
+    [item({ timesPerDay: 2, days: 5, quantity: '10 gói', quantityCount: 10 })],
+    '2026-07-18',
+    'SANG',
+  );
+  assert.deepEqual(enough.quantityMismatch, []);
+  // Dạng lọ không đếm được thì không soi
+  const bottle = buildSchedule(
+    [item({ timesPerDay: 2, days: 5, quantity: '1 lọ', quantityCount: 1 })],
+    '2026-07-18',
+    'SANG',
+  );
+  assert.deepEqual(bottle.quantityMismatch, []);
+});
+
 test('thuốc thiếu số lần/ngày hoặc số ngày bị loại ra kèm lý do, không đoán bừa', () => {
   const { groups, skipped } = buildSchedule(
     [item({ drugName: 'Thiếu lần', timesPerDay: 0 }), item({ drugName: 'Thiếu ngày', days: 0 })],
@@ -407,7 +464,29 @@ test('buildIcs sinh file hợp lệ, escape ký tự đặc biệt và dùng CRL
   assert.ok(ics.includes('DTSTART:20260718T070000'), 'giờ floating, không có hậu tố Z');
   assert.ok(!ics.includes('DTSTART:20260718T070000Z'), 'không được ép về UTC');
   assert.ok(ics.includes('SUMMARY:🏥 Tái khám'));
-  assert.ok(ics.includes('TRIGGER:-P1D'), 'tái khám nhắc trước 1 ngày');
+});
+
+test('tái khám nhắc vào SÁNG đúng hôm đó, theo giờ nhắc buổi sáng của nhà', () => {
+  const groups = buildSchedule([item({ days: 1, timesPerDay: 1 })], '2026-07-18', 'SANG').groups;
+  const ics = buildIcs(groups, {
+    calendarName: 'T',
+    uidPrefix: 'rx1',
+    patientName: 'Khắc Minh',
+    followUpDate: '2026-07-21',
+    followUpTime: '06:30',
+  });
+  assert.ok(ics.includes('DTSTART:20260721T063000'), 'phải là sáng hôm tái khám');
+  assert.ok(ics.includes('SUMMARY:🏥 Tái khám Khắc Minh'));
+  // Chuông kêu ngay lúc đó, không phải nhắc trước hôm trước
+  assert.ok(!ics.includes('TRIGGER:-P1D'));
+  const block = ics.split('BEGIN:VEVENT').find((b) => b.includes('Tái khám'));
+  assert.ok(block.includes('TRIGGER:PT0S'));
+});
+
+test('đơn không có ngày tái khám thì không sinh sự kiện thừa', () => {
+  const groups = buildSchedule([item({ days: 1, timesPerDay: 1 })], '2026-07-18', 'SANG').groups;
+  const ics = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' });
+  assert.ok(!ics.includes('Tái khám'));
 });
 
 test('mỗi cữ là một sự kiện riêng, không dùng RRULE (tránh nhắc thuốc đã hết)', () => {

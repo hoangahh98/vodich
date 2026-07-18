@@ -94,6 +94,30 @@
     </div>
   <% } %>
 
+  <% if (result.quantityMismatch.length) { %>
+    <div class="alert-lite warn mb">
+      <strong>⚠️ Số lượng cấp không đủ cho số ngày trong đơn:</strong>
+      <ul>
+        <% result.quantityMismatch.forEach((m) => { %>
+          <li><%= m.drugName %> — lịch cần <strong><%= m.needed %> <%= m.unit %></strong> nhưng đơn chỉ cấp <strong><%= m.given %> <%= m.unit %></strong></li>
+        <% }) %>
+      </ul>
+      Đối chiếu lại tờ đơn giấy: có thể AI đọc nhầm số ngày, hoặc nhà cần mua thêm.
+    </div>
+  <% } %>
+
+  <% if (result.asNeeded.length) { %>
+    <div class="alert-lite mb">
+      <strong>🌡️ Thuốc dùng khi cần — cố ý KHÔNG đưa vào lịch nhắc:</strong>
+      <ul>
+        <% result.asNeeded.forEach((a) => { %>
+          <li><%= a.drugName %><% if (a.dosage) { %> — <%= a.dosage %><% } %><% if (a.note) { %> (<%= a.note %>)<% } %></li>
+        <% }) %>
+      </ul>
+      Loại này chỉ dùng khi có triệu chứng, nhắc đều đặn là sai. Nhớ là nhà có sẵn để lúc cần còn lấy.
+    </div>
+  <% } %>
+
   <% if (result.skipped.length) { %>
     <div class="alert-lite warn mb">
       <strong>⚠️ Chưa đưa vào lịch được <%= result.skipped.length %> thuốc:</strong>
@@ -127,16 +151,8 @@
         </div>
       <% } %>
 
-      <% if (started && isConfirmed) { %>
-        <%# Đang uống dở: mặc định chỉ nạp phần còn lại để máy mới không đầy cữ quá khứ. %>
-        <div class="alert-lite mb">
-          🕒 Liệu trình đã bắt đầu từ <%= viDate(startDate) %>.
-          <% if (remainingCount) { %>
-            Máy này sẽ chỉ nhận <strong><%= remainingCount %> cữ còn lại</strong>, đến hết <%= viDate(remainingLast) %>.
-          <% } else { %>
-            Không còn cữ nào cần nhắc — liệu trình đã xong.
-          <% } %>
-        </div>
+      <% if (started && isConfirmed && !remainingCount) { %>
+        <div class="alert-lite mb">Không còn cữ nào cần nhắc — liệu trình đã xong.</div>
       <% } %>
 
       <div class="text-right mt">

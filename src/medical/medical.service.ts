@@ -114,6 +114,7 @@ export class MedicalService {
       data: {
         patientId,
         prescribedDate: parseDate(extracted.prescribedDate),
+        followUpDate: parseDate(extracted.followUpDate),
         doctor: extracted.doctor || '',
         clinic: extracted.clinic || '',
         diagnosis: extracted.diagnosis || '',
@@ -132,6 +133,8 @@ export class MedicalService {
               days: item.days || 0,
               quantity: (item.quantity || '').slice(0, 80),
               quantityCount: item.quantityCount || 0,
+              daysFromQuantity: Boolean(item.daysFromQuantity),
+              asNeeded: Boolean(item.asNeeded),
               route: item.route || '',
               timing: item.timing || '',
             })),

@@ -39,6 +39,16 @@
             <div class="muted med-row-detail">
               <%= [item.dosage, item.frequency, item.quantity].filter(Boolean).join(' · ') %>
             </div>
+            <% const p = progress[item.id] || { total: 0, taken: 0 }; %>
+            <% if (p.total) { %>
+              <%# App mặc định coi mọi cữ đã lên lịch đều đã uống. Có hôm bỏ cữ (đi khám
+                  buổi sáng, bé nôn trớ...) thì phải sửa xuống, nếu không liệu trình bị
+                  cắt ngắn hơn bác sĩ kê. %>
+              <div class="med-row-nums">
+                <label>Đã uống<input type="number" name="taken_<%= item.id %>" value="<%= p.taken %>" min="0" max="<%= p.total %>" class="med-num"></label>
+                <span class="muted">/ <%= p.total %> liều</span>
+              </div>
+            <% } %>
           </div>
         <% }) %>
       </section>
@@ -48,6 +58,10 @@
       <p class="muted">
         <strong>Thuốc tick lại sẽ được chuyển hẳn sang đơn mới</strong>, số ngày tự trừ phần đã uống.
         Thuốc bỏ trống thì ngừng nhắc, phần thừa đếm được (gói/viên/ống) tự vào tủ thuốc.
+      </p>
+      <p class="muted">
+        Ô <strong>"Đã uống"</strong> đang điền theo lịch. Hôm nào bỏ cữ (đi khám buổi sáng, bé nôn trớ...)
+        thì sửa xuống cho đúng — nếu không liệu trình sẽ bị cắt ngắn hơn bác sĩ kê.
       </p>
       <p class="muted">
         Nhờ vậy chỉ còn <strong>một lịch duy nhất</strong> đang chạy: trên iPhone bạn xoá nhóm lịch cũ rồi nạp

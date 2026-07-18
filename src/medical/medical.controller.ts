@@ -280,10 +280,21 @@ export class MedicalController {
     if (!prescription) return;
     const others = await this.medical.otherScheduled(prescription.patientId, prescription.id);
     if (!others.length) return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
+    // Hiện sẵn "đã uống mấy liều" để người dùng sửa nếu có hôm bỏ cữ — nếu không, app
+    // mặc định coi mọi cữ đã lên lịch đều đã uống và sẽ cắt ngắn liệu trình.
+    const doseTimes = doseTimesOf(prescription.patient);
+    const today = todayInVietnam();
+    const progress: Record<string, { total: number; taken: number }> = {};
+    for (const other of others) {
+      for (const item of other.items) {
+        progress[item.id.toString()] = doseProgress(other, item, doseTimes, today);
+      }
+    }
     return render(res, 'medical/transition', {
       patient: prescription.patient,
       prescription,
       others,
+      progress,
       menuPatientId: prescription.patientId.toString(),
       menuPrescriptionId: prescription.id.toString(),
     });
@@ -300,14 +311,24 @@ export class MedicalController {
     );
     const doseTimes = doseTimesOf(prescription.patient);
     const today = todayInVietnam();
+    // Người dùng khai lại số liều đã uống (bỏ cữ nào thì sửa xuống); vắng thì dùng số
+    // app tự tính.
+    const takenOverride: Record<string, number> = {};
+    for (const other of others) {
+      for (const item of other.items) {
+        const raw = body[`taken_${item.id}`];
+        const parsed = Math.round(Number(raw));
+        if (raw !== undefined && Number.isFinite(parsed)) takenOverride[item.id.toString()] = parsed;
+      }
+    }
     for (const other of others) {
       const stopped = other.items.filter((item) => !keep.includes(item.id.toString()));
       const kept = other.items.filter((item) => keep.includes(item.id.toString()));
       // Ghi thuốc thừa vào tủ TRƯỚC khi tắt, vì sau khi tắt thì không dựng lại được
       // số liều đã uống nữa. Cùng lý do với việc tính số ngày còn lại ngay tại đây.
-      const leftovers = leftoversFor(other, stopped, doseTimes, today);
+      const leftovers = leftoversFor(other, stopped, doseTimes, today, takenOverride);
       if (leftovers.length) await this.cabinet.addLeftovers(currentUser(req), leftovers, other.prescribedDate);
-      const carryOver = carryOverFor(other, kept, doseTimes, today);
+      const carryOver = carryOverFor(other, kept, doseTimes, today, takenOverride);
       await this.medical.applyTransition(other.id, prescription.id, carryOver);
     }
     return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
@@ -434,7 +455,9 @@ export class MedicalController {
       prescriptionLabel: prescription.prescribedDate
         ? prescription.prescribedDate.toISOString().slice(0, 10).split('-').reverse().join('/')
         : '',
-      followUpNote: [prescription.clinic, prescription.doctor].filter(Boolean).join(' - '),
+      followUpDate: prescription.followUpDate ? prescription.followUpDate.toISOString().slice(0, 10) : '',
+      followUpTime: doseTimesOf(prescription.patient).morning,
+      followUpNote: [prescription.clinic, prescription.doctor].filter(Boolean).join(' - ') || 'Tái khám theo hẹn của bác sĩ.',
     });
     // Nhớ tổng số cữ của CẢ liệu trình (không phải số cữ vừa xuất): lần sau liệu trình
     // ngắn đi thì mới biết những cữ nào cần huỷ.
@@ -562,17 +585,40 @@ function leftoversFor(
   stoppedItems: Array<ItemRow & Record<string, unknown>>,
   doseTimes: DoseTimes,
   today: string,
+  takenOverride: Record<string, number> = {},
 ): Leftover[] {
   if (!prescription.scheduleStart) return [];
   const startDate = prescription.scheduleStart.toISOString().slice(0, 10);
   const slot = safeStartSlot(prescription.scheduleSlot);
   return stoppedItems
     .map((item) => {
-      const scheduled = buildSchedule(toScheduleItems([{ ...item, enabled: true }]), startDate, slot, doseTimes);
-      const taken = scheduled.groups.filter((group) => group.date <= today).reduce((sum, g) => sum + g.lines.length, 0);
+      const scheduled = buildSchedule(toScheduleItems([{ ...item, enabled: true, asNeeded: false }]), startDate, slot, doseTimes);
+      const scheduledTaken = scheduled.groups.filter((group) => group.date <= today).reduce((sum, g) => sum + g.lines.length, 0);
+      const override = takenOverride[item.id.toString()];
+      const taken = Number.isFinite(override) ? Math.max(0, override) : scheduledTaken;
       return leftoverOf({ drugName: String(item.drugName || ''), quantity: String(item.quantity || ''), dosesTaken: taken });
     })
     .filter((entry): entry is Leftover => Boolean(entry));
+}
+
+/** Tổng số liều và số liều đã lên lịch tới hôm nay của một thuốc trong đơn cũ. */
+function doseProgress(
+  prescription: { scheduleStart: Date | null; scheduleSlot: string },
+  item: ItemRow & Record<string, unknown>,
+  doseTimes: DoseTimes,
+  today: string,
+): { total: number; taken: number } {
+  if (!prescription.scheduleStart) return { total: 0, taken: 0 };
+  const startDate = prescription.scheduleStart.toISOString().slice(0, 10);
+  const built = buildSchedule(
+    toScheduleItems([{ ...item, enabled: true, asNeeded: false }]),
+    startDate,
+    safeStartSlot(prescription.scheduleSlot),
+    doseTimes,
+  );
+  const total = built.groups.reduce((sum, g) => sum + g.lines.length, 0);
+  const taken = built.groups.filter((g) => g.date <= today).reduce((sum, g) => sum + g.lines.length, 0);
+  return { total, taken };
 }
 
 /**
@@ -587,6 +633,8 @@ function carryOverFor(
   keptItems: Array<ItemRow & Record<string, unknown>>,
   doseTimes: DoseTimes,
   today: string,
+  /** Số liều đã uống do người dùng khai lại (bỏ cữ nào thì sửa xuống). */
+  takenOverride: Record<string, number> = {},
 ): CarryOverItem[] {
   if (!prescription.scheduleStart) return [];
   const startDate = prescription.scheduleStart.toISOString().slice(0, 10);
@@ -595,9 +643,11 @@ function carryOverFor(
     .map((item) => {
       const timesPerDay = Number(item.timesPerDay || 0);
       if (!timesPerDay) return null;
-      const scheduled = buildSchedule(toScheduleItems([{ ...item, enabled: true }]), startDate, slot, doseTimes);
+      const scheduled = buildSchedule(toScheduleItems([{ ...item, enabled: true, asNeeded: false }]), startDate, slot, doseTimes);
       const total = scheduled.groups.reduce((sum, g) => sum + g.lines.length, 0);
-      const taken = scheduled.groups.filter((g) => g.date <= today).reduce((sum, g) => sum + g.lines.length, 0);
+      const scheduledTaken = scheduled.groups.filter((g) => g.date <= today).reduce((sum, g) => sum + g.lines.length, 0);
+      const override = takenOverride[item.id.toString()];
+      const taken = Number.isFinite(override) ? Math.max(0, Math.min(override, total)) : scheduledTaken;
       const leftDoses = Math.max(0, total - taken);
       const days = Math.round((leftDoses / timesPerDay) * 2) / 2;
       if (days < 0.5) return null;
@@ -660,6 +710,10 @@ function toScheduleItems(items: Array<ItemRow & Record<string, unknown>>): Sched
       days: Number(item.days || 0),
       note: String(item.note || ''),
       isAntibiotic: Boolean(item.isAntibiotic),
+      asNeeded: Boolean(item.asNeeded),
+      quantityCount: Number(item.quantityCount || 0),
+      quantity: String(item.quantity || ''),
+      daysFromQuantity: Boolean(item.daysFromQuantity),
     }));
 }
 
