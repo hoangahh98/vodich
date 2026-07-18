@@ -18,7 +18,10 @@ import { FeatureGuard } from '../common/feature.guard';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
 import { buildSchedule } from '../medical/medication-schedule';
-import { buildTestCancelIcs, buildTestPublishIcs } from './test-ics';
+import { buildTestCancelIcs, buildTestCleanupIcs, buildTestPublishIcs } from './test-ics';
+
+/** Kiểu file cần dựng. cleanup = bản sao của tính năng dọn dẹp đang chạy thật. */
+type IcsKind = 'publish' | 'cancel' | 'cleanup';
 
 /** Tên cắm cứng: vừa để tìm lại, vừa để nhìn trong danh sách là biết ngay hồ sơ rác. */
 const TEST_PATIENT_NAME = 'THU LICH ICS (xoa duoc)';
@@ -33,12 +36,25 @@ export class IcsTestController {
   async page(@Req() req: Request, @Res() res: Response, @Query('email') email?: string) {
     const patient = await this.findTestPatient(req);
     const address = String(email || '').trim();
-    return res.send(renderPage(patient ? patient.id.toString() : '', address));
+    // Hiện luôn tiền tố UID: mọi sự kiện trong Lịch iPhone đều mang nó, nên nhìn là biết
+    // file sắp tải có trỏ đúng vào những sự kiện đã nạp hay không.
+    const rxId = patient?.prescriptions[0]?.id.toString() || '';
+    return res.send(renderPage(patient ? patient.id.toString() : '', rxId, address));
   }
 
   /** Dựng người thân rác + một đơn đã chốt lịch, để UID sinh ra giống hệt lịch thật. */
   @Post('/ics-test/seed')
   async seed(@Req() req: Request, @Res() res: Response) {
+    // Đã có rồi thì GIỮ NGUYÊN, tuyệt đối không tạo lại.
+    //
+    // UID gắn với id đơn thuốc, mà tạo lại là sinh id mới -> toàn bộ UID đổi theo. Khi
+    // đó những sự kiện đã nạp vào Lịch iPhone bằng UID cũ vĩnh viễn không huỷ được nữa
+    // (không file nào còn trỏ tới chúng), và phép thử ra kết quả âm tính giả: tưởng lệnh
+    // huỷ hỏng, thật ra chỉ là huỷ nhầm địa chỉ. Muốn làm lại thì xoá rồi seed.
+    const existing = await this.findTestPatient(req);
+    if (existing?.prescriptions.length) return res.redirect('/ics-test');
+    // Còn sót hồ sơ cụt (có người thân nhưng chưa có đơn) thì dọn, không thì thành hai
+    // hồ sơ trùng tên và findFirst nhặt bừa một cái.
     await this.removeTestPatient(req);
 
     const patient = await this.prisma.medPatient.create({
@@ -72,15 +88,21 @@ export class IcsTestController {
 
   @Get('/ics-test/publish.ics')
   async publish(@Req() req: Request, @Res() res: Response, @Query('email') email?: string) {
-    return this.sendIcs(req, res, email, false);
+    return this.sendIcs(req, res, email, 'publish');
   }
 
   @Get('/ics-test/cancel.ics')
   async cancel(@Req() req: Request, @Res() res: Response, @Query('email') email?: string) {
-    return this.sendIcs(req, res, email, true);
+    return this.sendIcs(req, res, email, 'cancel');
   }
 
-  private async sendIcs(req: Request, res: Response, email: string | undefined, cancelling: boolean) {
+  /** Phép thử C: đúng cơ chế mà bản dọn dẹp thật đang dùng. */
+  @Get('/ics-test/cleanup.ics')
+  async cleanup(@Req() req: Request, @Res() res: Response, @Query('email') email?: string) {
+    return this.sendIcs(req, res, email, 'cleanup');
+  }
+
+  private async sendIcs(req: Request, res: Response, email: string | undefined, kind: IcsKind) {
     const patient = await this.findTestPatient(req);
     const prescription = patient?.prescriptions[0];
     if (!patient || !prescription?.scheduleStart) {
@@ -112,16 +134,17 @@ export class IcsTestController {
       calendarName: 'THU huy lich',
       patientName: TEST_PATIENT_NAME,
       attendeeEmail: email,
-      // Đếm theo GIÂY từ 2020 chứ không phải phút: bấm publish rồi bấm cancel ngay sau
+      // Đếm theo GIÂY từ 2020 chứ không phải phút: bấm publish rồi bấm huỷ ngay sau
       // vài giây vẫn phải ra số lớn hơn, không thì app Lịch coi file huỷ là bản cũ và
-      // bỏ qua — sẽ bị hiểu nhầm thành "CANCEL không chạy".
-      sequence: Math.floor((Date.now() - Date.UTC(2020, 0, 1)) / 1000) + (cancelling ? 1 : 0),
+      // bỏ qua — sẽ bị hiểu nhầm thành "lệnh huỷ không chạy".
+      sequence: Math.floor((Date.now() - Date.UTC(2020, 0, 1)) / 1000) + (kind === 'publish' ? 0 : 1),
     };
 
-    const ics = cancelling ? buildTestCancelIcs(groups, options) : buildTestPublishIcs(groups, options);
+    const builders = { publish: buildTestPublishIcs, cancel: buildTestCancelIcs, cleanup: buildTestCleanupIcs };
+    const ics = builders[kind](groups, options);
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     // inline: Safari trên iOS mở thẳng màn hình xử lý của Lịch, giống hệt lịch thuốc thật.
-    res.setHeader('Content-Disposition', `inline; filename="thu-${cancelling ? 'cancel' : 'publish'}.ics"`);
+    res.setHeader('Content-Disposition', `inline; filename="thu-${kind}.ics"`);
     return res.send(ics);
   }
 
@@ -152,11 +175,13 @@ function tomorrowInVietnam(): string {
   return new Date(Date.now() + (7 + 24) * 3600 * 1000).toISOString().slice(0, 10);
 }
 
-function renderPage(patientId: string, email: string): string {
+function renderPage(patientId: string, rxId: string, email: string): string {
   const emailValue = escapeHtml(email);
   const query = email ? `?email=${encodeURIComponent(email)}` : '';
   const status = patientId
-    ? `<p class="ok">Đã có dữ liệu test (người thân #${escapeHtml(patientId)}).</p>`
+    ? `<p class="ok">Đã có dữ liệu test (người thân #${escapeHtml(patientId)}).</p>
+<p class="note">UID đang dùng: <code>rx${escapeHtml(rxId)}-d1..d4@vodich</code>. Mọi sự kiện
+[THU] trong Lịch iPhone phải mang đúng tiền tố này thì lệnh huỷ mới trỏ tới được.</p>`
     : '<p class="warn">Chưa có dữ liệu test — bấm nút bên dưới trước.</p>';
 
   return `<!doctype html>
@@ -176,12 +201,29 @@ function renderPage(patientId: string, email: string): string {
 <h1>Thử METHOD:CANCEL</h1>
 ${status}
 <form method="post" action="/ics-test/seed"><button>Tạo dữ liệu test</button></form>
+<p class="note">Đã có dữ liệu rồi thì nút này không làm gì — cố ý. Tạo lại sẽ đổi hết UID,
+khiến sự kiện đã nạp vào Lịch không huỷ được nữa và phép thử ra kết quả sai.</p>
 
 <hr>
-<h2>Phép thử A — không ORGANIZER</h2>
-<p class="note">Đúng y như lịch thuốc thật đang chạy. Mở 1, kiểm tra Lịch ngày mai có
-mấy sự kiện <b>[THU]</b>, rồi mở 2 xem chúng có biến mất không.</p>
+<h2>Bước 1 — nạp lịch</h2>
+<p class="note">Luôn bấm nút này TRƯỚC mỗi phép thử. Xong kiểm tra Lịch <b>ngày mai và
+ngày kia</b> phải có 4 sự kiện <b>[THU]</b> lúc 07:00 và 19:00.</p>
 <a class="btn" href="/ics-test/publish.ics">1. Nạp lịch (PUBLISH)</a>
+
+<hr>
+<h2>Phép thử C — đúng thứ đang chạy thật</h2>
+<p class="note">PUBLISH + STATUS:CANCELLED, bản sao của tính năng dọn dẹp trong
+<code>ics.ts</code>. Kèm một sự kiện <b>CHUNG NHAN</b> lúc 12:00 để biết iPhone có thật
+sự đọc file hay không.</p>
+<p class="note"><b>Đọc kết quả:</b> thấy CHUNG NHAN mà 4 cữ [THU] vẫn còn → lệnh huỷ bị
+bỏ qua, tính năng dọn dẹp thật <b>vô dụng</b>. Cả CHUNG NHAN lẫn 4 cữ đều biến mất →
+tính năng chạy đúng. Không thấy CHUNG NHAN → iPhone từ chối cả file, báo lại mình.</p>
+<a class="btn" href="/ics-test/cleanup.ics">3. Dọn lịch (PUBLISH + STATUS:CANCELLED)</a>
+
+<hr>
+<h2>Phép thử A — METHOD:CANCEL</h2>
+<p class="note">Đã thử 19/07/2026: iPhone hiện màn hình "Thêm tất cả" rồi không làm gì —
+METHOD bị bỏ qua hoàn toàn. Giữ nút lại để thử lại nếu cần.</p>
 <a class="btn" href="/ics-test/cancel.ics">2. Huỷ lịch (CANCEL)</a>
 
 <hr>
@@ -193,9 +235,9 @@ tính chứ không phải vì CANCEL hỏng.</p>
  <input name="email" type="email" placeholder="email tài khoản Lịch" value="${emailValue}">
  <button>Đặt email</button>
 </form>
-${email ? `<a class="btn" href="/ics-test/publish.ics${query}">3. Nạp lịch (PUBLISH + organizer)</a>
-<a class="btn" href="/ics-test/cancel.ics${query}">4. Huỷ lịch (CANCEL + organizer)</a>`
-        : '<p class="warn">Điền email ở trên để hiện nút 3 và 4.</p>'}
+${email ? `<a class="btn" href="/ics-test/publish.ics${query}">4. Nạp lịch (PUBLISH + organizer)</a>
+<a class="btn" href="/ics-test/cancel.ics${query}">5. Huỷ lịch (CANCEL + organizer)</a>`
+        : '<p class="warn">Điền email ở trên để hiện nút 4 và 5.</p>'}
 
 <hr>
 <form method="post" action="/ics-test/remove"><button>Xoá sạch dữ liệu test</button></form>
