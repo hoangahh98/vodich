@@ -168,6 +168,11 @@ export class MedicalService {
     if (updates.length) await this.prisma.$transaction(updates);
   }
 
+  /** Ghi lại số cữ vừa xuất ra .ics, để lần xuất sau biết phần nào dôi ra mà huỷ. */
+  saveIcsDoseCount(prescriptionId: bigint, count: number) {
+    return this.prisma.medPrescription.update({ where: { id: prescriptionId }, data: { icsDoseCount: count } });
+  }
+
   /** Giờ nhắc uống thuốc theo nếp nhà, lưu ở người thân nên mọi đơn dùng chung. */
   saveDoseTimes(patientId: bigint, times: DoseTimes) {
     return this.prisma.medPatient.update({

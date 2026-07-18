@@ -401,14 +401,22 @@ export class MedicalController {
     if (!groups.length) return notFound(res, 'Không còn cữ thuốc nào cần nhắc');
     const ics = buildIcs(groups, {
       cancels: await this.cancelsFor(prescription.patientId, prescriptionId, doseTimesOf(prescription.patient)),
+      previousDoseCount: prescription.icsDoseCount,
+      // SEQUENCE lấy theo số phút kể từ 2020: luôn tăng, không cần lưu thêm cột nào.
+      // App Lịch chỉ ghi đè khi SEQUENCE lớn hơn bản đã nhận, nếu để 0 thì sửa giờ
+      // xong nạp lại sẽ không ăn.
+      sequence: Math.floor((Date.now() - Date.UTC(2020, 0, 1)) / 60000),
       calendarName: `Thuốc của ${prescription.patient.name}`,
       // UID gắn với id đơn: import lại lần 2 sẽ ghi đè chứ không nhân đôi sự kiện.
       uidPrefix: `rx${prescriptionId}`,
       prescriptionLabel: prescription.prescribedDate
-        ? prescription.prescribedDate.toISOString().slice(0, 10).split('-').reverse().slice(0, 2).join('/')
+        ? prescription.prescribedDate.toISOString().slice(0, 10).split('-').reverse().join('/')
         : '',
       followUpNote: [prescription.clinic, prescription.doctor].filter(Boolean).join(' - '),
     });
+    // Nhớ tổng số cữ của CẢ liệu trình (không phải số cữ vừa xuất): lần sau liệu trình
+    // ngắn đi thì mới biết những cữ nào cần huỷ.
+    await this.medical.saveIcsDoseCount(prescriptionId, built.groups.length);
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     // inline chứ không attachment: iOS Safari mở thẳng màn hình "Add All" của Lịch,
     // còn attachment thì tải vào Files rồi người dùng phải tự mở thêm một bước nữa.

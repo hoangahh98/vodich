@@ -12,6 +12,17 @@ export interface IcsOptions {
   /** Tiền tố UID, cần ổn định để import lại lần 2 ghi đè chứ không nhân đôi sự kiện. */
   uidPrefix: string;
   /**
+   * Tổng số cữ của lần xuất TRƯỚC. Nếu lần này ít cữ hơn (bỏ bớt thuốc, rút ngắn liệu
+   * trình) thì phần dôi ra phải được gửi lệnh huỷ, nếu không chúng nằm lại trong Lịch
+   * mãi mãi vì không có gì ghi đè lên.
+   */
+  previousDoseCount?: number;
+  /**
+   * SEQUENCE của sự kiện. Phải TĂNG so với lần xuất trước thì app Lịch mới chịu ghi đè;
+   * để nguyên 0 là nó coi như bản cũ và bỏ qua, sửa giờ xong nạp lại sẽ không ăn.
+   */
+  sequence?: number;
+  /**
    * Ngày kê đơn (dd/mm), gắn vào tiêu đề sự kiện. Đơn cũ chưa uống xong mà có đơn mới
    * thì trong Lịch sẽ có 2 sự kiện chồng cùng giờ — không ghi rõ đơn nào thì không
    * tài nào phân biệt được trên màn hình điện thoại.
@@ -40,19 +51,26 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
     `X-WR-CALNAME:${escapeText(options.calendarName)}`,
   ];
 
+  const sequence = options.sequence ?? 0;
+
   for (const group of groups) {
     const start = toStamp(group.date, group.time);
     const end = toStamp(group.date, addMinutes(group.time, 15));
     const antibiotic = group.lines.some((line) => line.isAntibiotic);
-    const suffix = options.prescriptionLabel ? ` · đơn ${options.prescriptionLabel}` : '';
-    // Nói thẳng "có kháng sinh" thay vì chỉ một biểu tượng — nhìn cái tam giác cảnh báo
-    // trên điện thoại không ai đoán ra nó nghĩa là gì.
-    const title = `${antibiotic ? '💊❗' : '💊'} Cữ thuốc ${group.time}${antibiotic ? ' (có kháng sinh)' : ''}${suffix}`;
+    // Không nhắc lại giờ trong tiêu đề: app Lịch đã hiện giờ ngay bên dưới rồi.
+    // Tiêu đề chỉ cần đủ để phân biệt hai đơn chồng nhau, nên ghi ngày kê đơn.
+    // "có kháng sinh" nói thẳng bằng chữ vì nhìn biểu tượng không ai đoán ra nghĩa gì.
+    const label = options.prescriptionLabel ? `Đơn ${options.prescriptionLabel}` : 'Thuốc';
+    // Danh sách thuốc đưa luôn lên tiêu đề: thông báo trên điện thoại chỉ hiện tiêu đề,
+    // để trong phần mô tả thì phải mở sự kiện ra mới biết cữ này uống những gì.
+    const drugs = group.lines.map((line) => [line.drugName, line.dosage].filter(Boolean).join(' ')).join(' · ');
+    const title = `${antibiotic ? '💊❗' : '💊'} ${label}${antibiotic ? ' (có kháng sinh)' : ''} · ${drugs}`;
     const body = group.lines.map(describeLine).join('\n');
     lines.push(
       'BEGIN:VEVENT',
-      `UID:${options.uidPrefix}-${group.date.replace(/-/g, '')}-${group.time.replace(':', '')}@vodich`,
+      `UID:${doseUid(options.uidPrefix, group.index)}`,
       `DTSTAMP:${stamp}`,
+      `SEQUENCE:${sequence}`,
       `DTSTART:${start}`,
       `DTEND:${end}`,
       `SUMMARY:${escapeText(title)}`,
@@ -66,21 +84,16 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
     );
   }
 
+  // Cữ dôi ra so với lần xuất trước (bỏ bớt thuốc / rút ngắn liệu trình): phải huỷ,
+  // nếu không chúng nằm lại trong Lịch mãi vì lần này không có gì ghi đè lên.
+  const surplusStart = groups.length ? Math.max(...groups.map((g) => g.index)) + 1 : 1;
+  for (let index = surplusStart; index <= (options.previousDoseCount || 0); index++) {
+    lines.push(...cancelEvent(doseUid(options.uidPrefix, index), stamp, sequence));
+  }
+
   for (const cancel of options.cancels || []) {
     for (const group of cancel.groups) {
-      lines.push(
-        'BEGIN:VEVENT',
-        `UID:${cancel.uidPrefix}-${group.date.replace(/-/g, '')}-${group.time.replace(':', '')}@vodich`,
-        `DTSTAMP:${stamp}`,
-        `DTSTART:${toStamp(group.date, group.time)}`,
-        `DTEND:${toStamp(group.date, addMinutes(group.time, 15))}`,
-        'SUMMARY:Đã ngừng',
-        'STATUS:CANCELLED',
-        // SEQUENCE phải lớn hơn bản đã gửi trước (bản đầu không ghi SEQUENCE = 0),
-        // nếu không app Lịch coi đây là bản cũ và bỏ qua.
-        'SEQUENCE:1',
-        'END:VEVENT',
-      );
+      lines.push(...cancelEvent(doseUid(cancel.uidPrefix, group.index), stamp, sequence));
     }
   }
 
@@ -106,6 +119,29 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
   lines.push('END:VCALENDAR');
   // iCalendar bắt buộc CRLF.
   return lines.join('\r\n') + '\r\n';
+}
+
+/**
+ * UID gắn với SỐ THỨ TỰ cữ, không phải ngày+giờ.
+ *
+ * Đổi giờ uống hay đổi ngày bắt đầu thì cữ số 3 vẫn là cữ số 3, nên app Lịch ghi đè
+ * đúng sự kiện cũ. Nếu gắn theo ngày+giờ thì mỗi lần sửa giờ là sinh UID mới và cả
+ * loạt sự kiện cũ nằm lại -> nhân đôi lịch.
+ */
+function doseUid(prefix: string, index: number): string {
+  return `${prefix}-d${index}@vodich`;
+}
+
+/** Sự kiện huỷ: chỉ cần UID cũ + STATUS:CANCELLED + SEQUENCE tăng. */
+function cancelEvent(uid: string, stamp: string, sequence: number): string[] {
+  return [
+    'BEGIN:VEVENT',
+    `UID:${uid}`,
+    `DTSTAMP:${stamp}`,
+    `SEQUENCE:${sequence}`,
+    'STATUS:CANCELLED',
+    'END:VEVENT',
+  ];
 }
 
 /**

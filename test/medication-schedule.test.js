@@ -217,22 +217,75 @@ test('lệnh huỷ cữ đơn cũ dùng đúng UID cũ và đánh dấu CANCELLE
   uids(oldIcs).forEach((uid) => assert.ok(ics.includes(uid), `thiếu lệnh huỷ cho ${uid}`));
 
   assert.equal((ics.match(/STATUS:CANCELLED/g) || []).length, oldGroups.length);
-  // SEQUENCE phải > 0, nếu không app Lịch coi là bản cũ và bỏ qua
-  assert.ok(ics.includes('SEQUENCE:1'));
   // Sự kiện của đơn mới KHÔNG được dính CANCELLED
   const newBlock = ics.slice(ics.indexOf('UID:rx9'), ics.indexOf('UID:rx8'));
   assert.ok(!newBlock.includes('STATUS:CANCELLED'));
 });
 
+test('tiêu đề sự kiện chỉ ghi ngày đơn, không lặp lại giờ (Lịch đã hiện giờ rồi)', () => {
+  const groups = buildSchedule([item({ days: 1, timesPerDay: 1 })], '2026-07-18', 'SANG').groups;
+  const title = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', prescriptionLabel: '18/07/2026' })
+    .match(/SUMMARY:[^\r\n]+/)[0];
+  assert.ok(title.startsWith('SUMMARY:💊 Đơn 18/07/2026 · '), title);
+  assert.ok(!title.includes('07:00'), 'không được nhắc lại giờ trong tiêu đề');
+  assert.ok(!title.includes('Cữ thuốc'));
+  // Tên thuốc + liều phải nằm luôn trên tiêu đề, vì thông báo chỉ hiện tiêu đề
+  assert.ok(title.includes('Thuốc 4ml'), title);
+});
+
 test('cữ có kháng sinh được nói thẳng bằng chữ, không chỉ dùng biểu tượng', () => {
   const withAbx = buildSchedule([item({ days: 1, timesPerDay: 1, isAntibiotic: true })], '2026-07-18', 'SANG').groups;
   const noAbx = buildSchedule([item({ days: 1, timesPerDay: 1, isAntibiotic: false })], '2026-07-18', 'SANG').groups;
-  const title = (groups) => buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' }).match(/SUMMARY:[^\r\n]+/)[0];
+  const title = (groups) => buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', prescriptionLabel: '18/07/2026' })
+    .match(/SUMMARY:[^\r\n]+/)[0];
 
   assert.ok(title(withAbx).includes('(có kháng sinh)'), title(withAbx));
   assert.ok(title(withAbx).includes('❗'));
   assert.ok(!title(noAbx).includes('kháng sinh'), 'cữ không có kháng sinh thì không được ghi');
   assert.ok(!title(noAbx).includes('❗'));
+});
+
+test('UID theo số thứ tự cữ nên đổi giờ uống KHÔNG sinh sự kiện mới', () => {
+  const early = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-18', 'SANG',
+    { morning: '07:00', noon: '12:00', evening: '19:00', bedtime: '20:30' }).groups;
+  const late = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-18', 'SANG',
+    { morning: '08:30', noon: '13:00', evening: '20:00', bedtime: '21:30' }).groups;
+
+  const uids = (groups) => (buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' }).match(/UID:[^\r\n]+/g) || []);
+  assert.deepEqual(uids(early), uids(late), 'đổi giờ mà UID đổi thì Lịch sẽ nhân đôi sự kiện');
+  // Nhưng giờ trong file thì phải đổi thật
+  assert.ok(buildIcs(late, { calendarName: 'T', uidPrefix: 'rx1' }).includes('T083000'));
+});
+
+test('đổi ngày bắt đầu cũng không sinh sự kiện mới', () => {
+  const a = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-18', 'SANG').groups;
+  const b = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-25', 'SANG').groups;
+  const uids = (groups) => (buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' }).match(/UID:[^\r\n]+/g) || []);
+  assert.deepEqual(uids(a), uids(b));
+});
+
+test('liệu trình ngắn lại thì các cữ dôi ra của lần xuất trước bị huỷ', () => {
+  const shorter = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-18', 'SANG').groups; // 4 cữ
+  const ics = buildIcs(shorter, { calendarName: 'T', uidPrefix: 'rx1', previousDoseCount: 10 });
+  // 4 cữ mới + huỷ cữ số 5..10
+  assert.equal((ics.match(/STATUS:CANCELLED/g) || []).length, 6);
+  assert.ok(ics.includes('UID:rx1-d5@vodich'));
+  assert.ok(ics.includes('UID:rx1-d10@vodich'));
+  assert.ok(!ics.includes('UID:rx1-d11@vodich'));
+});
+
+test('SEQUENCE phải tăng thì Lịch mới chịu ghi đè bản cũ', () => {
+  const groups = buildSchedule([item({ days: 1, timesPerDay: 1 })], '2026-07-18', 'SANG').groups;
+  const ics = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', sequence: 12345 });
+  assert.ok(ics.includes('SEQUENCE:12345'));
+});
+
+test('bản "chỉ nạp phần còn lại" giữ nguyên số thứ tự gốc, không đánh lại từ 1', () => {
+  const { groups } = buildSchedule([item({ timesPerDay: 2, days: 5 })], '2026-07-18', 'SANG');
+  const left = remainingFrom(groups, '2026-07-21', '00:00');
+  const ics = buildIcs(left, { calendarName: 'T', uidPrefix: 'rx1' });
+  assert.ok(!ics.includes('UID:rx1-d1@vodich'), 'cữ đầu của phần còn lại không được mang số 1');
+  assert.equal(left[0].index, 7, '2 cữ/ngày x 3 ngày đã qua -> cữ tiếp theo là số 7');
 });
 
 test('không có gì để huỷ thì file .ics không chứa CANCELLED', () => {
@@ -270,11 +323,11 @@ test('mỗi cữ là một sự kiện riêng, không dùng RRULE (tránh nhắc
   assert.equal(ics.match(/BEGIN:VEVENT/g).length, 6);
 });
 
-test('UID ổn định theo đơn + ngày + giờ để import lại không nhân đôi sự kiện', () => {
+test('UID ổn định theo đơn + số thứ tự cữ để import lại không nhân đôi sự kiện', () => {
   const { groups } = buildSchedule([item({ days: 1, timesPerDay: 1 })], '2026-07-18', 'SANG');
   const first = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx7' });
   const second = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx7' });
   const uidOf = (ics) => ics.match(/UID:(.+)/)[1].trim();
   assert.equal(uidOf(first), uidOf(second));
-  assert.equal(uidOf(first), 'rx7-20260718-0700@vodich');
+  assert.equal(uidOf(first), 'rx7-d1@vodich');
 });

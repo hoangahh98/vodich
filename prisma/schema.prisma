@@ -361,6 +361,8 @@ model MedPrescription {
   // Đơn đã bị dừng khi có đơn mới thay thế. Vẫn giữ scheduleStart để còn dựng lại đúng
   // các cữ đã từng xuất ra, phục vụ việc gửi lệnh huỷ chúng trong file .ics của đơn mới.
   scheduleStopped Boolean @default(false) @map("schedule_stopped")
+  /** Tổng số cữ của lần xuất .ics gần nhất — để lần sau ít cữ hơn thì biết mà huỷ phần dôi. */
+  icsDoseCount Int @default(0) @map("ics_dose_count")
 
   patient MedPatient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
   items   MedPrescriptionItem[]

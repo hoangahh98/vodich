@@ -48,6 +48,18 @@ export interface DoseGroup {
   date: string; // YYYY-MM-DD
   time: string; // HH:MM
   lines: DoseLine[];
+  /**
+   * Số thứ tự cữ trong CẢ liệu trình, bắt đầu từ 1.
+   *
+   * Đây là thứ dùng làm mã định danh sự kiện lịch. Trước đây mã gắn theo ngày+giờ, nên
+   * đổi giờ uống hay đổi ngày bắt đầu là sinh ra mã mới -> điện thoại coi là sự kiện
+   * khác và giữ nguyên cả loạt cũ, thành nhân đôi. Đánh theo thứ tự thì cữ số 3 vẫn là
+   * cữ số 3 dù giờ có đổi, nên điện thoại ghi đè đúng chỗ.
+   *
+   * Luôn đánh trên TOÀN BỘ liệu trình rồi mới lọc, để bản "chỉ nạp phần còn lại" giữ
+   * đúng số thứ tự gốc chứ không đánh lại từ 1.
+   */
+  index: number;
 }
 
 export interface ScheduleResult {
@@ -197,7 +209,7 @@ export function buildSchedule(
       const date = addDays(startDate, dayOffset);
       const time = times[slotIndex];
       const key = `${date} ${time}`;
-      if (!byKey.has(key)) byKey.set(key, { date, time, lines: [] });
+      if (!byKey.has(key)) byKey.set(key, { date, time, lines: [], index: 0 });
       byKey.get(key)!.lines.push({
         drugName: item.drugName,
         dosage: item.dosage,
@@ -214,6 +226,10 @@ export function buildSchedule(
   }
 
   const groups = [...byKey.values()].sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+  // Đánh số sau khi đã sắp xếp, trên toàn bộ liệu trình.
+  groups.forEach((group, i) => {
+    group.index = i + 1;
+  });
   return { groups, skipped, lastDate: groups.length ? groups[groups.length - 1].date : startDate };
 }
 
