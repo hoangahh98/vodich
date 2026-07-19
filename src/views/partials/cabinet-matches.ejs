@@ -1,0 +1,41 @@
+<%#
+  Đối chiếu đơn thuốc với tủ thuốc nhà. Dùng chung cho trang người thân và trang chi tiết đơn.
+
+  Tách hai nhóm chứ không gộp làm một:
+    available — thừa THẬT, không nằm trong lịch nào đang chạy. Đây mới là thứ đáng "khỏi mua".
+    inUse     — có ở nhà nhưng đang thuộc đơn đang chạy. Cố ý KHÔNG gọi là có sẵn: số đó
+                chính là số đang uống dở, tính vào là đếm hai lần rồi không mua thứ đang cần.
+
+  Vẫn hiện nhóm inUse thay vì giấu: giấu đi thì người dùng không hiểu vì sao thuốc rõ ràng
+  có trong tủ mà chỗ này không nhắc, tưởng app hỏng.
+%>
+<% if (cabinetMatches && cabinetMatches.available.length) { %>
+  <div class="alert-lite mb">
+    <strong>🧰 Nhà đang có sẵn (thừa từ đợt trước):</strong>
+    <ul>
+      <% cabinetMatches.available.forEach((c) => { %>
+        <li>
+          <%= c.drugName %> — <strong><%= c.quantity %> <%= c.unit %></strong>
+          <% if (c.expired) { %><span class="badge bg-danger">⚠️ ĐÃ QUÁ HẠN <%= new Date(c.expiryDate).toLocaleDateString('vi-VN') %></span>
+          <% } else if (c.expiryDate) { %>(HSD <%= new Date(c.expiryDate).toLocaleDateString('vi-VN') %>)
+          <% } else if (c.aiExpiryRisk === 'BO') { %><span class="badge bg-danger">AI: nên bỏ</span>
+          <% } else { %><span class="badge bg-info text-dark">chưa rõ hạn</span><% } %>
+        </li>
+      <% }) %>
+    </ul>
+    Số lượng là <strong>lúc ghi vào tủ</strong>, không tự trừ theo lúc uống — đếm lại thực tế trước khi tin.
+    Kiểm tra hạn trên vỏ. Kháng sinh thừa từ đợt trước thì hỏi bác sĩ, đừng tự dùng lại.
+  </div>
+<% } %>
+
+<% if (cabinetMatches && cabinetMatches.inUse.length) { %>
+  <div class="alert-lite mb">
+    <strong>📦 Có trong tủ nhưng đang dùng dở, không tính là thừa:</strong>
+    <%= cabinetMatches.inUse.map((c) => `${c.drugName} (${c.quantity} ${c.unit})`).join(', ') %>.
+    <div class="mt muted">
+      Mấy thứ này đang thuộc một đơn chưa dừng nên số trong tủ chính là số đang uống —
+      tính vào phần "có sẵn" là đếm hai lần. Nếu thật sự nhà còn dư thêm ngoài phần đang uống thì
+      vào <a href="/medical/tu-thuoc">tủ thuốc</a> sửa lại số cho đúng.
+    </div>
+  </div>
+<% } %>

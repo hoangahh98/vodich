@@ -35,29 +35,36 @@ export function isCountableUnit(unit: string): boolean {
 }
 
 /**
- * Khoá đối chiếu tên thuốc.
+ * Khoá đối chiếu tên thuốc: giữ NGUYÊN cả tên, chỉ bỏ dấu và mọi ký tự không phải chữ/số.
  *
- * AI đọc mỗi lần một kiểu: "Montelukast 4mg (Pakast 4)", "Pakast 4", "Montelukast".
- * Không gom được thì tủ thuốc đầy dòng trùng và cảnh báo chẳng bao giờ khớp. Ở đây bỏ
- * dấu, bỏ hàm lượng và phần trong ngoặc, lấy từ đầu tiên còn lại làm khoá — đủ để gom
- * các biến thể của cùng hoạt chất. Không kỳ vọng đúng 100%, người dùng gộp tay được.
+ *   "Montelukast 4mg (Pakaat 4)"  ->  "montelukast4mgpakaat4"
+ *
+ * CỐ Ý KHẮT KHE. Bản trước rút gọn còn TỪ ĐẦU TIÊN (bỏ ngoặc, bỏ hàm lượng) cho dễ khớp,
+ * nhưng đã kiểm chứng là báo nhầm hàng loạt:
+ *
+ *   Vitamin D3            = Vitamin C 500mg          (đều ra "vitamin")
+ *   Natri clorid 0.9%     = Natri bicarbonat         (đều ra "natri")
+ *   Paracetamol 250mg     = Paracetamol 500mg        (đều ra "paracetamol")
+ *   Terbutaline+Guaifenesin = Terbutaline+Bromhexin  (đều ra "terbutaline")
+ *
+ * Với thuốc trẻ con thì BÁO NHẦM NGUY HIỂM HƠN BỎ SÓT: bỏ sót thì cùng lắm mua trùng,
+ * tốn tiền; báo nhầm thì không mua thứ đang cần, hoặc lấy nhầm thuốc khác hàm lượng.
+ *
+ * Cái giá đã biết và chấp nhận: AI đọc tên lệch một chữ là mất khớp hoàn toàn
+ * ("Pakaat 4 (Montelukast 4mg)" không khớp "Montelukast 4mg (Pakaat 4)"). Gợi ý sẽ ít đi
+ * hẳn — đó là chủ ý, không phải hỏng.
+ *
+ * Bỏ hết ký tự không phải chữ/số thay vì giữ dấu ngoặc: dấu câu là chỗ AI hay đọc lệch
+ * nhất, mà bỏ đi thì không mất chút sức phân biệt nào.
  */
 export function matchKey(drugName: string): string {
-  const noParen = String(drugName || '').replace(/\([^)]*\)/g, ' ');
-  const plain = noParen
+  return String(drugName || '')
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .replace(/đ/gi, 'd')
-    .toLowerCase();
-  const noDose = plain
-    // bỏ hàm lượng: 4mg, 30mg/5ml, 0.03%, 1.33 %
-    .replace(/\d+(?:[.,]\d+)?\s*(?:mg|mcg|g|ml|iu|%)(?:\s*\/\s*\d+(?:[.,]\d+)?\s*(?:mg|mcg|g|ml))?/g, ' ')
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-  // Lấy từ đầu tiên có nghĩa (>=4 ký tự) làm khoá; tên hoạt chất luôn đứng đầu.
-  const words = noDose.split(' ').filter((w) => w.length >= 4);
-  return words[0] || noDose || '';
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 255);
 }
 
 export interface LeftoverInput {

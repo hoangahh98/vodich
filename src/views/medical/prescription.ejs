@@ -57,12 +57,7 @@
     </div>
   <% } %>
 
-  <% if (cabinetMatches && cabinetMatches.length) { %>
-    <div class="alert-lite mb">
-      <strong>🧰 Nhà đang có sẵn:</strong>
-      <%= cabinetMatches.map((m) => `${m.drugName} (${m.quantity} ${m.unit})`).join(', ') %> — khỏi mua trùng.
-    </div>
-  <% } %>
+  <%- include('../partials/cabinet-matches', { cabinetMatches }) %>
 
   <section class="card-lite p mb">
     <div class="section-heading mb"><div><span class="feature-icon">📋</span><h2 class="section-title">Thuốc trong đơn</h2></div><span class="badge"><%= rx.items.length %></span></div>

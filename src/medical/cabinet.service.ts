@@ -100,13 +100,59 @@ export class CabinetService {
   }
 
   /** Thuốc trong tủ khớp với các thuốc của một đơn — để cảnh báo "nhà còn sẵn". */
+  /**
+   * Thuốc nhà đang có sẵn ứng với danh sách tên thuốc — để khỏi mua trùng.
+   *
+   * "Có sẵn" ở đây phải nghĩa là THỪA THẬT: còn ở nhà và KHÔNG nằm trong lịch nào đang
+   * chạy. Thuốc đang được một đơn chưa dừng tiêu thụ thì số trong tủ chính là số đang
+   * uống dở — báo "nhà có sẵn 8 gói" là đếm hai lần, dễ dẫn tới không mua thứ đang cần.
+   *
+   * Trả về hai nhóm tách bạch thay vì lặng lẽ giấu:
+   *   - available: thừa thật, dùng được ngay (kèm cờ đã quá hạn).
+   *   - inUse:     có ở nhà nhưng đang thuộc đơn đang chạy, cố ý KHÔNG tính là thừa.
+   *
+   * Thuốc quá hạn vẫn trả về nhưng gắn cờ `expired`, không lọc bỏ: giấu đi thì người dùng
+   * tưởng nhà không có rồi đi mua, trong khi thứ cần là đem ra kiểm tra vỏ thuốc.
+   */
   async matchFor(user: CurrentUser, drugNames: string[]) {
     const keys = [...new Set(drugNames.map(matchKey).filter(Boolean))];
-    if (!keys.length) return [];
-    return this.prisma.medCabinetItem.findMany({
+    if (!keys.length) return { available: [], inUse: [] };
+    const items = await this.prisma.medCabinetItem.findMany({
       where: { ownerAdminId: BigInt(user.id), matchKey: { in: keys }, quantity: { gt: 0 } },
       orderBy: [{ drugName: 'asc' }],
     });
+    if (!items.length) return { available: [], inUse: [] };
+
+    const committed = await this.committedKeys(user);
+    const today = new Date().toISOString().slice(0, 10);
+    const decorate = (item: (typeof items)[number]) => ({
+      ...item,
+      expired: Boolean(item.expiryDate && item.expiryDate.toISOString().slice(0, 10) < today),
+    });
+    return {
+      available: items.filter((item) => !committed.has(item.matchKey)).map(decorate),
+      inUse: items.filter((item) => committed.has(item.matchKey)).map(decorate),
+    };
+  }
+
+  /**
+   * Khoá của những thuốc đang bị một đơn CHƯA DỪNG chiếm chỗ (đã chốt lịch, thuốc còn bật).
+   * Chỉ soi hồ sơ mà admin này có quyền — cùng bộ lọc với phần còn lại của module y tế.
+   */
+  private async committedKeys(user: CurrentUser): Promise<Set<string>> {
+    const adminId = BigInt(user.id);
+    const items = await this.prisma.medPrescriptionItem.findMany({
+      where: {
+        enabled: true,
+        prescription: {
+          scheduleStopped: false,
+          scheduleStart: { not: null },
+          patient: { OR: [{ ownerAdminId: adminId }, { permissions: { some: { adminId } } }] },
+        },
+      },
+      select: { drugName: true },
+    });
+    return new Set(items.map((item) => matchKey(item.drugName)).filter(Boolean));
   }
 }
 
