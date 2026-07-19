@@ -28,6 +28,7 @@
   const q = `start=${startDate}&slot=${startSlot}`;
   const icsUrl = `/medical/prescriptions/${prescription.id}/lich.ics?${q}`;
   const icsFullUrl = `${icsUrl}&full=1`;
+  const icsCleanupUrl = `${icsUrl}&cleanup=1`;
   const isConfirmed = Boolean(confirmedStart);
   // Lịch bắt đầu trong quá khứ nghĩa là đang uống dở -> nạp cả liệu trình sẽ ra cữ cũ.
   const started = startDate < today;
@@ -164,6 +165,19 @@
           <a class="btn btn-success" data-no-busy href="<%= icsUrl %>">📥 Nạp <%= started ? remainingCount + ' cữ còn lại' : 'lịch nhắc' %></a>
           <% if (started) { %>
             <div class="mt"><a class="muted" data-no-busy href="<%= icsFullUrl %>">Nạp lại cả liệu trình từ đầu (gồm cữ đã qua)</a></div>
+          <% } %>
+          <%# Bản kèm lệnh huỷ cữ của đơn đã dừng. Tách riêng khỏi nút nạp thường vì
+              STATUS:CANCELLED là thứ phi chuẩn trong file PUBLISH: nạp nhầm mà lịch không
+              hiểu lệnh huỷ thì chỉ tổ đẻ thêm sự kiện rác. %>
+          <% if (cleanupCount) { %>
+            <div class="mt">
+              <a class="btn btn-outline" data-no-busy href="<%= icsCleanupUrl %>">🧹 Nạp lịch + huỷ <%= cleanupCount %> cữ của đơn đã dừng</a>
+            </div>
+            <p class="muted mt" style="text-align:left">
+              Chỉ ăn nếu lịch nằm trên <strong>tài khoản Google</strong>. Nạp thẳng vào Lịch iPhone
+              (iCloud) thì lệnh huỷ bị bỏ qua — đã kiểm chứng 19/07/2026 — và <%= cleanupCount %> cữ cũ
+              vẫn phải tự xoá tay.
+            </p>
           <% } %>
         <% } %>
       </div>

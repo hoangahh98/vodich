@@ -360,14 +360,10 @@ model MedPrescription {
   // sinh ra đúng phần liệu trình CÒN LẠI, không nạp lại những cữ đã uống xong.
   scheduleStart DateTime? @map("schedule_start") @db.Date
   scheduleSlot  String    @default("") @map("schedule_slot") @db.VarChar(10)
-  // Đơn đã bị dừng khi có đơn mới thay thế. Vẫn giữ scheduleStart để hiển thị lịch sử.
+  // Đơn đã bị dừng khi có đơn mới thay thế. Vẫn giữ scheduleStart để còn dựng lại đúng
+  // các cữ đã từng xuất ra, phục vụ việc gửi lệnh huỷ chúng trong file .ics của đơn mới.
   scheduleStopped Boolean @default(false) @map("schedule_stopped")
-  /**
-   * KHÔNG CÒN DÙNG. Trước đây đếm số cữ của lần xuất .ics gần nhất để lần sau biết phần
-   * dôi ra mà gửi lệnh huỷ — nhưng đã kiểm chứng là iPhone bỏ qua mọi lệnh huỷ, nên phần
-   * đó đã gỡ (xem chú thích đầu src/medical/ics.ts). Giữ lại cột vì xoá cột phải chạy
-   * migration trên DB thật mà chẳng được lợi gì; không code nào đọc hay ghi nó nữa.
-   */
+  /** Tổng số cữ của lần xuất .ics gần nhất — để lần sau ít cữ hơn thì biết mà huỷ phần dôi. */
   icsDoseCount Int @default(0) @map("ics_dose_count")
 
   patient MedPatient            @relation(fields: [patientId], references: [id], onDelete: Cascade)

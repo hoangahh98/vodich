@@ -172,6 +172,11 @@ export class MedicalService {
     if (updates.length) await this.prisma.$transaction(updates);
   }
 
+  /** Ghi lại số cữ vừa xuất ra .ics, để lần xuất sau biết phần nào dôi ra mà huỷ. */
+  saveIcsDoseCount(prescriptionId: bigint, count: number) {
+    return this.prisma.medPrescription.update({ where: { id: prescriptionId }, data: { icsDoseCount: count } });
+  }
+
   /** Giờ nhắc uống thuốc theo nếp nhà, lưu ở người thân nên mọi đơn dùng chung. */
   saveDoseTimes(patientId: bigint, times: DoseTimes) {
     return this.prisma.medPatient.update({
@@ -217,6 +222,14 @@ export class MedicalService {
     return this.prisma.medPrescription.findMany({
       where: { patientId, id: { not: excludeId }, scheduleStart: { not: null }, scheduleStopped: false },
       orderBy: [{ scheduleStart: 'desc' }],
+      include: { items: true },
+    });
+  }
+
+  /** Các đơn cũ đã bị dừng — cần gửi lệnh huỷ cữ của chúng kèm file .ics đơn mới. */
+  stoppedSchedules(patientId: bigint, excludeId: bigint) {
+    return this.prisma.medPrescription.findMany({
+      where: { patientId, id: { not: excludeId }, scheduleStart: { not: null }, scheduleStopped: true },
       include: { items: true },
     });
   }

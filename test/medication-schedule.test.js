@@ -259,6 +259,26 @@ test('UID giữ nguyên giữa bản đầy đủ và bản còn lại nên máy
   assert.ok(leftUids.length && leftUids.every((uid) => fullUids.includes(uid)));
 });
 
+test('lệnh huỷ cữ đơn cũ dùng đúng UID cũ và đánh dấu CANCELLED', () => {
+  const { groups: oldGroups } = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-18', 'SANG');
+  const { groups: newGroups } = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-20', 'SANG');
+  const ics = buildIcs(newGroups, {
+    calendarName: 'T',
+    uidPrefix: 'rx9',
+    cancels: [{ uidPrefix: 'rx8', groups: oldGroups }],
+  });
+
+  // UID huỷ phải TRÙNG y hệt UID lúc xuất đơn cũ, nếu không app Lịch không biết huỷ cái gì
+  const oldIcs = buildIcs(oldGroups, { calendarName: 'T', uidPrefix: 'rx8' });
+  const uids = (s) => (s.match(/UID:[^\r\n]+/g) || []);
+  uids(oldIcs).forEach((uid) => assert.ok(ics.includes(uid), `thiếu lệnh huỷ cho ${uid}`));
+
+  assert.equal((ics.match(/STATUS:CANCELLED/g) || []).length, oldGroups.length);
+  // Sự kiện của đơn mới KHÔNG được dính CANCELLED
+  const newBlock = ics.slice(ics.indexOf('UID:rx9'), ics.indexOf('UID:rx8'));
+  assert.ok(!newBlock.includes('STATUS:CANCELLED'));
+});
+
 test('tiêu đề sự kiện chỉ ghi ngày đơn, không lặp lại giờ (Lịch đã hiện giờ rồi)', () => {
   const groups = buildSchedule([item({ days: 1, timesPerDay: 1 })], '2026-07-18', 'SANG').groups;
   const title = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', prescriptionLabel: '18/07/2026' })
@@ -303,14 +323,24 @@ test('UID theo số thứ tự cữ nên đổi giờ uống KHÔNG sinh sự ki
   assert.ok(buildIcs(late, { calendarName: 'T', uidPrefix: 'rx1' }).includes('T083000'));
 });
 
-test('đổi ngày bắt đầu vẫn giữ nguyên bộ UID (cữ số N vẫn là cữ số N)', () => {
+test('đổi ngày bắt đầu cũng không sinh sự kiện mới', () => {
   const a = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-18', 'SANG').groups;
   const b = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-25', 'SANG').groups;
   const uids = (groups) => (buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' }).match(/UID:[^\r\n]+/g) || []);
   assert.deepEqual(uids(a), uids(b));
 });
 
-test('SEQUENCE được ghi ra đúng (giữ cho hợp chuẩn, iPhone không dùng tới)', () => {
+test('liệu trình ngắn lại thì các cữ dôi ra của lần xuất trước bị huỷ', () => {
+  const shorter = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-18', 'SANG').groups; // 4 cữ
+  const ics = buildIcs(shorter, { calendarName: 'T', uidPrefix: 'rx1', previousDoseCount: 10 });
+  // 4 cữ mới + huỷ cữ số 5..10
+  assert.equal((ics.match(/STATUS:CANCELLED/g) || []).length, 6);
+  assert.ok(ics.includes('UID:rx1-d5@vodich'));
+  assert.ok(ics.includes('UID:rx1-d10@vodich'));
+  assert.ok(!ics.includes('UID:rx1-d11@vodich'));
+});
+
+test('SEQUENCE phải tăng thì Lịch mới chịu ghi đè bản cũ', () => {
   const groups = buildSchedule([item({ days: 1, timesPerDay: 1 })], '2026-07-18', 'SANG').groups;
   const ics = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', sequence: 12345 });
   assert.ok(ics.includes('SEQUENCE:12345'));
@@ -390,24 +420,29 @@ test('gấp dòng không cắt đôi ký tự nhiều byte', () => {
   assert.ok(!folded.includes('�'), 'không được sinh ký tự hỏng');
 });
 
-test('mọi VEVENT đều có UID, DTSTAMP, DTSTART', () => {
+test('mọi VEVENT đều có UID, DTSTAMP, DTSTART — kể cả sự kiện huỷ', () => {
   const groups = buildSchedule([item({ timesPerDay: 2, days: 2 })], '2026-07-18', 'SANG').groups;
+  const older = buildSchedule([item({ timesPerDay: 2, days: 3 })], '2026-07-10', 'SANG').groups;
 
   assertEveryEventValid(buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' }), 'bản thường');
+  assertEveryEventValid(
+    buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', previousDoseCount: 12 }),
+    'bản có huỷ phần dôi',
+  );
+  assertEveryEventValid(
+    buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', cancels: [{ uidPrefix: 'rx0', groups: older }] }),
+    'bản có huỷ đơn cũ',
+  );
   assertEveryEventValid(
     buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', followUpDate: '2026-07-25' }),
     'bản có tái khám',
   );
 });
 
-// Chốt chặn: đã kiểm chứng trên iPhone thật là STATUS:CANCELLED bị bỏ qua hoàn toàn khi
-// import file (không xoá, cũng không thêm). Sinh ra nó chỉ tổ làm file to thêm và khiến
-// người đọc code tưởng có cơ chế huỷ. Xem chú thích đầu src/medical/ics.ts.
-test('file .ics không bao giờ chứa STATUS:CANCELLED', () => {
+test('không có gì để huỷ thì file .ics không chứa CANCELLED', () => {
   const { groups } = buildSchedule([item({ days: 1 })], '2026-07-18', 'SANG');
-  const ics = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1', followUpDate: '2026-07-25' });
+  const ics = buildIcs(groups, { calendarName: 'T', uidPrefix: 'rx1' });
   assert.ok(!ics.includes('STATUS:CANCELLED'));
-  assert.ok(!ics.includes('METHOD:CANCEL'));
 });
 
 test('addDays qua mốc cuối tháng và năm nhuận', () => {
