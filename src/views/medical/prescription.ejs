@@ -17,6 +17,23 @@
     return date ? `đơn ${date.split('-').reverse().slice(0, 2).join('/')}` : 'đơn cũ';
   };
   const carriedCount = rx.items.filter((i) => i.carriedFromId).length;
+  /*
+    Gợi ý mua cho một dòng thuốc. Chỉ nói khi ĐỦ CƠ SỞ:
+      - Đơn phải ghi số lượng đếm được (quantityCount > 0). Đơn ghi "1 lọ" thì chịu.
+      - Nhà phải còn hàng THỪA THẬT (inUse=false). Thuốc đang bị chính lịch này tiêu thụ
+        thì số trong tủ là số đang uống dở, đem trừ vào lượng phải mua là sai.
+      - Thuốc quá hạn không được trừ vào lượng mua: coi như không có.
+    Không đủ cơ sở thì trả null và màn hình im lặng — thà không nói còn hơn nói sai số
+    thuốc phải mua cho trẻ con.
+  */
+  const buyHint = (item) => {
+    const stock = stockByItem.get(String(item.id));
+    if (!stock) return null;
+    if (stock.inUse || stock.expired) return { stock, need: 0, buy: 0 };
+    const need = Number(item.quantityCount || 0);
+    if (!need) return { stock, need: 0, buy: 0 };
+    return { stock, need, buy: Math.max(0, need - stock.quantity) };
+  };
 %>
 <main class="app-shell">
   <section class="feature-hero p mb">
@@ -57,8 +74,6 @@
     </div>
   <% } %>
 
-  <%- include('../partials/cabinet-matches', { cabinetMatches }) %>
-
   <section class="card-lite p mb">
     <div class="section-heading mb"><div><span class="feature-icon">📋</span><h2 class="section-title">Thuốc trong đơn</h2></div><span class="badge"><%= rx.items.length %></span></div>
     <form method="post" action="/medical/prescriptions/<%= rx.id %>/items" data-med-items>
@@ -80,6 +95,25 @@
           <div class="muted med-row-detail">
             <%= [item.dosage, item.frequency, item.quantity].filter(Boolean).join(' · ') %>
             <% if (item.note) { %><div><%= item.note %></div><% } %>
+            <% const hint = buyHint(item); %>
+            <% if (hint) { %>
+              <div class="med-row-stock">
+                <% if (hint.stock.expired) { %>
+                  🧰 Nhà còn <strong><%= hint.stock.quantity %> <%= hint.stock.unit %></strong>
+                  <span class="badge bg-danger">⚠️ ĐÃ QUÁ HẠN</span> — không tính vào lượng phải mua.
+                <% } else if (hint.stock.inUse) { %>
+                  📦 Nhà còn <strong><%= hint.stock.quantity %> <%= hint.stock.unit %></strong>, nhưng đang thuộc lịch đang chạy nên không tính là thừa.
+                <% } else if (!hint.need) { %>
+                  🧰 Nhà còn <strong><%= hint.stock.quantity %> <%= hint.stock.unit %></strong> thừa từ đợt trước.
+                <% } else if (hint.buy > 0) { %>
+                  🧰 Nhà còn <strong><%= hint.stock.quantity %> <%= hint.stock.unit %></strong> · đơn cần <strong><%= hint.need %></strong>
+                  → chỉ cần mua thêm <strong class="med-buy"><%= hint.buy %> <%= hint.stock.unit %></strong>
+                <% } else { %>
+                  🧰 Nhà còn <strong><%= hint.stock.quantity %> <%= hint.stock.unit %></strong> · đơn cần <strong><%= hint.need %></strong>
+                  → <strong class="med-buy">khỏi mua, nhà đủ rồi</strong>
+                <% } %>
+              </div>
+            <% } %>
           </div>
           <div class="med-row-nums">
             <label>Lần/ngày<input type="number" name="times_<%= item.id %>" value="<%= item.timesPerDay %>" min="0" max="6" class="med-num"></label>

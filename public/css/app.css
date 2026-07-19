@@ -766,6 +766,10 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .module-card-main { display: block; text-decoration: none; color: inherit; }
 /* Thuốc người dùng bỏ tick: làm mờ để nhìn phát biết ngay dòng nào không dùng. */
 .med-item-off { opacity: .45; }
+/* Tồn kho nhà gắn ngay dưới từng dòng thuốc trong đơn — đọc tới thuốc nào biết ngay
+   thuốc đó, không phải nhớ băng-rôn đầu trang rồi cuộn xuống đối chiếu. */
+.med-row-stock { margin-top: 4px; padding: 6px 8px; border-left: 3px solid var(--line); background: rgba(0,0,0,.03); border-radius: 4px; }
+.med-buy { color: #0a7; }
 /* Một dòng trong lịch sử đơn thuốc: cả dòng là link sang trang chi tiết đơn đó. */
 .med-rx-row { display: block; text-decoration: none; color: inherit; border-top: 1px solid var(--line); padding: 14px 0; }
 .med-rx-row:first-of-type { border-top: 0; }

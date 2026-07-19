@@ -10,7 +10,7 @@ import { CarryOverItem, ItemDecision, MedicalService } from './medical.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { buildIcs } from './ics';
 import { CabinetService } from './cabinet.service';
-import { Leftover, leftoverOf, parseCountable } from './cabinet';
+import { Leftover, leftoverOf, matchKey, parseCountable } from './cabinet';
 import {
   DoseTimes,
   START_SLOT_LABELS,
@@ -331,7 +331,12 @@ export class MedicalController {
       const kept = other.items.filter((item) => keep.includes(item.id.toString()));
       // Ghi thuốc thừa vào tủ TRƯỚC khi tắt, vì sau khi tắt thì không dựng lại được
       // số liều đã uống nữa. Cùng lý do với việc tính số ngày còn lại ngay tại đây.
-      const leftovers = leftoversFor(other, stopped, doseTimes, today, takenOverride);
+      // Mốc trừ là ngày ĐƠN MỚI bắt đầu, không phải hôm nay: thuốc cũ được uống tới lúc
+      // đơn mới thay chỗ. Chốt lịch thường làm SAU bước này nên đa số lần sẽ rơi về hôm
+      // nay — vẫn đúng, vì hai mốc trùng nhau. Chỉ lệch khi người dùng hẹn đơn mới bắt
+      // đầu từ ngày khác, và khi đó lấy mốc này mới ra đúng số thuốc còn thừa.
+      const stopDate = prescription.scheduleStart ? prescription.scheduleStart.toISOString().slice(0, 10) : today;
+      const leftovers = leftoversFor(other, stopped, doseTimes, stopDate, takenOverride);
       if (leftovers.length) await this.cabinet.addLeftovers(currentUser(req), leftovers, other.prescribedDate);
       const carryOver = carryOverFor(other, kept, doseTimes, today, takenOverride);
       await this.medical.applyTransition(other.id, prescription.id, carryOver);
@@ -522,6 +527,27 @@ export class MedicalController {
     // màn hình đó chỉ tới được bằng cú chuyển hướng ngay sau khi upload ảnh đơn: lỡ bỏ
     // qua một lần là không có đường quay lại, mà đó đúng là lúc dễ bỏ qua nhất.
     const otherRunning = await this.medical.transitionSources(prescription);
+    // Tồn kho gắn vào TỪNG DÒNG THUỐC, không phải một băng-rôn đầu trang: lúc soát đơn
+    // người ta đọc từng thuốc một, số tồn nằm tách ở đầu trang thì phải nhớ rồi cuộn
+    // xuống đối chiếu. Đây cũng là chỗ duy nhất đủ ngữ cảnh để gợi ý mua thêm bao nhiêu.
+    const matches = await this.cabinet.matchFor(
+      currentUser(req),
+      prescription.items.map((item) => item.drugName),
+    );
+    const stockByItem = new Map<string, { quantity: number; unit: string; expired: boolean; inUse: boolean }>();
+    for (const [list, inUse] of [[matches.available, false], [matches.inUse, true]] as const) {
+      for (const stock of list) {
+        for (const item of prescription.items) {
+          if (matchKey(item.drugName) !== stock.matchKey) continue;
+          stockByItem.set(item.id.toString(), {
+            quantity: stock.quantity,
+            unit: stock.unit,
+            expired: stock.expired,
+            inUse,
+          });
+        }
+      }
+    }
     return render(res, 'medical/prescription', {
       prescription,
       otherRunningCount: otherRunning.length,
@@ -530,10 +556,7 @@ export class MedicalController {
       menuPrescriptionId: prescription.id.toString(),
       // Ngày kê của đơn gốc, để đánh dấu thuốc nào là hàng chuyển sang từ đợt trước.
       carrySources: await this.medical.carrySourceDates(carriedIds),
-      cabinetMatches: await this.cabinet.matchFor(
-        currentUser(req),
-        prescription.items.map((item) => item.drugName),
-      ),
+      stockByItem,
       aiConfigured: this.ai.isConfigured(),
     });
   }
