@@ -12,9 +12,9 @@
     "backup": "node scripts/backup-db.js",
     "backup:push": "node scripts/backup-push.js",
     "restore": "node scripts/restore-db.js",
-    "start": "node dist/main.js",
+    "start": "prisma migrate deploy && node dist/main.js",
     "start:dev": "nest start --watch",
-    "start:prod": "node dist/main.js",
+    "start:prod": "prisma migrate deploy && node dist/main.js",
     "render:build": "npm ci && npx prisma migrate deploy && npx prisma generate && npm run build && npm prune --omit=dev && npm cache clean --force",
     "prisma:generate": "prisma generate",
     "prisma:deploy": "prisma migrate deploy"
@@ -36,6 +36,7 @@
     "imapflow": "^1.4.7",
     "mailparser": "^3.9.14",
     "pg": "^8.13.1",
+    "prisma": "^6.1.0",
     "redis": "^6.1.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
@@ -52,7 +53,6 @@
     "@types/express": "^5.0.0",
     "@types/express-session": "^1.18.1",
     "@types/node": "^22.10.2",
-    "prisma": "^6.1.0",
     "source-map-support": "^0.5.21",
     "ts-node": "^10.9.2",
     "typescript": "^5.7.2"

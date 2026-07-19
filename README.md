@@ -65,6 +65,16 @@ npm run start:prod
 
 Không để Build Command là `yarn`; command đó chỉ install dependency và không sinh `dist/main.js`.
 
+### Migration chạy lúc khởi động, không chỉ lúc build
+
+`start:prod` chạy `prisma migrate deploy` rồi mới bật app, và fail thì app KHÔNG khởi động.
+
+Lý do: đã có sự cố thật (19/07/2026). Commit thêm hai cột vào `med_prescription_item`, code mới lên Render nhưng migration không chạy, thành ra code mới đứng trên schema cũ. Prisma `SELECT` đủ mọi cột nên **mọi** truy vấn chạm bảng đó đều gãy — sập cả phần y tế chứ không riêng tính năng mới, và lỗi hiện ra chỉ là "Có lỗi xảy ra" nên rất khó lần ra nguyên nhân. Chạy migrate ở build là chưa đủ: nó phụ thuộc Render có thật sự chạy đúng `render:build` hay không (`render.yaml` chỉ có tác dụng với service tạo từ Blueprint; service tạo tay thì lấy command trong dashboard).
+
+Fail thì chặn luôn app là cố ý: DB không kết nối được thì app cũng chẳng phục vụ được trang nào, thà chết hẳn và để Render retry còn hơn phục vụ trang gãy.
+
+Vì thế `prisma` nằm ở `dependencies` chứ KHÔNG phải `devDependencies`: `render:build` kết thúc bằng `npm prune --omit=dev`, để ở devDependencies thì lúc chạy CLI đã bị xoá và `start:prod` chết ngay ở bước migrate.
+
 Khi chạy hai Render service cùng source và cùng DB, đặt cùng `DATABASE_URL`, `REDIS_URL`, `SESSION_SECRET`, `APP_ADMIN_USERNAME`, `APP_ADMIN_PASSWORD`, và đặt `REQUIRE_REDIS=true`.
 
 ## Test
@@ -122,6 +132,6 @@ npm run check:render -- https://service-a.onrender.com https://service-b.onrende
 
 - Controller giữ vai trò routing/render/redirect, nghiệp vụ chính nằm trong service theo domain.
 - `TournamentService` và `TeamService` là facade mỏng, các luồng lớn được tách thành service nhỏ để dễ maintain.
-- Schema thay đổi đi qua Prisma migration và `npm run render:build`; app không tự chạy DDL lúc startup.
+- Schema thay đổi đi qua Prisma migration. `prisma migrate deploy` chạy ở HAI chỗ: trong `render:build` và một lần nữa ngay trước khi app khởi động (`start:prod`). Lần thứ hai là lần bảo đảm — xem mục Render.
 - Event realtime được chuẩn hóa trong client/server modules để sau này nâng cấp Redis/socket adapter ít chạm code UI.
 - Rate limit form login và đăng ký ngoài đang dùng in-memory service để không tăng Redis commands; có thể thay implementation bằng Redis khi lưu lượng lớn hơn.
