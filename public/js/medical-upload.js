@@ -1,19 +1,28 @@
 /**
  * Nút "Lưu thay đổi" của từng đơn thuốc chỉ sáng khi có sửa thật.
  * So với giá trị lúc trang vừa tải, nên sửa rồi sửa về như cũ thì nút tắt lại.
+ *
+ * Phải duyệt form.elements chứ KHÔNG phải form.querySelectorAll: ở trang tủ thuốc thẻ
+ * <form> rỗng, mọi ô và cả nút lưu đều nằm ngoài và gắn vào bằng thuộc tính form="...".
+ * querySelector chỉ tìm con cháu -> không thấy gì -> nút lưu kẹt disabled vĩnh viễn.
  */
 (() => {
   document.querySelectorAll('[data-med-items]').forEach((form) => {
-    const save = form.querySelector('[data-med-save]');
+    const members = [...form.elements];
+    const save = members.find((el) => el.dataset && el.dataset.medSave !== undefined);
     if (!save) return;
-    const fields = [...form.querySelectorAll('input')];
+    const fields = members.filter((el) => el.tagName === 'INPUT');
     const initial = fields.map((field) => (field.type === 'checkbox' ? field.checked : field.value));
     const refresh = () => {
       const dirty = fields.some((field, i) => (field.type === 'checkbox' ? field.checked : field.value) !== initial[i]);
       save.disabled = !dirty;
     };
-    form.addEventListener('input', refresh);
-    form.addEventListener('change', refresh);
+    // Nghe trên từng ô, không nghe trên form: sự kiện nổi bọt theo cây DOM chứ không
+    // theo thuộc tính form=, nên ô nằm ngoài thẻ <form> sẽ không bao giờ chạm tới form.
+    fields.forEach((field) => {
+      field.addEventListener('input', refresh);
+      field.addEventListener('change', refresh);
+    });
   });
 })();
 

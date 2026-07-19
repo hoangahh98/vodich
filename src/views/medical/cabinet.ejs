@@ -71,6 +71,11 @@
           <div class="medical-form-wide"><label>Ghi chú</label><input name="note" value="<%= item.note %>"></div>
           <div class="medical-form-actions"><button class="btn btn-primary" data-loading-text="Đang lưu...">💾 Lưu</button></div>
         </form>
+        <%# Nút bỏ riêng của từng dòng: ô tick ở trên là để gom nhiều thuốc vào một lần lưu,
+            còn đây là đường bỏ dứt điểm một loại, không phụ thuộc nút "Lưu thay đổi" chung. %>
+        <form method="post" action="/medical/tu-thuoc/<%= item.id %>/delete" data-confirm="Bỏ thuốc này khỏi tủ?" class="mt">
+          <button class="btn btn-danger btn-sm">Bỏ khỏi tủ</button>
+        </form>
       </details>
       </div>
     <% }) %>
