@@ -36,7 +36,7 @@
     "imapflow": "^1.4.7",
     "mailparser": "^3.9.14",
     "pg": "^8.13.1",
-    "prisma": "^6.1.0",
+    "prisma": "^7.8.0",
     "redis": "^6.1.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
