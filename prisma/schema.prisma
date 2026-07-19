@@ -444,6 +444,21 @@ model MedPrescriptionItem {
    * không phụ thuộc tủ về sau bị sửa gì.
    */
   stockAtPurchase Int? @map("stock_at_purchase")
+
+  /**
+   * Cảnh báo an toàn của AI cho RIÊNG thuốc này: trùng hoạt chất, cùng nhóm kháng sinh,
+   * tương tác với thuốc đang uống dở hoặc với thuốc còn trong tủ.
+   *
+   * Cố ý lưu theo TỪNG DÒNG THUỐC chứ không gộp vào aiSummary của cả đơn: cảnh báo gộp ở
+   * đầu trang thì lúc soát tới thuốc thứ 5 phải nhớ lại xem băng-rôn nói về thuốc nào,
+   * cuộn lên cuộn xuống đối chiếu — đúng thứ dễ bỏ sót nhất lại nằm ở chỗ khó kiểm soát
+   * nhất. Cùng lý do với tồn kho tủ thuốc (xem stockAtPurchase, .med-row-stock).
+   *
+   * aiWarnLevel: rỗng = không có gì đáng nói (màn hình im lặng), CHECK = nên để ý,
+   * WARN = phải hỏi lại bác sĩ/dược sĩ trước khi cho uống.
+   */
+  aiWarnLevel String @default("") @map("ai_warn_level") @db.VarChar(10)
+  aiWarnNote  String @default("") @map("ai_warn_note")
   // UONG | NHO_MUI | KHI_DUNG | XIT | BOI | KHAC
   route       String  @default("") @db.VarChar(20)
   // SAU_AN | TRUOC_AN | TRUOC_NGU | rỗng

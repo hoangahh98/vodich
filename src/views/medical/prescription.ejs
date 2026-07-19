@@ -104,6 +104,16 @@
           <div class="muted med-row-detail">
             <%= [item.dosage, item.frequency, item.quantity].filter(Boolean).join(' · ') %>
             <% if (item.note) { %><div><%= item.note %></div><% } %>
+            <%# Cảnh báo an toàn của AI cho ĐÚNG thuốc này: trùng hoạt chất, cùng nhóm kháng
+                sinh, tương tác với đợt thuốc gần nhất hoặc với thuốc còn trong tủ. Đặt ngay
+                dưới tên thuốc, KHÔNG gom thành băng-rôn đầu trang: soát tới thuốc nào thì
+                đọc cảnh báo của thuốc đó, khỏi phải nhớ rồi cuộn ngược lên đối chiếu. %>
+            <% if (item.aiWarnNote) { %>
+              <div class="med-row-warn <%= item.aiWarnLevel === 'WARN' ? 'med-row-warn-hard' : '' %>">
+                <%= item.aiWarnLevel === 'WARN' ? '🔴 Hỏi lại bác sĩ trước khi uống' : '🟠 Cần để ý' %>
+                — <%= item.aiWarnNote %>
+              </div>
+            <% } %>
             <% const hint = buyHint(item); %>
             <% if (hint) { %>
               <div class="med-row-stock">
@@ -162,6 +172,9 @@
         </div>
       <% }) %>
       <p class="muted mt">Bỏ tick thuốc không dùng (bác sĩ gạch, hoặc nhà đã có). Số lần/ngày và số ngày do AI đọc từ ảnh — đối chiếu tờ đơn giấy rồi sửa nếu sai.</p>
+      <%# Cảnh báo được tính lúc tải đơn lên, không tính lại mỗi lần mở trang (mỗi lần tính
+          là một lượt gọi AI). Tủ thuốc thay đổi sau đó thì phải bấm "Phân tích lại". %>
+      <p class="muted">🤖 Cảnh báo ở từng thuốc được tính lúc tải đơn, có đối chiếu tủ thuốc và các đợt trước. Sau khi sửa tủ thuốc, bấm <strong>↻ Phân tích lại</strong> ở trên để soát lại.</p>
       <%# Nút chỉ sáng khi có thay đổi thật (xem public/js/medical-upload.js). %>
       <div class="text-right mt"><button class="btn btn-primary" data-med-save disabled data-loading-text="Đang lưu...">💾 Lưu thay đổi</button></div>
     </form>

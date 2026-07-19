@@ -208,6 +208,29 @@ export class MedicalService {
     });
   }
 
+  /**
+   * Ghi cảnh báo AI cho từng dòng thuốc của một đơn.
+   *
+   * XOÁ SẠCH cảnh báo cũ của cả đơn trước khi ghi mới, kể cả khi lần này AI không cảnh báo
+   * gì. Nếu chỉ ghi đè những dòng có cảnh báo mới thì thuốc từng bị cảnh báo sẽ giữ nguyên
+   * dòng chữ đỏ cũ mãi mãi — trong khi lý do có thể đã hết (đã bỏ thuốc kia khỏi tủ, đơn cũ
+   * đã uống xong). Cảnh báo sai chỗ còn nguy hiểm hơn không cảnh báo.
+   */
+  saveItemWarnings(prescriptionId: bigint, warnings: Map<string, { level: string; note: string }>) {
+    return this.prisma.$transaction([
+      this.prisma.medPrescriptionItem.updateMany({
+        where: { prescriptionId },
+        data: { aiWarnLevel: '', aiWarnNote: '' },
+      }),
+      ...[...warnings].map(([id, warning]) =>
+        this.prisma.medPrescriptionItem.update({
+          where: { id: BigInt(id) },
+          data: { aiWarnLevel: warning.level, aiWarnNote: warning.note },
+        }),
+      ),
+    ]);
+  }
+
   /** Đơn thuốc cũng phải soi qua quyền của người thân sở hữu nó, không chỉ theo id. */
   getPrescription(id: bigint, user: CurrentUser) {
     return this.prisma.medPrescription.findFirst({

@@ -97,23 +97,21 @@ export class MedicalController {
   }
 
   /**
-   * Sửa số lượng + bỏ nhiều thuốc trong một lần bấm.
+   * Sửa số lượng nhiều thuốc trong một lần bấm.
    * Tủ hay phải dọn cả loạt sau mỗi đợt ốm; bắt làm từng dòng là mấy chục lần bấm.
+   *
+   * Chỉ nhận số lượng, KHÔNG có ô tick bỏ: sửa về 0 đã là bỏ khỏi tủ rồi, thêm ô tick là
+   * hai đường làm cùng một việc trên cùng một dòng.
    */
   @Post('/medical/tu-thuoc/hang-loat')
   async cabinetBulk(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, unknown>) {
     const quantities: Record<string, number> = {};
-    const removeIds: string[] = [];
     for (const [key, raw] of Object.entries(body)) {
-      if (key.startsWith('qty_')) {
-        const value = Math.round(Number(raw));
-        if (Number.isFinite(value)) quantities[key.slice(4)] = Math.max(0, value);
-      } else if (key.startsWith('del_')) {
-        // Checkbox không tick thì trình duyệt không gửi field, nên có mặt = muốn bỏ.
-        removeIds.push(key.slice(4));
-      }
+      if (!key.startsWith('qty_')) continue;
+      const value = Math.round(Number(raw));
+      if (Number.isFinite(value)) quantities[key.slice(4)] = Math.max(0, value);
     }
-    await this.cabinet.bulkAdjust(currentUser(req), quantities, removeIds);
+    await this.cabinet.bulkAdjust(currentUser(req), quantities);
     return res.redirect('/medical/tu-thuoc');
   }
 
@@ -663,13 +661,25 @@ export class MedicalController {
   }
 
 
+  /**
+   * Chạy phân tích an toàn cho một đơn và ghi kết quả xuống DB.
+   *
+   * Ba nguồn đối chiếu, cố ý gửi hết trong MỘT lượt hỏi thay vì hỏi ba lần: đơn mới, các
+   * đợt thuốc trước (đợt gần nhất đứng đầu), và tủ thuốc còn tồn ở nhà. Trùng hoạt chất
+   * chỉ nhìn ra được khi ba thứ này nằm cạnh nhau — hỏi riêng từng cái thì mỗi lượt đều
+   * thấy "không có gì".
+   *
+   * Kết quả ra hai chỗ: tóm tắt cả đơn, và cảnh báo gắn vào từng dòng thuốc.
+   */
   private async runAnalysis(patientId: bigint, prescriptionId: bigint, user: CurrentUser) {
-    const [prescription, patient, history] = await Promise.all([
+    const [prescription, patient, history, cabinet] = await Promise.all([
       this.medical.getPrescription(prescriptionId, user),
       this.medical.getPatient(patientId, user),
       this.medical.historyForPatient(patientId, prescriptionId),
+      this.cabinet.list(user),
     ]);
     if (!prescription || !patient) return;
+    const today = todayInVietnam();
     const analysis = await this.ai.analyze(
       { name: patient.name, birthYear: patient.birthYear, gender: patient.gender, allergies: patient.allergies, conditions: patient.conditions },
       prescription.items.map((item) => ({
@@ -682,10 +692,29 @@ export class MedicalController {
       })),
       history.map((entry) => ({
         date: entry.prescribedDate ? entry.prescribedDate.toISOString().slice(0, 10) : '',
+        // Đơn đã chốt lịch mà chưa dừng = thuốc VẪN ĐANG uống. Nặng ký hơn hẳn đơn đã xong
+        // từ lâu: uống chồng lên nhau ngay hôm nay chứ không phải chuyện của tháng trước.
+        running: Boolean(entry.scheduleStart && !entry.scheduleStopped),
         items: entry.items.map((item) => ({ drugName: item.drugName, isAntibiotic: item.isAntibiotic, duration: item.duration })),
+      })),
+      cabinet.map((item) => ({
+        drugName: item.drugName,
+        quantity: item.quantity,
+        unit: item.unit,
+        expiryDate: item.expiryDate ? item.expiryDate.toISOString().slice(0, 10) : '',
+        expired: Boolean(item.expiryDate && item.expiryDate.toISOString().slice(0, 10) < today),
       })),
     );
     await this.medical.saveAnalysis(prescriptionId, analysis.risk, analysis.summary);
+    // AI trỏ theo số thứ tự trong mảng vừa gửi lên, nên map ngược về id thật ở đây — đúng
+    // thứ tự đó, không sắp xếp lại gì giữa chừng.
+    const byItemId = new Map<string, { level: string; note: string }>();
+    for (const warning of analysis.warnings) {
+      const item = prescription.items[warning.index];
+      if (!item) continue;
+      byItemId.set(item.id.toString(), { level: warning.level, note: warning.reason });
+    }
+    await this.medical.saveItemWarnings(prescriptionId, byItemId);
   }
 }
 

@@ -27,16 +27,15 @@
     <% if (!items.length) { %>
       <p class="muted">Tủ thuốc trống. Thuốc thừa sẽ tự được ghi vào đây khi bạn ngừng thuốc lúc đổi đơn, hoặc thêm tay ở dưới.</p>
     <% } %>
-    <%# Form RỖNG. Ô số lượng và ô tick bỏ ở từng dòng gắn vào đây bằng thuộc tính form=,
-        chứ không bọc cả danh sách: bên trong mỗi dòng đã có form sửa chi tiết riêng, mà
-        form lồng form là HTML không hợp lệ (trình duyệt tự vứt form bên trong). %>
+    <%# Form RỖNG. Ô số lượng ở từng dòng gắn vào đây bằng thuộc tính form=, chứ không bọc
+        cả danh sách: bên trong mỗi dòng đã có form sửa chi tiết riêng, mà form lồng form
+        là HTML không hợp lệ (trình duyệt tự vứt form bên trong). %>
     <% if (items.length) { %><form id="cabinetBulk" method="post" action="/medical/tu-thuoc/hang-loat" data-med-items></form><% } %>
     <% items.forEach((item) => { %>
       <div class="med-row">
-        <%# Ô số lượng và ô bỏ phải LUÔN HIỆN, không nhét vào thẻ bung ra: nằm trong
-            <details> thì mặc định đóng, muốn sửa 8 dòng là phải bung 8 lần — nhìn y hệt
-            sửa từng cái, đúng thứ đang muốn bỏ. Chỉ phần sửa chi tiết (tên, ngày, ghi
-            chú) mới giấu đi vì ít khi động tới. %>
+        <%# Ô số lượng phải LUÔN HIỆN, không nhét vào thẻ bung ra: nằm trong <details> thì
+            mặc định đóng, muốn sửa 8 dòng là phải bung 8 lần. Chỉ phần sửa chi tiết (tên,
+            ngày, ghi chú) mới giấu đi vì ít khi động tới. %>
         <div class="med-row-line">
           <div class="med-row-title">
             <strong><%= item.drugName %></strong>
@@ -46,9 +45,10 @@
             <% } else { %> <span class="badge bg-info text-dark">Chưa rõ hạn</span><% } %>
           </div>
           <div class="med-row-bulk">
+            <%# CỐ Ý không có ô tick "bỏ" ở đây. Sửa số về 0 đã là bỏ khỏi tủ rồi, thêm ô
+                tick là hai đường làm cùng một việc trên cùng một dòng — vừa thừa vừa dễ
+                bấm nhầm. Muốn bỏ dứt điểm thì dùng nút "Bỏ khỏi tủ" trong phần chi tiết. %>
             <label>Còn <input form="cabinetBulk" type="number" name="qty_<%= item.id %>" value="<%= item.quantity %>" min="0" max="9999" class="med-num"> <%= item.unit %></label>
-            <%# Sửa về 0 = nhà hết thuốc đó -> tự bỏ khỏi tủ, khỏi phải tick thêm. %>
-            <label class="med-row-drop"><input form="cabinetBulk" type="checkbox" name="del_<%= item.id %>"> bỏ</label>
           </div>
         </div>
 
@@ -71,8 +71,7 @@
           <div class="medical-form-wide"><label>Ghi chú</label><input name="note" value="<%= item.note %>"></div>
           <div class="medical-form-actions"><button class="btn btn-primary" data-loading-text="Đang lưu...">💾 Lưu</button></div>
         </form>
-        <%# Nút bỏ riêng của từng dòng: ô tick ở trên là để gom nhiều thuốc vào một lần lưu,
-            còn đây là đường bỏ dứt điểm một loại, không phụ thuộc nút "Lưu thay đổi" chung. %>
+        <%# Đường bỏ dứt điểm một loại thuốc, không phụ thuộc nút "Lưu thay đổi" chung. %>
         <form method="post" action="/medical/tu-thuoc/<%= item.id %>/delete" data-confirm="Bỏ thuốc này khỏi tủ?" class="mt">
           <button class="btn btn-danger btn-sm">Bỏ khỏi tủ</button>
         </form>
@@ -84,7 +83,7 @@
       <div class="text-right mt">
         <button form="cabinetBulk" class="btn btn-primary" data-med-save disabled data-loading-text="Đang lưu...">💾 Lưu thay đổi</button>
       </div>
-      <p class="muted">Sửa số lượng hoặc tick "bỏ khỏi tủ" ở bao nhiêu thuốc cũng được, rồi bấm lưu một lần. Sửa số về <strong>0</strong> cũng là bỏ khỏi tủ.</p>
+      <p class="muted">Sửa số lượng ở bao nhiêu thuốc cũng được rồi bấm lưu một lần. Sửa số về <strong>0</strong> là bỏ thuốc đó khỏi tủ.</p>
     <% } %>
 
     <% if (pending) { %>

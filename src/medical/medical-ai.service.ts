@@ -50,9 +50,35 @@ export interface ExpiryVerdict {
   advice: string;
 }
 
+/**
+ * Cảnh báo cho MỘT dòng thuốc cụ thể của đơn mới.
+ *
+ * `index` là vị trí trong mảng currentItems đã gửi lên, KHÔNG phải tên thuốc: đối chiếu
+ * theo tên thì AI trả về "Augmentin 250" trong khi đơn ghi "Augmentin 250mg/31.25mg" là
+ * mất cảnh báo mà không ai biết. Bắt echo lại số thứ tự thì hoặc khớp, hoặc bỏ hẳn.
+ */
+export interface ItemWarning {
+  index: number;
+  /** rỗng = không có gì đáng nói, CHECK = nên để ý, WARN = phải hỏi bác sĩ trước khi uống. */
+  level: '' | 'CHECK' | 'WARN';
+  reason: string;
+}
+
 export interface SafetyAnalysis {
   risk: 'LOW' | 'MEDIUM' | 'HIGH';
   summary: string;
+  /** Chỉ chứa những dòng THẬT SỰ có vấn đề; thuốc không có gì thì không xuất hiện. */
+  warnings: ItemWarning[];
+}
+
+/** Một thuốc còn tồn trong tủ, để AI xét chuyện uống trùng / uống lại thuốc cũ. */
+export interface CabinetEntry {
+  drugName: string;
+  quantity: number;
+  unit: string;
+  /** YYYY-MM-DD hoặc rỗng nếu không rõ hạn. */
+  expiryDate: string;
+  expired: boolean;
 }
 
 interface PatientContext {
@@ -65,6 +91,8 @@ interface PatientContext {
 
 interface HistoryEntry {
   date: string;
+  /** Đơn này còn đang chạy lịch uống hay không — thuốc đang uống dở nặng ký hơn đơn đã xong. */
+  running?: boolean;
   items: Array<{ drugName: string; isAntibiotic: boolean; duration: string }>;
 }
 
@@ -127,6 +155,33 @@ export function inferDays(item: ExtractedItem): number {
   if (!COUNTABLE.test(item.quantity)) return 0;
   // Làm tròn tới 0,5 ngày: nửa ngày là mức chi tiết nhất còn có nghĩa với cữ sáng/tối.
   return Math.round((item.quantityCount / item.timesPerDay) * 2) / 2;
+}
+
+/**
+ * Lọc cảnh báo theo dòng của AI về dạng tin được.
+ *
+ * Vứt thẳng những mục không trỏ vào đúng một dòng thuốc có thật, hoặc không nói được lý
+ * do. Cảnh báo trôi nổi không gắn được vào thuốc nào thì tệ hơn là không có: người dùng
+ * thấy có chữ đỏ ở một dòng ngẫu nhiên rồi bỏ qua đúng dòng đáng lo.
+ *
+ * Mỗi dòng chỉ giữ MỘT cảnh báo, ưu tiên mức nặng hơn — hai ba dòng chữ đỏ chồng lên nhau
+ * ở cùng một thuốc là mất tác dụng cảnh báo.
+ */
+export function normalizeWarnings(raw: unknown, itemCount: number): ItemWarning[] {
+  if (!Array.isArray(raw)) return [];
+  const byIndex = new Map<number, ItemWarning>();
+  for (const entry of raw) {
+    const index = Math.round(Number((entry as ItemWarning)?.index));
+    if (!Number.isInteger(index) || index < 0 || index >= itemCount) continue;
+    const level = String((entry as ItemWarning)?.level || '').toUpperCase();
+    if (level !== 'CHECK' && level !== 'WARN') continue;
+    const reason = String((entry as ItemWarning)?.reason || '').trim().slice(0, 400);
+    if (!reason) continue;
+    const existing = byIndex.get(index);
+    if (existing && (existing.level === 'WARN' || level === existing.level)) continue;
+    byIndex.set(index, { index, level, reason });
+  }
+  return [...byIndex.values()];
 }
 
 function clampInt(value: unknown, min: number, max: number): number {
@@ -217,17 +272,42 @@ export class MedicalAiService {
     }));
   }
 
-  /** Phân tích an toàn đơn mới dựa trên thông tin bệnh nhân + lịch sử đơn cũ. */
-  async analyze(patient: PatientContext, currentItems: AnalyzeItem[], history: HistoryEntry[]): Promise<SafetyAnalysis> {
+  /**
+   * Phân tích an toàn đơn mới dựa trên bối cảnh bệnh nhân + đợt thuốc gần nhất + tủ thuốc.
+   *
+   * Trả về HAI mức: phần tóm tắt cả đơn (summary) và cảnh báo gắn vào TỪNG DÒNG THUỐC
+   * (warnings). Phần theo dòng mới là phần chính — xem ItemWarning và cột aiWarnLevel
+   * trong schema để biết vì sao không gộp hết vào summary.
+   */
+  async analyze(
+    patient: PatientContext,
+    currentItems: AnalyzeItem[],
+    history: HistoryEntry[],
+    cabinet: CabinetEntry[] = [],
+  ): Promise<SafetyAnalysis> {
     const age = patient.birthYear ? new Date().getFullYear() - patient.birthYear : null;
+    // Đánh số để AI trỏ ngược lại đúng dòng thuốc; xem ItemWarning.index.
+    const numbered = currentItems.map((item, index) => ({ index, ...item }));
     const prompt = [
-      'Bạn là dược sĩ lâm sàng thận trọng. Phân tích ĐỘ AN TOÀN của đơn thuốc MỚI dựa trên bối cảnh bệnh nhân và lịch sử đơn cũ.',
+      'Bạn là dược sĩ lâm sàng thận trọng. Phân tích ĐỘ AN TOÀN của đơn thuốc MỚI dựa trên bối cảnh bệnh nhân, đợt thuốc gần nhất và thuốc còn trong tủ nhà.',
       `Bệnh nhân: ${patient.name}${age !== null ? `, ${age} tuổi` : ''}${patient.gender ? `, ${patient.gender}` : ''}.`,
       `Dị ứng: ${patient.allergies || 'không rõ'}. Bệnh nền: ${patient.conditions || 'không rõ'}.`,
-      `Đơn MỚI: ${JSON.stringify(currentItems)}`,
-      `Lịch sử đơn cũ (mới nhất trước): ${JSON.stringify(history)}`,
+      `Đơn MỚI (mỗi thuốc có "index" để trỏ ngược lại): ${JSON.stringify(numbered)}`,
+      `Các đợt thuốc trước, MỚI NHẤT ĐỨNG ĐẦU ("running": true nghĩa là lịch uống vẫn đang chạy): ${JSON.stringify(history)}`,
+      `Thuốc còn trong tủ thuốc nhà: ${cabinet.length ? JSON.stringify(cabinet) : 'tủ trống'}`,
       'Hãy xét: (1) trùng/lặp hoạt chất; (2) kháng sinh: có đang dùng liên tiếp/lặp lại quá gần, đủ liệu trình chưa, nguy cơ kháng thuốc; (3) tương tác thuốc bất lợi; (4) chống chỉ định theo dị ứng/bệnh nền/độ tuổi (đặc biệt trẻ em); (5) tác dụng phụ đáng chú ý và dấu hiệu cần đi khám ngay.',
-      'Trả về JSON: { "risk": "LOW|MEDIUM|HIGH", "summary": "phân tích bằng tiếng Việt, gạch đầu dòng ngắn gọn theo 5 mục trên, nêu rõ nếu KHÔNG có vấn đề" }.',
+      'Trả về JSON:',
+      '{ "risk": "LOW|MEDIUM|HIGH",',
+      '  "summary": "phân tích chung bằng tiếng Việt, gạch đầu dòng ngắn gọn theo 5 mục trên, nêu rõ nếu KHÔNG có vấn đề",',
+      '  "warnings": [ { "index": số_thứ_tự_thuốc_trong_đơn_mới, "level": "CHECK|WARN", "reason": "1-2 câu tiếng Việt" } ] }',
+      'Quy tắc cho "warnings" — phần này quan trọng nhất:',
+      '- CHỈ liệt kê thuốc THẬT SỰ có vấn đề. Thuốc bình thường thì KHÔNG đưa vào mảng. Không có thuốc nào đáng nói thì trả mảng rỗng.',
+      '- Phải có căn cứ CỤ THỂ: gọi tên hoạt chất trùng, tên nhóm kháng sinh, hoặc tên thuốc kia. Cấm cảnh báo chung chung kiểu "cần thận trọng khi dùng cho trẻ em".',
+      '- Nói rõ vấn đề đến TỪ ĐÂU: từ chính đơn mới này, từ đợt thuốc gần nhất, hay từ thuốc còn trong tủ. Có ngày tháng thì ghi ngày.',
+      '- level="WARN" khi phải hỏi lại bác sĩ/dược sĩ trước khi cho uống (trùng hoạt chất, hai kháng sinh cùng nhóm, tương tác có hại, chống chỉ định).',
+      '- level="CHECK" khi chỉ nên để ý, theo dõi (tác dụng phụ đáng kể, nên uống cách xa nhau, thuốc trong tủ đã cũ).',
+      '- Kháng sinh còn thừa trong tủ hoặc lặp lại quá gần đợt trước: LUÔN cảnh báo, tối thiểu là CHECK.',
+      '- "index" bắt buộc là số đã cho trong đơn mới. Không chắc thuốc nào thì bỏ qua, đừng đoán số.',
       'Viết gọn, đi thẳng vào vấn đề, không thêm câu miễn trừ trách nhiệm. Chỉ trả JSON.',
     ].join('\n');
     const result = await this.ai.generateJson<SafetyAnalysis>(prompt, { temperature: 0.3 });
@@ -235,6 +315,6 @@ export class MedicalAiService {
     let summary = String(result.summary || '').trim();
     // Người dùng đã tắt câu lưu ý ở giao diện, nên cũng cắt nốt nếu model tự thêm vào.
     summary = summary.replace(/LƯU Ý QUAN TRỌNG:[\s\S]*$/i, '').trim();
-    return { risk, summary };
+    return { risk, summary, warnings: normalizeWarnings(result.warnings, currentItems.length) };
   }
 }

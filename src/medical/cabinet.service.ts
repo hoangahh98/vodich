@@ -142,15 +142,16 @@ export class CabinetService {
   }
 
   /**
-   * Sửa số lượng và bỏ nhiều thuốc trong MỘT lần bấm.
+   * Sửa số lượng nhiều thuốc trong MỘT lần bấm.
    *
    * Tủ hay phải dọn cả loạt sau mỗi đợt ốm (thứ hết, thứ vơi đi, thứ quá hạn phải bỏ).
    * Bắt sửa từng dòng một là mấy chục lần bấm cho một việc.
    *
    * Chỉ đụng vào dòng của đúng admin này — lọc theo ownerAdminId chứ không tin id gửi lên.
-   * Số về 0 cũng bị bỏ khỏi tủ, giống hệt đường sửa tay từng dòng.
+   * Số về 0 nghĩa là bỏ khỏi tủ, giống hệt đường sửa tay từng dòng — nên màn hình KHÔNG
+   * cần thêm ô tick bỏ, đó chỉ là đường thứ hai làm đúng việc này.
    */
-  async bulkAdjust(user: CurrentUser, quantities: Record<string, number>, removeIds: string[]) {
+  async bulkAdjust(user: CurrentUser, quantities: Record<string, number>) {
     const ownerAdminId = BigInt(user.id);
     const owned = await this.prisma.medCabinetItem.findMany({
       where: { ownerAdminId },
@@ -158,9 +159,9 @@ export class CabinetService {
     });
     const byId = new Map(owned.map((item) => [item.id.toString(), item]));
 
-    const remove = new Set(removeIds.filter((id) => byId.has(id)));
+    const remove = new Set<string>();
     for (const [id, quantity] of Object.entries(quantities)) {
-      if (!byId.has(id) || remove.has(id)) continue;
+      if (!byId.has(id)) continue;
       if (quantity <= 0) remove.add(id);
     }
 
