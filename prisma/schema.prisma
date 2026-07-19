@@ -313,16 +313,6 @@ model MedPatient {
 
   // Giờ nhắc uống thuốc theo nếp sinh hoạt từng nhà, đặt ở người thân để dùng chung
   // cho mọi đơn thuốc chứ không phải khai lại mỗi lần có đơn mới.
-  /**
-   * Token bí mật của feed lịch (/lich/<token>.ics). Feed phải gọi được KHÔNG qua đăng nhập
-   * vì app Lịch không mang theo cookie phiên, nên token này chính là thứ thay cho mật khẩu:
-   * ai có URL là đọc được lịch thuốc. Sinh bằng crypto.randomBytes(32) -> 64 ký tự hex.
-   *
-   * Nullable: hồ sơ cũ chưa có token, và người dùng chưa bấm "tạo liên kết" thì không nên
-   * có sẵn một URL công khai treo đó. Cấp khi cần, thu hồi bằng cách sinh token mới.
-   */
-  calendarToken String? @unique @map("calendar_token") @db.VarChar(64)
-
   doseTimeMorning String @default("07:00") @map("dose_time_morning") @db.VarChar(5)
   doseTimeNoon    String @default("12:00") @map("dose_time_noon") @db.VarChar(5)
   doseTimeEvening String @default("19:00") @map("dose_time_evening") @db.VarChar(5)
@@ -414,6 +404,21 @@ model MedPrescriptionItem {
   // Thuốc dùng KHI CẦN (hạ sốt khi sốt, khí dung khi khó thở): không lên lịch nhắc,
   // nhắc đều đặn thuốc loại này là sai — nhưng vẫn đếm vào tủ thuốc.
   asNeeded Boolean @default(false) @map("as_needed")
+
+  /**
+   * Đơn GỐC của thuốc này, nếu nó được chuyển sang từ đơn cũ (applyTransition).
+   * NULL = thuốc mới kê trong chính đơn đang chứa nó.
+   *
+   * Cần lưu vì lúc chuyển, thuốc được CHÉP hẳn sang đơn mới nên mất dấu nguồn. Không có
+   * cột này thì trên màn hình lịch không phân biệt được "thuốc mới bác sĩ kê hôm nay" với
+   * "thuốc từ đợt trước uống tiếp" — mà đó đúng là thứ cần nhìn ra ngay để soát cho đúng.
+   * Trước đây chỉ nhét chữ vào `duration` ("còn N ngày (chuyển từ đơn cũ)"), không tra
+   * ngược ra được đơn nào.
+   *
+   * KHÔNG đặt quan hệ khoá ngoại: xoá đơn cũ thì thuốc đã chuyển vẫn phải sống tiếp ở đơn
+   * mới. Chỉ là con trỏ mềm, tra không thấy thì hiện "đơn cũ" chung chung.
+   */
+  carriedFromId BigInt? @map("carried_from_id")
   // UONG | NHO_MUI | KHI_DUNG | XIT | BOI | KHAC
   route       String  @default("") @db.VarChar(20)
   // SAU_AN | TRUOC_AN | TRUOC_NGU | rỗng

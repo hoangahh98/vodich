@@ -1,0 +1,118 @@
+<%- include('../partials/head', { title: 'Đơn thuốc - ' + patient.name }) %>
+<%- include('../partials/topbar') %>
+<%
+  const riskInfo = {
+    OK: { c: 'bg-success', t: '🟢 An toàn' },
+    CHECK: { c: 'bg-info text-dark', t: '🟠 Cần kiểm tra' },
+    WARN: { c: 'bg-danger', t: '🔴 Cảnh báo' },
+  };
+  const viDate = (d) => d ? new Date(d).toLocaleDateString('vi-VN') : '';
+  const rx = prescription;
+  // Thuốc chuyển sang từ đơn cũ vs thuốc bác sĩ mới kê trong chính đơn này. Phải nhìn ra
+  // ngay: thuốc chuyển sang đã uống dở nên số ngày còn lại là phần đã trừ, soát khác hẳn.
+  const sourceOf = (item) => {
+    if (!item.carriedFromId) return null;
+    const date = carrySources.get(String(item.carriedFromId));
+    // Đơn gốc bị xoá -> không tra ra ngày, vẫn phải nói được là hàng chuyển sang.
+    return date ? `đơn ${date.split('-').reverse().slice(0, 2).join('/')}` : 'đơn cũ';
+  };
+  const carriedCount = rx.items.filter((i) => i.carriedFromId).length;
+%>
+<main class="app-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>💊 Đơn ngày <%= rx.prescribedDate ? viDate(rx.prescribedDate) : 'không rõ' %></h1>
+        <div class="muted strong-muted">
+          <%= patient.name %>
+          <% if (rx.doctor || rx.clinic) { %> · <%= [rx.doctor, rx.clinic].filter(Boolean).join(' - ') %><% } %>
+        </div>
+      </div>
+      <div class="feature-hero-art">💊</div>
+    </div>
+  </section>
+
+  <section class="card-lite p mb">
+    <div class="flex between center gap mb">
+      <div>
+        <% if (rx.aiRisk && riskInfo[rx.aiRisk]) { %><span class="badge <%= riskInfo[rx.aiRisk].c %>"><%= riskInfo[rx.aiRisk].t %></span><% } %>
+        <% if (rx.scheduleStopped) { %><span class="badge">⏹️ Đã dừng</span>
+        <% } else if (rx.scheduleStart) { %><span class="badge bg-success">▶️ Đang uống từ <%= viDate(rx.scheduleStart) %></span>
+        <% } else { %><span class="badge">Chưa chốt lịch</span><% } %>
+      </div>
+      <div class="flex gap">
+        <% if (rx.imageData) { %><a class="btn btn-sm" href="/medical/prescriptions/<%= rx.id %>/image" target="_blank">🖼️ Ảnh</a><% } %>
+        <form method="post" action="/medical/prescriptions/<%= rx.id %>/reanalyze"><button class="btn btn-sm" data-loading-text="..." <%= aiConfigured ? '' : 'disabled' %>>↻ Phân tích lại</button></form>
+        <form method="post" action="/medical/prescriptions/<%= rx.id %>/delete" data-confirm="Xóa đơn thuốc này?"><button class="btn btn-sm btn-danger" data-loading-text="...">🗑️ Xóa đơn</button></form>
+      </div>
+    </div>
+    <% if (rx.diagnosis) { %><p class="muted">Chẩn đoán: <%= rx.diagnosis %></p><% } %>
+    <% if (rx.followUpDate) { %><p class="muted">🏥 Hẹn tái khám: <strong><%= viDate(rx.followUpDate) %></strong></p><% } %>
+  </section>
+
+  <% if (carriedCount) { %>
+    <div class="alert-lite mb">
+      <strong>🔄 <%= carriedCount %> thuốc chuyển sang từ đơn trước</strong> — đã trừ phần uống rồi, số ngày
+      ở đây là phần <strong>còn lại</strong>. Thuốc không có nhãn 🔄 là bác sĩ mới kê đợt này.
+    </div>
+  <% } %>
+
+  <% if (cabinetMatches && cabinetMatches.length) { %>
+    <div class="alert-lite mb">
+      <strong>🧰 Nhà đang có sẵn:</strong>
+      <%= cabinetMatches.map((m) => `${m.drugName} (${m.quantity} ${m.unit})`).join(', ') %> — khỏi mua trùng.
+    </div>
+  <% } %>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">📋</span><h2 class="section-title">Thuốc trong đơn</h2></div><span class="badge"><%= rx.items.length %></span></div>
+    <form method="post" action="/medical/prescriptions/<%= rx.id %>/items" data-med-items>
+      <%
+        /* Cố ý KHÔNG dùng <table>: 6 cột làm ô "Số ngày" rơi ra ngoài màn hình điện thoại,
+           phải kéo ngang mới thấy — trong khi đó lại đúng là ô người dùng cần soát nhất. */
+      %>
+      <% rx.items.forEach((item) => { %>
+        <% const source = sourceOf(item); %>
+        <div class="med-row <%= item.enabled ? '' : 'med-item-off' %>">
+          <label class="med-row-use">
+            <input type="checkbox" name="enabled_<%= item.id %>" <%= item.enabled ? 'checked' : '' %>>
+            <span class="med-row-name">
+              <strong><%= item.drugName %></strong>
+              <% if (item.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %>
+              <% if (source) { %> <span class="badge">🔄 <%= source %></span><% } %>
+            </span>
+          </label>
+          <div class="muted med-row-detail">
+            <%= [item.dosage, item.frequency, item.quantity].filter(Boolean).join(' · ') %>
+            <% if (item.note) { %><div><%= item.note %></div><% } %>
+          </div>
+          <div class="med-row-nums">
+            <label>Lần/ngày<input type="number" name="times_<%= item.id %>" value="<%= item.timesPerDay %>" min="0" max="6" class="med-num"></label>
+            <%# step 0.5: đơn cấp theo số lượng hay ra số ngày lẻ (5 ống, ngày 2 lần = 2,5 ngày). %>
+            <label>Số ngày<input type="number" name="days_<%= item.id %>" value="<%= item.days %>" min="0" max="90" step="0.5" class="med-num"></label>
+            <%# AI đọc nhầm "Khí dung" thành "Khi dùng" là thuốc duy trì biến mất khỏi
+                lịch nhắc. Phải sửa tay được. %>
+            <label class="med-row-prn"><input type="checkbox" name="prn_<%= item.id %>" <%= item.asNeeded ? 'checked' : '' %>> chỉ dùng khi cần</label>
+          </div>
+        </div>
+      <% }) %>
+      <p class="muted mt">Bỏ tick thuốc không dùng (bác sĩ gạch, hoặc nhà đã có). Số lần/ngày và số ngày do AI đọc từ ảnh — đối chiếu tờ đơn giấy rồi sửa nếu sai.</p>
+      <%# Nút chỉ sáng khi có thay đổi thật (xem public/js/medical-upload.js). %>
+      <div class="text-right mt"><button class="btn btn-primary" data-med-save disabled data-loading-text="Đang lưu...">💾 Lưu thay đổi</button></div>
+    </form>
+  </section>
+
+  <% if (rx.aiSummary) { %>
+    <section class="card-lite p mb">
+      <div class="medical-analysis"><strong>🤖 Phân tích AI:</strong><div class="medical-analysis-body"><%= rx.aiSummary %></div></div>
+    </section>
+  <% } %>
+
+  <section class="card-lite p mb">
+    <div class="text-right">
+      <a class="btn btn-success" href="/medical/prescriptions/<%= rx.id %>/lich">📅 Lịch uống của đơn này</a>
+    </div>
+  </section>
+</main>
+<script src="/js/medical-upload.js"></script>
+<%- include('../partials/bottom-menu') %>

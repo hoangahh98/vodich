@@ -364,7 +364,33 @@ export class MedicalController {
         };
       })
       .filter(Boolean);
+    // Nhãn nguồn khoá theo ID THUỐC, không phải tên: sau khi chuyển đơn, cùng một thuốc có
+    // thể vừa được kê mới vừa được chuyển sang, thành hai dòng trùng tên. Khoá theo tên là
+    // dán nhầm nhãn cho cả hai. Thuốc chuyển sang đã uống dở nên số ngày là phần CÒN LẠI —
+    // nhìn ra ngay mới soát đúng.
+    const carriedIds = prescription.items.map((item) => item.carriedFromId).filter((v): v is bigint => Boolean(v));
+    const carrySources = await this.medical.carrySourceDates(carriedIds);
+    const drugSources = new Map<string, string>();
+    for (const item of prescription.items) {
+      if (!item.carriedFromId) continue;
+      const date = carrySources.get(item.carriedFromId.toString());
+      drugSources.set(item.id.toString(), date ? date.split('-').reverse().slice(0, 2).join('/') : '');
+    }
+    // Cùng một thuốc nằm hai dòng trong đơn (thường do chuyển đơn mà bác sĩ cũng kê lại)
+    // thì lịch sinh ra HAI cữ cùng giờ -> uống gấp đôi liều. Phải chặn bằng cảnh báo, đây
+    // là loại lỗi không được để người dùng tự phát hiện.
+    const nameCount = new Map<string, number>();
+    for (const item of prescription.items) {
+      if (!item.enabled) continue;
+      const key = item.drugName.trim().toLowerCase();
+      nameCount.set(key, (nameCount.get(key) || 0) + 1);
+    }
+    const duplicateDrugs = [
+      ...new Set(prescription.items.filter((i) => i.enabled && (nameCount.get(i.drugName.trim().toLowerCase()) || 0) > 1).map((i) => i.drugName)),
+    ];
     return render(res, 'medical/schedule', {
+      drugSources,
+      duplicateDrugs,
       patient: prescription.patient,
       prescription,
       menuPatientId: prescription.patientId.toString(),
@@ -458,44 +484,29 @@ export class MedicalController {
   }
 
   /**
-   * Cấp (hoặc đổi) liên kết đăng ký lịch cho một người thân.
+   * Chi tiết MỘT đơn thuốc.
    *
-   * Đổi token là thu hồi liên kết cũ — mọi máy đang đăng ký sẽ ngừng cập nhật. Giao diện
-   * nói rõ chuyện này trước khi bấm.
+   * Tách khỏi trang người thân vì nhà đã có nhiều đơn: đổ hết mọi đơn kèm form sửa từng
+   * thuốc ra một trang thì phải cuộn cả chục màn hình mới tới đơn cần xem, và dễ sửa nhầm
+   * sang đơn khác. Trang người thân giờ chỉ liệt kê, bấm vào đơn nào mới mở đơn đó.
    */
-  @Post('/medical/patients/:id/lich-dang-ky')
-  async issueCalendarLink(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
-    const patient = await this.scopedPatient(req, res, id);
-    if (!patient) return;
-    await this.medical.issueCalendarToken(patient.id);
-    return res.redirect(`/medical/patients/${patient.id}/lich-dang-ky`);
-  }
-
-  @Post('/medical/patients/:id/lich-dang-ky/thu-hoi')
-  async revokeCalendarLink(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
-    const patient = await this.scopedPatient(req, res, id);
-    if (!patient) return;
-    await this.medical.revokeCalendarToken(patient.id);
-    return res.redirect(`/medical/patients/${patient.id}/lich-dang-ky`);
-  }
-
-  /** Trang hướng dẫn đăng ký lịch — nơi duy nhất hiện URL feed ra màn hình. */
-  @Get('/medical/patients/:id/lich-dang-ky')
-  async calendarLinkPage(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
-    const patient = await this.scopedPatient(req, res, id);
-    if (!patient) return;
-    // Dựng URL tuyệt đối từ chính request: dán vào iPhone phải là địa chỉ đầy đủ, mà
-    // server không biết trước tên miền Render hay localhost.
-    const host = `${req.protocol}://${req.get('host')}`;
-    return render(res, 'medical/calendar-link', {
-      patient,
-      menuPatientId: patient.id.toString(),
-      menuPrescriptionId: patient.prescriptions[0]?.id.toString() || '',
-      feedUrl: patient.calendarToken ? `${host}/lich/${patient.calendarToken}.ics` : '',
-      // webcal:// làm iPhone mở thẳng màn hình đăng ký thay vì tải file về.
-      webcalUrl: patient.calendarToken
-        ? `webcal://${req.get('host')}/lich/${patient.calendarToken}.ics`
-        : '',
+  @Get('/medical/prescriptions/:id')
+  async prescription(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const prescription = await this.scopedPrescription(req, res, id);
+    if (!prescription) return;
+    const carriedIds = prescription.items.map((item) => item.carriedFromId).filter((v): v is bigint => Boolean(v));
+    return render(res, 'medical/prescription', {
+      prescription,
+      patient: prescription.patient,
+      menuPatientId: prescription.patientId.toString(),
+      menuPrescriptionId: prescription.id.toString(),
+      // Ngày kê của đơn gốc, để đánh dấu thuốc nào là hàng chuyển sang từ đợt trước.
+      carrySources: await this.medical.carrySourceDates(carriedIds),
+      cabinetMatches: await this.cabinet.matchFor(
+        currentUser(req),
+        prescription.items.map((item) => item.drugName),
+      ),
+      aiConfigured: this.ai.isConfigured(),
     });
   }
 
@@ -675,6 +686,8 @@ function carryOverFor(
         quantity: `${leftDoses} ${parseCountable(String(item.quantity || ''))?.unit || ''}`.trim(),
         route: String(item.route || ''),
         timing: String(item.timing || ''),
+        // Thuốc này đã là hàng chuyển từ đợt trước thì giữ nguyên gốc ban đầu.
+        carriedFromId: (item.carriedFromId as bigint | null) ?? null,
       };
     })
     .filter((entry): entry is CarryOverItem => Boolean(entry));

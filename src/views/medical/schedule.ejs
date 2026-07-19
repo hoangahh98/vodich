@@ -17,8 +17,11 @@
   const byDrug = new Map();
   result.groups.forEach((g) => {
     g.lines.forEach((line) => {
-      if (!byDrug.has(line.drugName)) byDrug.set(line.drugName, { line, times: new Set(), first: g.date, last: g.date, doses: 0 });
-      const entry = byDrug.get(line.drugName);
+      // Gom theo ID THUỐC chứ không theo tên: sau khi chuyển đơn có thể có hai dòng cùng
+      // tên (một cái kê mới, một cái chuyển sang). Gom theo tên là nhập chúng làm một và
+      // che mất chuyện đang bị kê trùng.
+      if (!byDrug.has(line.itemId)) byDrug.set(line.itemId, { line, times: new Set(), first: g.date, last: g.date, doses: 0 });
+      const entry = byDrug.get(line.itemId);
       entry.times.add(g.time);
       if (g.date < entry.first) entry.first = g.date;
       if (g.date > entry.last) entry.last = g.date;
@@ -29,6 +32,8 @@
   const icsUrl = `/medical/prescriptions/${prescription.id}/lich.ics?${q}`;
   const icsFullUrl = `${icsUrl}&full=1`;
   const isConfirmed = Boolean(confirmedStart);
+  // Số thuốc chuyển sang từ đơn cũ. Bằng 0 thì cả đơn là thuốc mới -> không dán nhãn gì cả.
+  const carriedCount = [...byDrug.values()].filter((e) => drugSources.has(e.line.itemId)).length;
   // Lịch bắt đầu trong quá khứ nghĩa là đang uống dở -> nạp cả liệu trình sẽ ra cữ cũ.
   const started = startDate < today;
 %>
@@ -91,6 +96,16 @@
       </ul>
       Nạp thêm lịch này thì trong Lịch iPhone sẽ có <strong>hai sự kiện chồng nhau cùng giờ</strong>. Tên sự kiện có ghi ngày đơn để phân biệt,
       nhưng nếu bác sĩ đã thay thuốc thì nên vào đơn cũ bỏ tick hết thuốc rồi lưu lại, và xoá loạt sự kiện cũ trong Lịch trước khi nạp lịch mới.
+    </div>
+  <% } %>
+
+  <% if (duplicateDrugs.length) { %>
+    <div class="alert-lite warn mb">
+      <strong>⚠️ Thuốc bị kê TRÙNG trong cùng đơn này:</strong>
+      <ul><% duplicateDrugs.forEach((name) => { %><li><%= name %></li><% }) %></ul>
+      Lịch sẽ nhắc <strong>hai lần cùng một giờ</strong> cho mỗi thuốc trên, tức là uống gấp đôi liều.
+      Thường gặp khi thuốc vừa được chuyển sang từ đơn cũ vừa được bác sĩ kê lại.
+      Vào <a href="/medical/prescriptions/<%= prescription.id %>">trang đơn thuốc</a> bỏ tick một trong hai dòng rồi lưu lại.
     </div>
   <% } %>
 
@@ -171,10 +186,21 @@
 
     <section class="card-lite p mb">
       <div class="section-heading mb"><div><span class="feature-icon">💊</span><h2 class="section-title">Từng thuốc uống thế nào</h2></div></div>
-      <% byDrug.forEach((entry, drugName) => { %>
+      <% if (carriedCount) { %>
+        <p class="muted mb">
+          <strong>🔄</strong> = thuốc uống tiếp từ đơn cũ, số ngày là phần <strong>còn lại</strong>.
+          <strong>🆕</strong> = bác sĩ mới kê đợt này.
+        </p>
+      <% } %>
+      <% byDrug.forEach((entry) => { const drugName = entry.line.drugName; %>
+        <% const from = drugSources.get(entry.line.itemId); %>
         <div class="med-row">
           <strong><%= drugName %></strong>
           <% if (entry.line.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %>
+          <%# Chỉ gắn nhãn khi đơn này thật sự có thuốc chuyển sang — đơn thuần một đợt thì
+              dán 🆕 lên mọi dòng chỉ tổ nhiễu. %>
+          <% if (from !== undefined) { %> <span class="badge">🔄 từ đơn <%= from || 'cũ' %></span>
+          <% } else if (carriedCount) { %> <span class="badge bg-success">🆕 mới</span><% } %>
           <div class="muted med-row-detail">
             <%= [...entry.times].sort().join(' · ') %>
             <% if (entry.line.dosage) { %> — mỗi lần <%= entry.line.dosage %><% } %>
@@ -197,6 +223,7 @@
                   <li>
                     <%= line.drugName %><% if (line.dosage) { %> — <%= line.dosage %><% } %>
                     <% if (line.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %>
+                    <% if (drugSources.has(line.itemId)) { %> <span class="badge">🔄</span><% } %>
                   </li>
                 <% }) %>
               </ul>

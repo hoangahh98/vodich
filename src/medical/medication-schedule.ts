@@ -42,6 +42,12 @@ export interface ScheduleItem {
 }
 
 export interface DoseLine {
+  /**
+   * Id của thuốc trong đơn. Cần vì TÊN THUỐC KHÔNG DUY NHẤT trong một đơn: sau khi chuyển
+   * đơn, một thuốc có thể vừa được bác sĩ kê mới vừa được chuyển sang từ đợt trước, thành
+   * hai dòng cùng tên. Tra theo tên là nhầm lẫn hai dòng đó.
+   */
+  itemId: string;
   drugName: string;
   dosage: string;
   route: string;
@@ -244,6 +250,7 @@ export function buildSchedule(
       const key = `${date} ${time}`;
       if (!byKey.has(key)) byKey.set(key, { date, time, lines: [], index: 0 });
       byKey.get(key)!.lines.push({
+        itemId: item.id,
         drugName: item.drugName,
         dosage: item.dosage,
         route: item.route,

@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { randomBytes } from 'node:crypto';
 import { blankToNull } from '../common/controller-utils';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
@@ -186,26 +185,6 @@ export class MedicalService {
     });
   }
 
-  /**
-   * Cấp token feed lịch, hoặc sinh token MỚI để thu hồi liên kết cũ.
-   *
-   * Không có cách nào "huỷ" một URL đã lỡ chia sẻ ngoài việc đổi nó, nên nút thu hồi và
-   * nút cấp mới là cùng một thao tác. Đổi token thì mọi máy đang đăng ký đều chết theo —
-   * cố ý, và giao diện phải nói rõ điều đó.
-   */
-  async issueCalendarToken(patientId: bigint) {
-    // randomBytes chứ không phải Math.random: đây là thứ thay cho mật khẩu vào lịch thuốc
-    // của bé, đoán được là lộ hết.
-    const token = randomBytes(32).toString('hex');
-    await this.prisma.medPatient.update({ where: { id: patientId }, data: { calendarToken: token } });
-    return token;
-  }
-
-  /** Gỡ hẳn feed: URL cũ chết ngay, không có URL mới thay thế. */
-  revokeCalendarToken(patientId: bigint) {
-    return this.prisma.medPatient.update({ where: { id: patientId }, data: { calendarToken: null } });
-  }
-
   /** Chốt lịch: ghi nhớ ngày bắt đầu + cữ đầu để máy khác lấy đúng phần còn lại. */
   saveSchedule(prescriptionId: bigint, startDate: string, slot: string) {
     return this.prisma.medPrescription.update({
@@ -225,8 +204,27 @@ export class MedicalService {
   getPrescription(id: bigint, user: CurrentUser) {
     return this.prisma.medPrescription.findFirst({
       where: { id, patient: this.scopeFor(user) },
-      include: { items: true, patient: true },
+      include: { items: { orderBy: { id: 'asc' } }, patient: true },
     });
+  }
+
+  /**
+   * Tra ngày kê của các đơn GỐC, để màn hình ghi rõ thuốc nào chuyển sang từ đợt nào.
+   *
+   * Trả Map id -> ngày (YYYY-MM-DD, rỗng nếu đơn không ghi ngày). Đơn gốc đã bị xoá thì
+   * không có mặt trong Map — chỗ hiển thị phải chịu được điều đó (carriedFromId cố ý không
+   * phải khoá ngoại, xem schema).
+   */
+  async carrySourceDates(ids: bigint[]): Promise<Map<string, string>> {
+    const unique = [...new Set(ids.map((id) => id.toString()))].map((id) => BigInt(id));
+    if (!unique.length) return new Map();
+    const rows = await this.prisma.medPrescription.findMany({
+      where: { id: { in: unique } },
+      select: { id: true, prescribedDate: true },
+    });
+    return new Map(
+      rows.map((row) => [row.id.toString(), row.prescribedDate ? row.prescribedDate.toISOString().slice(0, 10) : '']),
+    );
   }
 
   deletePrescription(id: bigint) {
@@ -279,6 +277,11 @@ export class MedicalService {
             quantity: item.quantity,
             route: item.route,
             timing: item.timing,
+            // Giữ dấu nguồn để màn hình lịch phân biệt được thuốc chuyển sang với thuốc
+            // mới kê. Nếu thuốc này vốn đã là hàng chuyển từ đơn trước nữa thì giữ nguyên
+            // gốc ban đầu, không trỏ vào đơn trung gian — người dùng cần biết thuốc bắt
+            // đầu từ đợt khám nào, không phải nó đi qua mấy lần chuyển.
+            carriedFromId: item.carriedFromId ?? oldPrescriptionId,
           },
         }),
       ),
@@ -308,6 +311,8 @@ export interface CarryOverItem {
   quantity: string;
   route: string;
   timing: string;
+  /** Đơn gốc của thuốc, nếu chính nó cũng là hàng chuyển từ đợt trước nữa. */
+  carriedFromId: bigint | null;
 }
 
 export interface ItemDecision {
