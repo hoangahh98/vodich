@@ -32,9 +32,13 @@
  * Hệ quả: SỬA LỊCH ĐÃ NẠP QUA FILE LÀ KHÔNG THỂ. Đó là lý do lịch bị khoá sau khi chốt
  * (xem medical.controller.ts).
  *
- * ĐƯỜNG ĐANG DÙNG để server làm chủ lịch: feed đăng ký, xem calendar-feed.controller.ts.
- * Lịch đăng ký SOI GƯƠNG nội dung server nên không cần lệnh huỷ, không cần đối chiếu UID.
- * Hàm dựng file ở đây dùng chung cho cả hai đường — đừng thêm lại cơ chế huỷ vào đây.
+ * CƠ CHẾ ĐANG DÙNG (chốt 19/07/2026): THỦ CÔNG. Mỗi lần có lịch mới thì tạo một NHÓM LỊCH
+ * MỚI trên máy, nạp vào đó, rồi xoá tay nhóm cũ. Đã cân nhắc feed đăng ký webcal:// (giải
+ * được bài toán) nhưng chủ dự án thấy quá phức tạp và chọn thủ công — đây là quyết định về
+ * độ phức tạp, không phải hiểu nhầm kỹ thuật. Đừng tự ý dựng lại.
+ *
+ * Vì vậy: NẠP LẠI LUÔN LÀ THÊM MỚI, không bao giờ ghi đè. Bấm "Nạp lịch nhắc" hai lần là
+ * hai bộ sự kiện chồng nhau. Không sửa được từ phía server — đừng thêm lại cơ chế huỷ.
  */
 import { DoseGroup, describeLine } from './medication-schedule';
 
@@ -66,6 +70,16 @@ export interface IcsOptions {
   /** Giờ nhắc tái khám — dùng cữ sáng của nhà để báo ngay đầu ngày hôm đó. */
   followUpTime?: string;
   followUpNote?: string;
+  /**
+   * Nhãn nguồn theo ID THUỐC: id -> ngày kê của đơn GỐC (dd/mm), rỗng nếu tra không ra.
+   * Thuốc không có mặt trong map là thuốc mới kê trong chính đơn này.
+   *
+   * Cần trong file .ics chứ không chỉ trên web: lúc đứng trước mặt bé sắp cho uống thì
+   * người ta nhìn thông báo trên điện thoại, không mở web ra đối chiếu. Thuốc chuyển từ
+   * đơn cũ đã uống dở nên hết sớm hơn — không phân biệt được là dễ cho uống tiếp thứ đã
+   * hết, hoặc bỏ sót thứ còn phải uống.
+   */
+  drugSources?: Map<string, string>;
 }
 
 export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
@@ -92,7 +106,17 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
     // ngay bên dưới, chi tiết thuốc nằm ở phần mô tả.
     const label = ['Đơn thuốc', options.patientName, options.prescriptionLabel].filter(Boolean).join(' ');
     const title = `${antibiotic ? '💊❗' : '💊'} ${label}${antibiotic ? ' (có kháng sinh)' : ''}`;
-    const body = group.lines.map(describeLine).join('\n');
+    // Nhãn nguồn đặt ngay ĐẦU dòng để nhìn phát thấy, không phải đọc hết dòng mới biết.
+    // Dùng chữ không dấu trong ngoặc vuông thay vì emoji: dòng mô tả trong app Lịch hay bị
+    // cắt ngắn, chữ còn đọc được chứ emoji bị cắt thì thành vô nghĩa.
+    const sources = options.drugSources;
+    const body = group.lines
+      .map((line) => {
+        if (!sources || !sources.size) return describeLine(line);
+        if (!sources.has(line.itemId)) return `[MOI] ${describeLine(line)}`;
+        return `[DON ${sources.get(line.itemId) || 'CU'}] ${describeLine(line)}`;
+      })
+      .join('\n');
     lines.push(
       'BEGIN:VEVENT',
       `UID:${doseUid(options.uidPrefix, group.index)}`,

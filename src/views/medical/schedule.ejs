@@ -167,8 +167,21 @@
         </form>
       <% } else { %>
         <div class="alert-lite mb">
-          ✅ Lịch đã chốt từ <strong><%= viDate(confirmedStart) %></strong>.<br>
-          Vui lòng vào Lịch và tạo thêm nhóm lịch. Sau đó bấm nạp lịch vào nhóm mới tạo nhé.
+          ✅ Lịch đã chốt từ <strong><%= viDate(confirmedStart) %></strong>.
+        </div>
+        <%# Nạp lại LUÔN là thêm mới, không bao giờ ghi đè — đã kiểm chứng trên cả iCloud
+            lẫn Google (xem chú thích đầu ics.ts). Không sửa được từ server, nên việc duy
+            nhất làm được là nói thẳng ra ở đúng chỗ người dùng sắp bấm. %>
+        <div class="alert-lite warn mb">
+          <strong>⚠️ Nạp lịch là THÊM MỚI, không ghi đè.</strong> Bấm hai lần là có hai bộ nhắc chồng nhau,
+          và server không xoá hộ được — sự kiện đã vào máy thì chỉ xoá tay được thôi.
+          <div class="mt">Nên làm theo đúng thứ tự này:</div>
+          <ol>
+            <li>Mở app Lịch, tạo một <strong>nhóm lịch mới</strong> (đặt tên theo ngày đơn cho dễ nhớ).</li>
+            <li>Quay lại đây bấm nạp, chọn đúng <strong>nhóm vừa tạo</strong>.</li>
+            <li>Xong xuôi thì <strong>xoá cả nhóm lịch cũ</strong> trong app Lịch.</li>
+          </ol>
+          Xoá cả nhóm chứ đừng xoá từng sự kiện — mỗi cữ là một sự kiện riêng, xoá tay từng cái là cả trăm lần bấm.
         </div>
       <% } %>
 

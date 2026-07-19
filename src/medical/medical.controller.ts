@@ -462,7 +462,20 @@ export class MedicalController {
     const built = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot, doseTimesOf(prescription.patient));
     const groups = full === '1' ? built.groups : remainingFrom(built.groups, todayInVietnam(), '00:00');
     if (!groups.length) return notFound(res, 'Không còn cữ thuốc nào cần nhắc');
+    // Nhãn "thuốc mới / thuốc từ đơn nào" phải có trong CHÍNH sự kiện lịch, không chỉ trên
+    // web: lúc sắp cho bé uống thì người ta nhìn thông báo điện thoại chứ không mở web.
+    const carriedIds = prescription.items.map((item) => item.carriedFromId).filter((v): v is bigint => Boolean(v));
+    const carrySources = await this.medical.carrySourceDates(carriedIds);
+    const drugSources = new Map<string, string>();
+    for (const item of prescription.items) {
+      if (!item.carriedFromId) continue;
+      const date = carrySources.get(item.carriedFromId.toString());
+      drugSources.set(item.id.toString(), date ? date.split('-').reverse().slice(0, 2).join('/') : '');
+    }
     const ics = buildIcs(groups, {
+      // Không có thuốc chuyển sang thì bỏ trống: đơn thuần một đợt mà dán [MOI] lên mọi
+      // dòng chỉ tổ làm dài thêm phần mô tả vốn đã hay bị cắt ngắn.
+      drugSources: drugSources.size ? drugSources : undefined,
       // SEQUENCE theo số phút kể từ 2020: luôn tăng, không cần lưu thêm cột nào. Giữ cho
       // đúng chuẩn thôi — iPhone không dùng tới nó khi import file (xem chú thích ics.ts).
       sequence: Math.floor((Date.now() - Date.UTC(2020, 0, 1)) / 60000),
