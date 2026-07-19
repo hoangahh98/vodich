@@ -231,6 +231,28 @@ export class MedicalService {
     return this.prisma.medPrescription.delete({ where: { id } });
   }
 
+  /**
+   * Các đơn có thể CHUYỂN THUỐC SANG đơn `target`.
+   *
+   * Khác `otherScheduled` (dùng để cảnh báo trùng giờ, nên lấy mọi đơn đang chạy). Ở đây
+   * là thao tác GHI nên phải chặt hơn, vì làm sai là hỏng lịch thuốc thật của bé:
+   *
+   *   1. ĐÍCH KHÔNG ĐƯỢC LÀ ĐƠN ĐÃ DỪNG. applyTransition sẽ dừng đơn nguồn và đổ thuốc vào
+   *      đích — đích đã chết thì hoá ra giết đơn đang chạy để đổ thuốc vào chỗ không bao giờ
+   *      nhắc. Đã gặp thật: mở /prescriptions/<đơn đã dừng>/chuyen-don thì nó mời chuyển
+   *      ngược toàn bộ đơn đang chạy vào đó.
+   *   2. NGUỒN PHẢI CŨ HƠN ĐÍCH. Chuyển thuốc là "đơn mới thay đơn cũ", ngược lại là vô
+   *      nghĩa. So theo ngày kê, cùng ngày thì so id (đơn nhập sau là đơn mới hơn).
+   *
+   * Trả mảng rỗng nếu đích không hợp lệ — chỗ gọi cứ coi như "không có gì để chuyển".
+   */
+  async transitionSources(target: { id: bigint; patientId: bigint; prescribedDate: Date | null; scheduleStopped: boolean }) {
+    if (target.scheduleStopped) return [];
+    const running = await this.otherScheduled(target.patientId, target.id);
+    const targetKey = sortKey(target.prescribedDate, target.id);
+    return running.filter((other) => sortKey(other.prescribedDate, other.id) < targetKey);
+  }
+
   /** Các đơn KHÁC của cùng người thân còn lịch đang chạy — để cảnh báo trùng giờ nhắc. */
   otherScheduled(patientId: bigint, excludeId: bigint) {
     return this.prisma.medPrescription.findMany({
@@ -297,6 +319,16 @@ export class MedicalService {
       include: { items: true },
     });
   }
+}
+
+/**
+ * Khoá sắp thứ tự đơn theo thời gian: ngày kê trước, cùng ngày thì id (nhập sau = mới hơn).
+ * Đơn không ghi ngày coi như rất cũ — an toàn hơn là coi như mới, vì coi nhầm thành mới sẽ
+ * cho nó làm đích và nuốt mất đơn thật.
+ */
+function sortKey(prescribedDate: Date | null, id: bigint): string {
+  const date = prescribedDate ? prescribedDate.toISOString().slice(0, 10) : '0000-00-00';
+  return `${date}#${id.toString().padStart(20, '0')}`;
 }
 
 /** Thuốc đơn cũ được chuyển sang đơn mới, số ngày đã trừ phần đã uống. */

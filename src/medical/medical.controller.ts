@@ -278,7 +278,9 @@ export class MedicalController {
   async transition(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
     const prescription = await this.scopedPrescription(req, res, id);
     if (!prescription) return;
-    const others = await this.medical.otherScheduled(prescription.patientId, prescription.id);
+    // Chỉ đơn CHƯA DỪNG mới được làm đích, và chỉ nhận thuốc từ đơn CŨ HƠN. Xem
+    // transitionSources() để biết vì sao — làm sai ở đây là giết lịch thuốc đang chạy.
+    const others = await this.medical.transitionSources(prescription);
     if (!others.length) return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
     // Hiện sẵn "đã uống mấy liều" để người dùng sửa nếu có hôm bỏ cữ — nếu không, app
     // mặc định coi mọi cữ đã lên lịch đều đã uống và sẽ cắt ngắn liệu trình.
@@ -304,7 +306,10 @@ export class MedicalController {
   async saveTransition(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
     const prescription = await this.scopedPrescription(req, res, id);
     if (!prescription) return;
-    const others = await this.medical.otherScheduled(prescription.patientId, prescription.id);
+    // Cùng bộ luật với màn hình GET. Chặn ở đây mới là chặn thật: gửi POST tay vẫn chạy
+    // dù giao diện không hiện nút nào.
+    const others = await this.medical.transitionSources(prescription);
+    if (!others.length) return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
     // Checkbox không tick thì trình duyệt không gửi field -> vắng mặt nghĩa là ngừng thuốc đó.
     const keep = others.flatMap((other) =>
       other.items.map((item) => item.id.toString()).filter((itemId) => body[`keep_${itemId}`] !== undefined),
@@ -376,6 +381,10 @@ export class MedicalController {
       const date = carrySources.get(item.carriedFromId.toString());
       drugSources.set(item.id.toString(), date ? date.split('-').reverse().slice(0, 2).join('/') : '');
     }
+    // `overlaps` ở trên là để CẢNH BÁO trùng giờ nên lấy mọi đơn đang chạy, kể cả đơn mới
+    // hơn. Còn nút "chọn thuốc uống tiếp" là thao tác GHI nên phải theo luật chặt hơn —
+    // không thì đơn đã dừng cũng hiện nút, bấm vào là giết đơn đang chạy.
+    const canTransition = (await this.medical.transitionSources(prescription)).length > 0;
     // Cùng một thuốc nằm hai dòng trong đơn (thường do chuyển đơn mà bác sĩ cũng kê lại)
     // thì lịch sinh ra HAI cữ cùng giờ -> uống gấp đôi liều. Phải chặn bằng cảnh báo, đây
     // là loại lỗi không được để người dùng tự phát hiện.
@@ -391,6 +400,7 @@ export class MedicalController {
     return render(res, 'medical/schedule', {
       drugSources,
       duplicateDrugs,
+      canTransition,
       patient: prescription.patient,
       prescription,
       menuPatientId: prescription.patientId.toString(),
@@ -511,7 +521,7 @@ export class MedicalController {
     // Còn đơn khác đang chạy thì phải mở được màn hình "thuốc nào uống tiếp". Trước đây
     // màn hình đó chỉ tới được bằng cú chuyển hướng ngay sau khi upload ảnh đơn: lỡ bỏ
     // qua một lần là không có đường quay lại, mà đó đúng là lúc dễ bỏ qua nhất.
-    const otherRunning = await this.medical.otherScheduled(prescription.patientId, prescription.id);
+    const otherRunning = await this.medical.transitionSources(prescription);
     return render(res, 'medical/prescription', {
       prescription,
       otherRunningCount: otherRunning.length,

@@ -95,13 +95,23 @@
         <% }) %>
       </ul>
       Nạp thêm lịch này thì trong Lịch iPhone sẽ có <strong>hai sự kiện chồng nhau cùng giờ</strong>, dễ cho uống nhầm gấp đôi.
-      <div class="mt">
-        Bấm nút dưới để chọn <strong>thuốc nào của đơn cũ còn uống tiếp</strong>: thuốc được giữ sẽ chuyển sang đơn này
-        (đã trừ phần đã uống), thuốc bỏ thì đơn cũ ngừng hẳn — sau đó chỉ còn <strong>một</strong> lịch phải nạp.
-      </div>
-      <div class="text-right mt">
-        <a class="btn btn-primary" href="/medical/prescriptions/<%= prescription.id %>/chuyen-don">🔀 Chọn thuốc uống tiếp</a>
-      </div>
+      <%# Lời mời và nút phải đi CÙNG NHAU. Đơn đã dừng thì không được làm đích (bấm vào là
+          giết đơn đang chạy) nên nút bị ẩn — để lại câu "bấm nút dưới" mà không có nút thì
+          người dùng đi tìm mỏi mắt. %>
+      <% if (canTransition) { %>
+        <div class="mt">
+          Bấm nút dưới để chọn <strong>thuốc nào của đơn cũ còn uống tiếp</strong>: thuốc được giữ sẽ chuyển sang đơn này
+          (đã trừ phần đã uống), thuốc bỏ thì đơn cũ ngừng hẳn — sau đó chỉ còn <strong>một</strong> lịch phải nạp.
+        </div>
+        <div class="text-right mt">
+          <a class="btn btn-primary" href="/medical/prescriptions/<%= prescription.id %>/chuyen-don">🔀 Chọn thuốc uống tiếp</a>
+        </div>
+      <% } else if (prescription.scheduleStopped) { %>
+        <div class="mt">
+          Đơn này <strong>đã dừng</strong> nên không nhận thêm thuốc được nữa. Muốn gom thuốc thì mở
+          <strong>đơn mới nhất</strong> rồi làm ở đó.
+        </div>
+      <% } %>
     </div>
   <% } %>
 
