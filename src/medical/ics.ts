@@ -5,11 +5,12 @@
  * Cố ý KHÔNG dùng RRULE: mỗi cữ là một sự kiện riêng. Đơn có nhiều thuốc kết thúc lệch
  * ngày nhau, dùng RRULE rất dễ nhắc tiếp thuốc đã hết -> nguy hiểm.
  *
- * GHI ĐÈ VÀ HUỶ CHỈ ĂN TRÊN GOOGLE, KHÔNG ĂN TRÊN iCLOUD — đọc trước khi sửa:
+ * GIỚI HẠN ĐÃ KIỂM CHỨNG HAI VÒNG (19/07/2026) — đọc trước khi định sửa:
  *
- * Cơ chế đối chiếu UID ở dưới (ghi đè khi nạp lại, và cancels[] để huỷ cữ đơn cũ) dựa
- * hoàn toàn vào việc phía nhận có đối chiếu UID hay không. Đã thử trên iPhone thật
- * (19/07/2026), nạp file bằng Safari thẳng vào Lịch iCloud: CẢ BA đều trượt.
+ * File .ics tải về là chép MỘT CHIỀU. Import xong là xong, server không còn với tới những
+ * sự kiện đó nữa.
+ *
+ * VÒNG 1 — nạp bằng Safari thẳng vào Lịch iPhone (iCloud). Thử ba cách, trượt cả ba:
  *
  *   1. METHOD:CANCEL         -> iPhone bỏ qua METHOD, hiện "Thêm tất cả" như import thường.
  *   2. STATUS:CANCELLED      -> bị bỏ qua nguyên vẹn: không xoá, mà cũng không thêm.
@@ -17,33 +18,39 @@
  *      SEQUENCE cao hơn)        bên cạnh -> nhân đôi lịch.
  *
  * Cách 2 kiểm chứng chắc chắn bằng một sự kiện "chứng nhân" còn sống nhét cùng file:
- * chứng nhân hiện lên bình thường nên chắc chắn iPhone CÓ đọc và xử lý file.
+ * chứng nhân hiện lên bình thường nên chắc chắn iPhone CÓ đọc và xử lý file. Đã loại trừ
+ * nhiễu: cùng PRODID, cùng nhóm lịch, cùng UID.
  *
- * Vì vậy toàn bộ phần huỷ ở đây chỉ có nghĩa khi lịch nằm trên TÀI KHOẢN GOOGLE (nạp qua
- * Google Calendar rồi để iPhone đồng bộ về). Đường iCloud trực tiếp thì phần này là code
- * chết — chạy không lỗi và không có tác dụng gì.
+ * VÒNG 2 — đổi phía nhận sang GOOGLE CALENDAR (import qua trình duyệt máy tính), phòng khi
+ * thứ trượt ở vòng 1 chỉ là bộ import cục bộ của iOS. CŨNG TRƯỢT: Google đọc file (lịch mới
+ * vào bình thường), sự kiện cũ nằm CÙNG MỘT lịch nên UID có cơ hội khớp, nhưng các mục
+ * STATUS:CANCELLED bị lặng lẽ bỏ qua — không xoá cũ, không mọc rác. Y hệt iCloud.
  *
- * TÍNH TỚI 19/07/2026 ĐƯỜNG GOOGLE VẪN CHƯA ĐƯỢC KIỂM CHỨNG. Xác nhận được thì sửa chú
- * thích này; trượt nốt thì gỡ hẳn cancels[]/previousDoseCount thay vì để lại lần hai.
+ * => Vấn đề KHÔNG nằm ở Apple mà ở mô hình đẩy file: phía nhận nào cũng chỉ thêm, không xoá.
+ * ĐỪNG THỬ NỀN TẢNG THỨ BA (Outlook, Yahoo...) — cùng một ngõ cụt, đã tốn hai vòng rồi.
+ *
+ * Hệ quả: SỬA LỊCH ĐÃ NẠP QUA FILE LÀ KHÔNG THỂ. Đó là lý do lịch bị khoá sau khi chốt
+ * (xem medical.controller.ts).
+ *
+ * ĐƯỜNG ĐANG DÙNG để server làm chủ lịch: feed đăng ký, xem calendar-feed.controller.ts.
+ * Lịch đăng ký SOI GƯƠNG nội dung server nên không cần lệnh huỷ, không cần đối chiếu UID.
+ * Hàm dựng file ở đây dùng chung cho cả hai đường — đừng thêm lại cơ chế huỷ vào đây.
  */
 import { DoseGroup, describeLine } from './medication-schedule';
 
 export interface IcsOptions {
   calendarName: string;
   /**
-   * Tiền tố UID, cần ổn định để import lại lần 2 ghi đè chứ không nhân đôi sự kiện.
-   * Ghi đè chỉ ăn khi phía nhận đối chiếu UID — Google có, iCloud thì không (xem đầu file).
+   * Tiền tố UID. RFC 5545 bắt buộc mọi VEVENT phải có UID nên trường này không bỏ được.
+   *
+   * ĐỪNG trông cậy nó để ghi đè: đã thử, iPhone không đối chiếu UID khi import file, nạp
+   * lại là thêm sự kiện mới bên cạnh. Giữ UID ổn định chỉ còn ý nghĩa cho các app lịch
+   * khác (máy tính, Google Calendar) và để tra cứu khi cần.
    */
   uidPrefix: string;
   /**
-   * Tổng số cữ của lần xuất TRƯỚC. Nếu lần này ít cữ hơn (bỏ bớt thuốc, rút ngắn liệu
-   * trình) thì phần dôi ra phải được gửi lệnh huỷ, nếu không chúng nằm lại trong Lịch
-   * mãi mãi vì không có gì ghi đè lên.
-   */
-  previousDoseCount?: number;
-  /**
-   * SEQUENCE của sự kiện. Phải TĂNG so với lần xuất trước thì app Lịch mới chịu ghi đè;
-   * để nguyên 0 là nó coi như bản cũ và bỏ qua, sửa giờ xong nạp lại sẽ không ăn.
+   * SEQUENCE của sự kiện. Giữ cho đúng chuẩn, nhưng iPhone không dùng tới nó trên đường
+   * import file — tăng hay không cũng vậy.
    */
   sequence?: number;
   /**
@@ -59,17 +66,6 @@ export interface IcsOptions {
   /** Giờ nhắc tái khám — dùng cữ sáng của nhà để báo ngay đầu ngày hôm đó. */
   followUpTime?: string;
   followUpNote?: string;
-  /**
-   * Các cữ của đơn CŨ cần huỷ, kèm đúng tiền tố UID đã dùng lúc xuất đơn đó.
-   * Gửi lại chính UID cũ với STATUS:CANCELLED + SEQUENCE tăng là cách duy nhất để
-   * báo cho app Lịch biết những sự kiện đó không còn nữa — server không tự xoá được
-   * sự kiện đã nằm trong máy người dùng.
-   *
-   * Chỉ điền khi người dùng chủ động chọn bản dọn dẹp (?cleanup=1). STATUS:CANCELLED nằm
-   * trong file METHOD:PUBLISH là phi chuẩn (RFC 5546 bảo huỷ phải dùng file METHOD:CANCEL
-   * riêng), nên trộn vào mọi file sẽ làm tăng rủi ro cả file bị từ chối.
-   */
-  cancels?: Array<{ uidPrefix: string; groups: DoseGroup[] }>;
 }
 
 export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
@@ -113,21 +109,6 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
       'END:VALARM',
       'END:VEVENT',
     );
-  }
-
-  // Cữ dôi ra so với lần xuất trước (bỏ bớt thuốc / rút ngắn liệu trình): phải huỷ,
-  // nếu không chúng nằm lại trong Lịch mãi vì lần này không có gì ghi đè lên.
-  const last = groups[groups.length - 1];
-  const surplusStart = groups.length ? Math.max(...groups.map((g) => g.index)) + 1 : 1;
-  for (let index = surplusStart; index <= (options.previousDoseCount || 0); index++) {
-    // Không còn biết giờ gốc của những cữ này, mượn mốc cuối cùng cho hợp lệ.
-    lines.push(...cancelEvent(doseUid(options.uidPrefix, index), stamp, sequence, last?.date || '20200101', last?.time || '07:00'));
-  }
-
-  for (const cancel of options.cancels || []) {
-    for (const group of cancel.groups) {
-      lines.push(...cancelEvent(doseUid(cancel.uidPrefix, group.index), stamp, sequence, group.date, group.time));
-    }
   }
 
   if (options.followUpDate) {
@@ -191,35 +172,14 @@ export function foldLine(line: string): string {
 }
 
 /**
- * UID gắn với SỐ THỨ TỰ cữ, không phải ngày+giờ.
+ * UID gắn với SỐ THỨ TỰ cữ, không phải ngày+giờ — cữ số 3 vẫn là cữ số 3 dù đổi giờ uống.
  *
- * Đổi giờ uống hay đổi ngày bắt đầu thì cữ số 3 vẫn là cữ số 3, nên app Lịch ghi đè
- * đúng sự kiện cũ. Nếu gắn theo ngày+giờ thì mỗi lần sửa giờ là sinh UID mới và cả
- * loạt sự kiện cũ nằm lại -> nhân đôi lịch.
+ * Trước đây đặt vậy để iPhone ghi đè đúng sự kiện cũ, nhưng đã kiểm chứng là iPhone không
+ * đối chiếu UID khi import file (xem chú thích đầu file). Vẫn giữ cách đánh này vì nó
+ * đúng về mặt ngữ nghĩa và các app lịch khác có dùng tới.
  */
 function doseUid(prefix: string, index: number): string {
   return `${prefix}-d${index}@vodich`;
-}
-
-/**
- * Sự kiện huỷ: UID cũ + STATUS:CANCELLED + SEQUENCE tăng.
- *
- * DTSTART là BẮT BUỘC với mọi VEVENT theo RFC 5545. Thiếu nó thì iPhone coi cả file là
- * hỏng và bấm "Thêm tất cả" không ra gì cả — không báo lỗi, chỉ đứng yên. App Lịch đối
- * chiếu theo UID nên giờ ở đây chỉ cần hợp lệ, không cần trùng giờ gốc.
- */
-function cancelEvent(uid: string, stamp: string, sequence: number, date: string, time: string): string[] {
-  return [
-    'BEGIN:VEVENT',
-    `UID:${uid}`,
-    `DTSTAMP:${stamp}`,
-    `SEQUENCE:${sequence}`,
-    `DTSTART:${toStamp(date, time)}`,
-    `DTEND:${toStamp(date, addMinutes(time, 15))}`,
-    'SUMMARY:Đã ngừng',
-    'STATUS:CANCELLED',
-    'END:VEVENT',
-  ];
 }
 
 /**

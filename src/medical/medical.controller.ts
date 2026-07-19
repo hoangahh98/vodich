@@ -364,12 +364,7 @@ export class MedicalController {
         };
       })
       .filter(Boolean);
-    // Số cữ của các đơn ĐÃ DỪNG mà file .ics đơn này sẽ kèm lệnh huỷ. Bằng 0 thì không
-    // hiện nút dọn dẹp — nạp file có lệnh huỷ rỗng chỉ tổ làm người dùng phân vân.
-    const cleanupCount = (await this.cancelsFor(prescription.patientId, prescription.id, doseTimes))
-      .reduce((sum, entry) => sum + entry.groups.length, 0);
     return render(res, 'medical/schedule', {
-      cleanupCount,
       patient: prescription.patient,
       prescription,
       menuPatientId: prescription.patientId.toString(),
@@ -428,7 +423,6 @@ export class MedicalController {
     @Query('start') start?: string,
     @Query('slot') slot?: string,
     @Query('full') full?: string,
-    @Query('cleanup') cleanup?: string,
   ) {
     const prescription = await this.scopedPrescription(req, res, id);
     if (!prescription) return;
@@ -442,20 +436,12 @@ export class MedicalController {
     const built = buildSchedule(toScheduleItems(prescription.items), startDate, startSlot, doseTimesOf(prescription.patient));
     const groups = full === '1' ? built.groups : remainingFrom(built.groups, todayInVietnam(), '00:00');
     if (!groups.length) return notFound(res, 'Không còn cữ thuốc nào cần nhắc');
-    // Sự kiện STATUS:CANCELLED là thứ phi chuẩn trong file METHOD:PUBLISH (RFC 5546 bảo
-    // huỷ thì dùng METHOD:CANCEL riêng). Trộn vào file thường làm tăng rủi ro iPhone từ
-    // chối cả file, nên chỉ đưa vào khi người dùng chủ động chọn bản dọn dẹp.
-    const withCleanup = cleanup === '1';
     const ics = buildIcs(groups, {
-      cancels: withCleanup ? await this.cancelsFor(prescription.patientId, prescriptionId, doseTimesOf(prescription.patient)) : [],
-      previousDoseCount: withCleanup ? prescription.icsDoseCount : 0,
-      // SEQUENCE lấy theo số phút kể từ 2020: luôn tăng, không cần lưu thêm cột nào.
-      // App Lịch chỉ ghi đè khi SEQUENCE lớn hơn bản đã nhận, nếu để 0 thì sửa giờ
-      // xong nạp lại sẽ không ăn.
+      // SEQUENCE theo số phút kể từ 2020: luôn tăng, không cần lưu thêm cột nào. Giữ cho
+      // đúng chuẩn thôi — iPhone không dùng tới nó khi import file (xem chú thích ics.ts).
       sequence: Math.floor((Date.now() - Date.UTC(2020, 0, 1)) / 60000),
       calendarName: `Thuốc của ${prescription.patient.name}`,
       patientName: prescription.patient.name,
-      // UID gắn với id đơn: import lại lần 2 sẽ ghi đè chứ không nhân đôi sự kiện.
       uidPrefix: `rx${prescriptionId}`,
       prescriptionLabel: prescription.prescribedDate
         ? prescription.prescribedDate.toISOString().slice(0, 10).split('-').reverse().join('/')
@@ -464,14 +450,53 @@ export class MedicalController {
       followUpTime: doseTimesOf(prescription.patient).morning,
       followUpNote: [prescription.clinic, prescription.doctor].filter(Boolean).join(' - ') || 'Tái khám theo hẹn của bác sĩ.',
     });
-    // Nhớ tổng số cữ của CẢ liệu trình (không phải số cữ vừa xuất): lần sau liệu trình
-    // ngắn đi thì mới biết những cữ nào cần huỷ.
-    await this.medical.saveIcsDoseCount(prescriptionId, built.groups.length);
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     // inline chứ không attachment: iOS Safari mở thẳng màn hình "Add All" của Lịch,
     // còn attachment thì tải vào Files rồi người dùng phải tự mở thêm một bước nữa.
     res.setHeader('Content-Disposition', `inline; filename="lich-uong-thuoc-${prescriptionId}.ics"`);
     return res.send(ics);
+  }
+
+  /**
+   * Cấp (hoặc đổi) liên kết đăng ký lịch cho một người thân.
+   *
+   * Đổi token là thu hồi liên kết cũ — mọi máy đang đăng ký sẽ ngừng cập nhật. Giao diện
+   * nói rõ chuyện này trước khi bấm.
+   */
+  @Post('/medical/patients/:id/lich-dang-ky')
+  async issueCalendarLink(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const patient = await this.scopedPatient(req, res, id);
+    if (!patient) return;
+    await this.medical.issueCalendarToken(patient.id);
+    return res.redirect(`/medical/patients/${patient.id}/lich-dang-ky`);
+  }
+
+  @Post('/medical/patients/:id/lich-dang-ky/thu-hoi')
+  async revokeCalendarLink(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const patient = await this.scopedPatient(req, res, id);
+    if (!patient) return;
+    await this.medical.revokeCalendarToken(patient.id);
+    return res.redirect(`/medical/patients/${patient.id}/lich-dang-ky`);
+  }
+
+  /** Trang hướng dẫn đăng ký lịch — nơi duy nhất hiện URL feed ra màn hình. */
+  @Get('/medical/patients/:id/lich-dang-ky')
+  async calendarLinkPage(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const patient = await this.scopedPatient(req, res, id);
+    if (!patient) return;
+    // Dựng URL tuyệt đối từ chính request: dán vào iPhone phải là địa chỉ đầy đủ, mà
+    // server không biết trước tên miền Render hay localhost.
+    const host = `${req.protocol}://${req.get('host')}`;
+    return render(res, 'medical/calendar-link', {
+      patient,
+      menuPatientId: patient.id.toString(),
+      menuPrescriptionId: patient.prescriptions[0]?.id.toString() || '',
+      feedUrl: patient.calendarToken ? `${host}/lich/${patient.calendarToken}.ics` : '',
+      // webcal:// làm iPhone mở thẳng màn hình đăng ký thay vì tải file về.
+      webcalUrl: patient.calendarToken
+        ? `webcal://${req.get('host')}/lich/${patient.calendarToken}.ics`
+        : '',
+    });
   }
 
   @Get('/medical/prescriptions/:id/image')
@@ -531,24 +556,6 @@ export class MedicalController {
     return prescription;
   }
 
-  /**
-   * Dựng lại các cữ mà đơn đã dừng TỪNG xuất ra iPhone, để file .ics đơn mới gửi kèm
-   * lệnh huỷ chúng. Cố ý dựng từ TOÀN BỘ thuốc (kể cả đã tắt) vì lúc xuất lần đầu
-   * chúng đều đang bật — huỷ theo danh sách đã tắt thì sẽ sót đúng những cữ cần huỷ.
-   */
-  private async cancelsFor(patientId: bigint, excludeId: bigint, doseTimes: DoseTimes) {
-    const stopped = await this.medical.stoppedSchedules(patientId, excludeId);
-    const today = todayInVietnam();
-    return stopped
-      .map((old) => {
-        const startDate = old.scheduleStart!.toISOString().slice(0, 10);
-        const items = old.items.map((item) => ({ ...item, enabled: true }));
-        const built = buildSchedule(toScheduleItems(items), startDate, safeStartSlot(old.scheduleSlot), doseTimes);
-        // Chỉ huỷ cữ từ hôm nay trở đi; cữ đã qua thì để nguyên làm lịch sử.
-        return { uidPrefix: `rx${old.id}`, groups: remainingFrom(built.groups, today, '00:00') };
-      })
-      .filter((entry) => entry.groups.length);
-  }
 
   private async runAnalysis(patientId: bigint, prescriptionId: bigint, user: CurrentUser) {
     const [prescription, patient, history] = await Promise.all([

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { randomBytes } from 'node:crypto';
 import { blankToNull } from '../common/controller-utils';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
@@ -172,11 +173,6 @@ export class MedicalService {
     if (updates.length) await this.prisma.$transaction(updates);
   }
 
-  /** Ghi lại số cữ vừa xuất ra .ics, để lần xuất sau biết phần nào dôi ra mà huỷ. */
-  saveIcsDoseCount(prescriptionId: bigint, count: number) {
-    return this.prisma.medPrescription.update({ where: { id: prescriptionId }, data: { icsDoseCount: count } });
-  }
-
   /** Giờ nhắc uống thuốc theo nếp nhà, lưu ở người thân nên mọi đơn dùng chung. */
   saveDoseTimes(patientId: bigint, times: DoseTimes) {
     return this.prisma.medPatient.update({
@@ -188,6 +184,26 @@ export class MedicalService {
         doseTimeBedtime: times.bedtime,
       },
     });
+  }
+
+  /**
+   * Cấp token feed lịch, hoặc sinh token MỚI để thu hồi liên kết cũ.
+   *
+   * Không có cách nào "huỷ" một URL đã lỡ chia sẻ ngoài việc đổi nó, nên nút thu hồi và
+   * nút cấp mới là cùng một thao tác. Đổi token thì mọi máy đang đăng ký đều chết theo —
+   * cố ý, và giao diện phải nói rõ điều đó.
+   */
+  async issueCalendarToken(patientId: bigint) {
+    // randomBytes chứ không phải Math.random: đây là thứ thay cho mật khẩu vào lịch thuốc
+    // của bé, đoán được là lộ hết.
+    const token = randomBytes(32).toString('hex');
+    await this.prisma.medPatient.update({ where: { id: patientId }, data: { calendarToken: token } });
+    return token;
+  }
+
+  /** Gỡ hẳn feed: URL cũ chết ngay, không có URL mới thay thế. */
+  revokeCalendarToken(patientId: bigint) {
+    return this.prisma.medPatient.update({ where: { id: patientId }, data: { calendarToken: null } });
   }
 
   /** Chốt lịch: ghi nhớ ngày bắt đầu + cữ đầu để máy khác lấy đúng phần còn lại. */
@@ -222,14 +238,6 @@ export class MedicalService {
     return this.prisma.medPrescription.findMany({
       where: { patientId, id: { not: excludeId }, scheduleStart: { not: null }, scheduleStopped: false },
       orderBy: [{ scheduleStart: 'desc' }],
-      include: { items: true },
-    });
-  }
-
-  /** Các đơn cũ đã bị dừng — cần gửi lệnh huỷ cữ của chúng kèm file .ics đơn mới. */
-  stoppedSchedules(patientId: bigint, excludeId: bigint) {
-    return this.prisma.medPrescription.findMany({
-      where: { patientId, id: { not: excludeId }, scheduleStart: { not: null }, scheduleStopped: true },
       include: { items: true },
     });
   }

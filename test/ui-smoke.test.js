@@ -307,6 +307,20 @@ test('viewport disables mobile zoom and log paths are normalized', async () => {
   assert.equal(normalizedPath('/external-register/456'), '/external-register/:id');
 });
 
+test('token feed lịch bị che trước khi ghi vào log', () => {
+  const { maskSecretPath } = require(path.join(root, 'dist/logs/log.service.js'));
+  const token = 'a'.repeat(64);
+
+  // Token là thứ thay cho mật khẩu vào lịch thuốc của bé. Điện thoại gọi feed vài chục lần
+  // mỗi ngày -> để lọt là token nằm vĩnh viễn trong bảng log và hiện ra ở trang xem log.
+  assert.equal(maskSecretPath(`/lich/${token}.ics`), '/lich/***.ics');
+  assert.ok(!maskSecretPath(`/lich/${token}.ics`).includes(token));
+
+  // Đường dẫn khác không được đụng tới, nếu không là mất thông tin gỡ lỗi.
+  assert.equal(maskSecretPath('/medical/patients/25'), '/medical/patients/25');
+  assert.equal(maskSecretPath('/medical/prescriptions/37/lich'), '/medical/prescriptions/37/lich');
+});
+
 test('score rules clamp and finish status are reusable outside scoreboard UI', () => {
   const context = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'public/js/score-rules.js'), 'utf8'), context);

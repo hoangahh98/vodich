@@ -18,7 +18,7 @@ export class LogService {
         category: 'HTTP',
         action: httpAction(req),
         method: req.method,
-        path: req.path,
+        path: maskSecretPath(req.path),
         queryString: req.url.includes('?') ? req.url.split('?').slice(1).join('?') : null,
         statusCode: status,
         durationMs,
@@ -32,6 +32,20 @@ export class LogService {
       },
     });
   }
+}
+
+/**
+ * Che token trong đường dẫn trước khi ghi log.
+ *
+ * URL feed lịch (/lich/<token>.ics) mang token bí mật thay cho đăng nhập — ai có URL là
+ * đọc được lịch thuốc của bé. Điện thoại gọi nó vài chục lần mỗi ngày, để nguyên thì token
+ * nằm vĩnh viễn trong bảng log và hiện ra ở trang xem log.
+ *
+ * Vẫn ghi lại dòng log (cần biết máy có thật sự kéo về không, và kéo lúc nào) — chỉ thay
+ * phần token bằng dấu sao.
+ */
+export function maskSecretPath(path: string): string {
+  return path.replace(/^\/lich\/[^/]+\.ics$/, '/lich/***.ics');
 }
 
 export function shouldSkipHttpLog(req: Request, statusCode: number) {

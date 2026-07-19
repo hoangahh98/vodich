@@ -14,6 +14,9 @@ import { KnightController } from './games/knight.controller';
 import { KnightService } from './games/knight.service';
 import { KnightAiService } from './games/knight-ai.service';
 import { MedicalController } from './medical/medical.controller';
+// Feed lịch đăng ký: CỐ Ý không có guard (app Lịch không mang cookie), xác thực bằng
+// token trong URL. Xem chú thích đầu calendar-feed.controller.ts.
+import { CalendarFeedController } from './medical/calendar-feed.controller';
 import { MedicalService } from './medical/medical.service';
 import { MedicalAiService } from './medical/medical-ai.service';
 import { CabinetService } from './medical/cabinet.service';
@@ -56,7 +59,7 @@ import { RateLimitService } from './common/rate-limit.service';
 import { FeatureGuard } from './common/feature.guard';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, MedicalController, HouseholdController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, MedicalController, CalendarFeedController, HouseholdController, AdminController],
   providers: [
     PrismaService,
     AuthService,

@@ -33,9 +33,11 @@
         <a class="<%= currentPath === '/medical/patients/' + menuPatientId ? 'active' : '' %>" href="/medical/patients/<%= menuPatientId %>">💊 Đơn thuốc</a>
       <% } %>
       <% if (typeof menuPrescriptionId !== 'undefined' && menuPrescriptionId) { %>
-        <a class="<%= currentPath.includes('/lich') ? 'active' : '' %>" href="/medical/prescriptions/<%= menuPrescriptionId %>/lich">📅 Lịch uống</a>
+        <%# endsWith chứ không phải includes: /lich-dang-ky cũng chứa chuỗi "/lich". %>
+        <a class="<%= currentPath.endsWith('/lich') ? 'active' : '' %>" href="/medical/prescriptions/<%= menuPrescriptionId %>/lich">📅 Lịch uống</a>
       <% } %>
       <% if (typeof menuPatientId !== 'undefined' && menuPatientId) { %>
+        <a class="<%= currentPath.endsWith('/lich-dang-ky') ? 'active' : '' %>" href="/medical/patients/<%= menuPatientId %>/lich-dang-ky">🔗 Đăng ký lịch</a>
         <a class="<%= currentPath.endsWith('/cau-hinh') ? 'active' : '' %>" href="/medical/patients/<%= menuPatientId %>/cau-hinh">⚙️ Cấu hình</a>
       <% } %>
     <% } else if (currentPath.startsWith('/household') && featureSet.has('HOUSEHOLD')) { %>

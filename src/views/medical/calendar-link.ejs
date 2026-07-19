@@ -1,0 +1,85 @@
+<%- include('../partials/head', { title: 'Đăng ký lịch - ' + patient.name }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>🔗 Đăng ký lịch nhắc</h1>
+        <div class="muted strong-muted"><%= patient.name %></div>
+      </div>
+      <div class="feature-hero-art">🔗</div>
+    </div>
+  </section>
+
+  <section class="card-lite p mb">
+    <p>
+      Đăng ký <strong>một lần duy nhất</strong>, sau đó điện thoại tự cập nhật. Sửa lịch hay dừng đơn
+      trên web thì máy tự theo — không phải nạp lại file, không phải xoá tay.
+    </p>
+    <p class="muted">
+      Khác hẳn nút <strong>📥 Nạp lịch nhắc</strong>: nút đó chép một lần rồi thôi, nạp lại là lịch
+      chồng lên nhau. Cách này thì lịch trên máy luôn soi gương theo web.
+    </p>
+  </section>
+
+  <% if (!feedUrl) { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">🔑</span><h2 class="section-title">Chưa có liên kết</h2></div></div>
+      <p class="muted">
+        Bấm nút dưới để tạo. Liên kết chứa một mã bí mật và <strong>không cần đăng nhập</strong> —
+        ai có nó là xem được lịch thuốc của <%= patient.name %>, nên đừng đăng lên chỗ công khai.
+      </p>
+      <form method="post" action="/medical/patients/<%= patient.id %>/lich-dang-ky">
+        <div class="text-right"><button class="btn btn-primary" data-loading-text="Đang tạo...">🔑 Tạo liên kết đăng ký</button></div>
+      </form>
+    </section>
+  <% } else { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">📲</span><h2 class="section-title">Đăng ký trên iPhone</h2></div></div>
+      <p>Bấm nút này ngay trên iPhone — Lịch sẽ hỏi đăng ký, bấm <strong>Đăng ký</strong>.</p>
+      <div class="text-right mb"><a class="btn btn-success" data-no-busy href="<%= webcalUrl %>">📲 Đăng ký vào Lịch</a></div>
+
+      <div class="alert-lite warn">
+        <strong>⚠️ Lúc đăng ký, KHÔNG bật "Xoá cảnh báo"</strong> — bật là mất sạch chuông báo giờ uống
+        thuốc, lịch vẫn hiện nhưng không kêu. Bật nhầm rồi thì vào Cài đặt → Ứng dụng → Lịch → Tài khoản,
+        mở lịch này ra tắt lại.
+      </div>
+    </section>
+
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">🖥️</span><h2 class="section-title">Hoặc dán vào máy khác</h2></div></div>
+      <p class="muted">Google Calendar: Cài đặt → Thêm lịch → Từ URL. Máy tính, Android hay app lịch nào cũng nhận địa chỉ này.</p>
+      <input type="text" readonly value="<%= feedUrl %>" onclick="this.select()" style="font-size:13px">
+    </section>
+
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">🔒</span><h2 class="section-title">Thu hồi</h2></div></div>
+      <p class="muted">
+        Lỡ chia sẻ nhầm thì đổi liên kết. <strong>Mọi máy đang đăng ký sẽ ngừng cập nhật</strong> và phải
+        đăng ký lại bằng địa chỉ mới — không có cách nào khác để vô hiệu một địa chỉ đã lộ.
+      </p>
+      <div class="flex gap">
+        <form method="post" action="/medical/patients/<%= patient.id %>/lich-dang-ky">
+          <button class="btn" data-loading-text="Đang đổi...">🔄 Đổi sang liên kết mới</button>
+        </form>
+        <form method="post" action="/medical/patients/<%= patient.id %>/lich-dang-ky/thu-hoi">
+          <button class="btn btn-danger" data-loading-text="Đang gỡ...">🗑️ Gỡ hẳn liên kết</button>
+        </form>
+      </div>
+    </section>
+  <% } %>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon">⏱️</span><h2 class="section-title">Cập nhật sau bao lâu?</h2></div></div>
+    <p class="muted">
+      iPhone tự quyết chu kỳ kéo lịch về, thường trong khoảng <strong>15 phút đến vài giờ</strong> — server
+      không ép được. Sửa lịch xong mà máy chưa thấy đổi thì chờ thêm, hoặc mở app Lịch kéo xuống cho nó
+      làm mới ngay.
+    </p>
+    <p class="muted">
+      Chỉ đơn <strong>đã chốt lịch và chưa bị dừng</strong> mới nằm trong này. Dừng đơn ở web là cữ của nó
+      biến mất khỏi máy ở lần cập nhật kế tiếp.
+    </p>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

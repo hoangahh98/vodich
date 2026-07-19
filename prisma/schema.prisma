@@ -313,6 +313,16 @@ model MedPatient {
 
   // Giờ nhắc uống thuốc theo nếp sinh hoạt từng nhà, đặt ở người thân để dùng chung
   // cho mọi đơn thuốc chứ không phải khai lại mỗi lần có đơn mới.
+  /**
+   * Token bí mật của feed lịch (/lich/<token>.ics). Feed phải gọi được KHÔNG qua đăng nhập
+   * vì app Lịch không mang theo cookie phiên, nên token này chính là thứ thay cho mật khẩu:
+   * ai có URL là đọc được lịch thuốc. Sinh bằng crypto.randomBytes(32) -> 64 ký tự hex.
+   *
+   * Nullable: hồ sơ cũ chưa có token, và người dùng chưa bấm "tạo liên kết" thì không nên
+   * có sẵn một URL công khai treo đó. Cấp khi cần, thu hồi bằng cách sinh token mới.
+   */
+  calendarToken String? @unique @map("calendar_token") @db.VarChar(64)
+
   doseTimeMorning String @default("07:00") @map("dose_time_morning") @db.VarChar(5)
   doseTimeNoon    String @default("12:00") @map("dose_time_noon") @db.VarChar(5)
   doseTimeEvening String @default("19:00") @map("dose_time_evening") @db.VarChar(5)
@@ -360,10 +370,14 @@ model MedPrescription {
   // sinh ra đúng phần liệu trình CÒN LẠI, không nạp lại những cữ đã uống xong.
   scheduleStart DateTime? @map("schedule_start") @db.Date
   scheduleSlot  String    @default("") @map("schedule_slot") @db.VarChar(10)
-  // Đơn đã bị dừng khi có đơn mới thay thế. Vẫn giữ scheduleStart để còn dựng lại đúng
-  // các cữ đã từng xuất ra, phục vụ việc gửi lệnh huỷ chúng trong file .ics của đơn mới.
+  // Đơn đã bị dừng khi có đơn mới thay thế. Vẫn giữ scheduleStart để hiển thị lịch sử.
   scheduleStopped Boolean @default(false) @map("schedule_stopped")
-  /** Tổng số cữ của lần xuất .ics gần nhất — để lần sau ít cữ hơn thì biết mà huỷ phần dôi. */
+  /**
+   * KHÔNG CÒN DÙNG. Trước đây đếm số cữ của lần xuất .ics gần nhất để lần sau biết phần
+   * dôi ra mà gửi lệnh huỷ — nhưng đã kiểm chứng là iPhone bỏ qua mọi lệnh huỷ, nên phần
+   * đó đã gỡ (xem chú thích đầu src/medical/ics.ts). Giữ lại cột vì xoá cột phải chạy
+   * migration trên DB thật mà chẳng được lợi gì; không code nào đọc hay ghi nó nữa.
+   */
   icsDoseCount Int @default(0) @map("ics_dose_count")
 
   patient MedPatient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
