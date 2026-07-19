@@ -70,6 +70,12 @@ export class CabinetService {
   async update(user: CurrentUser, id: bigint, body: Record<string, string>) {
     const item = await this.get(user, id);
     if (!item) return null;
+    // Sửa về 0 nghĩa là nhà hết thuốc đó -> bỏ hẳn khỏi tủ. Giữ lại dòng 0 chỉ tổ làm
+    // tủ dài ra bằng những thứ không còn tồn tại, mà đọc lướt lại tưởng là đang có.
+    if (toInt(body.quantity) <= 0) {
+      await this.prisma.medCabinetItem.delete({ where: { id } });
+      return item;
+    }
     const name = String(body.drugName || '').trim() || item.drugName;
     const expiryDate = toDate(body.expiryDate);
     return this.prisma.medCabinetItem.update({
@@ -136,6 +142,45 @@ export class CabinetService {
   }
 
   /**
+   * Sửa số lượng và bỏ nhiều thuốc trong MỘT lần bấm.
+   *
+   * Tủ hay phải dọn cả loạt sau mỗi đợt ốm (thứ hết, thứ vơi đi, thứ quá hạn phải bỏ).
+   * Bắt sửa từng dòng một là mấy chục lần bấm cho một việc.
+   *
+   * Chỉ đụng vào dòng của đúng admin này — lọc theo ownerAdminId chứ không tin id gửi lên.
+   * Số về 0 cũng bị bỏ khỏi tủ, giống hệt đường sửa tay từng dòng.
+   */
+  async bulkAdjust(user: CurrentUser, quantities: Record<string, number>, removeIds: string[]) {
+    const ownerAdminId = BigInt(user.id);
+    const owned = await this.prisma.medCabinetItem.findMany({
+      where: { ownerAdminId },
+      select: { id: true, quantity: true },
+    });
+    const byId = new Map(owned.map((item) => [item.id.toString(), item]));
+
+    const remove = new Set(removeIds.filter((id) => byId.has(id)));
+    for (const [id, quantity] of Object.entries(quantities)) {
+      if (!byId.has(id) || remove.has(id)) continue;
+      if (quantity <= 0) remove.add(id);
+    }
+
+    const updates = Object.entries(quantities)
+      .filter(([id, quantity]) => byId.has(id) && !remove.has(id) && quantity !== byId.get(id)!.quantity)
+      .map(([id, quantity]) =>
+        this.prisma.medCabinetItem.update({ where: { id: BigInt(id) }, data: { quantity } }),
+      );
+    if (remove.size) {
+      updates.push(
+        this.prisma.medCabinetItem.deleteMany({
+          where: { ownerAdminId, id: { in: [...remove].map((id) => BigInt(id)) } },
+        }) as never,
+      );
+    }
+    if (updates.length) await this.prisma.$transaction(updates);
+    return { updated: updates.length - (remove.size ? 1 : 0), removed: remove.size };
+  }
+
+  /**
    * Ghi nhận số thuốc đã mua cho một dòng đơn, rồi đặt lại tồn kho cho khớp thực tế.
    *
    *     tủ = max(0, tồn_lúc_khai + đã_mua − đơn_cần)
@@ -170,7 +215,10 @@ export class CabinetService {
     const after = Math.max(0, baseline + input.bought - input.needed);
 
     if (existing) {
-      await this.prisma.medCabinetItem.update({ where: { id: existing.id }, data: { quantity: after } });
+      // Tính ra 0 nghĩa là đơn này dùng hết sạch phần nhà đang có -> bỏ khỏi tủ luôn,
+      // không để lại dòng "còn 0 gói". Đổi ý mua nhiều hơn thì nhánh dưới tạo lại.
+      if (after <= 0) await this.prisma.medCabinetItem.delete({ where: { id: existing.id } });
+      else await this.prisma.medCabinetItem.update({ where: { id: existing.id }, data: { quantity: after } });
       return { baseline, after };
     }
     // Chưa có dòng nào mà tính ra vẫn còn dư thì mở dòng mới; ra 0 thì thôi, không tạo

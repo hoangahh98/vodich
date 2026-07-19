@@ -27,6 +27,10 @@
     <% if (!items.length) { %>
       <p class="muted">Tủ thuốc trống. Thuốc thừa sẽ tự được ghi vào đây khi bạn ngừng thuốc lúc đổi đơn, hoặc thêm tay ở dưới.</p>
     <% } %>
+    <%# Form RỖNG. Ô số lượng và ô tick bỏ ở từng dòng gắn vào đây bằng thuộc tính form=,
+        chứ không bọc cả danh sách: bên trong mỗi dòng đã có form sửa chi tiết riêng, mà
+        form lồng form là HTML không hợp lệ (trình duyệt tự vứt form bên trong). %>
+    <% if (items.length) { %><form id="cabinetBulk" method="post" action="/medical/tu-thuoc/hang-loat" data-med-items></form><% } %>
     <% items.forEach((item) => { %>
       <details class="med-row">
         <summary>
@@ -37,6 +41,12 @@
           <% } else if (item.aiExpiryRisk && riskInfo[item.aiExpiryRisk]) { %> <span class="badge <%= riskInfo[item.aiExpiryRisk].c %>"><%= riskInfo[item.aiExpiryRisk].t %></span>
           <% } else { %> <span class="badge bg-info text-dark">Chưa rõ hạn</span><% } %>
         </summary>
+
+        <div class="med-row-bulk">
+          <label>Còn <input form="cabinetBulk" type="number" name="qty_<%= item.id %>" value="<%= item.quantity %>" min="0" max="9999" class="med-num"> <%= item.unit %></label>
+          <%# Sửa về 0 = nhà hết thuốc đó -> tự bỏ khỏi tủ, khỏi phải tick thêm. %>
+          <label class="med-row-drop"><input form="cabinetBulk" type="checkbox" name="del_<%= item.id %>"> bỏ khỏi tủ</label>
+        </div>
 
         <div class="muted med-row-detail">
           <% if (item.purchasedAt) { %>Mua ngày <%= viDate(item.purchasedAt) %><% } else { %>Không rõ ngày mua<% } %>
@@ -60,6 +70,13 @@
         </form>
       </details>
     <% }) %>
+
+    <% if (items.length) { %>
+      <div class="text-right mt">
+        <button form="cabinetBulk" class="btn btn-primary" data-med-save disabled data-loading-text="Đang lưu...">💾 Lưu thay đổi</button>
+      </div>
+      <p class="muted">Sửa số lượng hoặc tick "bỏ khỏi tủ" ở bao nhiêu thuốc cũng được, rồi bấm lưu một lần. Sửa số về <strong>0</strong> cũng là bỏ khỏi tủ.</p>
+    <% } %>
 
     <% if (pending) { %>
       <form method="post" action="/medical/tu-thuoc/kiem-tra-han" class="mt">

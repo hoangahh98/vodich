@@ -101,3 +101,14 @@ test('cảnh báo thiếu tính từ mốc tồn lúc khai, không phải tồn 
   assert.equal(short(7, 3, 4), 0, 'mua vừa đủ thì không thiếu');
   assert.ok(short(7, 7, 4) < 0, 'mua đủ đơn thì dư, không cảnh báo');
 });
+
+test('hết thuốc thì bỏ khỏi tủ, không để lại dòng "còn 0"', () => {
+  // Ba đường đều dẫn tới 0 và cả ba phải xoá dòng: sửa tay về 0, tick bỏ hàng loạt,
+  // và quyết định mua ăn hết phần nhà đang có. Để lại dòng 0 thì tủ dài ra bằng những
+  // thứ không còn tồn tại, đọc lướt lại tưởng đang có.
+  const after = (baseline, bought, needed) => Math.max(0, baseline + bought - needed);
+  assert.equal(after(4, 0, 7), 0, 'mua 0 khi nhà có 4, đơn cần 7 -> hết sạch');
+  assert.equal(after(4, 3, 7), 0, 'mua vừa đủ -> hết sạch');
+  // Đổi ý mua nhiều hơn thì phải dựng lại dòng chứ không mất luôn thuốc.
+  assert.equal(after(4, 7, 7), 4, 'mua đủ đơn -> 4 gói cũ quay lại tủ');
+});

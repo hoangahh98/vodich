@@ -96,6 +96,27 @@ export class MedicalController {
     return res.redirect('/medical/tu-thuoc');
   }
 
+  /**
+   * Sửa số lượng + bỏ nhiều thuốc trong một lần bấm.
+   * Tủ hay phải dọn cả loạt sau mỗi đợt ốm; bắt làm từng dòng là mấy chục lần bấm.
+   */
+  @Post('/medical/tu-thuoc/hang-loat')
+  async cabinetBulk(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, unknown>) {
+    const quantities: Record<string, number> = {};
+    const removeIds: string[] = [];
+    for (const [key, raw] of Object.entries(body)) {
+      if (key.startsWith('qty_')) {
+        const value = Math.round(Number(raw));
+        if (Number.isFinite(value)) quantities[key.slice(4)] = Math.max(0, value);
+      } else if (key.startsWith('del_')) {
+        // Checkbox không tick thì trình duyệt không gửi field, nên có mặt = muốn bỏ.
+        removeIds.push(key.slice(4));
+      }
+    }
+    await this.cabinet.bulkAdjust(currentUser(req), quantities, removeIds);
+    return res.redirect('/medical/tu-thuoc');
+  }
+
   /** Nhờ AI ước lượng hạn cho những thuốc CHƯA điền hạn. */
   @Post('/medical/tu-thuoc/kiem-tra-han')
   async cabinetCheckExpiry(@Req() req: Request, @Res() res: Response) {
