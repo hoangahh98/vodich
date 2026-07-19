@@ -32,22 +32,28 @@
         form lồng form là HTML không hợp lệ (trình duyệt tự vứt form bên trong). %>
     <% if (items.length) { %><form id="cabinetBulk" method="post" action="/medical/tu-thuoc/hang-loat" data-med-items></form><% } %>
     <% items.forEach((item) => { %>
-      <details class="med-row">
-        <summary>
-          <strong><%= item.drugName %></strong>
-          <span class="badge"><%= item.quantity %> <%= item.unit %></span>
-          <% if (expired(item)) { %> <span class="badge bg-danger">🔴 Hết hạn</span>
-          <% } else if (item.expiryDate) { %> <span class="badge bg-success">HSD <%= viDate(item.expiryDate) %></span>
-          <% } else if (item.aiExpiryRisk && riskInfo[item.aiExpiryRisk]) { %> <span class="badge <%= riskInfo[item.aiExpiryRisk].c %>"><%= riskInfo[item.aiExpiryRisk].t %></span>
-          <% } else { %> <span class="badge bg-info text-dark">Chưa rõ hạn</span><% } %>
-        </summary>
-
-        <div class="med-row-bulk">
-          <label>Còn <input form="cabinetBulk" type="number" name="qty_<%= item.id %>" value="<%= item.quantity %>" min="0" max="9999" class="med-num"> <%= item.unit %></label>
-          <%# Sửa về 0 = nhà hết thuốc đó -> tự bỏ khỏi tủ, khỏi phải tick thêm. %>
-          <label class="med-row-drop"><input form="cabinetBulk" type="checkbox" name="del_<%= item.id %>"> bỏ khỏi tủ</label>
+      <div class="med-row">
+        <%# Ô số lượng và ô bỏ phải LUÔN HIỆN, không nhét vào thẻ bung ra: nằm trong
+            <details> thì mặc định đóng, muốn sửa 8 dòng là phải bung 8 lần — nhìn y hệt
+            sửa từng cái, đúng thứ đang muốn bỏ. Chỉ phần sửa chi tiết (tên, ngày, ghi
+            chú) mới giấu đi vì ít khi động tới. %>
+        <div class="med-row-line">
+          <div class="med-row-title">
+            <strong><%= item.drugName %></strong>
+            <% if (expired(item)) { %> <span class="badge bg-danger">🔴 Hết hạn</span>
+            <% } else if (item.expiryDate) { %> <span class="badge bg-success">HSD <%= viDate(item.expiryDate) %></span>
+            <% } else if (item.aiExpiryRisk && riskInfo[item.aiExpiryRisk]) { %> <span class="badge <%= riskInfo[item.aiExpiryRisk].c %>"><%= riskInfo[item.aiExpiryRisk].t %></span>
+            <% } else { %> <span class="badge bg-info text-dark">Chưa rõ hạn</span><% } %>
+          </div>
+          <div class="med-row-bulk">
+            <label>Còn <input form="cabinetBulk" type="number" name="qty_<%= item.id %>" value="<%= item.quantity %>" min="0" max="9999" class="med-num"> <%= item.unit %></label>
+            <%# Sửa về 0 = nhà hết thuốc đó -> tự bỏ khỏi tủ, khỏi phải tick thêm. %>
+            <label class="med-row-drop"><input form="cabinetBulk" type="checkbox" name="del_<%= item.id %>"> bỏ</label>
+          </div>
         </div>
 
+      <details>
+        <summary class="muted med-row-more">Sửa chi tiết (tên, hạn, ghi chú)</summary>
         <div class="muted med-row-detail">
           <% if (item.purchasedAt) { %>Mua ngày <%= viDate(item.purchasedAt) %><% } else { %>Không rõ ngày mua<% } %>
           <% if (item.note) { %><div><%= item.note %></div><% } %>
@@ -65,10 +71,8 @@
           <div class="medical-form-wide"><label>Ghi chú</label><input name="note" value="<%= item.note %>"></div>
           <div class="medical-form-actions"><button class="btn btn-primary" data-loading-text="Đang lưu...">💾 Lưu</button></div>
         </form>
-        <form method="post" action="/medical/tu-thuoc/<%= item.id %>/delete" data-confirm="Bỏ thuốc này khỏi tủ?" class="mt">
-          <button class="btn btn-danger btn-sm">Bỏ khỏi tủ</button>
-        </form>
       </details>
+      </div>
     <% }) %>
 
     <% if (items.length) { %>
