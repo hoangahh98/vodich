@@ -107,14 +107,16 @@ export function buildIcs(groups: DoseGroup[], options: IcsOptions): string {
     const label = ['Đơn thuốc', options.patientName, options.prescriptionLabel].filter(Boolean).join(' ');
     const title = `${antibiotic ? '💊❗' : '💊'} ${label}${antibiotic ? ' (có kháng sinh)' : ''}`;
     // Nhãn nguồn đặt ngay ĐẦU dòng để nhìn phát thấy, không phải đọc hết dòng mới biết.
-    // Dùng chữ không dấu trong ngoặc vuông thay vì emoji: dòng mô tả trong app Lịch hay bị
-    // cắt ngắn, chữ còn đọc được chứ emoji bị cắt thì thành vô nghĩa.
+    // Có dấu tiếng Việt bình thường: phần mô tả vốn đã đầy chữ có dấu ("Uống", "trước ăn")
+    // và app Lịch hiển thị tốt. Chỉ tránh EMOJI ở đây — dòng mô tả hay bị cắt ngắn, chữ bị
+    // cắt thì vẫn đoán được, emoji bị cắt thì thành ô vuông vô nghĩa.
     const sources = options.drugSources;
     const body = group.lines
       .map((line) => {
         if (!sources || !sources.size) return describeLine(line);
-        if (!sources.has(line.itemId)) return `[MOI] ${describeLine(line)}`;
-        return `[DON ${sources.get(line.itemId) || 'CU'}] ${describeLine(line)}`;
+        if (!sources.has(line.itemId)) return `[Đơn mới] ${describeLine(line)}`;
+        const from = sources.get(line.itemId);
+        return `[${from ? `Đơn ${from}` : 'Đơn cũ'}] ${describeLine(line)}`;
       })
       .join('\n');
     lines.push(

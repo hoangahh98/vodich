@@ -151,11 +151,9 @@ export class MedicalController {
       // Chỉ chủ hồ sơ mới được cấp/thu quyền, người được cấp thì không.
       isOwner: patient.ownerAdminId?.toString() === currentUser(req).id.toString(),
       availableAdmins: await this.medical.availableAdmins(patient.id, patient.ownerAdminId),
-      // Đơn mới nhất có thuốc nào nhà đang còn sẵn không — để khỏi mua trùng.
-      cabinetMatches: await this.cabinet.matchFor(
-        currentUser(req),
-        (patient.prescriptions[0]?.items || []).map((item) => item.drugName),
-      ),
+      // CỐ Ý không đối chiếu tủ thuốc ở đây. Tồn kho nằm ngay dưới TỪNG DÒNG THUỐC trong
+      // trang chi tiết đơn — đó mới là chỗ đang soát thuốc và đủ ngữ cảnh để nói "cần mua
+      // thêm bao nhiêu". Nhắc lại ở đầu trang này chỉ là nhiễu.
       aiConfigured: this.ai.isConfigured(),
       aiError: String(err || ''),
     });
