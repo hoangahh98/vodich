@@ -108,6 +108,19 @@
     </section>
   <% } %>
 
+  <% if (otherRunningCount) { %>
+    <div class="alert-lite warn mb">
+      <strong>⚠️ Còn <%= otherRunningCount %> đơn khác đang uống dở</strong>
+      <div class="mt">
+        Chọn thuốc nào của đơn cũ còn uống tiếp trước khi lên lịch, nếu không sẽ có hai lịch chạy
+        song song và <strong>dễ cho uống nhầm gấp đôi</strong>.
+      </div>
+      <div class="text-right mt">
+        <a class="btn btn-primary" href="/medical/prescriptions/<%= rx.id %>/chuyen-don">🔀 Chọn thuốc uống tiếp</a>
+      </div>
+    </div>
+  <% } %>
+
   <section class="card-lite p mb">
     <div class="text-right">
       <a class="btn btn-success" href="/medical/prescriptions/<%= rx.id %>/lich">📅 Lịch uống của đơn này</a>

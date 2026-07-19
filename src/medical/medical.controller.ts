@@ -495,8 +495,13 @@ export class MedicalController {
     const prescription = await this.scopedPrescription(req, res, id);
     if (!prescription) return;
     const carriedIds = prescription.items.map((item) => item.carriedFromId).filter((v): v is bigint => Boolean(v));
+    // Còn đơn khác đang chạy thì phải mở được màn hình "thuốc nào uống tiếp". Trước đây
+    // màn hình đó chỉ tới được bằng cú chuyển hướng ngay sau khi upload ảnh đơn: lỡ bỏ
+    // qua một lần là không có đường quay lại, mà đó đúng là lúc dễ bỏ qua nhất.
+    const otherRunning = await this.medical.otherScheduled(prescription.patientId, prescription.id);
     return render(res, 'medical/prescription', {
       prescription,
+      otherRunningCount: otherRunning.length,
       patient: prescription.patient,
       menuPatientId: prescription.patientId.toString(),
       menuPrescriptionId: prescription.id.toString(),

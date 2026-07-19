@@ -94,8 +94,14 @@
           </li>
         <% }) %>
       </ul>
-      Nạp thêm lịch này thì trong Lịch iPhone sẽ có <strong>hai sự kiện chồng nhau cùng giờ</strong>. Tên sự kiện có ghi ngày đơn để phân biệt,
-      nhưng nếu bác sĩ đã thay thuốc thì nên vào đơn cũ bỏ tick hết thuốc rồi lưu lại, và xoá loạt sự kiện cũ trong Lịch trước khi nạp lịch mới.
+      Nạp thêm lịch này thì trong Lịch iPhone sẽ có <strong>hai sự kiện chồng nhau cùng giờ</strong>, dễ cho uống nhầm gấp đôi.
+      <div class="mt">
+        Bấm nút dưới để chọn <strong>thuốc nào của đơn cũ còn uống tiếp</strong>: thuốc được giữ sẽ chuyển sang đơn này
+        (đã trừ phần đã uống), thuốc bỏ thì đơn cũ ngừng hẳn — sau đó chỉ còn <strong>một</strong> lịch phải nạp.
+      </div>
+      <div class="text-right mt">
+        <a class="btn btn-primary" href="/medical/prescriptions/<%= prescription.id %>/chuyen-don">🔀 Chọn thuốc uống tiếp</a>
+      </div>
     </div>
   <% } %>
 
