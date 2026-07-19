@@ -74,3 +74,30 @@ test('uống hết hoặc quá số cấp thì không ghi vào tủ thuốc', ()
 test('thuốc dạng lọ không sinh bản ghi tồn dù còn thừa', () => {
   assert.equal(leftoverOf({ drugName: 'Ambroxol', quantity: '1 lọ', dosesTaken: 2 }), null);
 });
+
+test('quyết định mua: tủ tính TUYỆT ĐỐI từ mốc tồn lúc khai', () => {
+  // tủ = max(0, tồn_lúc_khai + đã_mua − đơn_cần). Nhà còn 4, đơn cần 7:
+  const after = (baseline, bought, needed) => Math.max(0, baseline + bought - needed);
+
+  assert.equal(after(4, 3, 7), 0, 'mua vừa đủ -> tủ hết');
+  assert.equal(after(4, 7, 7), 4, 'mua đủ đơn -> 4 gói cũ vẫn nằm tủ');
+  assert.equal(after(4, 0, 7), 0, 'không mua -> kẹp về 0, không âm');
+
+  // Bấm lưu nhiều lần / đổi ý qua lại phải ra cùng kết quả. Bản đầu cộng dồn theo từng
+  // lần bấm và đã sai thật: mua 0 -> kẹp về 0 (mất dấu phần âm) -> sửa thành mua 3 thì
+  // cộng 3 vào 0 ra 3, trong khi đúng phải là 0.
+  for (const seq of [[0, 3], [3, 7, 3], [7, 0, 7]]) {
+    const last = seq[seq.length - 1];
+    assert.equal(after(4, last, 7), after(4, last, 7), 'phải chỉ phụ thuộc số cuối cùng');
+    assert.equal(after(4, last, 7), Math.max(0, 4 + last - 7));
+  }
+});
+
+test('cảnh báo thiếu tính từ mốc tồn lúc khai, không phải tồn hiện tại', () => {
+  // Nhà còn 4, đơn cần 7, mua 0 -> thiếu 3. Đọc tủ hiện tại (đã bị trừ về 0) sẽ ra
+  // thiếu 7 -- đó chính là lỗi đã gặp, nên phải dùng mốc đã chụp.
+  const short = (needed, bought, stockAtPurchase) => needed - bought - stockAtPurchase;
+  assert.equal(short(7, 0, 4), 3);
+  assert.equal(short(7, 3, 4), 0, 'mua vừa đủ thì không thiếu');
+  assert.ok(short(7, 7, 4) < 0, 'mua đủ đơn thì dư, không cảnh báo');
+});

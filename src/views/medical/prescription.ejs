@@ -26,6 +26,15 @@
     Không đủ cơ sở thì trả null và màn hình im lặng — thà không nói còn hơn nói sai số
     thuốc phải mua cho trẻ con.
   */
+  // Chỉ hỏi mua với thuốc ĐẾM ĐƯỢC và đơn có ghi số lượng. "1 lọ" thì hỏi mua mấy lọ
+  // cũng chẳng dùng được vào đâu: tủ thuốc cố ý không theo dõi chai/lọ (mở nắp rồi thì
+  // đếm tồn vô nghĩa) nên có nhập cũng không chỉnh được gì.
+  const UNIT_RE = /(gói|goi|viên|vien|ống|ong|nhát|nhat)/i;
+  const unitOf = (item) => {
+    const m = String(item.quantity || '').match(UNIT_RE);
+    return m ? m[1].toLowerCase() : '';
+  };
+  const buyable = (item) => Boolean(item.quantityCount) && Boolean(unitOf(item));
   const buyHint = (item) => {
     const stock = stockByItem.get(String(item.id));
     if (!stock) return null;
@@ -107,12 +116,39 @@
                   🧰 Nhà còn <strong><%= hint.stock.quantity %> <%= hint.stock.unit %></strong> thừa từ đợt trước.
                 <% } else if (hint.buy > 0) { %>
                   🧰 Nhà còn <strong><%= hint.stock.quantity %> <%= hint.stock.unit %></strong> · đơn cần <strong><%= hint.need %></strong>
-                  → chỉ cần mua thêm <strong class="med-buy"><%= hint.buy %> <%= hint.stock.unit %></strong>
+                  → gợi ý mua thêm <strong class="med-buy"><%= hint.buy %> <%= hint.stock.unit %></strong>
                 <% } else { %>
                   🧰 Nhà còn <strong><%= hint.stock.quantity %> <%= hint.stock.unit %></strong> · đơn cần <strong><%= hint.need %></strong>
-                  → <strong class="med-buy">khỏi mua, nhà đủ rồi</strong>
+                  → <strong class="med-buy">nhà đủ rồi, khỏi mua</strong>
                 <% } %>
               </div>
+            <% } %>
+            <%# Quyết định mua là của NGƯỜI DÙNG, gợi ý ở trên chỉ là gợi ý: nhà còn 7 đơn
+                cần 10 thì có người mua 3 cho vừa đủ, có người mua đủ 10 để còn dư phòng
+                tái phát. Hai lựa chọn ra hai số tồn kho khác hẳn nên phải hỏi, không đoán. %>
+            <% if (buyable(item)) { %>
+              <div class="med-row-buy">
+                <label>
+                  Thực tế mua
+                  <input type="number" name="buy_<%= item.id %>" min="0" max="999" class="med-num"
+                         value="<%= item.purchasedCount === null ? '' : item.purchasedCount %>"
+                         placeholder="<%= hint && hint.buy ? hint.buy : (item.quantityCount || '') %>">
+                  <%= unitOf(item) %>
+                </label>
+                <% if (hint && hint.buy > 0) { %>
+                  <button type="button" class="btn btn-sm" data-fill-buy="buy_<%= item.id %>" data-fill-value="<%= hint.buy %>">mua thêm <%= hint.buy %></button>
+                <% } %>
+                <button type="button" class="btn btn-sm" data-fill-buy="buy_<%= item.id %>" data-fill-value="<%= item.quantityCount %>">mua đủ <%= item.quantityCount %></button>
+                <% if (item.purchasedCount !== null) { %>
+                  <span class="muted">đã ghi: <strong><%= item.purchasedCount %></strong></span>
+                <% } %>
+              </div>
+              <%# Thiếu = đơn cần − đã mua − tồn LÚC KHAI. Cố ý không đọc tồn hiện tại:
+                  ngay sau khi khai, tủ đã bị trừ phần đơn này dùng nên đọc lại là ra sai. %>
+              <% const short = (item.quantityCount || 0) - (item.purchasedCount || 0) - (item.stockAtPurchase || 0); %>
+              <% if (item.purchasedCount !== null && short > 0) { %>
+                <div class="med-row-short">⚠️ Thiếu <strong><%= short %> <%= unitOf(item) %></strong> so với đơn — mua thêm hoặc hỏi lại bác sĩ.</div>
+              <% } %>
             <% } %>
           </div>
           <div class="med-row-nums">

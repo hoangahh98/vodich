@@ -136,6 +136,60 @@ export class CabinetService {
   }
 
   /**
+   * Ghi nhận số thuốc đã mua cho một dòng đơn, rồi đặt lại tồn kho cho khớp thực tế.
+   *
+   *     tủ = max(0, tồn_lúc_khai + đã_mua − đơn_cần)
+   *
+   * Ví dụ nhà còn 7, đơn cần 10:
+   *     mua 3  -> 7 + 3 − 10 = 0   (vừa đủ, tủ hết)
+   *     mua 10 -> 7 + 10 − 10 = 7  (mua đủ đơn, 7 gói cũ vẫn nằm tủ)
+   *     mua 0  -> 7 + 0 − 10 = −3  -> kẹp về 0, thiếu 3 (màn hình cảnh báo riêng)
+   *
+   * TÍNH TUYỆT ĐỐI từ `baseline`, KHÔNG cộng trừ dồn theo từng lần bấm. Bản trước cộng
+   * dồn và đã sai thật: mua 0 -> tủ kẹp về 0 (mất dấu phần âm), sửa lại thành mua 3 thì
+   * cộng 3 vào 0 ra 3, trong khi đúng phải là 0. Cứ tính lại từ mốc gốc thì bấm lưu bao
+   * nhiêu lần cũng ra một kết quả.
+   *
+   * Trả `baseline` để chỗ gọi lưu làm mốc cố định (xem stockAtPurchase trong schema).
+   */
+  async recordPurchase(
+    user: CurrentUser,
+    input: { drugName: string; unit: string; bought: number; needed: number; baseline: number | null },
+  ): Promise<{ baseline: number; after: number }> {
+    const key = matchKey(input.drugName);
+    if (!key) return { baseline: 0, after: 0 };
+    const ownerAdminId = BigInt(user.id);
+    const existing = await this.prisma.medCabinetItem.findFirst({
+      where: { ownerAdminId, matchKey: key },
+      orderBy: { id: 'asc' },
+    });
+
+    // Lần đầu thì mốc là tồn đang có; những lần sau dùng lại đúng mốc đã chốt, vì tủ lúc
+    // này đã bị trừ phần đơn dùng nên đọc lại là ra số khác.
+    const baseline = input.baseline ?? existing?.quantity ?? 0;
+    const after = Math.max(0, baseline + input.bought - input.needed);
+
+    if (existing) {
+      await this.prisma.medCabinetItem.update({ where: { id: existing.id }, data: { quantity: after } });
+      return { baseline, after };
+    }
+    // Chưa có dòng nào mà tính ra vẫn còn dư thì mở dòng mới; ra 0 thì thôi, không tạo
+    // bản ghi rỗng làm rác tủ.
+    if (after > 0) {
+      await this.prisma.medCabinetItem.create({
+        data: {
+          ownerAdminId,
+          drugName: input.drugName.slice(0, 255),
+          matchKey: key,
+          unit: input.unit,
+          quantity: after,
+        },
+      });
+    }
+    return { baseline, after };
+  }
+
+  /**
    * Khoá của những thuốc đang bị một đơn CHƯA DỪNG chiếm chỗ (đã chốt lịch, thuốc còn bật).
    * Chỉ soi hồ sơ mà admin này có quyền — cùng bộ lọc với phần còn lại của module y tế.
    */

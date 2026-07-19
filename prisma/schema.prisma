@@ -419,6 +419,31 @@ model MedPrescriptionItem {
    * mới. Chỉ là con trỏ mềm, tra không thấy thì hiện "đơn cũ" chung chung.
    */
   carriedFromId BigInt? @map("carried_from_id")
+
+  /**
+   * Số lượng NGƯỜI DÙNG THẬT SỰ MUA cho thuốc này. NULL = chưa quyết định.
+   *
+   * Không suy ra được: đơn cần 10, nhà còn 7 thì có người mua 3 cho vừa đủ, có người mua
+   * đủ 10 để nhà còn dư phòng khi tái phát. Hai lựa chọn ra hai số tồn kho khác hẳn nhau
+   * nên bắt buộc phải hỏi.
+   *
+   * Dùng để chỉnh tủ thuốc theo công thức: tủ = tủ_cũ + đã_mua − đơn_cần (kẹp ≥ 0).
+   * Lưu lại chứ không chỉ tính rồi bỏ, vì còn phải biết lần sửa sau chênh bao nhiêu mà
+   * cộng trừ cho đúng — không thì sửa số hai lần là tủ sai gấp đôi.
+   */
+  purchasedCount Int? @map("purchased_count")
+
+  /**
+   * Số thuốc nhà ĐANG CÓ tại đúng lúc khai quyết định mua. NULL = chưa khai.
+   *
+   * Phải chụp lại vì ngay sau khi khai, tủ bị trừ phần đơn này dùng nên con số đó không
+   * còn dựng lại được. Không có nó thì cảnh báo thiếu tính sai: nhà còn 4, đơn cần 7, mua
+   * 0 -> phải báo thiếu 3, nhưng đọc tủ (đã về 0) sẽ ra thiếu 7.
+   *
+   * Thiếu = đơn_cần − đã_mua − tồn_lúc_khai. Ba số đều cố định nên cảnh báo đúng mãi mãi,
+   * không phụ thuộc tủ về sau bị sửa gì.
+   */
+  stockAtPurchase Int? @map("stock_at_purchase")
   // UONG | NHO_MUI | KHI_DUNG | XIT | BOI | KHAC
   route       String  @default("") @db.VarChar(20)
   // SAU_AN | TRUOC_AN | TRUOC_NGU | rỗng

@@ -63,3 +63,20 @@
     reader.readAsDataURL(file);
   });
 })();
+
+/**
+ * Nút điền nhanh số lượng mua ("mua thêm 3" / "mua đủ 10").
+ * Phải bắn sự kiện input thủ công: gán .value bằng script KHÔNG tự sinh sự kiện, mà nút
+ * "Lưu thay đổi" chỉ sáng khi nghe được input -> không bắn thì bấm xong không lưu được.
+ */
+(() => {
+  document.querySelectorAll('[data-fill-buy]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const field = document.getElementsByName(button.dataset.fillBuy)[0];
+      if (!field) return;
+      field.value = button.dataset.fillValue;
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+      field.focus();
+    });
+  });
+})();

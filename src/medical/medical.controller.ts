@@ -264,8 +264,33 @@ export class MedicalController {
     const prescription = await this.scopedPrescription(req, res, id);
     if (!prescription) return;
     await this.medical.saveItemDecisions(prescription.id, parseDecisions(body, prescription.items));
-    // Lưu xong ở lại trang đơn thuốc; muốn lên lịch thì vào "📅 Lịch uống" ở menu.
-    return res.redirect(`/medical/patients/${prescription.patientId}`);
+    // Quyết định mua: chỉnh tủ thuốc cho khớp thực tế. Làm SAU saveItemDecisions và chỉ
+    // cho những dòng người dùng thật sự điền — bỏ trống nghĩa là chưa quyết, không phải
+    // mua 0 (mua 0 là một quyết định khác hẳn: dùng hết hàng nhà, có thể thiếu).
+    for (const item of prescription.items) {
+      const raw = body[`buy_${item.id}`];
+      if (raw === undefined || String(raw).trim() === '') continue;
+      const bought = Math.round(Number(raw));
+      if (!Number.isFinite(bought) || bought < 0) continue;
+      if (bought === item.purchasedCount) continue;
+      const needed = item.quantityCount || 0;
+      if (!needed) continue;
+      const parsed = parseCountable(item.quantity);
+      if (!parsed) continue;
+      const { baseline } = await this.cabinet.recordPurchase(currentUser(req), {
+        drugName: item.drugName,
+        unit: parsed.unit,
+        bought,
+        needed,
+        // Mốc tồn kho chỉ chụp LẦN ĐẦU rồi giữ nguyên: sửa lại số mua sau đó thì tủ đã bị
+        // trừ phần đơn dùng, đọc lại sẽ ra số khác và tính ra kết quả sai.
+        baseline: item.stockAtPurchase,
+      });
+      await this.medical.savePurchasedCount(item.id, bought, baseline);
+    }
+    // Lưu xong ở lại chính đơn vừa sửa: trước đây nhảy về trang người thân nên không
+    // thấy được kết quả (tồn kho mới, cảnh báo thiếu) của thứ vừa bấm.
+    return res.redirect(`/medical/prescriptions/${prescription.id}`);
   }
 
   /**

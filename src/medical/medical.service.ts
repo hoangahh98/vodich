@@ -172,6 +172,14 @@ export class MedicalService {
     if (updates.length) await this.prisma.$transaction(updates);
   }
 
+  /** Ghi nhớ số đã mua + mốc tồn kho lúc khai, để tính chênh và cảnh báo thiếu cho đúng. */
+  savePurchasedCount(itemId: bigint, count: number, stockAtPurchase: number) {
+    return this.prisma.medPrescriptionItem.update({
+      where: { id: itemId },
+      data: { purchasedCount: count, stockAtPurchase },
+    });
+  }
+
   /** Giờ nhắc uống thuốc theo nếp nhà, lưu ở người thân nên mọi đơn dùng chung. */
   saveDoseTimes(patientId: bigint, times: DoseTimes) {
     return this.prisma.medPatient.update({

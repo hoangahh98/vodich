@@ -770,6 +770,11 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
    thuốc đó, không phải nhớ băng-rôn đầu trang rồi cuộn xuống đối chiếu. */
 .med-row-stock { margin-top: 4px; padding: 6px 8px; border-left: 3px solid var(--line); background: rgba(0,0,0,.03); border-radius: 4px; }
 .med-buy { color: #0a7; }
+/* Ô khai số thuốc thực tế mua, nằm ngay dưới phần gợi ý của chính dòng thuốc đó. */
+.med-row-buy { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 6px 0 0 32px; font-size: 14px; }
+.med-row-buy label { display: flex; align-items: center; gap: 6px; margin: 0; }
+.med-row-buy .btn { padding: 4px 10px; font-size: 13px; }
+.med-row-short { margin: 4px 0 0 32px; font-size: 14px; color: #c00; }
 /* Một dòng trong lịch sử đơn thuốc: cả dòng là link sang trang chi tiết đơn đó. */
 .med-rx-row { display: block; text-decoration: none; color: inherit; border-top: 1px solid var(--line); padding: 14px 0; }
 .med-rx-row:first-of-type { border-top: 0; }
