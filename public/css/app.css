@@ -790,6 +790,10 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .med-step.done::before { background: #157347; }
 .med-step.current { color: #0b5ed7; }
 .med-step.current .med-step-dot { background: #0b5ed7; color: #fff; box-shadow: 0 0 0 3px #cfe2ff; }
+
+/* Nhóm thuốc bị kê trùng ở trang soát thuốc: tiêu đề + viền đỏ để nhìn ra ngay mà bỏ bớt. */
+.med-dup-head { margin: 14px 0 0; padding: 7px 10px; border-radius: 6px 6px 0 0; background: #fdecec; color: #8a1f1f; font-weight: 800; font-size: 13.5px; border: 1px solid #f1aeae; border-bottom: 0; }
+.med-row-dup { box-shadow: inset 3px 0 0 #c00; padding-left: 8px; background: rgba(204,0,0,.035); }
 /* Hàng chỉnh nhanh trong tủ thuốc: sửa số lượng nhiều dòng, gộp lưu một lần.
    Luôn hiện trên cùng một dòng với tên thuốc — giấu vào thẻ bung ra là quay lại
    cảnh phải mở từng dòng mới sửa được. */

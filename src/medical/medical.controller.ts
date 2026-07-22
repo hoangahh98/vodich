@@ -606,34 +606,60 @@ export class MedicalController {
         }
       }
     }
-    // Cảnh báo TRÙNG gắn vào từng dòng thuốc CỦA ĐƠN NÀY (thuốc mới) — đây mới là chỗ soát
-    // thuốc, không phải trang chọn thuốc đơn cũ. Hai nguồn trùng, đều dẫn tới uống gấp đôi:
-    //   (a) trùng với dòng khác NGAY trong đơn này (hay gặp: vừa kê mới vừa chuyển từ đơn cũ);
-    //   (b) trùng với thuốc ở đơn KHÁC đang uống dở (chưa gộp lịch).
-    // So bằng drugNamesCollide (tách từ, chấp nhận chữ thừa như "nhỏ mũi ... ngũ sắc").
-    const runningOthers = await this.medical.otherScheduled(prescription.patientId, prescription.id);
+    // GOM NHÓM thuốc trùng NGAY trong đơn này (hay gặp: một thuốc vừa được bác sĩ kê mới,
+    // vừa được chuyển từ đơn cũ sang -> hai dòng cùng thuốc, uống gấp đôi). Các dòng cùng
+    // nhóm sẽ được xếp cạnh nhau ở giao diện cho dễ soát & bỏ bớt. So bằng drugNamesCollide.
     const enabledItems = prescription.items.filter((item) => item.enabled);
+    const clusterOf: Record<string, number> = {};
+    let groupNo = 0;
+    for (const item of enabledItems) {
+      const key = item.id.toString();
+      if (clusterOf[key]) continue;
+      const mates = enabledItems.filter(
+        (o) => o.id !== item.id && !clusterOf[o.id.toString()] && drugNamesCollide(o.drugName, item.drugName),
+      );
+      if (!mates.length) continue;
+      clusterOf[key] = ++groupNo;
+      for (const mate of mates) clusterOf[mate.id.toString()] = groupNo;
+    }
+    // Ghi chú trùng cho từng thuốc: (a) cùng nhóm trong đơn này, hoặc (b) đã có ở một đơn
+    // gần đây khác — KỂ CẢ đơn đã dừng và dòng đã bỏ tick, vì người dùng vẫn cần biết "đã
+    // kê thuốc này rồi". (Đây là lý do dùng historyForPatient chứ không chỉ đơn đang chạy:
+    // ca thật "Zensomid" bị sót vì bản cũ "Zensonid" nằm ở đơn đã dừng.)
+    const recentOthers = await this.medical.historyForPatient(prescription.patientId, prescription.id);
     const dupNote: Record<string, string> = {};
     for (const item of enabledItems) {
-      const twin = enabledItems.find((o) => o.id !== item.id && drugNamesCollide(o.drugName, item.drugName));
-      if (twin) {
-        dupNote[item.id.toString()] = `Trùng với "${twin.drugName}" ngay trong đơn này — lịch sẽ nhắc gấp đôi liều. Bỏ tick một trong hai dòng rồi lưu.`;
+      if (clusterOf[item.id.toString()]) {
+        dupNote[item.id.toString()] = 'Trùng với thuốc khác trong đơn này (đã gom cùng nhóm) — chỉ giữ MỘT dòng, bỏ tick (các) dòng còn lại rồi lưu.';
         continue;
       }
-      for (const other of runningOthers) {
-        const hit = other.items.find((o) => o.enabled && drugNamesCollide(o.drugName, item.drugName));
+      for (const other of recentOthers) {
+        const hit = other.items.find((o) => drugNamesCollide(o.drugName, item.drugName));
         if (!hit) continue;
         const day = other.prescribedDate
           ? other.prescribedDate.toISOString().slice(0, 10).split('-').reverse().slice(0, 2).join('/')
-          : 'cũ';
-        dupNote[item.id.toString()] = `Trùng với "${hit.drugName}" ở đơn ${day} đang uống dở — dễ uống gấp đôi. Dùng "Chọn thuốc uống tiếp" để gộp về một lịch.`;
+          : 'trước';
+        const running = Boolean(other.scheduleStart && !other.scheduleStopped);
+        dupNote[item.id.toString()] = running
+          ? `Trùng với "${hit.drugName}" ở đơn ${day} đang uống dở — dễ uống gấp đôi. Dùng "Chọn thuốc uống tiếp" để gộp về một lịch.`
+          : `Bệnh nhân đã được kê "${hit.drugName}" ở đơn ${day}. Nếu đúng là cùng thuốc thì cân nhắc khỏi kê/mua lại.`;
         break;
       }
     }
+    // Xếp lại thứ tự HIỂN THỊ: các dòng trùng cùng nhóm đứng liền nhau và lên đầu cho dễ bỏ,
+    // phần còn lại giữ nguyên thứ tự id. Form gửi theo id nên đổi thứ tự hiển thị vô hại.
+    const orderedItems = [
+      ...prescription.items
+        .filter((i) => clusterOf[i.id.toString()])
+        .sort((a, b) => clusterOf[a.id.toString()] - clusterOf[b.id.toString()] || Number(a.id - b.id)),
+      ...prescription.items.filter((i) => !clusterOf[i.id.toString()]),
+    ];
     return render(res, 'medical/prescription', {
       prescription,
       otherRunningCount: otherRunning.length,
       dupNote,
+      clusterOf,
+      orderedItems,
       patient: prescription.patient,
       menuPatientId: prescription.patientId.toString(),
       menuPrescriptionId: prescription.id.toString(),

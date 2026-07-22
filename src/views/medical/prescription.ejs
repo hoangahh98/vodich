@@ -91,9 +91,16 @@
         /* Cố ý KHÔNG dùng <table>: 6 cột làm ô "Số ngày" rơi ra ngoài màn hình điện thoại,
            phải kéo ngang mới thấy — trong khi đó lại đúng là ô người dùng cần soát nhất. */
       %>
-      <% rx.items.forEach((item) => { %>
-        <% const source = sourceOf(item); %>
-        <div class="med-row <%= item.enabled ? '' : 'med-item-off' %>">
+      <%# Lặp theo orderedItems: các dòng TRÙNG cùng nhóm đã được xếp liền nhau và lên đầu để
+          dễ soát/bỏ bớt. Trước mỗi nhóm in một tiêu đề. %>
+      <% let lastGroup = 0; %>
+      <% orderedItems.forEach((item) => { %>
+        <% const source = sourceOf(item); const g = clusterOf[item.id.toString()] || 0; %>
+        <% if (g && g !== lastGroup) { %>
+          <div class="med-dup-head">🔴 Trùng nhau — chỉ giữ MỘT dòng, bỏ tick (các) dòng còn lại</div>
+        <% } %>
+        <% lastGroup = g; %>
+        <div class="med-row <%= item.enabled ? '' : 'med-item-off' %> <%= g ? 'med-row-dup' : '' %>">
           <label class="med-row-use">
             <input type="checkbox" name="enabled_<%= item.id %>" <%= item.enabled ? 'checked' : '' %>>
             <span class="med-row-name">

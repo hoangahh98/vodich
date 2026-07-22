@@ -205,11 +205,13 @@
           <%# Chưa chốt thì khoá nút lại; server cũng chặn nên bấm tay vào link cũng không được. %>
           <button type="button" class="btn btn-success" data-blocked="Bạn phải bấm vào nút chốt lịch này trước">📥 Nạp lịch nhắc</button>
         <% } else if (remainingCount) { %>
-          <%# data-no-busy: file .ics giao cho app Lịch, trang không điều hướng nên đừng bật spinner. %>
-          <a class="btn btn-success" data-no-busy href="<%= icsUrl %>">📥 Nạp <%= started ? remainingCount + ' cữ còn lại' : 'lịch nhắc' %></a>
+          <%# data-no-busy: file .ics giao cho app Lịch, trang không điều hướng nên đừng bật spinner.
+              data-ics-done: nạp xong (quay lại Safari) thì tự về trang đơn thuốc — xem script cuối trang. %>
+          <a class="btn btn-success" data-no-busy data-ics-done="/medical/prescriptions/<%= prescription.id %>" href="<%= icsUrl %>">📥 Nạp <%= started ? remainingCount + ' cữ còn lại' : 'lịch nhắc' %></a>
           <% if (started) { %>
-            <div class="mt"><a class="muted" data-no-busy href="<%= icsFullUrl %>">Nạp lại cả liệu trình từ đầu (gồm cữ đã qua)</a></div>
+            <div class="mt"><a class="muted" data-no-busy data-ics-done="/medical/prescriptions/<%= prescription.id %>" href="<%= icsFullUrl %>">Nạp lại cả liệu trình từ đầu (gồm cữ đã qua)</a></div>
           <% } %>
+          <div class="mt"><a class="muted" href="/medical/prescriptions/<%= prescription.id %>">← Về đơn thuốc</a></div>
         <% } %>
       </div>
     </section>
@@ -264,4 +266,23 @@
     </details>
   <% } %>
 </main>
+<script>
+  // Nạp .ics xong thì đưa người dùng về trang đơn thuốc. iOS giao file cho app Lịch (Safari
+  // bị che), nên CHỜ tới lúc họ quay lại trang (visible) rồi mới điều hướng — làm ngay lúc
+  // bấm sẽ cắt ngang màn hình "Add All" của Lịch. Không quay lại thì thôi, không hại gì.
+  (function () {
+    var pending = null;
+    document.addEventListener('click', function (e) {
+      var a = e.target.closest ? e.target.closest('a[data-ics-done]') : null;
+      if (a) pending = a.getAttribute('data-ics-done');
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && pending) {
+        var url = pending;
+        pending = null;
+        location.href = url;
+      }
+    });
+  })();
+</script>
 <%- include('../partials/bottom-menu') %>
