@@ -307,6 +307,8 @@ export class MedicalAiService {
       '- level="WARN" khi phải hỏi lại bác sĩ/dược sĩ trước khi cho uống (trùng hoạt chất, hai kháng sinh cùng nhóm, tương tác có hại, chống chỉ định).',
       '- level="CHECK" khi chỉ nên để ý, theo dõi (tác dụng phụ đáng kể, nên uống cách xa nhau, thuốc trong tủ đã cũ).',
       '- Kháng sinh còn thừa trong tủ hoặc lặp lại quá gần đợt trước: LUÔN cảnh báo, tối thiểu là CHECK.',
+      '- Kháng sinh trùng HOẠT CHẤT hoặc cùng NHÓM với thuốc đang uống dở/đợt gần đây: mức WARN, nêu RÕ tên hoạt chất/nhóm chung.',
+      '- Khi cảnh báo trùng/tương tác, nêu luôn TÁC DỤNG PHỤ dễ cộng gộp giữa hai thuốc (ví dụ cùng gây tiêu chảy, buồn nôn, hại gan/thận, buồn ngủ) để người nhà biết mà theo dõi.',
       '- "index" bắt buộc là số đã cho trong đơn mới. Không chắc thuốc nào thì bỏ qua, đừng đoán số.',
       'Viết gọn, đi thẳng vào vấn đề, không thêm câu miễn trừ trách nhiệm. Chỉ trả JSON.',
     ].join('\n');

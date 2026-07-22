@@ -323,7 +323,10 @@ export class MedicalController {
     // Chỉ đơn CHƯA DỪNG mới được làm đích, và chỉ nhận thuốc từ đơn CŨ HƠN. Xem
     // transitionSources() để biết vì sao — làm sai ở đây là giết lịch thuốc đang chạy.
     const others = await this.medical.transitionSources(prescription);
-    if (!others.length) return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
+    // Không còn gì để gộp (đã gộp xong, hoặc mở tay khi không có đơn cũ) thì đưa về trang
+    // SOÁT THUỐC, không nhảy thẳng tới lịch. Nhảy tới lịch khiến người dùng bấm quay lại
+    // là thấy mình bị "ném" tới bước cuối, bỏ qua bước soát — đúng lỗi đã báo.
+    if (!others.length) return res.redirect(`/medical/prescriptions/${prescription.id}`);
     // Hiện sẵn "đã uống mấy liều" để người dùng sửa nếu có hôm bỏ cữ — nếu không, app
     // mặc định coi mọi cữ đã lên lịch đều đã uống và sẽ cắt ngắn liệu trình.
     const doseTimes = doseTimesOf(prescription.patient);
@@ -365,7 +368,7 @@ export class MedicalController {
     // Cùng bộ luật với màn hình GET. Chặn ở đây mới là chặn thật: gửi POST tay vẫn chạy
     // dù giao diện không hiện nút nào.
     const others = await this.medical.transitionSources(prescription);
-    if (!others.length) return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
+    if (!others.length) return res.redirect(`/medical/prescriptions/${prescription.id}`);
     // Checkbox không tick thì trình duyệt không gửi field -> vắng mặt nghĩa là ngừng thuốc đó.
     const keep = others.flatMap((other) =>
       other.items.map((item) => item.id.toString()).filter((itemId) => body[`keep_${itemId}`] !== undefined),
@@ -397,7 +400,11 @@ export class MedicalController {
       const carryOver = carryOverFor(other, kept, doseTimes, today, takenOverride);
       await this.medical.applyTransition(other.id, prescription.id, carryOver);
     }
-    return res.redirect(`/medical/prescriptions/${prescription.id}/lich`);
+    // Gộp xong đưa về trang SOÁT THUỐC (bước 3), không nhảy thẳng tới lịch (bước 4): sau khi
+    // thuốc cũ nhập chung vào đơn mới, đây đúng là lúc cần soát lại cả thuốc mới lẫn thuốc
+    // chuyển sang (trùng liều, số ngày còn lại) trước khi lên lịch. Từ trang đó có sẵn nút
+    // sang lịch.
+    return res.redirect(`/medical/prescriptions/${prescription.id}`);
   }
 
   /** Màn hình tổng quan lịch uống thuốc trước khi tải về iPhone. */

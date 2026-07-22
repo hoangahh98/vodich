@@ -28,7 +28,25 @@
     </div>
   <% } %>
 
-  <form method="post" action="/medical/prescriptions/<%= prescription.id %>/chuyen-don">
+  <%# Cảnh báo an toàn AI đã tính lúc tải đơn (đối chiếu đơn mới với thuốc đang uống dở +
+      tủ thuốc): trùng hoạt chất, kháng sinh cùng nhóm, tác dụng phụ cộng gộp. Vốn chỉ hiện
+      ở trang soát thuốc; đưa lên ĐÂY vì đây mới là lúc quyết định giữ/bỏ thuốc cũ, phải
+      thấy đơn mới có gì trùng với thuốc đang uống thì mới quyết đúng. %>
+  <% const newWarns = prescription.items.filter((i) => i.aiWarnNote); %>
+  <% if (newWarns.length) { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">🤖</span><h2 class="section-title">Cảnh báo an toàn của đơn mới</h2></div></div>
+      <p class="muted mb">AI đã đối chiếu đơn mới với thuốc <%= patient.name %> đang uống dở và tủ thuốc ở nhà. Đọc trước khi chọn giữ thuốc nào:</p>
+      <% newWarns.forEach((i) => { %>
+        <div class="med-row-warn <%= i.aiWarnLevel === 'WARN' ? 'med-row-warn-hard' : '' %>">
+          <strong><%= i.drugName %></strong><% if (i.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %>
+          — <%= i.aiWarnLevel === 'WARN' ? '🔴 Hỏi lại bác sĩ trước khi uống' : '🟠 Cần để ý' %>: <%= i.aiWarnNote %>
+        </div>
+      <% }) %>
+    </section>
+  <% } %>
+
+  <form method="post" action="/medical/prescriptions/<%= prescription.id %>/chuyen-don" data-keep-guard>
     <% others.forEach((other) => { %>
       <section class="card-lite p mb">
         <div class="section-heading mb">
@@ -86,9 +104,27 @@
         nhóm mới là đủ, không sợ mất nhắc mấy thuốc đang uống dở.
       </p>
       <div class="text-right mt">
-        <button class="btn btn-primary" data-loading-text="Đang áp dụng...">Xong, xem lịch đơn mới</button>
+        <button class="btn btn-primary" data-loading-text="Đang áp dụng...">Xong — sang soát lại thuốc</button>
       </div>
     </section>
   </form>
 </main>
+<script>
+  // Chưa tick giữ thuốc nào = NGỪNG toàn bộ đơn cũ, không hoàn tác được. Người dùng đã lỡ
+  // bấm nhầm nên bắt xác nhận đúng lúc đó (chỉ khi rỗng, tick rồi thì thôi để khỏi phiền).
+  // Dùng lại cơ chế data-confirm ở app.js: đặt/bỏ chuỗi confirm theo trạng thái tick.
+  (function () {
+    var form = document.querySelector('form[data-keep-guard]');
+    if (!form) return;
+    var boxes = form.querySelectorAll('input[name^="keep_"]');
+    var MSG = 'Bạn CHƯA giữ lại thuốc nào — toàn bộ thuốc đơn cũ sẽ NGỪNG nhắc và không hoàn tác được. Chắc chắn tiếp tục?';
+    function sync() {
+      var anyChecked = Array.prototype.some.call(boxes, function (b) { return b.checked; });
+      if (anyChecked) delete form.dataset.confirm;
+      else form.dataset.confirm = MSG;
+    }
+    Array.prototype.forEach.call(boxes, function (b) { b.addEventListener('change', sync); });
+    sync();
+  })();
+</script>
 <%- include('../partials/bottom-menu') %>
