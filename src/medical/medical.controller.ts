@@ -337,24 +337,14 @@ export class MedicalController {
         progress[item.id.toString()] = doseProgress(other, item, doseTimes, today);
       }
     }
-    // Cùng một thuốc vừa CÒN trong đơn cũ (đang mời giữ tiếp) vừa được bác sĩ kê MỚI trong
-    // chính đơn này: giữ lại là thành hai dòng cùng thuốc -> nhắc gấp đôi liều. Đánh dấu
-    // ngay tại dòng để cảnh báo đỏ. Cố ý KHÔNG tự khoá: bác sĩ có thể đổi liều nên để người
-    // dùng tự quyết. So khớp bằng drugKeysCollide (chuẩn hoá + chứa nhau) — xem hàm đó.
-    const newEnabledNames = prescription.items.filter((i) => i.enabled).map((i) => i.drugName);
-    const collideNew: Record<string, string> = {};
-    for (const other of others) {
-      for (const item of other.items) {
-        if (newEnabledNames.some((name) => drugNamesCollide(name, item.drugName))) collideNew[item.id.toString()] = item.drugName;
-      }
-    }
+    // Trang này CHỈ để chọn thuốc đơn cũ nào uống tiếp — không cảnh báo trùng ở đây. Cảnh
+    // báo trùng được đưa sang từng dòng thuốc của ĐƠN MỚI ở trang soát thuốc (xem
+    // prescription()), vì đó mới là chỗ soát thuốc mới và đủ ngữ cảnh.
     return render(res, 'medical/transition', {
       patient: prescription.patient,
       prescription,
       others,
       progress,
-      collideNew,
-      collideCount: Object.keys(collideNew).length,
       menuPatientId: prescription.patientId.toString(),
       menuPrescriptionId: prescription.id.toString(),
     });
@@ -616,9 +606,34 @@ export class MedicalController {
         }
       }
     }
+    // Cảnh báo TRÙNG gắn vào từng dòng thuốc CỦA ĐƠN NÀY (thuốc mới) — đây mới là chỗ soát
+    // thuốc, không phải trang chọn thuốc đơn cũ. Hai nguồn trùng, đều dẫn tới uống gấp đôi:
+    //   (a) trùng với dòng khác NGAY trong đơn này (hay gặp: vừa kê mới vừa chuyển từ đơn cũ);
+    //   (b) trùng với thuốc ở đơn KHÁC đang uống dở (chưa gộp lịch).
+    // So bằng drugNamesCollide (tách từ, chấp nhận chữ thừa như "nhỏ mũi ... ngũ sắc").
+    const runningOthers = await this.medical.otherScheduled(prescription.patientId, prescription.id);
+    const enabledItems = prescription.items.filter((item) => item.enabled);
+    const dupNote: Record<string, string> = {};
+    for (const item of enabledItems) {
+      const twin = enabledItems.find((o) => o.id !== item.id && drugNamesCollide(o.drugName, item.drugName));
+      if (twin) {
+        dupNote[item.id.toString()] = `Trùng với "${twin.drugName}" ngay trong đơn này — lịch sẽ nhắc gấp đôi liều. Bỏ tick một trong hai dòng rồi lưu.`;
+        continue;
+      }
+      for (const other of runningOthers) {
+        const hit = other.items.find((o) => o.enabled && drugNamesCollide(o.drugName, item.drugName));
+        if (!hit) continue;
+        const day = other.prescribedDate
+          ? other.prescribedDate.toISOString().slice(0, 10).split('-').reverse().slice(0, 2).join('/')
+          : 'cũ';
+        dupNote[item.id.toString()] = `Trùng với "${hit.drugName}" ở đơn ${day} đang uống dở — dễ uống gấp đôi. Dùng "Chọn thuốc uống tiếp" để gộp về một lịch.`;
+        break;
+      }
+    }
     return render(res, 'medical/prescription', {
       prescription,
       otherRunningCount: otherRunning.length,
+      dupNote,
       patient: prescription.patient,
       menuPatientId: prescription.patientId.toString(),
       menuPrescriptionId: prescription.id.toString(),

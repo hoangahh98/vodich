@@ -19,15 +19,6 @@
     thuốc nào ngừng thì bỏ trống.
   </div>
 
-  <% if (collideCount) { %>
-    <div class="alert-lite warn mb med-collide-banner">
-      <strong>🔴 <%= collideCount %> thuốc dưới đây ĐƠN MỚI CŨNG ĐÃ KÊ.</strong>
-      Nếu bạn giữ lại bản đơn cũ thì đơn mới sẽ có <strong>hai dòng cùng một thuốc</strong> → lịch nhắc
-      <strong>gấp đôi liều</strong>. Thường chỉ nên giữ MỘT: bỏ trống bản cũ nếu bác sĩ đã kê lại,
-      hoặc giữ bản cũ và lát nữa vào đơn bỏ tick bản mới. Các dòng đó được tô đỏ bên dưới.
-    </div>
-  <% } %>
-
   <%# Cảnh báo an toàn AI đã tính lúc tải đơn (đối chiếu đơn mới với thuốc đang uống dở +
       tủ thuốc): trùng hoạt chất, kháng sinh cùng nhóm, tác dụng phụ cộng gộp. Vốn chỉ hiện
       ở trang soát thuốc; đưa lên ĐÂY vì đây mới là lúc quyết định giữ/bỏ thuốc cũ, phải
@@ -54,8 +45,7 @@
           <% if (other.diagnosis) { %><p class="muted"><%= other.diagnosis %></p><% } %></div>
         </div>
         <% other.items.forEach((item) => { %>
-          <% const dupWithNew = collideNew[item.id.toString()]; %>
-          <div class="med-row <%= dupWithNew ? 'med-row-collide' : '' %>">
+          <div class="med-row">
             <label class="med-row-use">
               <%# Mặc định KHÔNG tick: đơn mới thường thay đơn cũ, bắt người dùng chủ động
                   chọn giữ lại thì an toàn hơn là mặc định cho uống tiếp. %>
@@ -63,17 +53,10 @@
               <span class="med-row-name">
                 <strong><%= item.drugName %></strong>
                 <% if (item.isAntibiotic) { %> <span class="badge bg-danger">Kháng sinh</span><% } %>
-                <% if (dupWithNew) { %> <span class="badge badge-danger">🔴 đơn mới cũng có</span><% } %>
               </span>
             </label>
             <div class="muted med-row-detail">
               <%= [item.dosage, item.frequency, item.quantity].filter(Boolean).join(' · ') %>
-              <% if (dupWithNew) { %>
-                <div class="med-row-warn med-row-warn-hard">
-                  🔴 Bác sĩ đã kê lại thuốc này trong đơn mới. Giữ thêm bản cũ ở đây là <strong>uống gấp đôi</strong> —
-                  chỉ tick nếu bạn thật sự muốn uống song song.
-                </div>
-              <% } %>
             </div>
             <% const p = progress[item.id] || { total: 0, taken: 0 }; %>
             <% if (p.total) { %>

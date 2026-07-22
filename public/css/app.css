@@ -790,10 +790,6 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .med-step.done::before { background: #157347; }
 .med-step.current { color: #0b5ed7; }
 .med-step.current .med-step-dot { background: #0b5ed7; color: #fff; box-shadow: 0 0 0 3px #cfe2ff; }
-
-/* Trùng thuốc cũ↔mới ở /chuyen-don: banner + dòng tô đỏ (không tự khoá, chỉ cảnh báo). */
-.med-collide-banner { border-color: #f1aeae; background: #fdecec; color: #8a1f1f; }
-.med-row-collide { box-shadow: inset 3px 0 0 #c00; padding-left: 8px; border-radius: 4px; background: rgba(204,0,0,.03); }
 /* Hàng chỉnh nhanh trong tủ thuốc: sửa số lượng nhiều dòng, gộp lưu một lần.
    Luôn hiện trên cùng một dòng với tên thuốc — giấu vào thẻ bung ra là quay lại
    cảnh phải mở từng dòng mới sửa được. */

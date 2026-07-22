@@ -103,6 +103,11 @@
             </span>
           </label>
           <div class="muted med-row-detail">
+            <%# Cảnh báo TRÙNG (uống gấp đôi) tính bằng code, đặt trên cùng cho nổi: trùng với
+                dòng khác trong đơn này, hoặc với thuốc ở đơn khác đang uống dở. %>
+            <% if (dupNote[item.id.toString()]) { %>
+              <div class="med-row-warn med-row-warn-hard">🔴 <strong>Trùng thuốc:</strong> <%= dupNote[item.id.toString()] %></div>
+            <% } %>
             <%= [item.dosage, item.frequency, item.quantity].filter(Boolean).join(' · ') %>
             <% if (item.note) { %><div><%= item.note %></div><% } %>
             <%# Cảnh báo an toàn của AI cho ĐÚNG thuốc này: trùng hoạt chất, cùng nhóm kháng
