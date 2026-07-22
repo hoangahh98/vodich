@@ -12,11 +12,20 @@ test('drugNamesCollide: cùng thuốc ghi thừa chữ (kể cả chèn giữa) 
   assert.equal(drugNamesCollide('PARACETAMOL   500 MG', 'paracetamol 500mg'), true);
 });
 
+test('drugNamesCollide: AI đọc lệch 1 ký tự ở tên hãng vẫn TRÙNG', () => {
+  // Ca thật từ DB: bác sĩ kê "(Vinhpro)" còn bản chuyển sang là "Ciprofloxacin (Vinhopro)".
+  assert.equal(drugNamesCollide('(Vinhpro)', 'Ciprofloxacin (Vinhopro)'), true);
+  assert.equal(drugNamesCollide('(Justone)', 'Ambroxol 30mg/5ml (Justone)'), true);
+  assert.equal(drugNamesCollide('Budesonid (Zensonid)', '(Zensomid)'), true);
+});
+
 test('drugNamesCollide: khác hàm lượng / khác hoạt chất KHÔNG trùng', () => {
   assert.equal(drugNamesCollide('Paracetamol 250mg', 'Paracetamol 500mg'), false);
   assert.equal(drugNamesCollide('Vitamin D', 'Vitamin D3'), false);
   assert.equal(drugNamesCollide('Terbutalin + Bromhexin', 'Terbutalin + Guaifenesin'), false);
   assert.equal(drugNamesCollide('Amoxicilin 250mg', 'Cefixim 100mg'), false);
+  // Token có SỐ phải khớp đúng: 500mg (viên) không được gộp với 500ml (dung dịch).
+  assert.equal(drugNamesCollide('Thuoc 500mg', 'Thuoc 500ml'), false);
   // Tên rỗng/toàn ký tự lạ không trùng với ai.
   assert.equal(drugNamesCollide('', 'Paracetamol'), false);
   assert.equal(drugNamesCollide('---', 'Paracetamol'), false);
