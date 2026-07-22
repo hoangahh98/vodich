@@ -15,8 +15,12 @@ type RegisteredPlayer = TournamentRegistration & { player: { displayName: string
 
 export class TournamentScheduleBuilder {
   fromRegistrations(tournament: Tournament, registrations: RegisteredPlayer[]): MatchCreate[] {
-    const names = shuffle(registrations.map(displayRegistrationName));
-    const teams = tournament.playType === 'DOUBLES' ? shuffle(doublesTeams(names)) : names;
+    // Đơn: mỗi người một "đội", chỉ cần xáo thứ tự. Đôi: GHÉP CÂN BẰNG theo trình (xem
+    // buildBalancedDoublesTeams) rồi mới xáo thứ tự đội để rải sân/vòng.
+    const teams =
+      tournament.playType === 'DOUBLES'
+        ? shuffle(buildBalancedDoublesTeams(registrations))
+        : shuffle(registrations.map(displayRegistrationName));
     return this.fromTeams(tournament, teams);
   }
 
@@ -69,12 +73,71 @@ function displayRegistrationName(reg: RegisteredPlayer) {
   return reg.player?.displayName || reg.externalName || reg.externalEmail || 'Chưa đặt tên';
 }
 
-function doublesTeams(names: string[]) {
-  const teams: string[] = [];
-  for (let i = 0; i < names.length; i += 2) {
-    teams.push(`${names[i]} / ${names[i + 1] || 'Chờ thành viên'}`);
+/**
+ * Ghép đội đôi CÂN BẰNG theo trình. Gom người theo trình, sắp các mức trình mạnh→yếu rồi
+ * "gấp đôi" hai đầu vào nhau: mức mạnh nhất đấu chung đội với mức yếu nhất, cứ thế vào giữa.
+ *
+ *   1 mức trình         -> ghép random trong mức đó (ví dụ chỉ có C).
+ *   2 mức (vd C, D)      -> C ghép D (cao ghép thấp).
+ *   3 mức (vd A, B, C)   -> A(cao nhất) ghép C(thấp nhất), B(giữa) ghép với nhau.
+ *   4 mức (A, B, C, D)   -> A ghép D, B ghép C.
+ *
+ * Trình rỗng/không rõ gom thành một mức, xếp yếu nhất. Số người trong hai mức ghép chéo
+ * lệch nhau, hoặc mức giữa lẻ người, thì phần dư dồn lại ghép với nhau ở cuối; lẻ đúng 1
+ * người cả giải thì để "Chờ thành viên".
+ */
+export function buildBalancedDoublesTeams(registrations: RegisteredPlayer[]): string[] {
+  const byLevel = new Map<string, RegisteredPlayer[]>();
+  for (const reg of registrations) {
+    const level = normalizeSkill(reg.skillLevel);
+    const bucket = byLevel.get(level);
+    if (bucket) bucket.push(reg);
+    else byLevel.set(level, [reg]);
   }
+  const levels = [...byLevel.keys()].sort((a, b) => skillRank(a) - skillRank(b) || a.localeCompare(b));
+  const teams: string[] = [];
+  const leftovers: RegisteredPlayer[] = [];
+  let lo = 0;
+  let hi = levels.length - 1;
+  while (lo < hi) {
+    leftovers.push(...pairAcross(byLevel.get(levels[lo]) || [], byLevel.get(levels[hi]) || [], teams));
+    lo++;
+    hi--;
+  }
+  // Số mức lẻ -> còn mức GIỮA đứng một mình (cũng là trường hợp "chỉ 1 mức trình"): ghép
+  // random trong mức đó.
+  if (lo === hi) leftovers.push(...pairWithin(byLevel.get(levels[lo]) || [], teams));
+  // Dồn hết người lẻ (do lệch số lượng giữa các mức) ghép nốt với nhau.
+  const last = pairWithin(leftovers, teams);
+  if (last.length) teams.push(`${displayRegistrationName(last[0])} / Chờ thành viên`);
   return teams;
+}
+
+/** Ghép chéo hai mức trình: mỗi đội một người mức mạnh + một người mức yếu. Trả người dư. */
+function pairAcross(strong: RegisteredPlayer[], weak: RegisteredPlayer[], teams: string[]): RegisteredPlayer[] {
+  const s = shuffle(strong);
+  const w = shuffle(weak);
+  const paired = Math.min(s.length, w.length);
+  for (let i = 0; i < paired; i++) teams.push(`${displayRegistrationName(s[i])} / ${displayRegistrationName(w[i])}`);
+  return [...s.slice(paired), ...w.slice(paired)];
+}
+
+/** Ghép random trong cùng một nhóm (mức trình giữa, hoặc gom người lẻ). Trả người lẻ cuối. */
+function pairWithin(list: RegisteredPlayer[], teams: string[]): RegisteredPlayer[] {
+  const s = shuffle(list);
+  for (let i = 0; i + 1 < s.length; i += 2) teams.push(`${displayRegistrationName(s[i])} / ${displayRegistrationName(s[i + 1])}`);
+  return s.length % 2 ? [s[s.length - 1]] : [];
+}
+
+/** Trình chuẩn hoá về chữ hoa; rỗng/không rõ gom về '?'. */
+function normalizeSkill(raw: string | null): string {
+  return String(raw || '').trim().toUpperCase() || '?';
+}
+
+/** Thứ tự mạnh→yếu: A<B<C<D; trình lạ/không rõ xếp yếu nhất. */
+function skillRank(level: string): number {
+  const index = 'ABCD'.indexOf(level);
+  return index >= 0 ? index : 100;
 }
 
 function shuffle<T>(items: T[]): T[] {
