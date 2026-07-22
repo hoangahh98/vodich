@@ -775,6 +775,25 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
    uống có sao không. Mức WARN đỏ hẳn vì đó là loại phải dừng lại hỏi bác sĩ. */
 .med-row-warn { margin-top: 4px; padding: 6px 8px; border-left: 3px solid #e8a33d; background: rgba(232,163,61,.12); border-radius: 4px; color: #7a4b00; }
 .med-row-warn-hard { border-left-color: #c00; background: rgba(204,0,0,.09); color: #a00; font-weight: 650; }
+
+/* Thanh chỉ bước cho luồng đơn thuốc (partials/med-steps.ejs). Cuộn ngang được trên
+   điện thoại hẹp thay vì vỡ dòng — bốn bước luôn nằm trên một hàng cho dễ đọc mạch. */
+.med-steps { list-style: none; display: flex; gap: 4px; padding: 12px 4px; margin: 0 0 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.med-step { flex: 1 1 0; min-width: 74px; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; text-align: center; color: #9aa3af; font-weight: 700; font-size: 12.5px; }
+.med-step::before { content: ''; position: absolute; top: 15px; left: -50%; width: 100%; height: 3px; background: #e5e7eb; z-index: 0; }
+.med-step:first-child::before { display: none; }
+.med-step-dot { position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 999px; display: grid; place-items: center; background: #e5e7eb; color: #6b7280; font-weight: 800; box-shadow: 0 0 0 3px #fff; }
+.med-step-label { line-height: 1.2; }
+.med-step-icon { margin-right: 2px; }
+.med-step.done { color: #157347; }
+.med-step.done .med-step-dot { background: #157347; color: #fff; }
+.med-step.done::before { background: #157347; }
+.med-step.current { color: #0b5ed7; }
+.med-step.current .med-step-dot { background: #0b5ed7; color: #fff; box-shadow: 0 0 0 3px #cfe2ff; }
+
+/* Trùng thuốc cũ↔mới ở /chuyen-don: banner + dòng tô đỏ (không tự khoá, chỉ cảnh báo). */
+.med-collide-banner { border-color: #f1aeae; background: #fdecec; color: #8a1f1f; }
+.med-row-collide { box-shadow: inset 3px 0 0 #c00; padding-left: 8px; border-radius: 4px; background: rgba(204,0,0,.03); }
 /* Hàng chỉnh nhanh trong tủ thuốc: sửa số lượng nhiều dòng, gộp lưu một lần.
    Luôn hiện trên cùng một dòng với tên thuốc — giấu vào thẻ bung ra là quay lại
    cảnh phải mở từng dòng mới sửa được. */

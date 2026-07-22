@@ -1,0 +1,23 @@
+<%
+  /*
+    Thanh chỉ bước cho luồng xử lý đơn thuốc. Luồng nhiều bước, người dùng dễ lạc:
+    hiện đủ 4 bước cố định + đánh dấu đang ở bước nào (`step`) để biết còn mấy bước nữa.
+    Bước 2 (gộp đơn cũ) chỉ xảy ra khi còn đơn cũ đang uống dở, nên ghi rõ "nếu có".
+  */
+  const medSteps = [
+    { n: 1, icon: '📸', label: 'Chụp đơn' },
+    { n: 2, icon: '🔀', label: 'Gộp đơn cũ' },
+    { n: 3, icon: '💊', label: 'Soát thuốc' },
+    { n: 4, icon: '📅', label: 'Lịch & nạp' },
+  ];
+  const cur = typeof step !== 'undefined' ? Number(step) : 0;
+%>
+<ol class="med-steps" aria-label="Các bước xử lý đơn thuốc">
+  <% medSteps.forEach((s) => { %>
+    <li class="med-step <%= s.n < cur ? 'done' : (s.n === cur ? 'current' : '') %>"
+        <% if (s.n === cur) { %>aria-current="step"<% } %>>
+      <span class="med-step-dot"><%= s.n < cur ? '✓' : s.n %></span>
+      <span class="med-step-label"><span class="med-step-icon"><%= s.icon %></span><%= s.label %></span>
+    </li>
+  <% }) %>
+</ol>

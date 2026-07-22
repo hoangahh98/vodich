@@ -334,11 +334,25 @@ export class MedicalController {
         progress[item.id.toString()] = doseProgress(other, item, doseTimes, today);
       }
     }
+    // Cùng một thuốc vừa CÒN trong đơn cũ (đang mời giữ tiếp) vừa được bác sĩ kê MỚI trong
+    // chính đơn này: giữ lại là thành hai dòng cùng thuốc -> nhắc gấp đôi liều. Đánh dấu
+    // ngay tại dòng để cảnh báo đỏ. Cố ý KHÔNG tự khoá: bác sĩ có thể đổi liều nên để người
+    // dùng tự quyết. So khớp bằng matchKey (bỏ dấu/ký tự) — khắt khe theo cả hàm lượng nên
+    // "Paracetamol 250mg" khác "Paracetamol 500mg", tránh báo nhầm (xem cabinet.ts).
+    const newDrugKeys = new Set(prescription.items.filter((i) => i.enabled).map((i) => matchKey(i.drugName)));
+    const collideNew: Record<string, string> = {};
+    for (const other of others) {
+      for (const item of other.items) {
+        if (newDrugKeys.has(matchKey(item.drugName))) collideNew[item.id.toString()] = item.drugName;
+      }
+    }
     return render(res, 'medical/transition', {
       patient: prescription.patient,
       prescription,
       others,
       progress,
+      collideNew,
+      collideCount: Object.keys(collideNew).length,
       menuPatientId: prescription.patientId.toString(),
       menuPrescriptionId: prescription.id.toString(),
     });
@@ -435,14 +449,19 @@ export class MedicalController {
     // Cùng một thuốc nằm hai dòng trong đơn (thường do chuyển đơn mà bác sĩ cũng kê lại)
     // thì lịch sinh ra HAI cữ cùng giờ -> uống gấp đôi liều. Phải chặn bằng cảnh báo, đây
     // là loại lỗi không được để người dùng tự phát hiện.
-    const nameCount = new Map<string, number>();
+    // Khoá đếm trùng bằng matchKey (bỏ dấu/ký tự, giữ hàm lượng) thay vì tên thô: sau khi
+    // chuyển đơn, dòng chuyển sang giữ tên đơn cũ còn dòng mới mang tên AI đọc lại, lệch
+    // một dấu cách/ngoặc là tên thô coi như khác nhau và bỏ sót cữ trùng — đúng loại lỗi
+    // uống gấp đôi không được để sót. matchKey vẫn khắt khe theo hàm lượng nên "... 250mg"
+    // và "... 500mg" không bị gộp nhầm (xem cabinet.ts).
+    const keyCount = new Map<string, number>();
     for (const item of prescription.items) {
       if (!item.enabled) continue;
-      const key = item.drugName.trim().toLowerCase();
-      nameCount.set(key, (nameCount.get(key) || 0) + 1);
+      const key = matchKey(item.drugName);
+      keyCount.set(key, (keyCount.get(key) || 0) + 1);
     }
     const duplicateDrugs = [
-      ...new Set(prescription.items.filter((i) => i.enabled && (nameCount.get(i.drugName.trim().toLowerCase()) || 0) > 1).map((i) => i.drugName)),
+      ...new Set(prescription.items.filter((i) => i.enabled && (keyCount.get(matchKey(i.drugName)) || 0) > 1).map((i) => i.drugName)),
     ];
     return render(res, 'medical/schedule', {
       drugSources,
