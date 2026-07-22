@@ -67,6 +67,49 @@ export function matchKey(drugName: string): string {
     .slice(0, 255);
 }
 
+/**
+ * Tách tên thuốc thành các TỪ đã chuẩn hoá: bỏ dấu, đ->d, về chữ thường, cắt theo mọi ký
+ * tự không phải chữ/số. "Paracetamol hoạt chất 500mg" -> ["paracetamol","hoat","chat","500mg"].
+ */
+export function drugTokens(drugName: string): string[] {
+  return String(drugName || '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    // Dán số với đơn vị đi liền sau nó: "500 mg" và "500mg" phải ra cùng một từ, nếu không
+    // một dấu cách do AI đọc lệch là coi như khác hàm lượng và bỏ sót cữ trùng.
+    .replace(/(\d)\s+([a-z])/g, '$1$2')
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+/**
+ * Hai tên thuốc có coi là TRÙNG nhau không — dùng để cảnh báo uống gấp đôi (đơn cũ vs mới,
+ * và hai dòng cùng đơn sau khi chuyển đơn).
+ *
+ * So theo TỪ, không theo chuỗi liền: coi là trùng khi tập từ của thuốc ÍT TỪ hơn nằm GỌN
+ * trong thuốc kia. Nhờ vậy bắt được cùng một thuốc bị AI ghi thừa chữ ở BẤT KỲ đâu — kể cả
+ * chèn giữa: "Paracetamol 500mg" ⊆ "Paracetamol hoạt chất 500mg", hoặc thêm ở cuối
+ * "Paracetamol 500mg (Hapacol)".
+ *
+ * Hàm lượng VẪN phân biệt được: {paracetamol,250mg} và {paracetamol,500mg} không tập nào
+ * chứa tập nào -> KHÔNG gộp. Combo khác hoạt chất cũng vậy: {terbutalin,bromhexin} vs
+ * {terbutalin,guaifenesin}. Tên rỗng (toàn ký tự lạ) không trùng với ai.
+ *
+ * Đánh đổi đã biết & người dùng chấp nhận: nới thế này thà báo dư còn hơn để sót một cữ
+ * uống gấp đôi. Khác với matchKey (khoá đối chiếu TỒN KHO, phải khít tuyệt đối để không lấy
+ * nhầm thuốc khác hàm lượng) — chỗ này chỉ để CẢNH BÁO nên được phép nới.
+ */
+export function drugNamesCollide(a: string, b: string): boolean {
+  const ta = drugTokens(a);
+  const tb = drugTokens(b);
+  if (!ta.length || !tb.length) return false;
+  const [small, big] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
+  const bigSet = new Set(big);
+  return small.every((token) => bigSet.has(token));
+}
+
 export interface LeftoverInput {
   drugName: string;
   quantity: string;

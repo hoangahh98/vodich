@@ -10,7 +10,7 @@ import { CarryOverItem, ItemDecision, MedicalService } from './medical.service';
 import { RateLimitService } from '../common/rate-limit.service';
 import { buildIcs } from './ics';
 import { CabinetService } from './cabinet.service';
-import { Leftover, leftoverOf, matchKey, parseCountable } from './cabinet';
+import { Leftover, drugNamesCollide, leftoverOf, matchKey, parseCountable } from './cabinet';
 import {
   DoseTimes,
   START_SLOT_LABELS,
@@ -340,13 +340,12 @@ export class MedicalController {
     // Cùng một thuốc vừa CÒN trong đơn cũ (đang mời giữ tiếp) vừa được bác sĩ kê MỚI trong
     // chính đơn này: giữ lại là thành hai dòng cùng thuốc -> nhắc gấp đôi liều. Đánh dấu
     // ngay tại dòng để cảnh báo đỏ. Cố ý KHÔNG tự khoá: bác sĩ có thể đổi liều nên để người
-    // dùng tự quyết. So khớp bằng matchKey (bỏ dấu/ký tự) — khắt khe theo cả hàm lượng nên
-    // "Paracetamol 250mg" khác "Paracetamol 500mg", tránh báo nhầm (xem cabinet.ts).
-    const newDrugKeys = new Set(prescription.items.filter((i) => i.enabled).map((i) => matchKey(i.drugName)));
+    // dùng tự quyết. So khớp bằng drugKeysCollide (chuẩn hoá + chứa nhau) — xem hàm đó.
+    const newEnabledNames = prescription.items.filter((i) => i.enabled).map((i) => i.drugName);
     const collideNew: Record<string, string> = {};
     for (const other of others) {
       for (const item of other.items) {
-        if (newDrugKeys.has(matchKey(item.drugName))) collideNew[item.id.toString()] = item.drugName;
+        if (newEnabledNames.some((name) => drugNamesCollide(name, item.drugName))) collideNew[item.id.toString()] = item.drugName;
       }
     }
     return render(res, 'medical/transition', {
@@ -456,20 +455,21 @@ export class MedicalController {
     // Cùng một thuốc nằm hai dòng trong đơn (thường do chuyển đơn mà bác sĩ cũng kê lại)
     // thì lịch sinh ra HAI cữ cùng giờ -> uống gấp đôi liều. Phải chặn bằng cảnh báo, đây
     // là loại lỗi không được để người dùng tự phát hiện.
-    // Khoá đếm trùng bằng matchKey (bỏ dấu/ký tự, giữ hàm lượng) thay vì tên thô: sau khi
-    // chuyển đơn, dòng chuyển sang giữ tên đơn cũ còn dòng mới mang tên AI đọc lại, lệch
-    // một dấu cách/ngoặc là tên thô coi như khác nhau và bỏ sót cữ trùng — đúng loại lỗi
-    // uống gấp đôi không được để sót. matchKey vẫn khắt khe theo hàm lượng nên "... 250mg"
-    // và "... 500mg" không bị gộp nhầm (xem cabinet.ts).
-    const keyCount = new Map<string, number>();
-    for (const item of prescription.items) {
-      if (!item.enabled) continue;
-      const key = matchKey(item.drugName);
-      keyCount.set(key, (keyCount.get(key) || 0) + 1);
+    // Bắt trùng bằng drugNamesCollide (tách từ + tập con): sau khi chuyển đơn, dòng chuyển
+    // sang giữ tên đơn cũ còn dòng mới mang tên AI đọc lại, lệch một chữ thừa ("hoạt chất",
+    // "(Hapacol)") là tên thô coi như khác nhau và bỏ sót cữ trùng — đúng loại lỗi uống gấp
+    // đôi không được để sót. So từng cặp vì quan hệ "tập con" không bắc cầu.
+    const enabledItems = prescription.items.filter((i) => i.enabled);
+    const dupNames = new Set<string>();
+    for (let a = 0; a < enabledItems.length; a++) {
+      for (let b = a + 1; b < enabledItems.length; b++) {
+        if (drugNamesCollide(enabledItems[a].drugName, enabledItems[b].drugName)) {
+          dupNames.add(enabledItems[a].drugName);
+          dupNames.add(enabledItems[b].drugName);
+        }
+      }
     }
-    const duplicateDrugs = [
-      ...new Set(prescription.items.filter((i) => i.enabled && (keyCount.get(matchKey(i.drugName)) || 0) > 1).map((i) => i.drugName)),
-    ];
+    const duplicateDrugs = [...dupNames];
     return render(res, 'medical/schedule', {
       drugSources,
       duplicateDrugs,

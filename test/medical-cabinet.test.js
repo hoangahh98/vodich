@@ -1,7 +1,26 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
-const { parseCountable, matchKey, leftoverOf } = require('../dist/medical/cabinet');
+const { parseCountable, matchKey, leftoverOf, drugNamesCollide } = require('../dist/medical/cabinet');
+
+test('drugNamesCollide: cùng thuốc ghi thừa chữ (kể cả chèn giữa) là TRÙNG', () => {
+  // Đúng ví dụ người dùng đưa: "hoạt chất" chèn giữa vẫn phải bắt được.
+  assert.equal(drugNamesCollide('Paracetamol 500mg', 'Paracetamol hoạt chất 500mg'), true);
+  assert.equal(drugNamesCollide('Paracetamol 500mg', 'Paracetamol 500mg (Hapacol)'), true);
+  assert.equal(drugNamesCollide('Paracetamol', 'Paracetamol 500mg'), true);
+  // Khác cách/hoa-thường/dấu không ảnh hưởng.
+  assert.equal(drugNamesCollide('PARACETAMOL   500 MG', 'paracetamol 500mg'), true);
+});
+
+test('drugNamesCollide: khác hàm lượng / khác hoạt chất KHÔNG trùng', () => {
+  assert.equal(drugNamesCollide('Paracetamol 250mg', 'Paracetamol 500mg'), false);
+  assert.equal(drugNamesCollide('Vitamin D', 'Vitamin D3'), false);
+  assert.equal(drugNamesCollide('Terbutalin + Bromhexin', 'Terbutalin + Guaifenesin'), false);
+  assert.equal(drugNamesCollide('Amoxicilin 250mg', 'Cefixim 100mg'), false);
+  // Tên rỗng/toàn ký tự lạ không trùng với ai.
+  assert.equal(drugNamesCollide('', 'Paracetamol'), false);
+  assert.equal(drugNamesCollide('---', 'Paracetamol'), false);
+});
 
 test('parseCountable đọc được số lượng dạng đếm được', () => {
   assert.deepEqual(parseCountable('10 gói'), { count: 10, unit: 'gói' });
