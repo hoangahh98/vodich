@@ -38,20 +38,22 @@ export class TeamDetailService {
 
   async previousMonthBalance(teamId: bigint, fundMonth: Date) {
     const previousMonth = addMonths(fundMonth, -1);
-    const [fund, payments, expenses] = await Promise.all([
+    const [fund, payments, expenses, fixedCount] = await Promise.all([
       this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth: previousMonth } } }),
-      this.prisma.teamMemberPayment.findMany({ where: { fundMonth: previousMonth, member: { teamId } } }),
+      this.prisma.teamMemberPayment.findMany({ where: { fundMonth: previousMonth, member: { teamId } }, include: { member: true } }),
       this.prisma.teamExpense.findMany({ where: { teamId, expenseMonth: previousMonth } }),
+      this.prisma.teamMember.count({ where: { teamId, active: true, memberType: 'FIXED' } }),
     ]);
     if (!fund) return 0;
-    // Chỉ tính khoản đã đóng (PAID) cho khớp báo cáo tháng (team-month-report),
-    // tránh cộng nhầm khoản UNPAID làm số dư mang sang tháng sau bị sai lệch tích lũy.
-    const totalPaid = payments
-      .filter((payment) => payment.paymentStatus === 'PAID')
+    // Đi đúng công thức balance của team-month-report.ts: (phải đóng + dư trước + vãng lai)
+    // - (tiền sân + khoản chi). Lệch công thức thì số dư app tự điền cho tháng sau sẽ khác
+    // với "Quỹ còn lại" đang hiện trên màn hình, càng để lâu càng lệch dồn.
+    const totalDue = Number(fund.monthlyFee || 0) * fixedCount;
+    const guestPaid = payments
+      .filter((payment) => payment.member.memberType === 'GUEST' && payment.paymentStatus === 'PAID')
       .reduce((sum, payment) => sum + Number(payment.paidAmount), 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-    // Cùng công thức với balance trong team-month-report.ts (có trừ tiền khác).
-    return Number(fund.previousBalance || 0) + totalPaid - Number(fund.courtCost || 0) - Number(fund.otherCost || 0) - totalExpense;
+    return Number(fund.previousBalance || 0) + totalDue + guestPaid - Number(fund.courtCost || 0) - totalExpense;
   }
 
   private availableAdmins(teamId: bigint, ownerAdminId?: bigint | null) {

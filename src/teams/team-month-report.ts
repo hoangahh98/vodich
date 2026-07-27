@@ -120,6 +120,12 @@ export class TeamMonthReportBuilder {
     const fixedCount = rows.filter((member) => member.memberType === 'FIXED').length;
     const paidCount = rows.filter((member) => member.paymentStatus === 'PAID').length;
     const fixedUnpaidCount = rows.filter((member) => member.memberType === 'FIXED' && member.paymentStatus !== 'PAID').length;
+    // Tổng quỹ = tiền cả đội PHẢI đóng (mức phí x người cố định) + quỹ còn lại tháng trước
+    // + tiền vãng lai đã đóng. Là số dự kiến, không phải số đã thu được.
+    const totalFund = totalDue + previousBalance + guestPaid;
+    // Tổng đã chi = tiền sân + các khoản chi trong tháng (tiền sân không nằm trong bảng
+    // team_expense nên phải cộng tay, đừng nhầm với totalExpense).
+    const totalSpent = courtCost + totalExpense;
     return {
       monthlyFee,
       suggestedMonthlyFee: suggestMonthlyFee(courtCost, otherCost, previousBalance, fixedCount),
@@ -131,19 +137,14 @@ export class TeamMonthReportBuilder {
       previousMonthBalance,
       totalPaid,
       fixedPaid: totalPaid - guestPaid,
-      // Tổng quỹ = tiền cả đội PHẢI đóng (mức phí x người cố định) + quỹ còn lại tháng trước
-      // + tiền vãng lai đã đóng. Là số dự kiến chứ không phải số đã thu, nên KHÔNG dùng nó
-      // để tính quỹ còn lại (balance vẫn đi theo tiền thực đóng bên dưới).
-      totalFund: totalDue + previousBalance + guestPaid,
+      totalFund,
       totalExpense,
-      // Tổng đã chi = tiền sân + các khoản chi trong tháng (tiền sân không nằm trong
-      // bảng team_expense nên phải cộng tay, đừng nhầm với totalExpense).
-      totalSpent: courtCost + totalExpense,
+      totalSpent,
       totalDue,
       totalMissing,
-      // Quỹ còn lại trừ cả tiền khác: số này phải khớp previousMonthBalance() bên
+      // Quỹ còn lại = Tổng quỹ - Tổng đã chi. Số này phải khớp previousMonthBalance() bên
       // team-detail.service.ts, sửa một chỗ thì sửa cả hai kẻo số dư mang sang tháng sau lệch.
-      balance: previousBalance + totalPaid - courtCost - otherCost - totalExpense,
+      balance: totalFund - totalSpent,
       memberCount: rows.length,
       fixedCount,
       fixedUnpaidCount,

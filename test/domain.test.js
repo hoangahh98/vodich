@@ -103,7 +103,7 @@ test('TeamMonthReportBuilder calculates finance summary and fixed member orderin
   );
   assert.equal(report.finance.fixedUnpaidCount, 1);
   assert.equal(report.finance.totalMissing, 100);
-  assert.equal(report.finance.balance, 115); // dư 20 + đóng 150 - sân 30 - khác 15 - chi 10
+  assert.equal(report.finance.balance, 230); // tổng quỹ 270 - tổng đã chi 40
   assert.equal(report.finance.totalFund, 270); // phải đóng 200 (2 cố định x 100) + dư 20 + vãng lai 50
   assert.equal(report.finance.totalSpent, 40); // tiền sân 30 + khoản chi 10
   assert.equal(report.finance.guestPaid, 50); // Cuong là vãng lai, đã đóng 50
