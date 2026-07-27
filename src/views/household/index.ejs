@@ -1,16 +1,24 @@
 <%- include('../partials/head', { title: 'Quản lý chi tiêu' }) %>
 <%- include('../partials/topbar') %>
+<%
+  // Luôn quy về giờ Việt Nam: server chạy UTC nên toISOString sẽ hiển thị lệch ngày.
+  const ymd = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+  const dmy = (d) => ymd(d).split('-').reverse().join('/');
+  const monthLabel = (m) => `Tháng ${Number(m.slice(5, 7))}/${m.slice(0, 4)}`;
+  const kindLabel = { savings: '🐷 Tiết kiệm', debt: '🏦 Trả nợ', other: '📌 Khoản khác' };
+  const today = ymd(new Date());
+%>
 <main class="app-shell">
   <section class="feature-hero p mb">
     <div class="flex between center gap">
-      <div><h1>💰 Quản lý chi tiêu</h1><div class="muted strong-muted">Quét email VPBank, theo dõi ngân sách tuần (cộng dồn) và tiết kiệm tháng.</div></div>
+      <div><h1>💰 Quản lý chi tiêu</h1><div class="muted strong-muted">Lương gộp vào quỹ chung → trích tiết kiệm, trả nợ, khoản khác → mỗi đầu tuần nạp lại ví cho từng người.</div></div>
       <div class="feature-hero-art">💰</div>
     </div>
   </section>
 
   <!-- Tab các phần (cũng nằm trong menu 3 sọc phía dưới) -->
   <nav class="household-tabs mb">
-    <% const tabs = [['tong-quan','📊 Tổng quan'],['giao-dich','🧾 Giao dịch'],['tiet-kiem','🐷 Tiết kiệm'],['cau-hinh','⚙️ Cấu hình']]; %>
+    <% const tabs = [['tong-quan','📊 Tổng quan'],['thu-nhap','💵 Thu & phân bổ'],['chi-tieu','🧾 Chi tiêu'],['cai-dat','⚙️ Cài đặt']]; %>
     <% tabs.forEach((t) => { %>
       <a href="/household<%= t[0] === 'tong-quan' ? '' : '/' + t[0] %>" class="household-tab <%= section === t[0] ? 'active' : '' %>"><%= t[1] %></a>
     <% }) %>
@@ -19,143 +27,309 @@
   <% if (msg) { %><div class="alert alert-success mb"><%= msg %></div><% } %>
   <% if (err) { %><div class="alert alert-danger mb"><%= err %></div><% } %>
 
-  <!-- Cảnh báo lẹm tiết kiệm: hiện ở MỌI phần, bắt buộc ghi chú -->
-  <% if (pendingNotes && pendingNotes.length) { %>
-    <section class="card-lite p mb" style="border:2px solid #dc3545">
-      <div class="section-heading mb"><div><span class="feature-icon">⚠️</span><h2 class="section-title" style="color:#dc3545">Đang lẹm vào tiết kiệm — cần ghi chú</h2></div></div>
-      <% pendingNotes.forEach((entry) => { %>
-        <form class="flex gap center mb" method="post" action="/household/savings/<%= entry.id %>/note">
-          <div class="strong">−<%= formatMoney(entry.amount) %> đ</div>
-          <input name="note" required placeholder="Lý do tiêu lẹm (VD: sửa xe, viện phí...)" style="flex:1">
-          <button class="btn btn-danger" data-loading-text="Đang lưu...">Ghi chú</button>
-        </form>
-      <% }) %>
-    </section>
+  <% if (!members.length) { %>
+    <div class="alert alert-warning mb">Chưa có thành viên nào. Vào <a href="/household/cai-dat">⚙️ Cài đặt</a> thêm người nhận tiền tiêu hàng tuần (chồng, vợ, con...).</div>
   <% } %>
 
   <!-- ═══ TỔNG QUAN ═══ -->
   <% if (section === 'tong-quan') { %>
     <section class="grid module-grid mb">
       <div class="card-lite p">
-        <div class="muted">Số dư chi tiêu còn lại (cộng dồn)</div>
+        <div class="muted">Quỹ chung còn lại</div>
         <div class="strong" style="font-size:1.6rem;color:<%= summary.potBalance < 0 ? '#dc3545' : '#198754' %>"><%= formatMoney(summary.potBalance) %> đ</div>
-        <div class="muted">Tuần này đã chi: <%= formatMoney(summary.spentThisWeek) %> đ</div>
+        <div class="muted">Thu <%= formatMoney(summary.totalIncome) %> − trích tay <%= formatMoney(summary.manualAllocation) %> − tiền tiêu <%= formatMoney(summary.allowanceBudget) %> − chi chung <%= formatMoney(summary.commonSpent) %></div>
       </div>
       <div class="card-lite p">
-        <div class="muted">Ngân sách mỗi tuần</div>
-        <div class="strong" style="font-size:1.6rem"><%= formatMoney(summary.weeklyBudget) %> đ</div>
-        <div class="muted">Đã nạp <%= summary.weeksElapsed %> tuần</div>
+        <div class="muted">Tiền tiêu cả nhà mỗi tuần</div>
+        <div class="strong" style="font-size:1.6rem"><%= formatMoney(summary.weeklyPayout) %> đ</div>
+        <div class="muted"><%= summary.wallets.filter((w) => w.active).length %> người · mặc định <%= formatMoney(summary.defaultWeeklyAllowance) %> đ/người/tuần</div>
       </div>
       <div class="card-lite p">
         <div class="muted">Tiết kiệm lũy kế</div>
-        <div class="strong" style="font-size:1.6rem;color:<%= summary.savingsAccrued < 0 ? '#dc3545' : '#0d6efd' %>"><%= formatMoney(summary.savingsAccrued) %> đ</div>
-        <div class="muted">Mục tiêu <%= formatMoney(summary.monthlySavings) %> đ/tháng · đã bù <%= formatMoney(summary.savingsTopupTotal) %> đ</div>
+        <div class="strong" style="font-size:1.6rem;color:#0d6efd"><%= formatMoney(summary.savingsTotal) %> đ</div>
+        <div class="muted">Đã trả nợ <%= formatMoney(summary.debtTotal) %> đ · khoản khác <%= formatMoney(summary.otherAllocationTotal) %> đ</div>
       </div>
+      <% if (summary.kidSavingsTotal > 0) { %>
+        <div class="card-lite p">
+          <div class="muted">🧸 Quỹ tiết kiệm của con</div>
+          <div class="strong" style="font-size:1.6rem;color:#6f42c1"><%= formatMoney(summary.kidSavingsTotal) %> đ</div>
+          <div class="muted">Phần tiền tuần con chưa cầm tay · con tiêu quá thì quỹ này vơi đi</div>
+        </div>
+      <% } %>
       <div class="card-lite p">
-        <div class="muted">Tháng này đã chi</div>
-        <div class="strong" style="font-size:1.6rem"><%= formatMoney(summary.spentThisMonth) %> đ</div>
-        <div class="muted">Tổng đã chi: <%= formatMoney(summary.spentTotal) %> đ</div>
+        <div class="muted">Đã chi tuần này</div>
+        <div class="strong" style="font-size:1.6rem"><%= formatMoney(summary.spentThisWeek) %> đ</div>
+        <div class="muted">Tháng này <%= formatMoney(summary.spentThisMonth) %> đ · tổng <%= formatMoney(summary.spentTotal) %> đ</div>
       </div>
     </section>
 
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">👛</span><h2 class="section-title">Ví từng người</h2></div><span class="badge"><%= summary.wallets.length %></span></div>
+      <% if (!summary.wallets.length) { %><p class="muted">Chưa có thành viên nào.</p><% } %>
+      <% summary.wallets.forEach((w) => { %>
+        <div class="mb" style="border-bottom:1px solid #eee;padding:.5rem 0;opacity:<%= w.active ? '1' : '.55' %>">
+          <div class="flex gap center between">
+            <div>
+              <span class="strong"><%= w.name %></span>
+              <span class="badge"><%= formatMoney(w.allowance) %> đ/<%= w.cycle === 'monthly' ? 'tháng' : 'tuần' %></span>
+              <% if (!w.active) { %><span class="badge">Tạm dừng</span><% } %>
+            </div>
+            <div style="text-align:right">
+              <div class="strong" style="font-size:1.15rem;color:<%= w.remaining < 0 ? '#dc3545' : '#198754' %>"><%= formatMoney(w.remaining) %> đ</div>
+              <div class="muted" style="font-size:.8rem"><%= w.rollover ? 'còn trong ví (dồn)' : 'còn tuần này' %></div>
+            </div>
+          </div>
+          <% if (w.rollover) { %>
+            <div class="muted" style="font-size:.85rem">
+              Đã nhận <%= formatMoney(w.allowance) %> đ × <%= w.months %> tháng = <%= formatMoney(w.handedTotal) %> đ − đã tiêu <%= formatMoney(w.spentTotal) %> đ · tháng này tiêu <%= formatMoney(w.spentThisPeriod) %> đ
+            </div>
+            <div class="muted" style="font-size:.85rem">
+              🧸 Quỹ tiết kiệm riêng: <span class="strong" style="color:<%= w.kidSavings > 0 ? '#6f42c1' : '#dc3545' %>"><%= formatMoney(w.kidSavings) %> đ</span>
+              — nhà dành <%= formatMoney(w.weeklyBudget) %> đ/tuần × <%= w.weeks %> tuần = <%= formatMoney(w.budgetTotal) %> đ, trừ phần con cầm tay
+              <% if (w.kidShortfall > 0) { %><span style="color:#dc3545"> · đã lẹm <%= formatMoney(w.kidShortfall) %> đ vì tiêu quá</span><% } %>
+            </div>
+          <% } else { %>
+            <div class="muted" style="font-size:.85rem">
+              Tuần này: được <%= formatMoney(w.allowance) %> đ − đã tiêu <%= formatMoney(w.spentThisPeriod) %> đ
+              <% if (w.remaining < 0) { %> · <span style="color:#dc3545">tiêu lẹm, nhà phải bù</span><% } %>
+            </div>
+          <% } %>
+          <% if (w.overspend > 0) { %>
+            <div class="muted" style="font-size:.85rem;color:#dc3545">Nhà đã phải bù thêm: <%= formatMoney(w.overspend) %> đ</div>
+          <% } %>
+        </div>
+      <% }) %>
+      <p class="muted" style="margin-top:.6rem">
+        Chu kỳ <span class="strong">hàng tuần</span>: sang tuần mới nạp lại đủ mức, số dư tuần cũ bị xoá.
+        Chu kỳ <span class="strong">hàng tháng</span> (con): tiêu không hết thì <span class="strong">dồn sang tháng sau</span>; tiêu quá thì trừ vào 🧸 quỹ tiết kiệm của con.
+      </p>
+    </section>
+
     <section class="card-lite p">
-      <div class="section-heading mb"><div><span class="feature-icon">📧</span><h2 class="section-title">Quét email VPBank</h2></div></div>
-      <% if (emailConfigured) { %>
-        <p class="muted">Hòm thư: <span class="strong"><%= mailbox %></span></p>
-        <form method="post" action="/household/scan"><button class="btn btn-primary" data-loading-text="Đang quét...">🔄 Quét ngay</button></form>
-      <% } else { %>
-        <p class="muted">Chưa cấu hình hòm Gmail trên server. Đặt biến môi trường <code>HOUSEHOLD_GMAIL_USER</code> và <code>HOUSEHOLD_GMAIL_APP_PASSWORD</code> (app password của Gmail), rồi deploy lại.</p>
+      <div class="section-heading mb"><div><span class="feature-icon">🔀</span><h2 class="section-title">Dòng tiền đang chạy</h2></div></div>
+      <div class="flex gap center" style="border-bottom:1px solid #eee;padding:.35rem 0"><span style="flex:1">Tổng thu đã gộp vào quỹ</span><span class="strong" style="color:#198754">+<%= formatMoney(summary.totalIncome) %> đ</span></div>
+      <div class="flex gap center" style="border-bottom:1px solid #eee;padding:.35rem 0"><span style="flex:1">Trích tiết kiệm</span><span class="strong" style="color:#0d6efd">−<%= formatMoney(summary.savingsTotal) %> đ</span></div>
+      <div class="flex gap center" style="border-bottom:1px solid #eee;padding:.35rem 0"><span style="flex:1">Trích trả nợ</span><span class="strong" style="color:#0d6efd">−<%= formatMoney(summary.debtTotal) %> đ</span></div>
+      <div class="flex gap center" style="border-bottom:1px solid #eee;padding:.35rem 0"><span style="flex:1">Trích khoản khác</span><span class="strong" style="color:#0d6efd">−<%= formatMoney(summary.otherAllocationTotal) %> đ</span></div>
+      <div class="flex gap center" style="border-bottom:1px solid #eee;padding:.35rem 0"><span style="flex:1">Tiền tiêu đã trích (tự động, mỗi đầu tuần)</span><span class="strong" style="color:#fd7e14">−<%= formatMoney(summary.allowanceBudget) %> đ</span></div>
+      <div class="flex gap center" style="border-bottom:1px solid #eee;padding:.35rem 0"><span style="flex:1">Chi chung của nhà</span><span class="strong" style="color:#dc3545">−<%= formatMoney(summary.commonSpent) %> đ</span></div>
+      <% if (summary.overspendTotal > 0) { %>
+        <div class="flex gap center" style="border-bottom:1px solid #eee;padding:.35rem 0"><span style="flex:1">Nhà bù thêm khi ai đó tiêu quá ví</span><span class="strong" style="color:#dc3545">−<%= formatMoney(summary.overspendTotal) %> đ</span></div>
       <% } %>
+      <div class="flex gap center" style="padding:.5rem 0"><span class="strong" style="flex:1">Quỹ chung còn lại</span><span class="strong" style="font-size:1.15rem;color:<%= summary.potBalance < 0 ? '#dc3545' : '#198754' %>"><%= formatMoney(summary.potBalance) %> đ</span></div>
+      <p class="muted" style="margin-top:.6rem">Tiền tiêu đã trích không nằm trong quỹ chung nữa — nó nằm ở ví từng người, riêng phần con chưa cầm tay thì nằm trong 🧸 quỹ tiết kiệm của con.</p>
     </section>
   <% } %>
 
-  <!-- ═══ GIAO DỊCH ═══ -->
-  <% if (section === 'giao-dich') { %>
+  <!-- ═══ THU & PHÂN BỔ ═══ -->
+  <% if (section === 'thu-nhap') { %>
+    <section class="card-lite p mb">
+      <form class="flex gap center" method="get" action="/household/thu-nhap">
+        <label class="muted">Tháng</label>
+        <input type="month" name="month" value="<%= book.month %>">
+        <button class="btn btn-sm btn-outline-primary">Xem</button>
+        <% if (book.months.length > 1) { %>
+          <span class="muted" style="margin-left:auto">Đã có số liệu: <%= book.months.slice(0, 6).map(monthLabel).join(' · ') %></span>
+        <% } %>
+      </form>
+    </section>
+
+    <section class="grid module-grid mb">
+      <div class="card-lite p">
+        <div class="muted">Tổng thu <%= monthLabel(book.month) %></div>
+        <div class="strong" style="font-size:1.4rem;color:#198754"><%= formatMoney(book.incomeTotal) %> đ</div>
+      </div>
+      <div class="card-lite p">
+        <div class="muted">Đã trích ra</div>
+        <div class="strong" style="font-size:1.4rem;color:#0d6efd"><%= formatMoney(book.allocationTotal) %> đ</div>
+        <div class="muted">Trích tay <%= formatMoney(book.manualAllocationTotal) %> đ + tiền tiêu <%= formatMoney(book.allowanceCost) %> đ</div>
+      </div>
+      <div class="card-lite p">
+        <div class="muted">Còn lại trong quỹ tháng này</div>
+        <div class="strong" style="font-size:1.4rem;color:<%= book.leftover < 0 ? '#dc3545' : '#198754' %>"><%= formatMoney(book.leftover) %> đ</div>
+        <div class="muted">Dành cho chi chung của nhà</div>
+      </div>
+    </section>
+
+    <section class="card-lite p mb" style="border-left:4px solid #fd7e14">
+      <div class="flex gap center between">
+        <div>
+          <div class="strong">🤖 Tiền tiêu cả nhà <%= monthLabel(book.month) %> (tự trích)</div>
+          <div class="muted"><%= book.weeksInMonth %> tuần trong tháng · tính theo mức tuần của từng thành viên, không cần nhập tay</div>
+        </div>
+        <div class="strong" style="font-size:1.25rem;color:#fd7e14">−<%= formatMoney(book.allowanceCost) %> đ</div>
+      </div>
+    </section>
+
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">💵</span><h2 class="section-title">Lương &amp; các khoản thu</h2></div><span class="badge"><%= book.incomes.length %></span></div>
+      <% if (!book.incomes.length) { %><p class="muted">Chưa nhập khoản thu nào cho <%= monthLabel(book.month) %>.</p><% } %>
+      <% book.incomes.forEach((i) => { %>
+        <div class="flex gap center" style="border-bottom:1px solid #eee;padding:.4rem 0">
+          <span class="strong" style="min-width:140px"><%= i.source %></span>
+          <span class="strong" style="color:#198754">+<%= formatMoney(i.amount) %> đ</span>
+          <span class="muted" style="flex:1"><%= i.note %></span>
+          <form method="post" action="/household/income/<%= i.id %>/delete"><button class="btn btn-sm btn-outline-danger">Xoá</button></form>
+        </div>
+      <% }) %>
+      <form class="medical-form" method="post" action="/household/income" style="margin-top:.8rem">
+        <input type="hidden" name="month" value="<%= book.month %>">
+        <div><label>Nguồn thu</label><input name="source" placeholder="Lương chồng / Lương vợ / Thưởng" required></div>
+        <div><label>Số tiền (đ)</label><input name="amount" inputmode="numeric" placeholder="15000000" required></div>
+        <div class="medical-form-wide"><label>Ghi chú</label><input name="note" placeholder="Không bắt buộc"></div>
+        <div class="medical-form-actions"><button class="btn btn-success" data-loading-text="Đang lưu...">Thêm khoản thu</button></div>
+      </form>
+    </section>
+
     <section class="card-lite p">
-      <div class="section-heading mb"><div><span class="feature-icon">🧾</span><h2 class="section-title">Giao dịch từ email</h2></div><span class="badge"><%= txns.length %></span></div>
-      <% if (!txns.length) { %><p class="muted">Chưa có giao dịch nào. Vào phần “Tổng quan” bấm “Quét ngay” sau khi 2 vợ chồng đã forward email VPBank vào hòm chung.</p><% } %>
+      <div class="section-heading mb"><div><span class="feature-icon">✂️</span><h2 class="section-title">Các khoản trích ra</h2></div><span class="badge"><%= book.allocations.length %></span></div>
+      <p class="muted">Tiết kiệm, trả nợ và các khoản cố định khác — trích thẳng khỏi quỹ chung ngay khi có lương.</p>
+      <% book.allocations.forEach((a) => { %>
+        <div class="flex gap center" style="border-bottom:1px solid #eee;padding:.4rem 0">
+          <span class="badge"><%= kindLabel[a.kind] || kindLabel.other %></span>
+          <span class="strong" style="min-width:120px"><%= a.name %></span>
+          <span class="strong" style="color:#0d6efd">−<%= formatMoney(a.amount) %> đ</span>
+          <span class="muted" style="flex:1"><%= a.note %></span>
+          <form method="post" action="/household/allocations/<%= a.id %>/delete"><button class="btn btn-sm btn-outline-danger">Xoá</button></form>
+        </div>
+      <% }) %>
+      <% if (!book.allocations.length) { %>
+        <p class="muted">Chưa có khoản trích nào cho <%= monthLabel(book.month) %>.</p>
+      <% } %>
+      <form method="post" action="/household/allocations/copy" style="margin-top:.6rem">
+        <input type="hidden" name="month" value="<%= book.month %>">
+        <button class="btn btn-sm btn-outline-primary" data-loading-text="Đang chép...">📋 Chép các khoản của tháng trước</button>
+      </form>
+      <form class="medical-form" method="post" action="/household/allocations" style="margin-top:.8rem">
+        <input type="hidden" name="month" value="<%= book.month %>">
+        <div><label>Loại</label>
+          <select name="kind">
+            <option value="savings">🐷 Tiết kiệm</option>
+            <option value="debt">🏦 Trả nợ</option>
+            <option value="other" selected>📌 Khoản khác</option>
+          </select>
+        </div>
+        <div><label>Tên khoản</label><input name="name" placeholder="Tiết kiệm / Trả nợ nhà / Học phí" required></div>
+        <div><label>Số tiền (đ)</label><input name="amount" inputmode="numeric" placeholder="5000000" required></div>
+        <div class="medical-form-wide"><label>Ghi chú</label><input name="note" placeholder="Không bắt buộc"></div>
+        <div class="medical-form-actions"><button class="btn btn-success" data-loading-text="Đang lưu...">Thêm khoản trích</button></div>
+      </form>
+    </section>
+  <% } %>
+
+  <!-- ═══ CHI TIÊU ═══ -->
+  <% if (section === 'chi-tieu') { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon">➕</span><h2 class="section-title">Ghi một khoản chi</h2></div></div>
+      <form class="medical-form" method="post" action="/household/txns">
+        <div><label>Ngày</label><input type="date" name="occurredAt" value="<%= today %>"></div>
+        <div><label>Số tiền (đ)</label><input name="amount" inputmode="numeric" placeholder="120000" required></div>
+        <div><label>Của ai</label>
+          <select name="memberId">
+            <option value="">🏠 Chi chung (trừ quỹ chung)</option>
+            <% members.forEach((m) => { %><option value="<%= m.id %>"><%= m.name %></option><% }) %>
+          </select>
+        </div>
+        <div class="medical-form-wide"><label>Nội dung</label><input name="description" placeholder="Cà phê, đi chợ, tiền điện..."></div>
+        <div class="medical-form-actions"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu khoản chi</button></div>
+      </form>
+    </section>
+
+    <section class="card-lite p">
+      <div class="section-heading mb"><div><span class="feature-icon">🧾</span><h2 class="section-title">Các khoản đã chi</h2></div><span class="badge"><%= txns.length %></span></div>
+      <% if (!txns.length) { %><p class="muted">Chưa ghi khoản chi nào.</p><% } %>
       <% txns.forEach((t) => { %>
-        <div class="mb" style="border-bottom:1px solid #eee;padding:.5rem 0;opacity:<%= t.category === 'excluded' ? '.55' : '1' %>">
-          <div class="flex gap center between">
+        <details style="border-bottom:1px solid #eee;padding:.45rem 0">
+          <summary class="flex gap center between" style="cursor:pointer;list-style:none">
             <div>
               <span class="strong"><%= formatMoney(t.amount) %> đ</span>
-              <span class="muted">→ <%= t.beneficiary || '(không rõ)' %></span>
-              <% if (t.category === 'excluded') { %><span class="badge">Không tính</span><% } %>
+              <span class="badge"><%= t.member ? t.member.name : '🏠 Chi chung' %></span>
+              <span class="muted"><%= t.description %></span>
             </div>
-            <span class="muted"><%= t.occurredAt.toISOString().slice(0,16).replace('T',' ') %></span>
-          </div>
-          <div class="muted" style="font-size:.85rem"><%= t.performedBy %> · TK <%= t.debitAccount || '?' %> · <%= t.description %></div>
-          <form class="flex gap center" method="post" action="/household/txns/<%= t.id %>/category" style="margin-top:.3rem">
-            <select name="category">
-              <option value="spending" <%= t.category === 'spending' ? 'selected' : '' %>>Tính chi tiêu</option>
-              <option value="excluded" <%= t.category === 'excluded' ? 'selected' : '' %>>Không tính (loại trừ)</option>
-            </select>
-            <input name="note" value="<%= t.note || '' %>" placeholder="Ghi chú (nếu loại trừ)" style="flex:1">
-            <button class="btn btn-sm btn-outline-primary">Lưu</button>
+            <span class="muted"><%= dmy(t.occurredAt) %></span>
+          </summary>
+          <form class="medical-form" method="post" action="/household/txns/<%= t.id %>" style="margin-top:.5rem">
+            <div><label>Ngày</label><input type="date" name="occurredAt" value="<%= ymd(t.occurredAt) %>"></div>
+            <div><label>Số tiền (đ)</label><input name="amount" inputmode="numeric" value="<%= Number(t.amount) %>" required></div>
+            <div><label>Của ai</label>
+              <select name="memberId">
+                <option value="" <%= t.memberId === null ? 'selected' : '' %>>🏠 Chi chung</option>
+                <% members.forEach((m) => { %><option value="<%= m.id %>" <%= t.memberId !== null && String(t.memberId) === String(m.id) ? 'selected' : '' %>><%= m.name %></option><% }) %>
+              </select>
+            </div>
+            <div class="medical-form-wide"><label>Nội dung</label><input name="description" value="<%= t.description %>"></div>
+            <div class="medical-form-actions"><button class="btn btn-sm btn-outline-primary">Lưu sửa</button></div>
           </form>
-        </div>
+          <form method="post" action="/household/txns/<%= t.id %>/delete" style="margin-top:.4rem"><button class="btn btn-sm btn-outline-danger">Xoá khoản chi</button></form>
+        </details>
       <% }) %>
     </section>
   <% } %>
 
-  <!-- ═══ TIẾT KIỆM ═══ -->
-  <% if (section === 'tiet-kiem') { %>
-    <section class="card-lite p">
-      <div class="section-heading mb"><div><span class="feature-icon">🐷</span><h2 class="section-title">Sổ tiết kiệm</h2></div></div>
-      <p class="muted">Tiết kiệm lũy kế hiện có: <span class="strong" style="color:<%= summary.savingsAccrued < 0 ? '#dc3545' : '#0d6efd' %>"><%= formatMoney(summary.savingsAccrued) %> đ</span> · đã bù sang chi tiêu <%= formatMoney(summary.savingsTopupTotal) %> đ</p>
-      <form class="flex gap center mb" method="post" action="/household/savings/adjust">
-        <input name="amount" placeholder="Số tiền (âm nếu rút bớt, VD -500000)" inputmode="text" required style="flex:1">
-        <input name="note" placeholder="Ghi chú" style="flex:1">
-        <button class="btn btn-primary">Ghi</button>
-      </form>
-      <% if (savings && savings.length) { %>
-        <div class="muted mb">Lịch sử gần đây:</div>
-        <% savings.slice(0, 30).forEach((s) => { %>
-          <div class="flex gap center" style="border-bottom:1px solid #eee;padding:.3rem 0">
-            <span class="muted"><%= s.occurredAt.toISOString().slice(0,10) %></span>
-            <span><%= s.kind === 'topup' ? 'Bù sang chi tiêu' : 'Điều chỉnh' %></span>
-            <span class="strong" style="color:<%= s.kind === 'topup' ? '#dc3545' : '#198754' %>"><%= s.kind === 'topup' ? '−' : '' %><%= formatMoney(s.amount) %> đ</span>
-            <span class="muted"><%= s.needsNote ? '⚠️ chưa ghi chú' : s.note %></span>
-          </div>
-        <% }) %>
-      <% } else { %><p class="muted">Chưa có bút toán tiết kiệm nào.</p><% } %>
-    </section>
-  <% } %>
-
-  <!-- ═══ CẤU HÌNH ═══ -->
-  <% if (section === 'cau-hinh') { %>
+  <!-- ═══ CÀI ĐẶT ═══ -->
+  <% if (section === 'cai-dat') { %>
     <section class="card-lite p mb">
-      <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cấu hình</h2></div></div>
+      <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt chung</h2></div></div>
       <form class="medical-form" method="post" action="/household/config">
-        <div><label>Ngân sách mỗi tuần (đ)</label><input name="weeklyBudget" inputmode="numeric" value="<%= Number(config.weeklyBudget) %>"></div>
-        <div><label>Tiết kiệm mỗi tháng (đ)</label><input name="monthlySavings" inputmode="numeric" value="<%= Number(config.monthlySavings) %>"></div>
+        <div><label>Tiền tiêu mỗi tuần / người (đ)</label><input name="weeklyAllowance" inputmode="numeric" value="<%= Number(config.weeklyAllowance) %>"></div>
         <div><label>Tuần bắt đầu từ</label>
           <select name="weekStartDow">
             <% const dows = [['1','Thứ Hai'],['2','Thứ Ba'],['3','Thứ Tư'],['4','Thứ Năm'],['5','Thứ Sáu'],['6','Thứ Bảy'],['0','Chủ Nhật']]; %>
             <% dows.forEach((d) => { %><option value="<%= d[0] %>" <%= config.weekStartDow === Number(d[0]) ? 'selected' : '' %>><%= d[1] %></option><% }) %>
           </select>
         </div>
-        <div class="medical-form-wide"><label>Ngày bắt đầu theo dõi</label><input name="anchorDate" type="date" value="<%= config.anchorDate.toISOString().slice(0,10) %>"></div>
-        <div class="medical-form-actions"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu cấu hình</button></div>
+        <div><label>Ngày bắt đầu theo dõi</label><input name="anchorDate" type="date" value="<%= ymd(config.anchorDate) %>"></div>
+        <div class="medical-form-actions"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu cài đặt</button></div>
       </form>
+      <p class="muted" style="margin-top:.6rem">Mức mặc định áp dụng cho mọi thành viên không đặt mức riêng — đổi ở đây là đổi cho tất cả.</p>
     </section>
 
     <section class="card-lite p">
-      <div class="section-heading mb"><div><span class="feature-icon">🏦</span><h2 class="section-title">Tài khoản của nhà</h2></div><span class="badge"><%= accounts.length %></span></div>
-      <p class="muted">Gắn nhãn Chồng/Vợ cho giao dịch theo số TK trích nợ. <span class="strong">Chuyển nội bộ giữa 2 vợ chồng vẫn tính là chi tiêu</span> (không loại trừ).</p>
-      <% accounts.forEach((acc) => { %>
-        <div class="flex gap center mb">
-          <span class="strong"><%= acc.accountNumber %></span>
-          <span class="badge"><%= acc.ownerLabel %></span>
-          <span class="muted"><%= acc.kind === 'savings' ? 'Tiết kiệm' : 'Chi tiêu' %></span>
-          <form method="post" action="/household/accounts/<%= acc.id %>/delete" style="margin-left:auto"><button class="btn btn-sm btn-outline-danger">Xoá</button></form>
-        </div>
+      <div class="section-heading mb"><div><span class="feature-icon">👨‍👩‍👦</span><h2 class="section-title">Thành viên nhận tiền tuần</h2></div><span class="badge"><%= members.length %></span></div>
+      <% if (!members.length) { %><p class="muted">Chưa có ai. Thêm chồng, vợ, con... ở form bên dưới.</p><% } %>
+      <p class="muted">
+        Chu kỳ <span class="strong">Hàng tuần</span>: nhận đủ mức mỗi đầu tuần, số dư tuần cũ bị xoá.<br>
+        Chu kỳ <span class="strong">Hàng tháng</span> (cho con): chỉ cầm tay mức đó cho cả tháng, tiêu không hết thì dồn sang tháng sau.
+        Nhà vẫn dành <%= Number(config.weeklyAllowance) %> đ/tuần cho con, phần chênh vào 🧸 quỹ tiết kiệm của con — con tiêu quá thì quỹ đó vơi đi.
+      </p>
+      <% members.forEach((m) => { %>
+        <form class="medical-form" method="post" action="/household/members/<%= m.id %>" style="border-bottom:1px solid #eee;padding-bottom:.7rem;margin-bottom:.7rem">
+          <div><label>Tên</label><input name="name" value="<%= m.name %>" required></div>
+          <div><label>Chu kỳ nhận</label>
+            <select name="cycle">
+              <option value="weekly" <%= m.cycle === 'monthly' ? '' : 'selected' %>>Hàng tuần</option>
+              <option value="monthly" <%= m.cycle === 'monthly' ? 'selected' : '' %>>Hàng tháng (con)</option>
+            </select>
+          </div>
+          <div><label>Mức riêng (đ/kỳ)</label><input name="allowance" inputmode="numeric" value="<%= m.allowance === null ? '' : Number(m.allowance) %>" placeholder="Trống = <%= Number(config.weeklyAllowance) %>"></div>
+          <div><label>Nhận từ ngày</label><input type="date" name="startedOn" value="<%= ymd(m.startedOn) %>"></div>
+          <div><label>Trạng thái</label>
+            <select name="active">
+              <option value="true" <%= m.active ? 'selected' : '' %>>Đang nhận</option>
+              <option value="false" <%= m.active ? '' : 'selected' %>>Tạm dừng</option>
+            </select>
+          </div>
+          <div class="medical-form-actions">
+            <button class="btn btn-sm btn-outline-primary">Lưu</button>
+          </div>
+        </form>
+        <form method="post" action="/household/members/<%= m.id %>/delete" style="margin-top:-.4rem;margin-bottom:.9rem"
+              onsubmit="return confirm('Xoá <%= m.name %>? Các khoản chi cũ của người này sẽ chuyển thành chi chung.')">
+          <button class="btn btn-sm btn-outline-danger">Xoá <%= m.name %></button>
+        </form>
       <% }) %>
-      <form class="flex gap center" method="post" action="/household/accounts">
-        <input name="accountNumber" placeholder="Số tài khoản VPBank" inputmode="numeric" required>
-        <input name="ownerLabel" placeholder="Nhãn (Chồng/Vợ)" required>
-        <select name="kind"><option value="spending">Chi tiêu</option><option value="savings">Tiết kiệm</option></select>
-        <button class="btn btn-primary">Thêm</button>
+
+      <form class="medical-form" method="post" action="/household/members" style="border-top:2px solid #eee;padding-top:.8rem">
+        <div><label>Tên thành viên</label><input name="name" placeholder="Chồng / Vợ / Con zai" required></div>
+        <div><label>Chu kỳ nhận</label>
+          <select name="cycle">
+            <option value="weekly" selected>Hàng tuần</option>
+            <option value="monthly">Hàng tháng (con)</option>
+          </select>
+        </div>
+        <div><label>Mức riêng (đ/kỳ)</label><input name="allowance" inputmode="numeric" placeholder="Trống = <%= Number(config.weeklyAllowance) %>"></div>
+        <div><label>Nhận từ ngày</label><input type="date" name="startedOn" value="<%= ymd(config.anchorDate) %>"></div>
+        <div class="medical-form-actions"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm thành viên</button></div>
       </form>
     </section>
   <% } %>

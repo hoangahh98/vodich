@@ -658,62 +658,83 @@ model TravelTripExpenseSplit {
 }
 
 // ─── Module Quản Lý Chi Tiêu (household) ───
-// Quét email VPBank (tiền RA) từ 1 hòm Gmail chung của 2 vợ chồng, đối chiếu với
-// ngân sách tuần (cộng dồn phần dư) và mức tiết kiệm tháng. Xem docs/quan-ly-chi-tieu.md.
+// Sổ chi tiêu gia đình NHẬP TAY (không quét email). Lương 2 vợ chồng gộp vào quỹ
+// chung → trích ra tiết kiệm / trả nợ / khoản khác → phần còn lại phát tiền tiêu
+// hàng tuần cho từng thành viên. Xem docs/quan-ly-chi-tieu.md.
 
 /// Cấu hình dùng chung, chỉ có đúng 1 dòng (id = 1).
 model HouseholdConfig {
-  id             Int      @id @default(1)
-  weeklyBudget   BigInt   @default(0) @map("weekly_budget")
-  monthlySavings BigInt   @default(0) @map("monthly_savings")
-  weekStartDow   Int      @default(1) @map("week_start_dow") // 1 = Thứ Hai
-  anchorDate     DateTime @default(now()) @map("anchor_date") @db.Date
-  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
+  id              Int      @id @default(1)
+  weeklyAllowance BigInt   @default(500000) @map("weekly_allowance") // mặc định mỗi người mỗi tuần
+  weekStartDow    Int      @default(1) @map("week_start_dow") // 1 = Thứ Hai
+  anchorDate      DateTime @default(now()) @map("anchor_date") @db.Date
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
   @@map("household_config")
 }
 
-/// Số tài khoản "của nhà" để gắn nhãn giao dịch (Chồng/Vợ). KHÔNG dùng để loại
-/// trừ: chuyển nội bộ giữa 2 vợ chồng qua VPBank vẫn tính là chi tiêu.
-model HouseholdAccount {
-  id            BigInt   @id @default(autoincrement())
-  accountNumber String   @unique @map("account_number") @db.VarChar(40)
-  ownerLabel    String   @map("owner_label") @db.VarChar(80)
-  kind          String   @default("spending") @db.VarChar(20) // spending | savings
-  createdAt     DateTime @default(now()) @map("created_at")
+/// Người được phát tiền tiêu (chồng, vợ, con...). Số người tuỳ ý thêm/xoá trong Cài đặt;
+/// ai không đặt mức riêng thì dùng mức mặc định ở HouseholdConfig.
+///
+/// `cycle` quyết định NHỊP NHẬN TIỀN, không đổi ngân sách nhà bỏ ra:
+/// - `weekly`  — nhận `allowance` mỗi đầu tuần, tuần mới xoá sạch số dư tuần cũ.
+/// - `monthly` — (dành cho con) chỉ nhận `allowance` mỗi đầu tháng; nhà vẫn dành ra
+///   mức tuần chuẩn, phần chênh dồn vào QUỸ TIẾT KIỆM riêng của người đó.
+model HouseholdMember {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @db.VarChar(80)
+  cycle     String   @default("weekly") @db.VarChar(10) // weekly | monthly
+  allowance BigInt? // tiền tiêu mỗi kỳ; null = theo mức mặc định
+  startedOn DateTime @map("started_on") @db.Date // bắt đầu được phát từ tuần chứa ngày này
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
 
-  @@map("household_account")
+  txns HouseholdTxn[]
+
+  @@map("household_member")
 }
 
-/// Mỗi email giao dịch VPBank = 1 dòng. txnCode để chống trùng (upsert).
-model HouseholdTxn {
-  id            BigInt   @id @default(autoincrement())
-  txnCode       String   @unique @map("txn_code") @db.VarChar(160)
-  occurredAt    DateTime @map("occurred_at")
-  performedBy   String   @default("") @map("performed_by") @db.VarChar(255)
-  debitAccount  String   @default("") @map("debit_account") @db.VarChar(40)
-  creditAccount String   @default("") @map("credit_account") @db.VarChar(40)
-  beneficiary   String   @default("") @db.VarChar(255)
-  amount        BigInt   @default(0)
-  fee           BigInt   @default(0)
-  description   String   @default("")
-  category      String   @default("spending") @db.VarChar(20) // spending | excluded
-  note          String?
-  createdAt     DateTime @default(now()) @map("created_at")
-
-  @@index([occurredAt])
-  @@map("household_txn")
-}
-
-/// Sổ tiết kiệm: mỗi lần "lẹm" (bù sang chi tiêu, giảm tiết kiệm) hoặc điều chỉnh tay.
-model HouseholdSavingsEntry {
+/// Tiền vào quỹ chung theo tháng: lương chồng, lương vợ, thưởng, thu khác.
+model HouseholdIncome {
   id         BigInt   @id @default(autoincrement())
-  kind       String   @default("topup") @db.VarChar(20) // topup = bù sang chi tiêu | adjust = điều chỉnh tay
+  month      String   @db.VarChar(7) // YYYY-MM
+  source     String   @db.VarChar(80)
   amount     BigInt   @default(0)
   note       String   @default("")
-  needsNote  Boolean  @default(false) @map("needs_note")
-  occurredAt DateTime @default(now()) @map("occurred_at")
   createdAt  DateTime @default(now()) @map("created_at")
 
-  @@map("household_savings_entry")
+  @@index([month])
+  @@map("household_income")
+}
+
+/// Khoản trích ra khỏi quỹ chung mỗi tháng (tiết kiệm, trả nợ, học phí, bảo hiểm...).
+model HouseholdAllocation {
+  id        BigInt   @id @default(autoincrement())
+  month     String   @db.VarChar(7) // YYYY-MM
+  kind      String   @default("other") @db.VarChar(20) // savings | debt | other
+  name      String   @db.VarChar(80)
+  amount    BigInt   @default(0)
+  note      String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([month])
+  @@map("household_allocation")
+}
+
+/// Một khoản chi thực tế. memberId = null nghĩa là CHI CHUNG (trừ vào quỹ chung),
+/// có memberId thì trừ vào ví tiền tuần của người đó.
+model HouseholdTxn {
+  id          BigInt   @id @default(autoincrement())
+  occurredAt  DateTime @map("occurred_at")
+  memberId    BigInt?  @map("member_id")
+  amount      BigInt   @default(0)
+  description String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  member HouseholdMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  @@index([occurredAt])
+  @@index([memberId])
+  @@map("household_txn")
 }

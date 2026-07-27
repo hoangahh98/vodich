@@ -19,7 +19,6 @@ import { MedicalAiService } from './medical/medical-ai.service';
 import { CabinetService } from './medical/cabinet.service';
 import { HouseholdController } from './household/household.controller';
 import { HouseholdService } from './household/household.service';
-import { HouseholdEmailService } from './household/household-email.service';
 import { PlayersController } from './players/players.controller';
 import { PlayersService } from './players/players.service';
 import { TournamentService } from './tournaments/tournament.service';
@@ -86,7 +85,6 @@ import { FeatureGuard } from './common/feature.guard';
     MedicalAiService,
     CabinetService,
     HouseholdService,
-    HouseholdEmailService,
     AiService,
     MatchGateway,
     LocalsMiddleware,

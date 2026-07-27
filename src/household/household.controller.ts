@@ -4,10 +4,9 @@ import { notFound, parseBigId } from '../common/controller-utils';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
 import { FeatureGuard } from '../common/feature.guard';
 import { render } from '../common/view';
-import { HouseholdEmailService } from './household-email.service';
 import { HouseholdService } from './household.service';
 
-const SECTIONS = ['tong-quan', 'giao-dich', 'tiet-kiem', 'cau-hinh'];
+const SECTIONS = ['tong-quan', 'thu-nhap', 'chi-tieu', 'cai-dat'];
 
 /**
  * Module Quản Lý Chi Tiêu — CHỈ dành cho admin (tài chính riêng của gia đình).
@@ -18,86 +17,121 @@ const SECTIONS = ['tong-quan', 'giao-dich', 'tiet-kiem', 'cau-hinh'];
 @FeatureAccess('HOUSEHOLD')
 @AdminOnly()
 export class HouseholdController {
-  constructor(
-    private readonly household: HouseholdService,
-    private readonly email: HouseholdEmailService,
-  ) {}
+  constructor(private readonly household: HouseholdService) {}
 
   @Get(['/household', '/household/:section'])
-  async index(@Res() res: Response, @Param('section') section?: string, @Query('msg') msg?: string, @Query('err') err?: string) {
+  async index(
+    @Res() res: Response,
+    @Param('section') section?: string,
+    @Query('month') month?: string,
+    @Query('msg') msg?: string,
+    @Query('err') err?: string,
+  ) {
     const active = SECTIONS.includes(String(section)) ? String(section) : 'tong-quan';
-    const [config, summary, txns, accounts, savings, pendingNotes] = await Promise.all([
+    const [config, summary, members, txns, book] = await Promise.all([
       this.household.getConfig(),
       this.household.summary(),
+      this.household.listMembers(),
       this.household.listTxns(),
-      this.household.listAccounts(),
-      this.household.listSavingsEntries(),
-      this.household.pendingNoteEntries(),
+      this.household.monthBook(month),
     ]);
     return render(res, 'household/index', {
       section: active,
       config,
       summary,
+      members,
       txns,
-      accounts,
-      savings,
-      pendingNotes,
-      emailConfigured: this.email.isConfigured(),
-      mailbox: this.email.mailbox(),
+      book,
       msg: String(msg || ''),
       err: String(err || ''),
     });
   }
 
-  @Post('/household/scan')
-  async scan(@Res() res: Response) {
-    const result = await this.email.scan();
-    const key = result.ok ? 'msg' : 'err';
-    return res.redirect(`/household?${key}=${encodeURIComponent(result.message)}`);
-  }
-
   @Post('/household/config')
   async saveConfig(@Res() res: Response, @Body() body: Record<string, string>) {
     await this.household.updateConfig(body);
-    return res.redirect('/household/cau-hinh?msg=' + encodeURIComponent('Đã lưu cấu hình'));
+    return res.redirect('/household/cai-dat?msg=' + encodeURIComponent('Đã lưu cài đặt'));
   }
 
-  @Post('/household/accounts')
-  async addAccount(@Res() res: Response, @Body() body: Record<string, string>) {
-    await this.household.addAccount(body);
-    return res.redirect('/household/cau-hinh');
+  // ─── Thành viên ───
+  @Post('/household/members')
+  async addMember(@Res() res: Response, @Body() body: Record<string, string>) {
+    await this.household.addMember(body);
+    return res.redirect('/household/cai-dat');
   }
 
-  @Post('/household/accounts/:id/delete')
-  async deleteAccount(@Res() res: Response, @Param('id') id: string) {
-    const accId = parseBigId(id);
-    if (!accId) return notFound(res);
-    await this.household.deleteAccount(accId);
-    return res.redirect('/household/cau-hinh');
+  @Post('/household/members/:id')
+  async updateMember(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+    const memberId = parseBigId(id);
+    if (!memberId) return notFound(res);
+    await this.household.updateMember(memberId, body);
+    return res.redirect('/household/cai-dat?msg=' + encodeURIComponent('Đã lưu thành viên'));
   }
 
-  @Post('/household/txns/:id/category')
-  async setCategory(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
+  @Post('/household/members/:id/delete')
+  async deleteMember(@Res() res: Response, @Param('id') id: string) {
+    const memberId = parseBigId(id);
+    if (!memberId) return notFound(res);
+    await this.household.deleteMember(memberId);
+    return res.redirect('/household/cai-dat?msg=' + encodeURIComponent('Đã xoá thành viên (khoản chi cũ chuyển thành chi chung)'));
+  }
+
+  // ─── Thu nhập & phân bổ ───
+  @Post('/household/income')
+  async addIncome(@Res() res: Response, @Body() body: Record<string, string>) {
+    const month = await this.household.addIncome(body);
+    return res.redirect(`/household/thu-nhap?month=${month}`);
+  }
+
+  @Post('/household/income/:id/delete')
+  async deleteIncome(@Res() res: Response, @Param('id') id: string) {
+    const incomeId = parseBigId(id);
+    if (!incomeId) return notFound(res);
+    const month = await this.household.deleteIncome(incomeId);
+    return res.redirect(`/household/thu-nhap?month=${month}`);
+  }
+
+  @Post('/household/allocations')
+  async addAllocation(@Res() res: Response, @Body() body: Record<string, string>) {
+    const month = await this.household.addAllocation(body);
+    return res.redirect(`/household/thu-nhap?month=${month}`);
+  }
+
+  @Post('/household/allocations/:id/delete')
+  async deleteAllocation(@Res() res: Response, @Param('id') id: string) {
+    const allocationId = parseBigId(id);
+    if (!allocationId) return notFound(res);
+    const month = await this.household.deleteAllocation(allocationId);
+    return res.redirect(`/household/thu-nhap?month=${month}`);
+  }
+
+  @Post('/household/allocations/copy')
+  async copyAllocations(@Res() res: Response, @Body() body: Record<string, string>) {
+    const { month, copied } = await this.household.copyAllocationsFromPreviousMonth(body.month);
+    const note = copied ? `Đã chép ${copied} khoản từ tháng trước` : 'Tháng trước không có khoản nào mới để chép';
+    return res.redirect(`/household/thu-nhap?month=${month}&${copied ? 'msg' : 'err'}=${encodeURIComponent(note)}`);
+  }
+
+  // ─── Chi tiêu ───
+  @Post('/household/txns')
+  async addTxn(@Res() res: Response, @Body() body: Record<string, string>) {
+    await this.household.addTxn(body);
+    return res.redirect('/household/chi-tieu');
+  }
+
+  @Post('/household/txns/:id')
+  async updateTxn(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     const txnId = parseBigId(id);
     if (!txnId) return notFound(res);
-    await this.household.setTxnCategory(txnId, body.category, body.note);
-    return res.redirect('/household/giao-dich');
+    await this.household.updateTxn(txnId, body);
+    return res.redirect('/household/chi-tieu');
   }
 
-  @Post('/household/savings/:id/note')
-  async noteSavings(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    const entryId = parseBigId(id);
-    if (!entryId) return notFound(res);
-    if (!String(body.note || '').trim()) {
-      return res.redirect('/household/tiet-kiem?err=' + encodeURIComponent('Cần nhập lý do lẹm tiết kiệm'));
-    }
-    await this.household.acknowledgeSavings(entryId, body.note);
-    return res.redirect('/household/tiet-kiem?msg=' + encodeURIComponent('Đã ghi chú khoản lẹm tiết kiệm'));
-  }
-
-  @Post('/household/savings/adjust')
-  async adjustSavings(@Res() res: Response, @Body() body: Record<string, string>) {
-    await this.household.adjustSavings(body);
-    return res.redirect('/household/tiet-kiem');
+  @Post('/household/txns/:id/delete')
+  async deleteTxn(@Res() res: Response, @Param('id') id: string) {
+    const txnId = parseBigId(id);
+    if (!txnId) return notFound(res);
+    await this.household.deleteTxn(txnId);
+    return res.redirect('/household/chi-tieu');
   }
 }

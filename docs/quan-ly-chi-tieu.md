@@ -1,53 +1,82 @@
 # Module Quản Lý Chi Tiêu (household)
 
-Theo dõi chi tiêu 2 vợ chồng dựa trên email báo giao dịch của **VPBank**. Chỉ admin dùng được.
+Sổ chi tiêu gia đình **nhập tay** — không quét email, không kết nối ngân hàng. Chỉ admin dùng được.
 
-## Nguyên tắc
+## Nguyên tắc tiền
 
-- **VPBank là túi chi tiêu duy nhất.** Mỗi email VPBank báo "chuyển tiền đi" = 1 khoản chi.
-  **Mọi** giao dịch tiền-ra đều tính là chi tiêu, kể cả chuyển nội bộ giữa 2 vợ chồng
-  (không ngoại lệ). Vẫn có thể sửa tay từng khoản sang "Không tính" kèm ghi chú.
-- **Ngân sách mỗi tuần** được nạp mặc định và **cộng dồn phần dư** sang tuần sau (rollover).
-- **Tiết kiệm mỗi tháng** cộng dồn theo số tháng kể từ ngày bắt đầu theo dõi. Khi số dư
-  chi tiêu âm (tiêu lẹm), hệ thống **tự bù từ tiết kiệm** để kéo số dư về 0 và **bắt buộc
-  ghi chú lý do**.
-- Tiền vào VPBank hàng tuần đến từ 1 ngân hàng khác (không sinh email), nên "ngân sách tuần"
-  và "tiết kiệm tháng" là **số cấu hình nhập tay**, không quét từ email.
+1. **Gộp quỹ.** Lương chồng + lương vợ (+ thưởng, thu khác) nhập vào **quỹ chung** theo từng tháng.
+2. **Trích ra trước.** Ngay khi có lương, trích các khoản cố định khỏi quỹ chung:
+   - `savings` — tiết kiệm
+   - `debt` — trả nợ
+   - `other` — khoản khác (học phí, bảo hiểm, biếu bố mẹ...)
+3. **Tiền tiêu tự trích.** Mỗi đầu tuần, nhà dành ra mức tuần chuẩn (mặc định
+   **500.000 đ/người/tuần**, đổi ở Cài đặt) cho từng thành viên. Khoản này **tự tính**,
+   không phải nhập tay, và tự trừ khỏi quỹ chung.
+4. **Hai chu kỳ nhận** (`cycle` của thành viên) — khác nhau ở chỗ có cộng dồn hay không:
 
-## Cách lấy email (đã chọn: forward về 1 hòm Gmail chung)
+   | | `weekly` (vợ chồng) | `monthly` (con) |
+   |---|---|---|
+   | Cầm tay | mức đó **mỗi tuần** | mức đó cho **cả tháng** |
+   | Tiêu không hết | **bị xoá** khi sang tuần mới | **dồn sang tháng sau** |
+   | Tiêu quá | **nhà bù** ⇒ trừ quỹ chung | trừ vào **🧸 quỹ tiết kiệm của con** (tiết kiệm ít đi); cạn quỹ mới đến nhà bù |
 
-1. Tạo 1 hòm Gmail chuyên dụng, VD `chi.tieu.gia.dinh@gmail.com`.
-2. Bật xác minh 2 bước cho hòm đó → tạo **App password** (mật khẩu ứng dụng 16 ký tự).
-3. Ở Gmail cá nhân của **cả 2 vợ chồng**: đặt bộ lọc tự động **forward** email từ VPBank
-   sang hòm chung (Settings → Filters → Forward; hoặc Forwarding and POP/IMAP).
-4. Bật IMAP cho hòm chung (Settings → Forwarding and POP/IMAP → Enable IMAP).
+   Với `monthly`, nhà vẫn dành mức tuần chuẩn cho con — phần con chưa cầm tay
+   (`500k × số tuần còn lại của tháng`) chính là **quỹ tiết kiệm riêng của con**.
+5. **Chi chung.** Khoản chi không gắn với ai (điện, nước, đi chợ...) trừ thẳng vào quỹ chung.
 
-## Biến môi trường (Render)
+Công thức:
 
-| Biến | Bắt buộc | Mặc định | Ý nghĩa |
-|------|----------|----------|---------|
-| `HOUSEHOLD_GMAIL_USER` | ✅ | – | Email hòm Gmail chung |
-| `HOUSEHOLD_GMAIL_APP_PASSWORD` | ✅ | – | App password 16 ký tự |
-| `HOUSEHOLD_GMAIL_HOST` | | `imap.gmail.com` | Máy chủ IMAP |
-| `HOUSEHOLD_GMAIL_PORT` | | `993` | Cổng IMAP (SSL) |
-| `HOUSEHOLD_IMAP_FOLDER` | | `INBOX` | Thư mục quét |
-| `HOUSEHOLD_SCAN_DAYS` | | `90` | Quét email trong bao nhiêu ngày gần nhất |
-| `HOUSEHOLD_POLL_MINUTES` | | (tắt) | Nếu đặt >0 thì tự quét định kỳ mỗi ngần đó phút |
+```
+Ngân sách đã trích = mức tuần chuẩn × số tuần đã trôi          (cho MỌI thành viên)
 
-Không đặt app password vào code. Chỉ quét đúng hòm chung nên không đụng email riêng tư.
+weekly:  ví            = mức tuần − đã tiêu trong TUẦN NÀY
+         nhà bù        = Σ các tuần max(0, chi trong tuần − mức tuần)
+
+monthly: đã cầm tay    = mức tháng × số tháng đã trôi
+         ví            = đã cầm tay − TỔNG đã tiêu               (cộng dồn, có thể âm)
+         quỹ của con   = max(0, ngân sách đã trích − max(đã cầm tay, tổng đã tiêu))
+         nhà bù        = max(0, tổng đã tiêu − ngân sách đã trích)
+
+Quỹ chung còn lại = Σ thu − Σ trích tay − Σ ngân sách đã trích − Σ chi chung − Σ nhà bù
+```
+
+Số tuần tính từ **tuần chứa** ngày muộn hơn giữa *ngày bắt đầu theo dõi* (Cài đặt)
+và *ngày thành viên bắt đầu nhận* — nên thêm người giữa chừng không làm sai lịch sử.
+Mỗi tuần thuộc về tháng chứa **ngày đầu tuần** của nó, nên cộng 12 tháng lại vẫn đúng
+52/53 tuần, không đếm trùng. Thành viên "Tạm dừng" thì ngừng trích tiền tuần.
+
+## Các phần trong màn hình
+
+| Phần | Việc làm ở đó |
+|------|----------------|
+| 📊 Tổng quan | Quỹ chung còn lại, ví từng người, quỹ tiết kiệm của con, dòng tiền tóm tắt |
+| 💵 Thu & phân bổ | Nhập lương/thu của tháng, các khoản trích tay, xem khoản tiền tiêu **tự trích**; có nút **chép các khoản của tháng trước** |
+| 🧾 Chi tiêu | Ghi khoản chi (chọn của ai hoặc "chi chung"), sửa/xoá |
+| ⚙️ Cài đặt | Mức tuần mặc định, thứ bắt đầu tuần, ngày bắt đầu theo dõi, thành viên + **chu kỳ nhận** |
 
 ## Sử dụng
 
-1. Vào **Chi Tiêu** trên trang chủ (cần được cấp quyền `HOUSEHOLD` ở Phân Quyền).
-2. Nhập **Cấu hình**: ngân sách/tuần, tiết kiệm/tháng, ngày bắt đầu theo dõi.
-3. (Tuỳ chọn) thêm **Tài khoản của nhà** để gắn nhãn Chồng/Vợ cho giao dịch.
-4. Bấm **Quét ngay** (hoặc để tự quét nếu bật `HOUSEHOLD_POLL_MINUTES`).
-5. Khi có cảnh báo **"Đang lẹm vào tiết kiệm"** → nhập lý do để xác nhận.
+1. Vào **Chi Tiêu** trên trang chủ (cần quyền `HOUSEHOLD` ở Phân Quyền).
+2. **Cài đặt**: đặt mức tuần mặc định (500.000 đ), ngày bắt đầu theo dõi, rồi thêm thành viên.
+   Vợ chồng để chu kỳ **Hàng tuần**; con để **Hàng tháng (con)** — con chỉ cầm 500k cho cả
+   tháng, tiêu không hết thì dồn sang tháng sau, tiêu quá thì quỹ tiết kiệm của con vơi đi.
+   Ai cần mức khác thì điền "Mức riêng".
+3. **Thu & phân bổ**: mỗi tháng nhập lương 2 vợ chồng, rồi thêm các khoản trích tay
+   (tiết kiệm, trả nợ...). Tiền tiêu cả nhà đã tự trích sẵn, không cần nhập.
+   Tháng sau bấm "Chép các khoản của tháng trước" cho nhanh.
+4. **Chi tiêu**: ghi từng khoản chi, chọn của ai — trừ vào ví người đó; để "🏠 Chi chung" — trừ quỹ chung.
 
 ## Kỹ thuật
 
-- Parser: `src/household/household-parser.ts` (regex theo nhãn tiếng Việt, có test
-  `test/household-parser.test.js` dựng theo mẫu email thật).
-- Đọc IMAP: `src/household/household-email.service.ts` (`imapflow` + `mailparser`).
-- Sổ tiền: `src/household/household.service.ts` (`reconcileShortfall`, `summary`).
-- Chống trùng: mỗi giao dịch upsert theo **Mã giao dịch** (`txn_code` unique).
+- Nghiệp vụ & công thức: `src/household/household.service.ts` (`summary`, `monthBook`).
+- Route/màn hình: `src/household/household.controller.ts`, `src/views/household/index.ejs`.
+- Bảng dữ liệu: `household_config`, `household_member`, `household_income`,
+  `household_allocation`, `household_txn` (xem `prisma/schema.prisma`).
+- Xoá thành viên **không** xoá khoản chi của họ: `member_id` chuyển về NULL ⇒ thành chi chung.
+
+## Lịch sử
+
+Bản đầu tiên (7/2026) quét email VPBank từ một hòm Gmail chung qua IMAP. Đã **gỡ bỏ hoàn toàn**
+(migration `20260727190000_household_manual_ledger`): xoá parser, service IMAP, các biến môi trường
+`HOUSEHOLD_GMAIL_*`, gói `imapflow`/`mailparser` và các bảng `household_account`,
+`household_savings_entry`, cùng bảng `household_txn` cũ.
