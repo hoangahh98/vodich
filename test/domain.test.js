@@ -104,14 +104,12 @@ test('TeamMonthReportBuilder calculates finance summary and fixed member orderin
   assert.equal(report.finance.fixedUnpaidCount, 1);
   assert.equal(report.finance.totalMissing, 100);
   assert.equal(report.finance.balance, 130);
-  assert.equal(report.finance.totalFund, 170); // đóng 150 (100 cố định + 50 vãng lai) + dư 20
-  assert.equal(report.finance.totalFund - report.finance.totalSpent, report.finance.balance);
+  assert.equal(report.finance.totalFund, 100); // sân 30 + khác 0 + dư 20 + vãng lai 50
   assert.equal(report.finance.totalSpent, 40); // tiền sân 30 + khoản chi 10
   assert.equal(report.finance.guestPaid, 50); // Cuong là vãng lai, đã đóng 50
   assert.equal(report.finance.fixedPaid, 100); // phần còn lại của tổng thu là của người cố định
-  assert.equal(report.finance.otherCostInput, 0); // số admin gõ ở Cài đặt, không dính tiền vãng lai
-  assert.equal(report.finance.otherCost, 50); // tiền khác = 0 nhập tay + 50 vãng lai
-  assert.equal(report.finance.totalRequired, 60); // sân 30 + khác 50 - dư tháng trước 20
+  assert.equal(report.finance.otherCost, 0); // đúng số admin gõ ở Cài đặt, không dính tiền vãng lai
+  assert.equal(report.finance.totalRequired, 10); // sân 30 + khác 0 - dư tháng trước 20
   assert.deepEqual(
     report.players.map((player) => player.displayName),
     ['Dung'],

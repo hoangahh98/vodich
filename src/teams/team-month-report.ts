@@ -21,7 +21,6 @@ export type TeamFinanceSummary = {
   monthlyFee: number;
   suggestedMonthlyFee: number;
   courtCost: number;
-  otherCostInput: number;
   guestPaid: number;
   otherCost: number;
   totalRequired: number;
@@ -109,11 +108,11 @@ export class TeamMonthReportBuilder {
 
   private finance(rows: TeamMemberReportRow[], expenses: TeamExpense[], fund: TeamFundInput): TeamFinanceSummary {
     const { monthlyFee, courtCost, previousBalance, previousMonthBalance } = fund;
-    // Tiền vãng lai đã đóng được cộng thẳng vào "tiền khác" (fund.otherCost chỉ là số admin
-    // nhập tay ở Cài đặt). Ô Cài đặt phải hiển thị otherCostInput, nếu bind nhầm otherCost
-    // thì lần lưu sau sẽ cộng dồn tiền vãng lai vào DB thành hai lần.
+    // Tiền vãng lai là một số hạng RIÊNG của tổng quỹ, không gộp vào "tiền khác" (tiền khác
+    // chỉ là số admin nhập tay ở Cài đặt). Gộp vào thì mỗi lần lưu Cài đặt sẽ ghi đè tiền
+    // vãng lai xuống DB rồi tháng sau cộng tiếp thành hai lần.
     const guestPaid = rows.filter((member) => member.memberType === 'GUEST').reduce((sum, member) => sum + member.paidAmount, 0);
-    const otherCost = fund.otherCost + guestPaid;
+    const otherCost = fund.otherCost;
     const totalPaid = rows.reduce((sum, member) => sum + member.paidAmount, 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
     const totalDue = rows.reduce((sum, member) => sum + member.expectedAmount, 0);
@@ -125,7 +124,6 @@ export class TeamMonthReportBuilder {
       monthlyFee,
       suggestedMonthlyFee: suggestMonthlyFee(courtCost, otherCost, previousBalance, fixedCount),
       courtCost,
-      otherCostInput: fund.otherCost,
       guestPaid,
       otherCost,
       totalRequired: requiredCollection(courtCost, otherCost, previousBalance),
@@ -133,8 +131,10 @@ export class TeamMonthReportBuilder {
       previousMonthBalance,
       totalPaid,
       fixedPaid: totalPaid - guestPaid,
-      // Tổng quỹ = tiền mọi người đã đóng (cố định + vãng lai) cộng quỹ còn lại tháng trước.
-      totalFund: previousBalance + totalPaid,
+      // Tổng quỹ = tiền sân + tiền khác + quỹ còn lại tháng trước + tiền vãng lai đã đóng.
+      // Đây là tiền của cả tháng chứ không phải số đã thu được, nên KHÔNG dùng nó để tính
+      // quỹ còn lại (balance vẫn đi theo tiền thực đóng bên dưới).
+      totalFund: courtCost + otherCost + previousBalance + guestPaid,
       totalExpense,
       // Tổng đã chi = tiền sân + các khoản chi trong tháng (tiền sân không nằm trong
       // bảng team_expense nên phải cộng tay, đừng nhầm với totalExpense).

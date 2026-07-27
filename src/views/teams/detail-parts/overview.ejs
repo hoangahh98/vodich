@@ -1,9 +1,19 @@
 <% if (section === 'overview') { %>
-  <%# Hàng trên là hai số chốt của tháng, hàng dưới là ô Tổng đã chi bấm được để xổ
-      từng khoản chi (details/summary, không cần JS). %>
+  <%# Các ô bấm được dùng details/summary, không cần JS. %>
+  <% const unpaidMembers = members.filter((member) => member.expectedAmount > member.paidAmount); %>
   <section class="grid finance-grid mb">
-    <div class="metric-card green"><span>🏦 Tổng quỹ</span><strong><%= formatMoney(finance.totalFund) %>đ</strong><small><% if (finance.guestPaid) { %>Cố định đóng <%= formatMoney(finance.fixedPaid) %>đ + người chơi vãng lai <%= formatMoney(finance.guestPaid) %>đ<% } else { %>Mọi người đóng <%= formatMoney(finance.totalPaid) %>đ<% } %> + còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ</small></div>
-    <div class="metric-card <%= finance.balance < 0 ? 'red' : 'orange' %>"><span>💵 Quỹ còn lại</span><strong><%= formatMoney(finance.balance) %>đ</strong><small>= Tổng quỹ <%= formatMoney(finance.totalFund) %>đ − Tổng đã chi <%= formatMoney(finance.totalSpent) %>đ</small></div>
+    <details class="metric-card green metric-drop">
+      <summary><span>🏦 Tổng quỹ</span><strong><%= formatMoney(finance.totalFund) %>đ</strong><small>Tiền sân <%= formatMoney(finance.courtCost) %>đ + tiền khác <%= formatMoney(finance.otherCost) %>đ + còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ<% if (finance.guestPaid) { %> + người chơi vãng lai đóng <%= formatMoney(finance.guestPaid) %>đ<% } %></small></summary>
+      <div class="metric-drop-body">
+        <% unpaidMembers.forEach((member) => { %>
+          <div><span>👤 <%= member.player.displayName %></span><strong><%= formatMoney(member.expectedAmount - member.paidAmount) %>đ</strong></div>
+        <% }) %>
+        <% if (!unpaidMembers.length) { %><p class="metric-drop-note">Cả đội đã đóng đủ.</p><% } else { %>
+          <p class="metric-drop-note"><%= unpaidMembers.length %> người chưa đóng — tổng còn thiếu <strong><%= formatMoney(finance.totalMissing) %>đ</strong></p>
+        <% } %>
+      </div>
+    </details>
+    <div class="metric-card <%= finance.balance < 0 ? 'red' : 'orange' %>"><span>💵 Quỹ còn lại</span><strong><%= formatMoney(finance.balance) %>đ</strong><small>= Đã đóng <%= formatMoney(finance.totalPaid) %>đ + còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ − Tổng đã chi <%= formatMoney(finance.totalSpent) %>đ</small></div>
   </section>
   <section class="grid finance-grid mb">
     <details class="metric-card gold metric-drop">

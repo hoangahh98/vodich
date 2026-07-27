@@ -38,7 +38,7 @@ Mọi cập nhật mọi người có thể theo dõi tại đây nhé.</textare
         <textarea id="teamFundReportText" rows="18" readonly>Cập nhật quỹ nước - "<%= team.name %>"
 Tháng: <%= selectedMonth %>
 
-Tổng quỹ: <%= formatMoney(finance.totalFund) %>đ (gồm tiền mọi người đóng <%= formatMoney(finance.totalPaid) %>đ và quỹ còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ)
+Tổng quỹ: <%= formatMoney(finance.totalFund) %>đ (tiền sân <%= formatMoney(finance.courtCost) %>đ + tiền khác <%= formatMoney(finance.otherCost) %>đ + còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ<% if (finance.guestPaid) { %> + người chơi vãng lai đóng <%= formatMoney(finance.guestPaid) %>đ<% } %>)
 Còn lại: <%= formatMoney(finance.balance) %>đ
 Tiền sân: <%= formatMoney(finance.courtCost) %>đ
 
@@ -46,7 +46,7 @@ Chi tiết đã chi:
 <% if (!expenses.length) { %>- Chưa có khoản chi trong tháng
 <% } else { %><% expenses.forEach((expense) => { %>- <%= expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('vi-VN') : selectedMonth %>: <%= expense.content %> - <%= formatMoney(expense.amount) %>đ<% if (expense.notes) { %> (<%= expense.notes %>)<% } %>
 <% }) %><% } %>
-Thành viên còn thiếu quỹ:
+Thành viên còn thiếu quỹ (tổng còn thiếu <%= formatMoney(finance.totalMissing) %>đ):
 <% if (!missingFixedMembers.length) { %>- Không có
 <% } else { %><% missingFixedMembers.forEach((member) => { %>- <%= member.player.displayName %>: thiếu <%= formatMoney(member.expectedAmount - member.paidAmount) %>đ
 <% }) %><% } %>
