@@ -92,7 +92,7 @@ test('TeamMonthReportBuilder calculates finance summary and fixed member orderin
   const report = builder.build({
     members: [guest, fixedUnpaid, fixedPaid],
     players: [fixedPaid.player, fixedUnpaid.player, guest.player, { id: 4n, displayName: 'Dung', email: 'dung@example.com' }],
-    fund: { monthlyFee: 100, courtCost: 30, previousBalance: 20 },
+    fund: { monthlyFee: 100, courtCost: 30, otherCost: 15, previousBalance: 20 },
     expenses: [{ amount: 10 }],
     previousMonthBalance: 7,
   });
@@ -103,13 +103,13 @@ test('TeamMonthReportBuilder calculates finance summary and fixed member orderin
   );
   assert.equal(report.finance.fixedUnpaidCount, 1);
   assert.equal(report.finance.totalMissing, 100);
-  assert.equal(report.finance.balance, 130);
-  assert.equal(report.finance.totalFund, 100); // sân 30 + khác 0 + dư 20 + vãng lai 50
+  assert.equal(report.finance.balance, 115); // dư 20 + đóng 150 - sân 30 - khác 15 - chi 10
+  assert.equal(report.finance.totalFund, 75); // sân 30 + khác 15 - dư 20 + vãng lai 50
   assert.equal(report.finance.totalSpent, 40); // tiền sân 30 + khoản chi 10
   assert.equal(report.finance.guestPaid, 50); // Cuong là vãng lai, đã đóng 50
   assert.equal(report.finance.fixedPaid, 100); // phần còn lại của tổng thu là của người cố định
-  assert.equal(report.finance.otherCost, 0); // đúng số admin gõ ở Cài đặt, không dính tiền vãng lai
-  assert.equal(report.finance.totalRequired, 10); // sân 30 + khác 0 - dư tháng trước 20
+  assert.equal(report.finance.otherCost, 15); // đúng số admin gõ ở Cài đặt, không dính tiền vãng lai
+  assert.equal(report.finance.totalRequired, 25); // sân 30 + khác 15 - dư tháng trước 20
   assert.deepEqual(
     report.players.map((player) => player.displayName),
     ['Dung'],

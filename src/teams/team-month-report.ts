@@ -131,17 +131,19 @@ export class TeamMonthReportBuilder {
       previousMonthBalance,
       totalPaid,
       fixedPaid: totalPaid - guestPaid,
-      // Tổng quỹ = tiền sân + tiền khác + quỹ còn lại tháng trước + tiền vãng lai đã đóng.
+      // Tổng quỹ = tiền sân + tiền khác - quỹ còn lại tháng trước + tiền vãng lai đã đóng.
       // Đây là tiền của cả tháng chứ không phải số đã thu được, nên KHÔNG dùng nó để tính
       // quỹ còn lại (balance vẫn đi theo tiền thực đóng bên dưới).
-      totalFund: courtCost + otherCost + previousBalance + guestPaid,
+      totalFund: courtCost + otherCost - previousBalance + guestPaid,
       totalExpense,
       // Tổng đã chi = tiền sân + các khoản chi trong tháng (tiền sân không nằm trong
       // bảng team_expense nên phải cộng tay, đừng nhầm với totalExpense).
       totalSpent: courtCost + totalExpense,
       totalDue,
       totalMissing,
-      balance: previousBalance + totalPaid - courtCost - totalExpense,
+      // Quỹ còn lại trừ cả tiền khác: số này phải khớp previousMonthBalance() bên
+      // team-detail.service.ts, sửa một chỗ thì sửa cả hai kẻo số dư mang sang tháng sau lệch.
+      balance: previousBalance + totalPaid - courtCost - otherCost - totalExpense,
       memberCount: rows.length,
       fixedCount,
       fixedUnpaidCount,

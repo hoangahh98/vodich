@@ -50,7 +50,8 @@ export class TeamDetailService {
       .filter((payment) => payment.paymentStatus === 'PAID')
       .reduce((sum, payment) => sum + Number(payment.paidAmount), 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
-    return Number(fund.previousBalance || 0) + totalPaid - Number(fund.courtCost || 0) - totalExpense;
+    // Cùng công thức với balance trong team-month-report.ts (có trừ tiền khác).
+    return Number(fund.previousBalance || 0) + totalPaid - Number(fund.courtCost || 0) - Number(fund.otherCost || 0) - totalExpense;
   }
 
   private availableAdmins(teamId: bigint, ownerAdminId?: bigint | null) {
