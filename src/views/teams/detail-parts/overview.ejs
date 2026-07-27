@@ -1,5 +1,10 @@
 <% if (section === 'overview') { %>
-  <%# Hai ô còn lại đều bấm được để xổ chi tiết bên dưới (details/summary, không cần JS). %>
+  <%# Hàng trên là hai số chốt của tháng, hàng dưới là hai ô bấm được để xổ chi tiết
+      (details/summary, không cần JS). %>
+  <section class="grid finance-grid mb">
+    <div class="metric-card green"><span>🏦 Tổng quỹ</span><strong><%= formatMoney(finance.totalFund) %>đ</strong><small>Mọi người đóng <%= formatMoney(finance.totalPaid) %>đ + còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ</small></div>
+    <div class="metric-card <%= finance.balance < 0 ? 'red' : 'orange' %>"><span>💵 Quỹ còn lại</span><strong><%= formatMoney(finance.balance) %>đ</strong><small>= Tổng quỹ <%= formatMoney(finance.totalFund) %>đ − Tổng đã chi <%= formatMoney(finance.totalSpent) %>đ</small></div>
+  </section>
   <section class="grid finance-grid mb">
     <details class="metric-card blue metric-drop">
       <summary><span>💰 Tổng thu / Tổng phải thu</span><strong><%= formatMoney(finance.totalPaid) %>đ / <%= formatMoney(finance.totalRequired) %>đ</strong><small>Còn <%= finance.fixedUnpaidCount %> người cố định chưa đóng</small></summary>

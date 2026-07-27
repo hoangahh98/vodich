@@ -28,6 +28,7 @@ export type TeamFinanceSummary = {
   previousBalance: number;
   previousMonthBalance: number;
   totalPaid: number;
+  totalFund: number;
   totalExpense: number;
   totalSpent: number;
   totalDue: number;
@@ -130,6 +131,8 @@ export class TeamMonthReportBuilder {
       previousBalance,
       previousMonthBalance,
       totalPaid,
+      // Tổng quỹ = tiền mọi người đã đóng (cố định + vãng lai) cộng quỹ còn lại tháng trước.
+      totalFund: previousBalance + totalPaid,
       totalExpense,
       // Tổng đã chi = tiền sân + các khoản chi trong tháng (tiền sân không nằm trong
       // bảng team_expense nên phải cộng tay, đừng nhầm với totalExpense).
