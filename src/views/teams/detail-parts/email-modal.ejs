@@ -38,7 +38,7 @@ Mọi cập nhật mọi người có thể theo dõi tại đây nhé.</textare
         <textarea id="teamFundReportText" rows="18" readonly>Cập nhật quỹ nước - "<%= team.name %>"
 Tháng: <%= selectedMonth %>
 
-Tổng thu: <%= formatMoney(finance.totalPaid) %>đ
+Tổng thu/Tổng phải thu: <%= formatMoney(finance.totalPaid) %>đ/<%= formatMoney(finance.totalRequired) %>đ
 Tiền sân: <%= formatMoney(finance.courtCost) %>đ
 Tiền khác: <%= formatMoney(finance.otherCost) %>đ
 Tiền còn lại tháng trước: <%= formatMoney(finance.previousBalance) %>đ

@@ -2,11 +2,13 @@
   <%# Hai ô còn lại đều bấm được để xổ chi tiết bên dưới (details/summary, không cần JS). %>
   <section class="grid finance-grid mb">
     <details class="metric-card blue metric-drop">
-      <summary><span>💰 Tổng thu</span><strong><%= formatMoney(finance.totalPaid) %>đ</strong><small>Còn <%= finance.fixedUnpaidCount %> người cố định chưa đóng</small></summary>
+      <summary><span>💰 Tổng thu / Tổng phải thu</span><strong><%= formatMoney(finance.totalPaid) %>đ / <%= formatMoney(finance.totalRequired) %>đ</strong><small>Còn <%= finance.fixedUnpaidCount %> người cố định chưa đóng</small></summary>
       <div class="metric-drop-body">
         <div><span>🏟️ Tiền sân</span><strong><%= formatMoney(finance.courtCost) %>đ</strong></div>
-        <div><span>🥤 Tiền khác</span><strong><%= formatMoney(finance.otherCost) %>đ</strong></div>
+        <div><span>🥤 Tiền khác<% if (finance.guestPaid) { %> <small>(gồm <%= formatMoney(finance.guestPaid) %>đ vãng lai)</small><% } %></span><strong><%= formatMoney(finance.otherCost) %>đ</strong></div>
         <div><span>💰 Tiền còn lại tháng trước</span><strong><%= formatMoney(finance.previousBalance) %>đ</strong></div>
+        <p class="metric-drop-note">Tổng phải thu = tiền sân + tiền khác − tiền còn lại tháng trước</p>
+        <p class="metric-drop-note"><strong><%= formatMoney(finance.totalRequired) %>đ</strong> = <%= formatMoney(finance.courtCost) %> + <%= formatMoney(finance.otherCost) %> − <%= formatMoney(finance.previousBalance) %></p>
       </div>
     </details>
     <details class="metric-card gold metric-drop">

@@ -21,7 +21,10 @@ export type TeamFinanceSummary = {
   monthlyFee: number;
   suggestedMonthlyFee: number;
   courtCost: number;
+  otherCostInput: number;
+  guestPaid: number;
   otherCost: number;
+  totalRequired: number;
   previousBalance: number;
   previousMonthBalance: number;
   totalPaid: number;
@@ -103,7 +106,12 @@ export class TeamMonthReportBuilder {
   }
 
   private finance(rows: TeamMemberReportRow[], expenses: TeamExpense[], fund: TeamFundInput): TeamFinanceSummary {
-    const { monthlyFee, courtCost, otherCost, previousBalance, previousMonthBalance } = fund;
+    const { monthlyFee, courtCost, previousBalance, previousMonthBalance } = fund;
+    // Tiền vãng lai đã đóng được cộng thẳng vào "tiền khác" (fund.otherCost chỉ là số admin
+    // nhập tay ở Cài đặt). Ô Cài đặt phải hiển thị otherCostInput, nếu bind nhầm otherCost
+    // thì lần lưu sau sẽ cộng dồn tiền vãng lai vào DB thành hai lần.
+    const guestPaid = rows.filter((member) => member.memberType === 'GUEST').reduce((sum, member) => sum + member.paidAmount, 0);
+    const otherCost = fund.otherCost + guestPaid;
     const totalPaid = rows.reduce((sum, member) => sum + member.paidAmount, 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
     const totalDue = rows.reduce((sum, member) => sum + member.expectedAmount, 0);
@@ -115,7 +123,10 @@ export class TeamMonthReportBuilder {
       monthlyFee,
       suggestedMonthlyFee: suggestMonthlyFee(courtCost, otherCost, previousBalance, fixedCount),
       courtCost,
+      otherCostInput: fund.otherCost,
+      guestPaid,
       otherCost,
+      totalRequired: requiredCollection(courtCost, otherCost, previousBalance),
       previousBalance,
       previousMonthBalance,
       totalPaid,
@@ -136,13 +147,18 @@ export class TeamMonthReportBuilder {
   }
 }
 
-// Gợi ý mức phí tháng / người: phần tiền tháng này phải lo (sân + khoản khác) sau khi
-// đã bù bằng quỹ dư tháng trước, chia đều cho thành viên CỐ ĐỊNH rồi làm tròn LÊN bội số
-// 1.000đ cho số tiền chẵn (355.500 -> 356.000). Bước 1.000 chứ không dùng mặc định
-// 50.000đ của roundUpToStep (bước đó là cho phí giải đấu, đội bóng không cần chênh nhiều).
+// Tổng phải thu tháng này = tiền sân + tiền khác - tiền còn lại tháng trước.
+// Giữ nguyên số âm (quỹ dư thừa) để dòng công thức hiện trên giao diện cộng trừ đúng.
+export function requiredCollection(courtCost: number, otherCost: number, previousBalance: number) {
+  return courtCost + otherCost - previousBalance;
+}
+
+// Gợi ý mức phí tháng / người: tổng phải thu chia đều cho thành viên CỐ ĐỊNH rồi làm tròn
+// LÊN bội số 1.000đ cho số tiền chẵn (355.500 -> 356.000). Bước 1.000 chứ không dùng mặc
+// định 50.000đ của roundUpToStep (bước đó là cho phí giải đấu, đội bóng không cần chênh nhiều).
 export function suggestMonthlyFee(courtCost: number, otherCost: number, previousBalance: number, fixedCount: number) {
   if (fixedCount <= 0) return 0;
-  return roundUpToStep((courtCost + otherCost - previousBalance) / fixedCount, 1000);
+  return roundUpToStep(requiredCollection(courtCost, otherCost, previousBalance) / fixedCount, 1000);
 }
 
 function memberTypeOrder(value?: string) {

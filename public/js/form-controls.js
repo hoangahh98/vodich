@@ -145,9 +145,12 @@
     const label = box.querySelector('[data-fee-suggest]');
     const feeInput = box.querySelector('[name="monthlyFee"]');
     const fixedCount = Number.parseInt(box.dataset.fixedCount || '0', 10) || 0;
+    const guestPaid = Number.parseInt(box.dataset.guestPaid || '0', 10) || 0;
     const suggestion = () => {
       if (fixedCount <= 0) return 0;
-      const need = ['courtCost', 'otherCost'].reduce((sum, name) => sum + parseMoneyValue(box.querySelector(`[name="${name}"]`)?.value), 0) - parseMoneyValue(box.querySelector('[name="previousBalance"]')?.value);
+      // Ô "tiền khác" chỉ chứa số nhập tay, tiền vãng lai đã đóng cộng thêm ở đây cho khớp
+      // tổng phải thu bên máy chủ (requiredCollection trong team-month-report.ts).
+      const need = guestPaid + ['courtCost', 'otherCost'].reduce((sum, name) => sum + parseMoneyValue(box.querySelector(`[name="${name}"]`)?.value), 0) - parseMoneyValue(box.querySelector('[name="previousBalance"]')?.value);
       return need <= 0 ? 0 : Math.ceil(need / fixedCount / 1000) * 1000;
     };
     const sync = () => {

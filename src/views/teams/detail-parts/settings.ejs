@@ -15,9 +15,9 @@
           <h2 class="section-title mb">💰 Quỹ tháng <%= selectedMonth %></h2>
           <%# Mức phí / người nằm CUỐI vì nó ăn theo ba ô trên: sân + khác - dư tháng trước,
               chia cho số thành viên cố định rồi làm tròn lên bội số 1.000đ. %>
-          <div class="row" data-team-fund data-fixed-count="<%= finance.fixedCount %>">
+          <div class="row" data-team-fund data-fixed-count="<%= finance.fixedCount %>" data-guest-paid="<%= finance.guestPaid %>">
             <div class="col-6"><label>Tiền sân tháng này</label><input class="money-input" name="courtCost" value="<%= formatMoney(finance.courtCost) %>"></div>
-            <div class="col-6"><label>Các khoản tiền khác</label><input class="money-input" name="otherCost" value="<%= formatMoney(finance.otherCost) %>"><small class="muted">Nước, ăn uống, bóng...</small></div>
+            <div class="col-6"><label>Các khoản tiền khác</label><input class="money-input" name="otherCost" value="<%= formatMoney(finance.otherCostInput) %>"><small class="muted">Nước, ăn uống, bóng... <% if (finance.guestPaid) { %>Cộng thêm <%= formatMoney(finance.guestPaid) %>đ vãng lai đã đóng (tự tính, không cần gõ).<% } %></small></div>
             <div class="col-6"><label>Tiền sân còn lại tháng trước</label><input class="money-input" name="previousBalance" value="<%= formatMoney(finance.previousBalance) %>"><small class="muted">Tháng trước còn lại <%= formatMoney(finance.previousMonthBalance) %>đ. Nếu để trống, hệ thống tự dùng số này.</small></div>
             <div class="col-6"><label>Ghi chú tháng</label><input name="notes" value="<%= fund?.notes || '' %>"></div>
             <div class="col-12">
