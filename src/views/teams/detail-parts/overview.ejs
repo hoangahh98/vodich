@@ -3,7 +3,7 @@
   <% const unpaidMembers = members.filter((member) => member.expectedAmount > member.paidAmount); %>
   <section class="grid finance-grid mb">
     <details class="metric-card green metric-drop">
-      <summary><span>🏦 Tổng quỹ</span><strong><%= formatMoney(finance.totalFund) %>đ</strong><small>Tiền sân <%= formatMoney(finance.courtCost) %>đ + tiền khác <%= formatMoney(finance.otherCost) %>đ − còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ<% if (finance.guestPaid) { %> + người chơi vãng lai đóng <%= formatMoney(finance.guestPaid) %>đ<% } %></small></summary>
+      <summary><span>🏦 Tổng quỹ</span><strong><%= formatMoney(finance.totalFund) %>đ</strong><small>Cả đội phải đóng <%= formatMoney(finance.totalDue) %>đ + còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ<% if (finance.guestPaid) { %> + người chơi vãng lai đóng <%= formatMoney(finance.guestPaid) %>đ<% } %></small></summary>
       <div class="metric-drop-body">
         <% unpaidMembers.forEach((member) => { %>
           <div><span>👤 <%= member.player.displayName %></span><strong><%= formatMoney(member.expectedAmount - member.paidAmount) %>đ</strong></div>

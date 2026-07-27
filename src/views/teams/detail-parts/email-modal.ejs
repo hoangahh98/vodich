@@ -38,7 +38,7 @@ Mọi cập nhật mọi người có thể theo dõi tại đây nhé.</textare
         <textarea id="teamFundReportText" rows="18" readonly>Cập nhật quỹ nước - "<%= team.name %>"
 Tháng: <%= selectedMonth %>
 
-Tổng quỹ: <%= formatMoney(finance.totalFund) %>đ (tiền sân <%= formatMoney(finance.courtCost) %>đ + tiền khác <%= formatMoney(finance.otherCost) %>đ - còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ<% if (finance.guestPaid) { %> + người chơi vãng lai đóng <%= formatMoney(finance.guestPaid) %>đ<% } %>)
+Tổng quỹ: <%= formatMoney(finance.totalFund) %>đ (cả đội phải đóng <%= formatMoney(finance.totalDue) %>đ + còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ<% if (finance.guestPaid) { %> + người chơi vãng lai đóng <%= formatMoney(finance.guestPaid) %>đ<% } %>)
 Còn lại: <%= formatMoney(finance.balance) %>đ
 Tiền sân: <%= formatMoney(finance.courtCost) %>đ
 
