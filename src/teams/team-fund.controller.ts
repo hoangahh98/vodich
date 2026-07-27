@@ -19,7 +19,7 @@ export class TeamFundController {
   @Post('/teams/:id/fund')
   async setTeamFund(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     if (!(await this.teams.canManage(req.session.user!, BigInt(id)))) return forbidden(res);
-    await this.teams.setFund(BigInt(id), body.month, body.monthlyFee, body.courtCost, body.previousBalance, body.notes);
+    await this.teams.setFund(BigInt(id), body.month, body);
     this.matchGateway.emitTeamUpdated(id, 'fund');
     return res.redirect(`/teams/${id}/overview?month=${body.month || currentMonth()}`);
   }

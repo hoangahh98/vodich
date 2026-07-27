@@ -1,4 +1,5 @@
 import { Player, TeamExpense, TeamMember, TeamMemberPayment, TeamMonthFund } from '@prisma/client';
+import { roundUpToStep } from '../common/money';
 
 export type TeamMemberWithPayment = TeamMember & {
   player: Player;
@@ -18,11 +19,12 @@ export type TeamMemberReportRow = TeamMemberWithPayment & {
 
 export type TeamFinanceSummary = {
   monthlyFee: number;
+  suggestedMonthlyFee: number;
   courtCost: number;
+  otherCost: number;
   previousBalance: number;
   previousMonthBalance: number;
   totalPaid: number;
-  totalDonate: number;
   totalExpense: number;
   totalDue: number;
   totalMissing: number;
@@ -33,6 +35,14 @@ export type TeamFinanceSummary = {
   guestCount: number;
   paidCount: number;
   unpaidCount: number;
+};
+
+type TeamFundInput = {
+  monthlyFee: number;
+  courtCost: number;
+  otherCost: number;
+  previousBalance: number;
+  previousMonthBalance: number;
 };
 
 type TeamMonthReportInput = {
@@ -48,7 +58,13 @@ export class TeamMonthReportBuilder {
     const monthlyFee = Number(input.fund?.monthlyFee || 0);
     const rows = this.memberRows(input.members, monthlyFee);
     const previousBalance = input.fund ? Number(input.fund.previousBalance || 0) : input.previousMonthBalance;
-    const finance = this.finance(rows, input.expenses, monthlyFee, Number(input.fund?.courtCost || 0), previousBalance, input.previousMonthBalance);
+    const finance = this.finance(rows, input.expenses, {
+      monthlyFee,
+      courtCost: Number(input.fund?.courtCost || 0),
+      otherCost: Number(input.fund?.otherCost || 0),
+      previousBalance,
+      previousMonthBalance: input.previousMonthBalance,
+    });
     const activePlayerIds = new Set(rows.map((member) => member.playerId.toString()));
     return {
       members: rows,
@@ -85,16 +101,9 @@ export class TeamMonthReportBuilder {
       .sort((a, b) => memberTypeOrder(a.memberType) - memberTypeOrder(b.memberType) || a.player.displayName.localeCompare(b.player.displayName, 'vi'));
   }
 
-  private finance(
-    rows: TeamMemberReportRow[],
-    expenses: TeamExpense[],
-    monthlyFee: number,
-    courtCost: number,
-    previousBalance: number,
-    previousMonthBalance: number,
-  ): TeamFinanceSummary {
+  private finance(rows: TeamMemberReportRow[], expenses: TeamExpense[], fund: TeamFundInput): TeamFinanceSummary {
+    const { monthlyFee, courtCost, otherCost, previousBalance, previousMonthBalance } = fund;
     const totalPaid = rows.reduce((sum, member) => sum + member.paidAmount, 0);
-    const totalDonate = rows.reduce((sum, member) => sum + Math.max(0, member.paidAmount - member.expectedAmount), 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
     const totalDue = rows.reduce((sum, member) => sum + member.expectedAmount, 0);
     const totalMissing = rows.reduce((sum, member) => sum + Math.max(0, member.expectedAmount - member.paidAmount), 0);
@@ -103,11 +112,12 @@ export class TeamMonthReportBuilder {
     const fixedUnpaidCount = rows.filter((member) => member.memberType === 'FIXED' && member.paymentStatus !== 'PAID').length;
     return {
       monthlyFee,
+      suggestedMonthlyFee: suggestMonthlyFee(courtCost, otherCost, previousBalance, fixedCount),
       courtCost,
+      otherCost,
       previousBalance,
       previousMonthBalance,
       totalPaid,
-      totalDonate,
       totalExpense,
       totalDue,
       totalMissing,
@@ -120,6 +130,14 @@ export class TeamMonthReportBuilder {
       unpaidCount: rows.length - paidCount,
     };
   }
+}
+
+// Gợi ý mức phí tháng / người: phần tiền tháng này phải lo (sân + khoản khác) sau khi
+// đã bù bằng quỹ dư tháng trước, chia đều cho thành viên CỐ ĐỊNH rồi làm tròn LÊN bội số
+// 50.000đ cho dễ chuyển khoản (43.000 -> 50.000, 78.000 -> 100.000).
+export function suggestMonthlyFee(courtCost: number, otherCost: number, previousBalance: number, fixedCount: number) {
+  if (fixedCount <= 0) return 0;
+  return roundUpToStep((courtCost + otherCost - previousBalance) / fixedCount);
 }
 
 function memberTypeOrder(value?: string) {

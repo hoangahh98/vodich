@@ -49,7 +49,7 @@ export class TeamController {
   async updateTeamSettings(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
     if (!(await this.teams.canManage(req.session.user!, BigInt(id)))) return forbidden(res);
     await this.teams.updateTeam(BigInt(id), body.name, body.description);
-    await this.teams.setFund(BigInt(id), body.month, body.monthlyFee, body.courtCost, body.previousBalance, body.notes);
+    await this.teams.setFund(BigInt(id), body.month, body);
     this.matchGateway.emitTeamUpdated(id, 'settings');
     return res.redirect(`/teams/${id}/settings?month=${body.month || currentMonth()}`);
   }

@@ -199,6 +199,7 @@ model TeamMonthFund {
   fundMonth       DateTime @map("fund_month") @db.Date
   monthlyFee      Decimal  @default(0) @map("monthly_fee") @db.Decimal(14, 2)
   courtCost       Decimal  @default(0) @map("court_cost") @db.Decimal(14, 2)
+  otherCost       Decimal  @default(0) @map("other_cost") @db.Decimal(14, 2)
   previousBalance Decimal  @default(0) @map("previous_balance") @db.Decimal(14, 2)
   notes           String?
 

@@ -167,6 +167,16 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .metric-card.gold { background: linear-gradient(135deg,#ffc107,#b88400); color: #212529; }
 .metric-card.gold small { color: #4c3a00; }
 .metric-card.red { background: linear-gradient(135deg,#dc3545,#8f1d2c); }
+.metric-drop { cursor: pointer; }
+.metric-drop > summary { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.metric-drop > summary::-webkit-details-marker { display: none; }
+.metric-drop > summary::after { content: '▾ Xem chi tiết'; font-size: 12px; font-weight: 700; opacity: .85; }
+.metric-drop[open] > summary::after { content: '▴ Thu gọn'; }
+.metric-drop-body { margin-top: 12px; border-top: 1px solid rgba(255,255,255,.35); padding-top: 10px; display: grid; gap: 6px; }
+.metric-drop-body div { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.metric-drop-body span { font-size: 14px; }
+.metric-drop-body strong { font-size: 16px; }
+.metric-card.gold .metric-drop-body { border-top-color: rgba(0,0,0,.2); }
 .prize-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #eef2f7; }
 .prize-row:last-child { border-bottom: 0; }
 .cost-card { background: #f8fbff; border: 1px solid #cfe2ff; border-radius: 10px; padding: 14px; display: grid; gap: 4px; font-size: 28px; }

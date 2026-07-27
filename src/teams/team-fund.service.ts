@@ -5,6 +5,15 @@ import { PrismaService } from '../prisma.service';
 import { TeamDetailService } from './team-detail.service';
 import { cleanText, hasMoneyValue, monthDate, normalizeMemberType } from './team-utils';
 
+// Dữ liệu thô từ form (mọi ô đều có thể vắng mặt), parseMoney tự quy về 0.
+export type TeamFundForm = {
+  monthlyFee?: string;
+  courtCost?: string;
+  otherCost?: string;
+  previousBalance?: string;
+  notes?: string;
+};
+
 @Injectable()
 export class TeamFundService {
   constructor(
@@ -12,14 +21,23 @@ export class TeamFundService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async setFund(teamId: bigint, month: string, monthlyFee: string, courtCost: string, previousBalance?: string, notes?: string) {
+  async setFund(teamId: bigint, month: string, input: TeamFundForm) {
     const fundMonth = monthDate(month);
-    const fee = parseMoney(monthlyFee);
-    const resolvedPreviousBalance = hasMoneyValue(previousBalance) ? parseMoney(previousBalance) : await this.detail.previousMonthBalance(teamId, fundMonth);
+    const fee = parseMoney(input.monthlyFee);
+    const resolvedPreviousBalance = hasMoneyValue(input.previousBalance)
+      ? parseMoney(input.previousBalance)
+      : await this.detail.previousMonthBalance(teamId, fundMonth);
+    const values = {
+      monthlyFee: fee,
+      courtCost: parseMoney(input.courtCost),
+      otherCost: parseMoney(input.otherCost),
+      previousBalance: resolvedPreviousBalance,
+      notes: cleanText(input.notes),
+    };
     const fund = await this.prisma.teamMonthFund.upsert({
       where: { teamId_fundMonth: { teamId, fundMonth } },
-      update: { monthlyFee: fee, courtCost: parseMoney(courtCost), previousBalance: resolvedPreviousBalance, notes: cleanText(notes) },
-      create: { teamId, fundMonth, monthlyFee: fee, courtCost: parseMoney(courtCost), previousBalance: resolvedPreviousBalance, notes: cleanText(notes) },
+      update: values,
+      create: { teamId, fundMonth, ...values },
     });
     const fixedMembers = await this.prisma.teamMember.findMany({ where: { teamId, active: true, memberType: 'FIXED' } });
     await this.prisma.$transaction(

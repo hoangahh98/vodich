@@ -22,7 +22,7 @@ export class TeamExpenseController {
     const month = body.month || currentMonth();
     await this.teams.addExpense(BigInt(id), month, body.expenseDate, body.content, body.amount, body.notes);
     this.matchGateway.emitTeamUpdated(id, 'expenses');
-    return res.redirect(`/teams/${id}/overview?month=${month}`);
+    return res.redirect(`/teams/${id}/expenses?month=${month}`);
   }
 
   @Post('/teams/:teamId/expenses/:expenseId/delete')
@@ -30,7 +30,7 @@ export class TeamExpenseController {
     if (!(await this.teams.canManage(req.session.user!, BigInt(teamId)))) return forbidden(res);
     await this.teams.deleteExpense(BigInt(teamId), BigInt(expenseId));
     this.matchGateway.emitTeamUpdated(teamId, 'expenses');
-    return res.redirect(`/teams/${teamId}/overview?month=${month || currentMonth()}`);
+    return res.redirect(`/teams/${teamId}/expenses?month=${month || currentMonth()}`);
   }
 }
 

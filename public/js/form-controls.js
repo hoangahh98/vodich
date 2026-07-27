@@ -137,7 +137,31 @@
     sync();
   };
 
+  // Quỹ tháng đội bóng: gợi ý mức phí / người = (sân + khác - dư tháng trước) / số cố định,
+  // làm tròn LÊN bội số 50.000đ. Giữ đúng công thức suggestMonthlyFee bên team-month-report.ts.
+  const initTeamFeeSuggestion = () => {
+    const box = document.querySelector('[data-team-fund]');
+    if (!box) return;
+    const label = box.querySelector('[data-fee-suggest]');
+    const feeInput = box.querySelector('[name="monthlyFee"]');
+    const fixedCount = Number.parseInt(box.dataset.fixedCount || '0', 10) || 0;
+    const suggestion = () => {
+      if (fixedCount <= 0) return 0;
+      const need = ['courtCost', 'otherCost'].reduce((sum, name) => sum + parseMoneyValue(box.querySelector(`[name="${name}"]`)?.value), 0) - parseMoneyValue(box.querySelector('[name="previousBalance"]')?.value);
+      return need <= 0 ? 0 : Math.ceil(need / fixedCount / 50000) * 50000;
+    };
+    const sync = () => {
+      if (label) label.textContent = `${formatMoneyValue(suggestion())}đ`;
+    };
+    ['courtCost', 'otherCost', 'previousBalance'].forEach((name) => box.querySelector(`[name="${name}"]`)?.addEventListener('input', sync));
+    box.querySelector('[data-fill-fee-suggestion]')?.addEventListener('click', () => {
+      if (feeInput) feeInput.value = formatMoneyValue(suggestion());
+    });
+    sync();
+  };
+
   window.Vodich = { ...(window.Vodich || {}), validateTournamentPrizeForm };
   initKnockoutOptions();
   initPrizeOptions();
+  initTeamFeeSuggestion();
 })();

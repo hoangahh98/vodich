@@ -185,10 +185,12 @@ test('TeamFundService sets fund and seeds fixed member payments from previous ba
     },
   );
 
-  await service.setFund(1n, '2026-07', '100,000', '300,000', '', ' July fund ');
+  await service.setFund(1n, '2026-07', { monthlyFee: '100,000', courtCost: '300,000', otherCost: '80,000', previousBalance: '', notes: ' July fund ' });
 
   assert.equal(fundPayload.create.previousBalance, 250000);
   assert.equal(fundPayload.create.monthlyFee, 100000);
+  assert.equal(fundPayload.create.courtCost, 300000);
+  assert.equal(fundPayload.create.otherCost, 80000);
   assert.equal(fundPayload.create.notes, 'July fund');
   assert.equal(paymentUpserts.length, 2);
   assert.equal(paymentUpserts[0].create.paidAmount, 100000);

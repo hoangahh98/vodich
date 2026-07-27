@@ -3,7 +3,7 @@ import { CurrentUser } from '../types';
 import { TeamCrudService } from './team-crud.service';
 import { TeamDetailService } from './team-detail.service';
 import { TeamExpenseService } from './team-expense.service';
-import { TeamFundService } from './team-fund.service';
+import { TeamFundForm, TeamFundService } from './team-fund.service';
 import { TeamMemberService } from './team-member.service';
 
 @Injectable()
@@ -60,8 +60,8 @@ export class TeamService {
     return this.members.removeMember(teamId, memberId);
   }
 
-  setFund(teamId: bigint, month: string, monthlyFee: string, courtCost: string, previousBalance?: string, notes?: string) {
-    return this.fund.setFund(teamId, month, monthlyFee, courtCost, previousBalance, notes);
+  setFund(teamId: bigint, month: string, input: TeamFundForm) {
+    return this.fund.setFund(teamId, month, input);
   }
 
   updatePayments(teamId: bigint, month: string, body: Record<string, string>) {

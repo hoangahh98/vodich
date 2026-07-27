@@ -3,7 +3,7 @@ const test = require('node:test');
 
 const { TournamentRankingCalculator } = require('../dist/tournaments/tournament-ranking');
 const { TournamentScheduleBuilder } = require('../dist/tournaments/tournament-schedule');
-const { TeamMonthReportBuilder } = require('../dist/teams/team-month-report');
+const { TeamMonthReportBuilder, suggestMonthlyFee } = require('../dist/teams/team-month-report');
 const { splitEvenly } = require('../dist/travel/travel-money');
 const { TravelSummaryBuilder } = require('../dist/travel/travel-summary');
 
@@ -109,6 +109,16 @@ test('TeamMonthReportBuilder calculates finance summary and fixed member orderin
     ['Dung'],
   );
   assert.equal(report.emailList, 'an@example.com\nbinh@example.com');
+});
+
+test('suggestMonthlyFee splits court + other cost after last month balance and rounds up to 50k', () => {
+  // (600.000 + 400.000 - 0) / 6 = 166.667 -> 200.000
+  assert.equal(suggestMonthlyFee(600000, 400000, 0, 6), 200000);
+  // Dư tháng trước bù vào: (600.000 + 400.000 - 700.000) / 6 = 50.000 -> giữ nguyên 50.000
+  assert.equal(suggestMonthlyFee(600000, 400000, 700000, 6), 50000);
+  // Quỹ dư đủ lo cả tháng thì không cần thu thêm
+  assert.equal(suggestMonthlyFee(300000, 0, 500000, 6), 0);
+  assert.equal(suggestMonthlyFee(300000, 0, 0, 0), 0);
 });
 
 test('TravelSummaryBuilder balances paid expenses, collections, and transfer suggestions', () => {
