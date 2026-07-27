@@ -47,11 +47,14 @@ Mỗi tuần thuộc về tháng chứa **ngày đầu tuần** của nó, nên 
 
 ## Các phần trong màn hình
 
+Điều hướng giữa các phần **chỉ qua menu ba gạch** ở dưới (không có thanh tab riêng),
+giống module giải đấu và đội bóng.
+
 | Phần | Việc làm ở đó |
 |------|----------------|
 | 📊 Tổng quan | Quỹ chung còn lại, ví từng người, quỹ tiết kiệm của con, dòng tiền tóm tắt |
 | 💵 Thu & phân bổ | Nhập lương/thu của tháng, các khoản trích tay, xem khoản tiền tiêu **tự trích**; có nút **chép các khoản của tháng trước** |
-| 🧾 Chi tiêu | Ghi khoản chi (chọn của ai hoặc "chi chung"), sửa/xoá |
+| 🧾 Chi tiêu | Ghi khoản chi (chọn của ai hoặc "chi chung"); sửa = xoá rồi nhập lại |
 | ⚙️ Cài đặt | Mức tuần mặc định, thứ bắt đầu tuần, ngày bắt đầu theo dõi, thành viên + **chu kỳ nhận** |
 
 ## Sử dụng

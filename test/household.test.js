@@ -289,13 +289,28 @@ function viewLocals(section, over = {}) {
   };
 }
 
-test('household view renders all sections without email-scan leftovers', async () => {
+test('household view renders all sections without email-scan or duplicate-nav leftovers', async () => {
   for (const section of ['tong-quan', 'thu-nhap', 'chi-tieu', 'cai-dat']) {
     const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), viewLocals(section));
     assert.doesNotMatch(html, /VPBank|Gmail|Quét ngay|IMAP/i, `section ${section} còn sót phần quét email`);
-    assert.doesNotMatch(html, /dư của mỗi người được/i, `section ${section} còn mô tả rollover cũ cho cả nhà`);
+    assert.doesNotMatch(html, /household-tab/, `section ${section} còn thanh tab trên đầu (đã có menu ba gạch)`);
+    assert.doesNotMatch(html, /onsubmit=/, `section ${section} còn JS inline, vi phạm CSP`);
     assert.match(html, /Quản lý chi tiêu/);
   }
+});
+
+test('household view: mọi số tiền đều dùng formatMoney (có dấu phân cách nghìn)', async () => {
+  for (const section of ['tong-quan', 'thu-nhap', 'chi-tieu', 'cai-dat']) {
+    const source = require('node:fs').readFileSync(path.join(root, 'src/views/household/index.ejs'), 'utf8');
+    // Không còn chỗ nào đổ số tiền thô ra màn hình bằng Number(...) — luôn qua formatMoney.
+    assert.doesNotMatch(source, /<%=\s*Number\((config|m|w|t|i|a)\./, `còn số tiền thô chưa qua formatMoney (${section})`);
+  }
+  const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), {
+    ...viewLocals('cai-dat'),
+    formatMoney: (value) => new Intl.NumberFormat('en-US').format(Number(value) || 0),
+  });
+  assert.match(html, /value="500,000"/, 'ô nhập tiền phải hiện sẵn dạng có dấu phẩy');
+  assert.match(html, /class="money-input"/, 'ô nhập tiền phải tự chèn dấu phẩy khi gõ');
 });
 
 test('household view: tổng quan phân biệt ví tuần reset và ví tháng cộng dồn của con', async () => {
@@ -304,19 +319,21 @@ test('household view: tổng quan phân biệt ví tuần reset và ví tháng c
   assert.match(html, /dồn sang tháng sau/i, 'ví của con phải nói rõ là cộng dồn');
   assert.match(html, /Quỹ tiết kiệm của con/i);
   assert.match(html, /1500000/, 'số dư quỹ của con phải hiện ra');
-  assert.match(html, /còn trong ví \(dồn\)/i);
+  assert.match(html, /metric-card/, 'dùng chung ô số liệu với module đội bóng');
 });
 
-test('household view: thu & phân bổ hiện khoản tiền tiêu tự trích', async () => {
+test('household view: chọn tháng tự chuyển ngay, không cần bấm nút', async () => {
   const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), viewLocals('thu-nhap'));
+  assert.match(html, /type="month"[^>]*data-autosubmit/, 'ô chọn tháng phải có data-autosubmit');
   assert.match(html, /tự trích/i);
-  assert.match(html, /4 tuần trong tháng/);
+  assert.match(html, /4 tuần/);
 });
 
 test('household view: chi chung hiển thị tách khỏi ví cá nhân', async () => {
   const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), viewLocals('chi-tieu'));
   assert.match(html, /Chi chung/, 'khoản không gắn người phải hiện là chi chung');
   assert.match(html, /19\/07\/2026/, 'ngày hiển thị theo giờ Việt Nam, không lùi 1 ngày');
+  assert.match(html, /data-confirm="Xoá khoản chi này\?"/, 'xoá phải hỏi lại qua data-confirm');
 });
 
 test('household view: cài đặt cho chọn chu kỳ tuần/tháng', async () => {

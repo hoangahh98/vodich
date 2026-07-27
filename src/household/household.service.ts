@@ -269,21 +269,7 @@ export class HouseholdService {
     });
   }
 
-  async updateTxn(id: bigint, body: Record<string, string>) {
-    const amount = parseVnd(body.amount);
-    if (amount <= 0) return;
-    const occurredAt = parseDateOnly(body.occurredAt);
-    await this.prisma.householdTxn.update({
-      where: { id },
-      data: {
-        amount: BigInt(amount),
-        memberId: parseOptionalBigInt(body.memberId),
-        description: String(body.description || '').trim().slice(0, 500),
-        ...(occurredAt ? { occurredAt } : {}),
-      },
-    }).catch(() => undefined);
-  }
-
+  /** Sửa một khoản chi = xoá rồi nhập lại (giống module đội bóng), nên không có updateTxn. */
   async deleteTxn(id: bigint) {
     await this.prisma.householdTxn.delete({ where: { id } }).catch(() => undefined);
   }

@@ -119,14 +119,6 @@ export class HouseholdController {
     return res.redirect('/household/chi-tieu');
   }
 
-  @Post('/household/txns/:id')
-  async updateTxn(@Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    const txnId = parseBigId(id);
-    if (!txnId) return notFound(res);
-    await this.household.updateTxn(txnId, body);
-    return res.redirect('/household/chi-tieu');
-  }
-
   @Post('/household/txns/:id/delete')
   async deleteTxn(@Res() res: Response, @Param('id') id: string) {
     const txnId = parseBigId(id);
