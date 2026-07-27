@@ -134,10 +134,11 @@ export class TeamMonthReportBuilder {
 
 // Gợi ý mức phí tháng / người: phần tiền tháng này phải lo (sân + khoản khác) sau khi
 // đã bù bằng quỹ dư tháng trước, chia đều cho thành viên CỐ ĐỊNH rồi làm tròn LÊN bội số
-// 50.000đ cho dễ chuyển khoản (43.000 -> 50.000, 78.000 -> 100.000).
+// 1.000đ cho số tiền chẵn (355.500 -> 356.000). Bước 1.000 chứ không dùng mặc định
+// 50.000đ của roundUpToStep (bước đó là cho phí giải đấu, đội bóng không cần chênh nhiều).
 export function suggestMonthlyFee(courtCost: number, otherCost: number, previousBalance: number, fixedCount: number) {
   if (fixedCount <= 0) return 0;
-  return roundUpToStep((courtCost + otherCost - previousBalance) / fixedCount);
+  return roundUpToStep((courtCost + otherCost - previousBalance) / fixedCount, 1000);
 }
 
 function memberTypeOrder(value?: string) {

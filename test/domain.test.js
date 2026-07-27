@@ -111,9 +111,11 @@ test('TeamMonthReportBuilder calculates finance summary and fixed member orderin
   assert.equal(report.emailList, 'an@example.com\nbinh@example.com');
 });
 
-test('suggestMonthlyFee splits court + other cost after last month balance and rounds up to 50k', () => {
-  // (600.000 + 400.000 - 0) / 6 = 166.667 -> 200.000
-  assert.equal(suggestMonthlyFee(600000, 400000, 0, 6), 200000);
+test('suggestMonthlyFee splits court + other cost after last month balance and rounds up to 1k', () => {
+  // (600.000 + 400.000 - 0) / 6 = 166.666,7 -> 167.000
+  assert.equal(suggestMonthlyFee(600000, 400000, 0, 6), 167000);
+  // 2.133.000 / 6 = 355.500 -> 356.000 (chỉ lên bội số 1.000, không nhảy 50.000)
+  assert.equal(suggestMonthlyFee(2133000, 0, 0, 6), 356000);
   // Dư tháng trước bù vào: (600.000 + 400.000 - 700.000) / 6 = 50.000 -> giữ nguyên 50.000
   assert.equal(suggestMonthlyFee(600000, 400000, 700000, 6), 50000);
   // Quỹ dư đủ lo cả tháng thì không cần thu thêm
