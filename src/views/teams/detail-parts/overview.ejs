@@ -6,10 +6,11 @@
       <div class="metric-drop-body">
         <div><span>🏟️ Tiền sân</span><strong><%= formatMoney(finance.courtCost) %>đ</strong></div>
         <div><span>🥤 Tiền khác</span><strong><%= formatMoney(finance.otherCost) %>đ</strong></div>
+        <div><span>💰 Tiền còn lại tháng trước</span><strong><%= formatMoney(finance.previousBalance) %>đ</strong></div>
       </div>
     </details>
     <details class="metric-card gold metric-drop">
-      <summary><span>🧾 Quỹ còn lại</span><strong><%= formatMoney(finance.balance) %>đ</strong><small>= Dư + Thu - Sân - Chi</small></summary>
+      <summary><span>🧾 Tổng đã chi</span><strong><%= formatMoney(finance.totalSpent) %>đ</strong></summary>
       <div class="metric-drop-body">
         <div><span>🏟️ Tiền sân</span><strong><%= formatMoney(finance.courtCost) %>đ</strong></div>
         <div><span>💸 Chi trong tháng</span><strong><%= formatMoney(finance.totalExpense) %>đ</strong></div>

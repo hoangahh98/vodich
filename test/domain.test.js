@@ -104,6 +104,7 @@ test('TeamMonthReportBuilder calculates finance summary and fixed member orderin
   assert.equal(report.finance.fixedUnpaidCount, 1);
   assert.equal(report.finance.totalMissing, 100);
   assert.equal(report.finance.balance, 130);
+  assert.equal(report.finance.totalSpent, 40); // tiền sân 30 + khoản chi 10
   assert.deepEqual(
     report.players.map((player) => player.displayName),
     ['Dung'],
