@@ -42,8 +42,10 @@ Tổng thu/Tổng phải thu: <%= formatMoney(finance.totalPaid) %>đ/<%= format
 Tiền sân: <%= formatMoney(finance.courtCost) %>đ
 Tiền khác: <%= formatMoney(finance.otherCost) %>đ
 Tiền còn lại tháng trước: <%= formatMoney(finance.previousBalance) %>đ
+Tổng quỹ: <%= formatMoney(finance.totalFund) %>đ
 Đã chi: <%= formatMoney(finance.totalExpense) %>đ
 Tổng đã chi: <%= formatMoney(finance.totalSpent) %>đ
+Quỹ còn lại: <%= formatMoney(finance.balance) %>đ
 
 Chi tiết đã chi:
 <% if (!expenses.length) { %>- Chưa có khoản chi trong tháng

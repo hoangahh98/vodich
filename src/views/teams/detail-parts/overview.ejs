@@ -7,20 +7,29 @@
   </section>
   <section class="grid finance-grid mb">
     <details class="metric-card blue metric-drop">
-      <summary><span>💰 Tổng thu / Tổng phải thu</span><strong><%= formatMoney(finance.totalPaid) %>đ / <%= formatMoney(finance.totalRequired) %>đ</strong><small>Còn <%= finance.fixedUnpaidCount %> người cố định chưa đóng</small></summary>
+      <%# Công thức nằm trong summary (luôn thấy), trên dòng "còn N người chưa đóng";
+          phần xổ ra chỉ còn ba khoản cấu thành. %>
+      <summary>
+        <span>💰 Tổng thu / Tổng phải thu</span>
+        <strong><%= formatMoney(finance.totalPaid) %>đ / <%= formatMoney(finance.totalRequired) %>đ</strong>
+        <p class="metric-drop-note">Tổng phải thu = tiền sân + tiền khác − tiền còn lại tháng trước</p>
+        <p class="metric-drop-note"><strong><%= formatMoney(finance.totalRequired) %>đ</strong> = <%= formatMoney(finance.courtCost) %> + <%= formatMoney(finance.otherCost) %> − <%= formatMoney(finance.previousBalance) %></p>
+        <small>Còn <%= finance.fixedUnpaidCount %> người cố định chưa đóng</small>
+      </summary>
       <div class="metric-drop-body">
         <div><span>🏟️ Tiền sân</span><strong><%= formatMoney(finance.courtCost) %>đ</strong></div>
         <div><span>🥤 Tiền khác<% if (finance.guestPaid) { %> <small>(gồm <%= formatMoney(finance.guestPaid) %>đ vãng lai)</small><% } %></span><strong><%= formatMoney(finance.otherCost) %>đ</strong></div>
         <div><span>💰 Tiền còn lại tháng trước</span><strong><%= formatMoney(finance.previousBalance) %>đ</strong></div>
-        <p class="metric-drop-note">Tổng phải thu = tiền sân + tiền khác − tiền còn lại tháng trước</p>
-        <p class="metric-drop-note"><strong><%= formatMoney(finance.totalRequired) %>đ</strong> = <%= formatMoney(finance.courtCost) %> + <%= formatMoney(finance.otherCost) %> − <%= formatMoney(finance.previousBalance) %></p>
       </div>
     </details>
     <details class="metric-card gold metric-drop">
-      <summary><span>🧾 Tổng đã chi</span><strong><%= formatMoney(finance.totalSpent) %>đ</strong></summary>
+      <summary><span>🧾 Tổng đã chi</span><strong><%= formatMoney(finance.totalSpent) %>đ</strong><small>Tiền sân + <%= expenses.length %> khoản chi trong tháng</small></summary>
       <div class="metric-drop-body">
         <div><span>🏟️ Tiền sân</span><strong><%= formatMoney(finance.courtCost) %>đ</strong></div>
-        <div><span>💸 Chi trong tháng</span><strong><%= formatMoney(finance.totalExpense) %>đ</strong></div>
+        <% expenses.forEach((expense) => { %>
+          <div><span>💸 <% if (expense.expenseDate) { %><%= new Date(expense.expenseDate).toLocaleDateString('vi-VN') %> <% } %><%= expense.content %></span><strong><%= formatMoney(expense.amount) %>đ</strong></div>
+        <% }) %>
+        <% if (!expenses.length) { %><p class="metric-drop-note">Chưa có khoản chi nào trong tháng.</p><% } %>
       </div>
     </details>
   </section>
