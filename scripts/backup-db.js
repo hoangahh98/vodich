@@ -86,10 +86,22 @@ async function main() {
   if (skipped.length) console.log(`Bảng chưa tồn tại, không có dữ liệu: ${skipped.join(', ')}`);
 }
 
-/** Đọc thẳng bảng theo tên vật lý, không qua model — dùng khi client và DB lệch schema. */
+/**
+ * Đọc thẳng bảng theo tên vật lý, không qua model — dùng khi client và DB lệch schema.
+ *
+ * PHẢI đổi tên cột DB về tên field của Prisma (`week_start_dow` -> `weekStartDow`), nếu
+ * không file backup sẽ có hai dạng khoá lẫn lộn và restore-db.js chết với
+ * "Unknown argument `week_start_dow`" — đúng lúc đang cần khôi phục.
+ */
 async function rawRows(model) {
   const table = model.dbName || model.name;
-  return prisma.$queryRawUnsafe(`SELECT * FROM "${table}"`);
+  const rows = await prisma.$queryRawUnsafe(`SELECT * FROM "${table}"`);
+  const fieldByColumn = new Map(
+    model.fields.filter((f) => f.kind === 'scalar').map((f) => [f.dbName || f.name, f.name]),
+  );
+  return rows.map((row) =>
+    Object.fromEntries(Object.entries(row).map(([column, value]) => [fieldByColumn.get(column) || column, value])),
+  );
 }
 
 function lowerFirst(value) {

@@ -135,29 +135,30 @@ Tuỳ chọn: `PRIVATE_BACKUP_REPO` (variable) để đổi repo đích, `BACKUP
 
 ⚠️ Cron của GitHub **tự tắt sau 60 ngày repo không có hoạt động** — thỉnh thoảng vẫn nên liếc tab Actions xem lần chạy gần nhất.
 
-### ⚠️ Khôi phục từ số không — hiện CHƯA làm được bằng migration
+### Dựng lại DB từ số không (khi mất Supabase)
 
-Chuỗi migration **không dựng lại được schema từ DB trống**: migration đầu tiên
-(`20260702000000_add_tournament_end_time`) đã là `ALTER TABLE "tournament"` trong khi không
-migration nào tạo bảng đó — schema gốc được tạo bằng `db push`/tay từ trước khi migration
-ra đời. Chạy `prisma migrate deploy` lên DB trống sẽ chết ngay:
-
-```
-ERROR: relation "tournament" does not exist
-```
-
-Nghĩa là nếu mất Supabase, `npm run restore` **chưa đủ** vì chưa có bảng để chèn vào. Cách
-dựng lại DB mới hiện nay:
+**Đã diễn tập thật ngày 28/7/2026** trên một schema nháp: dựng DB trắng → nạp backup →
+đối chiếu **35/35 bảng khớp số dòng**, ảnh đơn thuốc còn nguyên, ghi bản ghi mới không đụng id.
 
 ```bash
+# 1. Trỏ DATABASE_URL sang DB mới, rồi:
 npx prisma db push   # dựng schema thẳng từ prisma/schema.prisma
-npm run restore      # rồi mới nạp dữ liệu từ backup
+npm run restore      # nạp dữ liệu từ backups/latest.json
 ```
 
-Muốn sửa tận gốc thì phải **gộp (squash)** 28 migration thành một `0_init` sinh từ
+⚠️ **Phải dùng `db push`, KHÔNG dùng `prisma migrate deploy`.** Chuỗi migration không dựng
+được schema từ DB trống: migration đầu tiên (`20260702000000_add_tournament_end_time`) đã là
+`ALTER TABLE "tournament"` trong khi không migration nào tạo bảng đó — schema gốc vốn được
+tạo bằng `db push` từ trước khi migration ra đời. Chạy `migrate deploy` lên DB trống sẽ chết
+ngay ở bước đầu với `ERROR: relation "tournament" does not exist`.
+
+Muốn sửa tận gốc thì **gộp (squash)** 28 migration thành một `0_init` sinh từ
 `prisma migrate diff --from-empty --to-schema-datamodel`, rồi trên DB production đánh dấu đã
-áp dụng bằng `prisma migrate resolve --applied`. Việc này đụng vào `_prisma_migrations` của
+áp dụng bằng `prisma migrate resolve --applied`. Việc này đụng `_prisma_migrations` của
 production nên chưa làm — cần chủ động quyết định.
+
+**Cái gì KHÔNG khôi phục được:** bảng `app_log` (log vận hành) cố ý không nằm trong backup.
+Mọi dữ liệu nghiệp vụ khác đều có.
 
 ### Backup / khôi phục thủ công
 
