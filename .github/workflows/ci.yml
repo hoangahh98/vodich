@@ -48,8 +48,20 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true
 
-      - name: Apply migrations
-        run: npx prisma migrate deploy
+      # CỐ Ý dùng `db push` chứ không phải `migrate deploy`.
+      #
+      # Chuỗi migration hiện tại KHÔNG dựng được schema từ DB trống: migration đầu tiên
+      # (20260702000000_add_tournament_end_time) đã là ALTER TABLE trên bảng `tournament`
+      # mà không migration nào tạo ra — schema gốc được tạo tay/`db push` từ trước khi
+      # migration ra đời. `migrate deploy` trên DB trống sẽ chết ngay ở bước đầu.
+      #
+      # Với DB test dùng một lần thì `db push` là đúng bài (Prisma cũng khuyến nghị vậy):
+      # dựng thẳng schema từ schema.prisma, không cần lịch sử migration.
+      #
+      # ⚠️ Điều này KHÔNG khắc phục được vấn đề gốc: hiện chưa dựng lại được DB từ đầu
+      # nếu Supabase mất. Xem README phần "Khôi phục từ số không".
+      - name: Dựng schema cho DB test
+        run: npx prisma db push --skip-generate
 
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium

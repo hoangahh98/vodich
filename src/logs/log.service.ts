@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
-import { httpAction } from './log-action';
+import { httpAction, requestPath } from './log-action';
 
 @Injectable()
 export class LogService {
@@ -61,8 +61,8 @@ function requestFacts(req: Request) {
   const user = req.session?.user;
   return {
     method: req.method,
-    path: req.path.slice(0, 500),
-    queryString: req.url.includes('?') ? req.url.split('?').slice(1).join('?') : null,
+    path: requestPath(req).slice(0, 500),
+    queryString: req.originalUrl.includes('?') ? req.originalUrl.split('?').slice(1).join('?') : null,
     userId: user ? safeBigInt(user.id) : null,
     username: user?.email,
     userRole: user?.role,

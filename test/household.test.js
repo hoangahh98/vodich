@@ -3,6 +3,8 @@ const path = require('node:path');
 const test = require('node:test');
 const ejs = require('ejs');
 
+const { assertWellFormedHtml } = require('./helpers/html');
+
 const { HouseholdService } = require('../dist/household/household.service');
 
 const root = path.join(__dirname, '..');
@@ -328,6 +330,44 @@ test('household view renders all sections without email-scan or duplicate-nav le
     assert.doesNotMatch(html, /household-tab/, `section ${section} còn thanh tab trên đầu (đã có menu ba gạch)`);
     assert.doesNotMatch(html, /onsubmit=/, `section ${section} còn JS inline, vi phạm CSP`);
     assert.match(html, /Quản lý chi tiêu/);
+  }
+});
+
+/**
+ * CA THẬT (28/7/2026): một lần sửa hàng loạt đã chèn `<input name="book">` vào GIỮA thuộc
+ * tính `action` của 4 form xoá. EJS render "thành công", snapshot chụp lại luôn cái hỏng,
+ * mọi test đều xanh — nhưng trên màn hình thì lòi ra chữ `/delete" data-confirm="..."` và
+ * bấm Xoá thì lỗi vì URL bị cắt. So chuỗi không bắt được, phải kiểm CẤU TRÚC.
+ */
+test('household view: HTML dựng đúng cấu trúc ở MỌI mục, thẻ không chen ngang nhau', async () => {
+  for (const section of ['tong-quan', 'thu-nhap', 'chi-tieu', 'cai-dat']) {
+    const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), viewLocals(section));
+    assertWellFormedHtml(assert, html, `mục ${section}`);
+  }
+});
+
+test('household view: mọi form ghi đều mang theo id sổ, không thì bấm nhầm sang sổ khác', async () => {
+  for (const section of ['thu-nhap', 'chi-tieu', 'cai-dat']) {
+    const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), viewLocals(section));
+    // Chỉ soi form của chính module này; form Đăng xuất ở thanh topbar không liên quan tới sổ.
+    const forms = (html.match(/<form\b[^>]*method="post"[^>]*>[\s\S]*?<\/form>/gi) || []).filter((form) =>
+      /action="\/household/.test(form),
+    );
+    assert.ok(forms.length > 0, `mục ${section} phải có ít nhất một form ghi`);
+    for (const form of forms) {
+      const action = (form.match(/action="([^"]*)"/) || [])[1] || '(không có action)';
+      assert.match(form, /name="book"/, `form ${action} ở mục ${section} thiếu id sổ`);
+    }
+  }
+});
+
+test('household view: URL trong action phải sạch, không dính mảnh thẻ HTML', async () => {
+  for (const section of ['thu-nhap', 'chi-tieu', 'cai-dat']) {
+    const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), viewLocals(section));
+    for (const [, action] of html.matchAll(/action="(\/household[^"]*)"/g)) {
+      assert.doesNotMatch(action, /[<>]/, `action "${action}" ở mục ${section} có lẫn ký tự thẻ HTML`);
+      assert.match(action, /^\/household(\/[\w:-]+)*$/, `action "${action}" ở mục ${section} không phải URL hợp lệ`);
+    }
   }
 });
 

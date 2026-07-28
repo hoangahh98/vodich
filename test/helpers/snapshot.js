@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const { assertWellFormedHtml } = require('./html');
 
 const SNAPSHOT_DIR = path.join(__dirname, '..', '__snapshots__');
 
@@ -15,6 +16,9 @@ const SNAPSHOT_DIR = path.join(__dirname, '..', '__snapshots__');
  */
 function matchSnapshot(name, content) {
   const file = path.join(SNAPSHOT_DIR, `${name}.snap.html`);
+  // Kiểm cấu trúc TRƯỚC khi so/ghi ảnh chụp. Nếu không, một lần chạy với HTML hỏng sẽ
+  // ghi đè ảnh chụp bằng chính cái hỏng đó và từ đó về sau test luôn xanh.
+  assertWellFormedHtml(assert, content, `snapshot "${name}"`);
   const actual = normalizeHtml(content);
 
   if (process.env.UPDATE_SNAPSHOTS === '1' || !fs.existsSync(file)) {

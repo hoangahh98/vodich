@@ -61,7 +61,17 @@ form[aria-busy="true"] { opacity: .78; }
 body.page-busy .page-busy-toast { display: inline-flex; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .form-control, .form-select, input, select, textarea { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; min-height: 44px; background: #fff; font-family: inherit; font-size: 15px; }
-input[type="date"], input[type="month"] { width: 100%; min-width: 0; max-width: 100%; height: 44px; line-height: 20px; }
+/* Ô ngày/tháng: Safari iOS và một số trình duyệt Android render date input theo cỡ NỘI TẠI,
+   to hơn ô chứa và đè lên ô bên cạnh. Phải bỏ giao diện native rồi ép về đúng cỡ.
+   Đặt ở quy tắc CHUNG chứ không vá theo từng form: trước đây đã phải vá riêng cho
+   .travel-expense-form rồi .medical-form, tới form thứ ba (household) là dính lại y hệt. */
+input[type="date"], input[type="month"] {
+  -webkit-appearance: none; -moz-appearance: none; appearance: none;
+  width: 100%; min-width: 0; max-width: 100%;
+  height: 44px; line-height: 22px; padding: 10px 12px; font-size: 15px;
+}
+input[type="date"]::-webkit-date-and-time-value,
+input[type="month"]::-webkit-date-and-time-value { text-align: left; }
 label { font-weight: 700; display: block; margin-bottom: 6px; }
 .row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
 .col-12 { grid-column: span 12; } .col-6 { grid-column: span 6; } .col-4 { grid-column: span 4; } .col-3 { grid-column: span 3; } .col-2 { grid-column: span 2; }
@@ -863,9 +873,6 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .travel-expense-form { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; }
 .travel-expense-form > div, .travel-expense-form > button { min-width: 0; }
 .travel-expense-form input, .travel-expense-form select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
-/* Chuẩn hóa ô ngày: nhiều trình duyệt mobile render date input to bất thường -> ép về đúng cỡ */
-.travel-expense-form input[type="date"] { -webkit-appearance: none; -moz-appearance: none; appearance: none; min-width: 0; height: 44px; line-height: 22px; padding: 10px 12px; font-size: 15px; }
-.travel-expense-form input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 .travel-expense-form > button[type="submit"], .travel-expense-form > .btn { grid-column: 1 / -1; }
 
 /* Hàng thành viên: [checkbox] [tên] [email] — chỉ sửa inline, nút Lưu/Xóa ở dưới */
@@ -887,9 +894,6 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .medical-form-wide { grid-column: 1 / -1; }
 .medical-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
 @media (max-width: 560px) { .medical-form { grid-template-columns: 1fr 1fr; } .medical-form-wide, .medical-form-actions { grid-column: 1 / -1; } }
-/* Bỏ giao diện native của ô ngày để không bị phình/tràn khỏi ô trên mobile (iOS/Android). */
-.medical-form input[type="date"] { -webkit-appearance: none; -moz-appearance: none; appearance: none; width: 100%; max-width: 100%; min-width: 0; }
-.medical-form input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 
 /* Ô đầu bảng khoản chi: checkbox chọn + tên khoản */
 .travel-exp-check { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }

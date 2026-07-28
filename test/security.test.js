@@ -38,10 +38,43 @@ test('CSRF: Origin giả dạng tên miền con của kẻ tấn công vẫn b�
   assert.equal(result.ok, false, 'khớp tiền tố không được tính là cùng origin');
 });
 
-test('CSRF: thiếu cả Origin lẫn Referer thì CHẶN, không cho qua', () => {
+test('CSRF: Sec-Fetch-Site được tin trước Origin', () => {
+  const host = { host: 'duhy.onrender.com' };
+  // Trình duyệt tự gắn Sec-Fetch-Site, trang web không giả được -> tin nó trước.
+  assert.equal(checkSameOrigin(req('POST', { ...host, 'sec-fetch-site': 'same-origin' })).ok, true);
+  assert.equal(checkSameOrigin(req('POST', { ...host, 'sec-fetch-site': 'none' })).ok, true, 'người dùng tự mở app');
+  assert.equal(checkSameOrigin(req('POST', { ...host, 'sec-fetch-site': 'cross-site' })).ok, false);
+  assert.equal(checkSameOrigin(req('POST', { ...host, 'sec-fetch-site': 'same-site' })).ok, false, 'khác origin cùng tên miền cha vẫn chặn');
+});
+
+test('CSRF: Sec-Fetch-Site cross-site thắng cả Origin trông có vẻ hợp lệ', () => {
+  const result = checkSameOrigin(
+    req('POST', { host: 'duhy.onrender.com', origin: 'https://duhy.onrender.com', 'sec-fetch-site': 'cross-site' }),
+  );
+  assert.equal(result.ok, false, 'Origin do client gửi, Sec-Fetch-Site do trình duyệt gắn — tin cái sau');
+});
+
+/**
+ * CA THẬT (log production 28/7/2026 10:18:47): iPhone iOS 18.7, app mở từ màn hình chính,
+ * Safari gửi đúng chữ `Origin: null`. Bản đầu chặn thẳng -> thao tác ghi đầu tiên sau khi
+ * deploy bị 403, app hỏng trên thiết bị chính của người dùng.
+ */
+test('CSRF: Origin "null" của PWA iOS KHÔNG bị coi là site lạ', () => {
+  const iphone = { host: 'duhy.onrender.com', origin: 'null' };
+  assert.equal(checkSameOrigin(req('POST', iphone)).ok, true, 'Origin null nghĩa là không khai, không phải đến từ site lạ');
+
+  // Vẫn kiểm được khi có Referer đi kèm.
+  assert.equal(checkSameOrigin(req('POST', { ...iphone, referer: 'https://duhy.onrender.com/household' })).ok, true);
+  assert.equal(checkSameOrigin(req('POST', { ...iphone, referer: 'https://evil.example/x' })).ok, false);
+
+  // Và Sec-Fetch-Site vẫn thắng nếu có.
+  assert.equal(checkSameOrigin(req('POST', { ...iphone, 'sec-fetch-site': 'cross-site' })).ok, false);
+});
+
+test('CSRF: không có tín hiệu nào thì cho qua, dựa vào cookie sameSite=lax', () => {
   const result = checkSameOrigin(req('POST', { host: 'duhy.onrender.com' }));
-  assert.equal(result.ok, false, 'mặc định phải là chặn — cho qua tức là mở cửa cho client tự chế');
-  assert.match(result.reason, /Thiếu/);
+  assert.equal(result.ok, true, 'chặn ở đây là làm hỏng trình duyệt cũ mà không thêm bảo vệ thật');
+  assert.match(result.reason, /sameSite/);
 });
 
 test('CSRF: Origin rác không làm nổ server, chỉ bị chặn', () => {

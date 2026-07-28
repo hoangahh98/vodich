@@ -147,7 +147,7 @@
               <tr>
                 <td><strong><%= i.source %></strong><% if (i.note) { %><br><span class="muted"><%= i.note %></span><% } %></td>
                 <td><strong>+<%= formatMoney(i.amount) %>đ</strong></td>
-                <td class="text-right"><form method="post" action="/household/income/<%= i.id %><input type="hidden" name="book" value="<%= currentBook.id %>">/delete" data-confirm="Xoá khoản thu này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
+                <td class="text-right"><form method="post" action="/household/income/<%= i.id %>/delete" data-confirm="Xoá khoản thu này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
               </tr>
             <% }) %>
             <% if (!book.incomes.length) { %><tr><td colspan="3" class="muted text-center">Chưa nhập khoản thu nào cho tháng <%= monthLabel(book.month) %>.</td></tr><% } %>
@@ -184,7 +184,7 @@
                 <td><%= kindLabel[a.kind] || kindLabel.other %></td>
                 <td><strong><%= a.name %></strong><% if (a.note) { %><br><span class="muted"><%= a.note %></span><% } %></td>
                 <td><strong>−<%= formatMoney(a.amount) %>đ</strong></td>
-                <td class="text-right"><form method="post" action="/household/allocations/<%= a.id %><input type="hidden" name="book" value="<%= currentBook.id %>">/delete" data-confirm="Xoá khoản trích này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
+                <td class="text-right"><form method="post" action="/household/allocations/<%= a.id %>/delete" data-confirm="Xoá khoản trích này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
               </tr>
             <% }) %>
             <% if (!book.allocations.length) { %><tr><td colspan="4" class="muted text-center">Chưa có khoản trích tay nào cho tháng <%= monthLabel(book.month) %>.</td></tr><% } %>
@@ -224,7 +224,7 @@
                 <td><strong><%= t.description || '(không ghi)' %></strong></td>
                 <td><%= t.member ? t.member.name : '🏠 Chi chung' %></td>
                 <td><strong><%= formatMoney(t.amount) %>đ</strong></td>
-                <td class="text-right"><form method="post" action="/household/txns/<%= t.id %><input type="hidden" name="book" value="<%= currentBook.id %>">/delete" data-confirm="Xoá khoản chi này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
+                <td class="text-right"><form method="post" action="/household/txns/<%= t.id %>/delete" data-confirm="Xoá khoản chi này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
               </tr>
             <% }) %>
             <% if (!txns.length) { %><tr><td colspan="5" class="muted text-center">Chưa ghi khoản chi nào.</td></tr><% } %>
@@ -281,8 +281,8 @@
           <%# Form xoá để rỗng, nút Xoá nằm trong form sửa và trỏ sang bằng thuộc tính `form`
               (HTML không cho lồng form) — nhờ vậy Lưu và Xoá đứng cạnh nhau trên cùng một hàng. %>
           <form id="hh-del-<%= m.id %>" method="post" action="/household/members/<%= m.id %>/delete"
-                data-confirm="Xoá <%= m.name %>? Các khoản chi cũ của người này sẽ chuyển thành chi chung."></form>
-          <form class="household-form household-member-row" method="post" action="/household/members/<%= m.id %><input type="hidden" name="book" value="<%= currentBook.id %>">">
+                data-confirm="Xoá <%= m.name %>? Các khoản chi cũ của người này sẽ chuyển thành chi chung."><input type="hidden" name="book" value="<%= currentBook.id %>"></form>
+          <form class="household-form household-member-row" method="post" action="/household/members/<%= m.id %>"><input type="hidden" name="book" value="<%= currentBook.id %>">
             <div><label>Tên</label><input name="name" value="<%= m.name %>" required></div>
             <div><label>Chu kỳ nhận</label>
               <select name="cycle">

@@ -307,6 +307,29 @@ test('viewport disables mobile zoom and log paths are normalized', async () => {
   assert.equal(normalizedPath('/external-register/456'), '/external-register/:id');
 });
 
+/**
+ * CA THẬT: ô `type="date"` trên Safari iOS render theo cỡ nội tại, to hơn ô chứa và ĐÈ
+ * lên ô bên cạnh. Đã phải vá riêng cho .travel-expense-form, rồi .medical-form, rồi tới
+ * form chi tiêu lại dính y hệt — vì bản vá nằm ở từng form thay vì quy tắc chung.
+ * Test này khoá bản vá ở quy tắc chung để form thứ tư không phải phát hiện lại.
+ */
+test('ô ngày được chuẩn hoá ở quy tắc CHUNG, không vá lẻ theo từng form', () => {
+  const css = fs.readFileSync(path.join(root, 'public/css/app.css'), 'utf8');
+
+  const globalRule = css.match(/input\[type="date"\][^{]*\{[^}]*\}/);
+  assert.ok(globalRule, 'phải có quy tắc chung cho input[type="date"]');
+  assert.match(globalRule[0], /appearance:\s*none/, 'phải bỏ giao diện native, nếu không iOS tự phình ô');
+  assert.match(globalRule[0], /max-width:\s*100%/, 'phải chặn tràn khỏi ô chứa');
+
+  // Không còn bản vá riêng lẻ nào cho ô ngày.
+  const perFormPatches = css.match(/^\s*\.[\w-]+\s+input\[type="date"\]/gm) || [];
+  assert.deepEqual(
+    perFormPatches.map((s) => s.trim()),
+    [],
+    'ô ngày phải được vá ở quy tắc chung, không thêm bản vá riêng cho từng form',
+  );
+});
+
 test('score rules clamp and finish status are reusable outside scoreboard UI', () => {
   const context = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'public/js/score-rules.js'), 'utf8'), context);

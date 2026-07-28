@@ -135,6 +135,30 @@ Tuỳ chọn: `PRIVATE_BACKUP_REPO` (variable) để đổi repo đích, `BACKUP
 
 ⚠️ Cron của GitHub **tự tắt sau 60 ngày repo không có hoạt động** — thỉnh thoảng vẫn nên liếc tab Actions xem lần chạy gần nhất.
 
+### ⚠️ Khôi phục từ số không — hiện CHƯA làm được bằng migration
+
+Chuỗi migration **không dựng lại được schema từ DB trống**: migration đầu tiên
+(`20260702000000_add_tournament_end_time`) đã là `ALTER TABLE "tournament"` trong khi không
+migration nào tạo bảng đó — schema gốc được tạo bằng `db push`/tay từ trước khi migration
+ra đời. Chạy `prisma migrate deploy` lên DB trống sẽ chết ngay:
+
+```
+ERROR: relation "tournament" does not exist
+```
+
+Nghĩa là nếu mất Supabase, `npm run restore` **chưa đủ** vì chưa có bảng để chèn vào. Cách
+dựng lại DB mới hiện nay:
+
+```bash
+npx prisma db push   # dựng schema thẳng từ prisma/schema.prisma
+npm run restore      # rồi mới nạp dữ liệu từ backup
+```
+
+Muốn sửa tận gốc thì phải **gộp (squash)** 28 migration thành một `0_init` sinh từ
+`prisma migrate diff --from-empty --to-schema-datamodel`, rồi trên DB production đánh dấu đã
+áp dụng bằng `prisma migrate resolve --applied`. Việc này đụng vào `_prisma_migrations` của
+production nên chưa làm — cần chủ động quyết định.
+
 ### Backup / khôi phục thủ công
 
 ```bash

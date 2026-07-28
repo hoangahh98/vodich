@@ -5,7 +5,8 @@
   "scripts": {
     "prebuild": "prisma generate",
     "build": "nest build",
-    "test": "npm run build && node --test test/*.test.js",
+    "test": "npm run build && node scripts/check-views.js && node --test test/*.test.js",
+    "check:views": "node scripts/check-views.js",
     "test:e2e": "npm run build && node scripts/run-e2e.js",
     "seed:e2e": "node scripts/seed-e2e.js",
     "check:render": "node scripts/check-render-ready.js",
