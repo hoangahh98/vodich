@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ownedOrSharedWhere } from '../common/admin-scope';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
 import { Leftover, matchKey } from './cabinet';
@@ -250,7 +251,7 @@ export class CabinetService {
         prescription: {
           scheduleStopped: false,
           scheduleStart: { not: null },
-          patient: { OR: [{ ownerAdminId: adminId }, { permissions: { some: { adminId } } }] },
+          patient: ownedOrSharedWhere(user),
         },
       },
       select: { drugName: true },

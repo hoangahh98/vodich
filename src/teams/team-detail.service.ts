@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { rootAdminUsername } from '../common/admin-scope';
+import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere } from '../common/admin-scope';
 import { PrismaService } from '../prisma.service';
 import { TeamMonthReportBuilder } from './team-month-report';
 import { addMonths, monthDate } from './team-utils';
@@ -58,13 +58,8 @@ export class TeamDetailService {
 
   private availableAdmins(teamId: bigint, ownerAdminId?: bigint | null) {
     return this.prisma.appUser.findMany({
-      where: {
-        role: 'ADMIN',
-        username: { not: rootAdminUsername() },
-        id: { notIn: [ownerAdminId || 0n] },
-        teamPermissions: { none: { teamId } },
-      },
-      orderBy: [{ displayName: 'asc' }, { username: 'asc' }],
+      where: availableAdminsWhere(ownerAdminId, { teamPermissions: { none: { teamId } } }),
+      orderBy: AVAILABLE_ADMINS_ORDER,
     });
   }
 }

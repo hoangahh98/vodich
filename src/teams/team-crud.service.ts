@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
-import { isRootAdmin, rootAdminUsername } from '../common/admin-scope';
+import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere, isRootAdmin, ownedOrSharedWhere } from '../common/admin-scope';
 import { CurrentUser } from '../types';
 import { cleanText } from './team-utils';
 
@@ -42,7 +42,7 @@ export class TeamCrudService {
   async canManage(user: CurrentUser, teamId: bigint) {
     if (user.role !== 'ADMIN') return false;
     if (isRootAdmin(user)) return true;
-    return (await this.prisma.teamClub.count({ where: { id: teamId, ...this.adminTeamWhere(user) } })) > 0;
+    return (await this.prisma.teamClub.count({ where: { id: teamId, ...ownedOrSharedWhere(user) } })) > 0;
   }
 
   async canView(user: CurrentUser, teamId: bigint) {
@@ -52,13 +52,8 @@ export class TeamCrudService {
 
   async availableAdmins(teamId: bigint, ownerAdminId?: bigint | null) {
     return this.prisma.appUser.findMany({
-      where: {
-        role: 'ADMIN',
-        username: { not: rootAdminUsername() },
-        id: { notIn: [ownerAdminId || 0n] },
-        teamPermissions: { none: { teamId } },
-      },
-      orderBy: [{ displayName: 'asc' }, { username: 'asc' }],
+      where: availableAdminsWhere(ownerAdminId, { teamPermissions: { none: { teamId } } }),
+      orderBy: AVAILABLE_ADMINS_ORDER,
     });
   }
 
@@ -68,11 +63,6 @@ export class TeamCrudService {
 
   removePermission(teamId: bigint, permissionId: bigint) {
     return this.prisma.teamClubPermission.deleteMany({ where: { id: permissionId, teamId } });
-  }
-
-  private adminTeamWhere(user: CurrentUser): Prisma.TeamClubWhereInput {
-    const adminId = BigInt(user.id);
-    return { OR: [{ ownerAdminId: adminId }, { permissions: { some: { adminId } } }] };
   }
 
   private clientTeamWhere(user: CurrentUser): Prisma.TeamClubWhereInput {
@@ -88,7 +78,7 @@ export class TeamCrudService {
 
   private teamWhereForUser(user: CurrentUser): Prisma.TeamClubWhereInput {
     if (user.role === 'CLIENT') return this.clientTeamWhere(user);
-    if (!isRootAdmin(user)) return this.adminTeamWhere(user);
+    if (!isRootAdmin(user)) return ownedOrSharedWhere(user);
     return {};
   }
 }

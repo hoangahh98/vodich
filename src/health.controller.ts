@@ -1,8 +1,11 @@
 import { Controller, Get, Res } from '@nestjs/common';
 import { Response } from 'express';
 import { checkRedisReady, getRedisFeatureStatuses } from './common/redis';
+import { Public } from './common/feature.decorator';
 import { PrismaService } from './prisma.service';
 
+// Render gọi /healthz, /readyz khi chưa có session — chỉ trả cờ boolean, không lộ nội bộ.
+@Public()
 @Controller()
 export class HealthController {
   constructor(private readonly prisma: PrismaService) {}

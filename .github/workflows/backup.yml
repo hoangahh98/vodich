@@ -1,0 +1,52 @@
+name: Backup DB
+
+# Supabase gói free KHÔNG có backup tự động — đây là lưới an toàn duy nhất.
+# Chạy 19:00 UTC = 02:00 giờ Việt Nam, lúc gần như chắc chắn không ai đang nhập liệu.
+on:
+  schedule:
+    - cron: "0 19 * * *"
+  workflow_dispatch: # cho phép bấm chạy tay khi cần backup ngay trước lúc migrate
+
+# Chỉ một lần backup chạy tại một thời điểm; lần mới chờ lần cũ xong để tránh
+# hai tiến trình cùng push vào repo backup.
+concurrency:
+  group: backup-db
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Backup và đẩy lên repo private
+        env:
+          DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_REPO_TOKEN: ${{ secrets.BACKUP_REPO_TOKEN }}
+          PRIVATE_BACKUP_REPO: ${{ vars.PRIVATE_BACKUP_REPO || 'https://github.com/hoangahh98/private_backupdb.git' }}
+          BACKUP_KEEP: "30"
+        run: npm run backup:push
+
+      # Cron của GitHub im lặng khi hỏng: workflow đỏ nhưng không ai để ý, tới lúc cần
+      # khôi phục mới biết đã mấy tháng không có backup. Bước này gửi cảnh báo ra ngoài.
+      - name: Báo khi backup hỏng
+        if: failure() && env.ALERT_WEBHOOK != ''
+        env:
+          ALERT_WEBHOOK: ${{ secrets.BACKUP_ALERT_WEBHOOK }}
+        run: |
+          curl -s -X POST "$ALERT_WEBHOOK" \
+            -H 'content-type: application/json' \
+            -d '{"text":"⚠️ Backup DB vodich-tool THẤT BẠI — xem GitHub Actions."}' || true

@@ -1,12 +1,16 @@
 import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { notFound, parseBigId } from '../common/controller-utils';
+import { Public } from '../common/feature.decorator';
 import { RateLimitService } from '../common/rate-limit.service';
 import { render } from '../common/view';
 import { PrismaService } from '../prisma.service';
 import { MatchGateway } from './match.gateway';
 import { TournamentService } from './tournament.service';
 
+// Người ngoài tự đăng ký giải qua link chia sẻ nên chưa có tài khoản.
+// Đã có rate-limit theo IP + email ở POST để không bị spam.
+@Public()
 @Controller()
 export class ExternalRegistrationController {
   constructor(

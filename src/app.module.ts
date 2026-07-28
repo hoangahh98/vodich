@@ -1,5 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { PrismaService } from './prisma.service';
 import { AuthService } from './auth/auth.service';
 import { AuthController } from './auth/auth.controller';
@@ -14,11 +14,16 @@ import { KnightController } from './games/knight.controller';
 import { KnightService } from './games/knight.service';
 import { KnightAiService } from './games/knight-ai.service';
 import { MedicalController } from './medical/medical.controller';
+import { MedicalCabinetController } from './medical/medical-cabinet.controller';
+import { MedicalPrescriptionController } from './medical/medical-prescription.controller';
+import { MedicalScheduleController } from './medical/medical-schedule.controller';
+import { MedicalScopeService } from './medical/medical-scope.service';
 import { MedicalService } from './medical/medical.service';
 import { MedicalAiService } from './medical/medical-ai.service';
 import { CabinetService } from './medical/cabinet.service';
 import { HouseholdController } from './household/household.controller';
 import { HouseholdService } from './household/household.service';
+import { HouseholdAccessService } from './household/household-access.service';
 import { PlayersController } from './players/players.controller';
 import { PlayersService } from './players/players.service';
 import { TournamentService } from './tournaments/tournament.service';
@@ -53,9 +58,10 @@ import { AiService } from './common/ai.service';
 import { LocalsMiddleware } from './common/locals.middleware';
 import { RateLimitService } from './common/rate-limit.service';
 import { FeatureGuard } from './common/feature.guard';
+import { CsrfMiddleware } from './common/csrf';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, MedicalController, HouseholdController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, MedicalController, MedicalCabinetController, MedicalPrescriptionController, MedicalScheduleController, HouseholdController, AdminController],
   providers: [
     PrismaService,
     AuthService,
@@ -83,21 +89,32 @@ import { FeatureGuard } from './common/feature.guard';
     TravelAiService,
     MedicalService,
     MedicalAiService,
+    MedicalScopeService,
     CabinetService,
     HouseholdService,
+    HouseholdAccessService,
     AiService,
     MatchGateway,
     LocalsMiddleware,
+    CsrfMiddleware,
     RateLimitService,
     FeatureGuard,
     {
       provide: APP_INTERCEPTOR,
       useClass: HttpLogInterceptor,
     },
+    // Gác quyền toàn cục, mặc-định-chặn: route mới phải chủ động gắn `@Public()`
+    // mới ra ngoài được. Không còn chuyện quên gọi requireFeature là hở endpoint.
+    {
+      provide: APP_GUARD,
+      useClass: FeatureGuard,
+    },
   ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LocalsMiddleware).forRoutes('*');
+    // Thứ tự có ý nghĩa: LocalsMiddleware nạp res.locals trước để trang lỗi của
+    // CsrfMiddleware render được layout đầy đủ.
+    consumer.apply(LocalsMiddleware, CsrfMiddleware).forRoutes('*');
   }
 }

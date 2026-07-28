@@ -27,7 +27,11 @@ export class HttpLogInterceptor implements NestInterceptor {
 
   private record(request: Request, response: Response, durationMs: number, error?: Error, statusCode = response.statusCode) {
     if (shouldSkipHttpLog(request, statusCode)) return;
-    this.logs.record(request, response, durationMs, error, statusCode).catch(() => undefined);
+    // LogService.record tự nuốt lỗi ghi DB và báo ra console; ở đây chỉ bắt nốt
+    // trường hợp bất ngờ để không sinh unhandled rejection giữa luồng request.
+    void this.logs
+      .record(request, response, durationMs, error, statusCode)
+      .catch((logError) => console.error('[log] interceptor không ghi được', logError));
   }
 }
 

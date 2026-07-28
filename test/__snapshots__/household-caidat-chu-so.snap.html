@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Quản lý chi tiêu</title>
+<meta name="theme-color" content="#0d6efd">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- Bootstrap self-host: bản CDN làm app mở từ màn hình chính iPhone mất sạch giao diện khi mạng/CDN chập. -->
+<link href="/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<!-- Ở head (không phải bottom-menu) để cả trang login cũng đăng ký được service worker. -->
+<script src="/js/sw-register.js" defer></script>
+</head>
+<body>
+<nav class="topbar">
+<a class="brand-link" href="/"><img src="/uploads/logo.png" alt="Logo Vô địch"><span>Vô địch</span></a>
+<div class="flex center gap">
+<span class="muted">Admin</span>
+<form method="post" action="/logout"><button class="btn btn-sm btn-danger" data-loading-text="...">Đăng xuất</button></form>
+</div>
+</nav>
+<main class="app-shell">
+<section class="feature-hero p mb">
+<div class="flex between center gap">
+<div>
+<h1>💰 Quản lý chi tiêu</h1>
+<div class="muted strong-muted">Lương gộp vào quỹ chung → trích tiết kiệm &amp; trả nợ → mỗi đầu tuần nạp ví cho từng người.</div>
+</div>
+</div>
+</section>
+<!-- ═══ TỔNG QUAN ═══ -->
+<!-- ═══ THU & PHÂN BỔ ═══ -->
+<!-- ═══ CHI TIÊU ═══ -->
+<!-- ═══ CÀI ĐẶT ═══ -->
+<section class="card-lite p tournament-edit-card mb">
+<div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt chung</h2><p class="muted">Mức tiền tiêu mặc định và mốc bắt đầu theo dõi.</p></div></div>
+<form class="household-form" method="post" action="/household/config"><input type="hidden" name="book" value="1">
+<div><label>Tiền tiêu mỗi tuần / người</label><input class="money-input" name="weeklyAllowance" value="500000"></div>
+<div><label>Tuần bắt đầu từ</label>
+<select name="weekStartDow">
+<option value="1" selected>Thứ Hai</option><option value="2" >Thứ Ba</option><option value="3" >Thứ Tư</option><option value="4" >Thứ Năm</option><option value="5" >Thứ Sáu</option><option value="6" >Thứ Bảy</option><option value="0" >Chủ Nhật</option>
+</select>
+</div>
+<div><label>Ngày bắt đầu theo dõi</label><input type="date" name="anchorDate" value="2026-07-06"></div>
+<div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu cài đặt</button></div>
+</form>
+<p class="muted">Mức mặc định áp dụng cho mọi người không đặt mức riêng. Ngày bắt đầu theo dõi quyết định số tuần đã trích tiền tiêu.</p>
+</section>
+<section class="card-lite">
+<div class="card-hdr green"><span>👨‍👩‍👦 Thành viên nhận tiền tiêu</span><span>1 người</span></div>
+<div class="p">
+<div class="alert-lite mb">
+<strong>Hàng tuần</strong> (vợ chồng): nhận đủ mức mỗi đầu tuần, số dư tuần cũ bị xoá.<br>
+<strong>Hàng tháng</strong> (con): cầm mức đó cho cả tháng, tiêu không hết thì dồn sang tháng sau. Nhà vẫn dành
+500000đ/tuần cho con — phần chênh vào 🧸 quỹ tiết kiệm của con, con tiêu quá thì quỹ đó vơi đi.
+</div>
+<form id="hh-del-1" method="post" action="/household/members/1/delete"
+data-confirm="Xoá Chồng? Các khoản chi cũ của người này sẽ chuyển thành chi chung."></form>
+<form class="household-form household-member-row" method="post" action="/household/members/1<input type="hidden" name="book" value="1">">
+<div><label>Tên</label><input name="name" value="Chồng" required></div>
+<div><label>Chu kỳ nhận</label>
+<select name="cycle">
+<option value="weekly" selected>Hàng tuần</option>
+<option value="monthly" >Hàng tháng (con)</option>
+</select>
+</div>
+<div><label>Mức riêng</label><input class="money-input" name="allowance" value="" placeholder="500000"></div>
+<div><label>Nhận từ ngày</label><input type="date" name="startedOn" value="2026-07-06"></div>
+<div><label>Trạng thái</label>
+<select name="active">
+<option value="true" selected>Đang nhận</option>
+<option value="false" >Tạm dừng</option>
+</select>
+</div>
+<div class="household-form-action">
+<button class="btn btn-success" data-loading-text="Đang lưu...">Lưu</button>
+<button class="btn btn-danger" form="hh-del-1" data-loading-text="Đang xoá...">Xoá</button>
+</div>
+</form>
+<h2 class="section-title mb">➕ Thêm thành viên</h2>
+<form class="household-form" method="post" action="/household/members"><input type="hidden" name="book" value="1">
+<div><label>Tên</label><input name="name" placeholder="Chồng / Vợ / Con zai" required></div>
+<div><label>Chu kỳ nhận</label>
+<select name="cycle">
+<option value="weekly" selected>Hàng tuần</option>
+<option value="monthly">Hàng tháng (con)</option>
+</select>
+</div>
+<div><label>Mức riêng</label><input class="money-input" name="allowance" placeholder="500000"></div>
+<div><label>Nhận từ ngày</label><input type="date" name="startedOn" value="2026-07-06"></div>
+<div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
+</form>
+</div>
+</section>
+<section class="card-lite p tournament-edit-card mt">
+<div class="section-heading mb"><div><span class="feature-icon">🔐</span><h2 class="section-title">Phân quyền admin</h2><p class="muted">Cho admin khác cùng xem và ghi sổ chi tiêu này.</p></div></div>
+<div class="grid module-grid mb">
+<div><span class="muted">Người tạo sổ</span><br><strong>Admin</strong></div>
+<div><span class="muted">Đang được phân quyền</span><br><strong>1 admin</strong></div>
+</div>
+<form class="permission-create-form mb" method="post" action="/household/permissions">
+<input type="hidden" name="book" value="1">
+<div><label>Thêm admin</label><select name="adminId" required><option value="9">Admin Khác (other)</option></select></div>
+<div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm quyền</button></div>
+</form>
+<div class="permission-admin-list">
+<div class="permission-admin-card">
+<div class="flex between center gap">
+<div><strong>Sub Admin</strong><br><span class="muted">subadmin</span></div>
+<form method="post" action="/household/permissions/5/delete" data-confirm="Gỡ quyền admin này?">
+<input type="hidden" name="book" value="1">
+<button class="btn btn-sm btn-danger" data-loading-text="Đang gỡ...">Gỡ quyền</button>
+</form>
+</div>
+</div>
+</div>
+</section>
+</main>
+<nav class="bottom-menu">
+<button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu">☰</button>
+<div class="bottom-menu-inner">
+<a class="" href="/">🏠 Trang chủ</a>
+<a class="" href="/household">📊 Tổng quan</a>
+<a class="" href="/household/thu-nhap">💵 Thu &amp; phân bổ</a>
+<a class="" href="/household/chi-tieu">🧾 Chi tiêu</a>
+<a class="active" href="/household/cai-dat">⚙️ Cài đặt</a>
+</div>
+</nav>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/form-controls.js"></script>
+<script src="/js/selection-controls.js"></script>
+<script src="/js/menu.js"></script>
+<script src="/js/modal-copy.js"></script>
+<script src="/js/realtime.js"></script>
+</body>
+</html>

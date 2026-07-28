@@ -23,6 +23,8 @@ model AppUser {
   ownedTravelTrips      TravelTrip[]             @relation("TravelTripOwner")
   travelPermissions     TravelTripPermission[]
   medicalPermissions    MedPatientPermission[]
+  ownedHouseholds       HouseholdConfig[]        @relation("HouseholdOwner")
+  householdPermissions  HouseholdPermission[]
   knightCharacters      KnightCharacter[]        @relation("KnightCharacterOwner")
 
   @@map("app_user")
@@ -662,15 +664,42 @@ model TravelTripExpenseSplit {
 // chung → trích ra tiết kiệm / trả nợ / khoản khác → phần còn lại phát tiền tiêu
 // hàng tuần cho từng thành viên. Xem docs/quan-ly-chi-tieu.md.
 
-/// Cấu hình dùng chung, chỉ có đúng 1 dòng (id = 1).
+/// Một SỔ chi tiêu, đồng thời là cấu hình của sổ đó. Đây là gốc phân quyền của module,
+/// đóng đúng vai trò Tournament / TeamClub ở các module khác: mỗi admin có sổ riêng và
+/// có thể cấp quyền cho admin khác cùng xem/sửa. Mọi bảng con đều trỏ về đây qua
+/// `household_id`, nên không admin nào đọc được sổ của admin khác.
 model HouseholdConfig {
-  id              Int      @id @default(1)
+  id              Int      @id @default(autoincrement())
+  ownerAdminId    BigInt?  @map("owner_admin_id")
+  name            String   @default("Sổ chi tiêu gia đình") @db.VarChar(120)
   weeklyAllowance BigInt   @default(500000) @map("weekly_allowance") // mặc định mỗi người mỗi tuần
   weekStartDow    Int      @default(1) @map("week_start_dow") // 1 = Thứ Hai
   anchorDate      DateTime @default(now()) @map("anchor_date") @db.Date
   updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
 
+  ownerAdmin  AppUser?              @relation("HouseholdOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
+  permissions HouseholdPermission[]
+  members     HouseholdMember[]
+  incomes     HouseholdIncome[]
+  allocations HouseholdAllocation[]
+  txns        HouseholdTxn[]
+
+  @@index([ownerAdminId])
   @@map("household_config")
+}
+
+/// Admin được chủ sổ cấp quyền xem/sửa sổ chi tiêu. Chỉ chủ sổ được cấp và gỡ quyền.
+model HouseholdPermission {
+  id          BigInt   @id @default(autoincrement())
+  householdId Int      @map("household_id")
+  adminId     BigInt   @map("admin_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household HouseholdConfig @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  admin     AppUser         @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, adminId])
+  @@map("household_permission")
 }
 
 /// Người được phát tiền tiêu (chồng, vợ, con...). Số người tuỳ ý thêm/xoá trong Cài đặt;
@@ -681,44 +710,53 @@ model HouseholdConfig {
 /// - `monthly` — (dành cho con) chỉ nhận `allowance` mỗi đầu tháng; nhà vẫn dành ra
 ///   mức tuần chuẩn, phần chênh dồn vào QUỸ TIẾT KIỆM riêng của người đó.
 model HouseholdMember {
-  id        BigInt   @id @default(autoincrement())
-  name      String   @db.VarChar(80)
-  cycle     String   @default("weekly") @db.VarChar(10) // weekly | monthly
-  allowance BigInt? // tiền tiêu mỗi kỳ; null = theo mức mặc định
-  startedOn DateTime @map("started_on") @db.Date // bắt đầu được phát từ tuần chứa ngày này
-  active    Boolean  @default(true)
-  sortOrder Int      @default(0) @map("sort_order")
-  createdAt DateTime @default(now()) @map("created_at")
+  id          BigInt   @id @default(autoincrement())
+  householdId Int      @map("household_id")
+  name        String   @db.VarChar(80)
+  cycle       String   @default("weekly") @db.VarChar(10) // weekly | monthly
+  allowance   BigInt? // tiền tiêu mỗi kỳ; null = theo mức mặc định
+  startedOn   DateTime @map("started_on") @db.Date // bắt đầu được phát từ tuần chứa ngày này
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  txns HouseholdTxn[]
+  household HouseholdConfig @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  txns      HouseholdTxn[]
 
+  @@index([householdId])
   @@map("household_member")
 }
 
 /// Tiền vào quỹ chung theo tháng: lương chồng, lương vợ, thưởng, thu khác.
 model HouseholdIncome {
-  id         BigInt   @id @default(autoincrement())
-  month      String   @db.VarChar(7) // YYYY-MM
-  source     String   @db.VarChar(80)
-  amount     BigInt   @default(0)
-  note       String   @default("")
-  createdAt  DateTime @default(now()) @map("created_at")
+  id          BigInt   @id @default(autoincrement())
+  householdId Int      @map("household_id")
+  month       String   @db.VarChar(7) // YYYY-MM
+  source      String   @db.VarChar(80)
+  amount      BigInt   @default(0)
+  note        String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  @@index([month])
+  household HouseholdConfig @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, month])
   @@map("household_income")
 }
 
 /// Khoản trích ra khỏi quỹ chung mỗi tháng (tiết kiệm, trả nợ, học phí, bảo hiểm...).
 model HouseholdAllocation {
-  id        BigInt   @id @default(autoincrement())
-  month     String   @db.VarChar(7) // YYYY-MM
-  kind      String   @default("other") @db.VarChar(20) // savings | debt | other
-  name      String   @db.VarChar(80)
-  amount    BigInt   @default(0)
-  note      String   @default("")
-  createdAt DateTime @default(now()) @map("created_at")
+  id          BigInt   @id @default(autoincrement())
+  householdId Int      @map("household_id")
+  month       String   @db.VarChar(7) // YYYY-MM
+  kind        String   @default("other") @db.VarChar(20) // savings | debt | other
+  name        String   @db.VarChar(80)
+  amount      BigInt   @default(0)
+  note        String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
 
-  @@index([month])
+  household HouseholdConfig @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, month])
   @@map("household_allocation")
 }
 
@@ -726,15 +764,17 @@ model HouseholdAllocation {
 /// có memberId thì trừ vào ví tiền tuần của người đó.
 model HouseholdTxn {
   id          BigInt   @id @default(autoincrement())
+  householdId Int      @map("household_id")
   occurredAt  DateTime @map("occurred_at")
   memberId    BigInt?  @map("member_id")
   amount      BigInt   @default(0)
   description String   @default("")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  member HouseholdMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  household HouseholdConfig  @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  member    HouseholdMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
 
-  @@index([occurredAt])
+  @@index([householdId, occurredAt])
   @@index([memberId])
   @@map("household_txn")
 }

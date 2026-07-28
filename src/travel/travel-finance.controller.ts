@@ -1,15 +1,13 @@
-import { Body, Controller, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { forbidden, notFound, parseBigId } from '../common/controller-utils';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
-import { FeatureGuard } from '../common/feature.guard';
 import { MatchGateway } from '../tournaments/match.gateway';
 import { CurrentUser } from '../types';
 import { TravelFinanceService } from './travel-finance.service';
 import { TravelService } from './travel.service';
 
 @Controller()
-@UseGuards(FeatureGuard)
 @FeatureAccess('TRAVEL')
 @AdminOnly()
 export class TravelFinanceController {

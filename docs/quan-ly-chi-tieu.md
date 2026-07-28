@@ -55,7 +55,21 @@ giống module giải đấu và đội bóng.
 | 📊 Tổng quan | Quỹ chung còn lại, ví từng người, quỹ tiết kiệm của con, dòng tiền tóm tắt |
 | 💵 Thu & phân bổ | Nhập lương/thu của tháng, các khoản trích tay, xem khoản tiền tiêu **tự trích**; có nút **chép các khoản của tháng trước** |
 | 🧾 Chi tiêu | Ghi khoản chi (chọn của ai hoặc "chi chung"); sửa = xoá rồi nhập lại |
-| ⚙️ Cài đặt | Mức tuần mặc định, thứ bắt đầu tuần, ngày bắt đầu theo dõi, thành viên + **chu kỳ nhận** |
+| ⚙️ Cài đặt | Mức tuần mặc định, thứ bắt đầu tuần, ngày bắt đầu theo dõi, thành viên + **chu kỳ nhận**, và **phân quyền admin** |
+
+## Sổ riêng của từng admin
+
+Mỗi admin có **sổ chi tiêu riêng**, tự tạo lần đầu vào module. Cấu trúc phân quyền giống hệt
+giải đấu và đội bóng:
+
+- Admin khác **không đọc được** sổ của bạn, kể cả khi họ cũng có quyền `HOUSEHOLD`.
+- Chủ sổ vào **⚙️ Cài đặt → 🔐 Phân quyền admin** để mời admin khác cùng xem/ghi.
+- Người được mời sửa được sổ nhưng **không mời tiếp** người khác — chỉ chủ sổ cấp/gỡ quyền được.
+- Vào được nhiều sổ thì có ô chọn sổ ở đầu trang Cài đặt.
+
+Trước migration `20260728120000_household_owner_scope`, module này chỉ có **một** sổ dùng chung
+(`household_config` id = 1) và mọi admin có quyền `HOUSEHOLD` đều nhìn thấy chung một sổ. Migration
+gom toàn bộ dữ liệu cũ vào một sổ và gán chủ là admin gốc — **không mất dữ liệu**.
 
 ## Sử dụng
 
@@ -71,11 +85,18 @@ giống module giải đấu và đội bóng.
 
 ## Kỹ thuật
 
-- Nghiệp vụ & công thức: `src/household/household.service.ts` (`summary`, `monthBook`).
+- Công thức tiền (thuần, không đụng DB): `src/household/household-calc.ts` (`buildSummary`,
+  `monthAllowanceCost`) — test thẳng bằng dữ liệu dựng tay, không cần DB.
+- Truy cập dữ liệu: `src/household/household.service.ts`. **Mọi phương thức nhận `householdId`
+  làm tham số đầu tiên và đưa vào `where`**, kể cả khi đã có id của dòng con — gửi lên id khoản
+  chi của sổ người khác thì tác động 0 dòng.
+- Ai vào được sổ nào: `src/household/household-access.service.ts`.
 - Route/màn hình: `src/household/household.controller.ts`, `src/views/household/index.ejs`.
-- Bảng dữ liệu: `household_config`, `household_member`, `household_income`,
-  `household_allocation`, `household_txn` (xem `prisma/schema.prisma`).
+- Bảng dữ liệu: `household_config` (= một sổ, có `owner_admin_id`), `household_permission`,
+  `household_member`, `household_income`, `household_allocation`, `household_txn`
+  (xem `prisma/schema.prisma`). Mọi bảng con đều có `household_id`.
 - Xoá thành viên **không** xoá khoản chi của họ: `member_id` chuyển về NULL ⇒ thành chi chung.
+- Phân quyền: xem [bao-mat.md](bao-mat.md).
 
 ## Lịch sử
 

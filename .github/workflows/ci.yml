@@ -10,8 +10,27 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      # Có DB thật thì bộ e2e phân quyền (e2e/permissions.spec.js, e2e/db.spec.js) mới chạy;
+      # thiếu biến này chúng tự skip và CI xanh giả — đúng thứ cần tránh nhất.
+      E2E_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
       SESSION_SECRET: ci-session-secret
       REQUIRE_REDIS: "false"
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -29,11 +48,19 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true
 
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
       - name: Install Playwright browser
         run: npx playwright install --with-deps chromium
 
       - name: Unit tests
         run: npm test
 
-      - name: Browser smoke tests
+      - name: Browser + permission e2e tests
         run: npm run test:e2e
+
+      # Bộ e2e phân quyền tự skip khi thiếu DB. Bước này bắt lỗi cấu hình đó,
+      # tránh tình huống test bảo mật im lặng không chạy mà CI vẫn báo xanh.
+      - name: Xác nhận e2e phân quyền THẬT SỰ đã chạy
+        run: node scripts/assert-e2e-permissions-ran.js

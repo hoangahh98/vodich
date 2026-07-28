@@ -1,12 +1,10 @@
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { RootAdminOnly } from '../common/feature.decorator';
-import { FeatureGuard } from '../common/feature.guard';
 import { render } from '../common/view';
 import { AdminService } from './admin.service';
 
 @Controller()
-@UseGuards(FeatureGuard)
 @RootAdminOnly()
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
@@ -34,6 +32,7 @@ export class AdminController {
     const level = String(req.query.level || 'ERROR');
     const category = String(req.query.category || 'ALL');
     const logs = await this.adminService.listLogs(level, category);
-    return render(res, 'logs/index', { logs, level, levels: ['ERROR', 'WARN', 'INFO', 'ALL'], category, categories: ['ALL', 'HTTP', 'REDIS'] });
+    // ACCESS = truy cập bị FeatureGuard/CSRF từ chối; tách riêng để soi nhanh khi nghi bị dò quyền.
+    return render(res, 'logs/index', { logs, level, levels: ['ERROR', 'WARN', 'INFO', 'ALL'], category, categories: ['ALL', 'HTTP', 'ACCESS', 'REDIS'] });
   }
 }

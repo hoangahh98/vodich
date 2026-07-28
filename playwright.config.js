@@ -3,6 +3,8 @@ const { defineConfig, devices } = require('@playwright/test');
 module.exports = defineConfig({
   testDir: './e2e',
   timeout: 30000,
+  // Bản JSON để scripts/assert-e2e-permissions-ran.js soi được test nào đã thật sự chạy.
+  reporter: [['list'], ['json', { outputFile: 'test-results/results.json' }]],
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://127.0.0.1:3100',
     trace: 'on-first-retry',

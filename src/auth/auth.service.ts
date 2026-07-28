@@ -3,8 +3,27 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma.service';
 import { AppFeature, CurrentUser, UserRole } from '../types';
 
+/**
+ * Mật khẩu dùng chung cho vai CLIENT (vận động viên xem giải/đội của mình).
+ * CỐ Ý để dễ nhớ: client chỉ ĐỌC dữ liệu giải đấu mà chính họ tham gia, mọi thao tác
+ * ghi đều đòi vai ADMIN. Đừng "sửa" thành mật khẩu mạnh — sẽ chặn hết người dùng thật.
+ */
 const CLIENT_PASSWORD = '123456789';
-const WEAK_ADMIN_PASSWORDS = new Set(['', '123456789', 'admin', 'password']);
+const WEAK_ADMIN_PASSWORDS = new Set(['', '123456789', 'admin', 'password', 'change-me', '12345678']);
+
+/** Mật khẩu admin yếu ở production là lỗi cấu hình chặn khởi động, không phải cảnh báo. */
+export function assertStrongAdminPassword(password: string) {
+  if (process.env.NODE_ENV !== 'production') return;
+  if (!WEAK_ADMIN_PASSWORDS.has(password)) return;
+  if (process.env.ALLOW_WEAK_ADMIN_PASSWORD === 'true') {
+    console.warn('[auth] APP_ADMIN_PASSWORD yếu nhưng ALLOW_WEAK_ADMIN_PASSWORD=true nên vẫn chạy. Hãy đổi sớm.');
+    return;
+  }
+  throw new Error(
+    'APP_ADMIN_PASSWORD đang để giá trị mặc định/yếu ở production. Hãy đặt một mật khẩu mạnh trong biến môi trường ' +
+      '(và đổi lại mật khẩu tài khoản admin gốc trong app). Nếu cần deploy gấp, đặt tạm ALLOW_WEAK_ADMIN_PASSWORD=true.',
+  );
+}
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -15,11 +34,7 @@ export class AuthService implements OnModuleInit {
 
   async onModuleInit() {
     if (process.env.SKIP_ADMIN_BOOTSTRAP === 'true') return;
-    if (process.env.NODE_ENV === 'production' && WEAK_ADMIN_PASSWORDS.has(this.rootPassword)) {
-      console.warn(
-        '[auth] APP_ADMIN_PASSWORD đang để giá trị mặc định/yếu ở production. Hãy đặt mật khẩu admin mạnh và đổi lại mật khẩu tài khoản admin gốc.',
-      );
-    }
+    assertStrongAdminPassword(this.rootPassword);
     const existing = await this.prisma.appUser.findUnique({ where: { username: this.rootUsername } });
     if (!existing) {
       await this.prisma.appUser.create({

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { rootAdminUsername } from '../common/admin-scope';
+import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere } from '../common/admin-scope';
 import { GroupBoard, RankingGroup, TournamentRankingCalculator } from './tournament-ranking';
 
 @Injectable()
@@ -57,13 +57,8 @@ export class TournamentDetailService {
 
   private availableAdmins(tournamentId: bigint, ownerAdminId?: bigint | null) {
     return this.prisma.appUser.findMany({
-      where: {
-        role: 'ADMIN',
-        username: { not: rootAdminUsername() },
-        id: { notIn: [ownerAdminId || 0n] },
-        tournamentPermissions: { none: { tournamentId } },
-      },
-      orderBy: [{ displayName: 'asc' }, { username: 'asc' }],
+      where: availableAdminsWhere(ownerAdminId, { tournamentPermissions: { none: { tournamentId } } }),
+      orderBy: AVAILABLE_ADMINS_ORDER,
     });
   }
 }

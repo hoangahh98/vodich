@@ -8,24 +8,45 @@ const { HouseholdService } = require('../dist/household/household.service');
 const root = path.join(__dirname, '..');
 const day = (iso) => new Date(`${iso}T00:00:00Z`);
 
+const BOOK_ID = 1;
+
 /**
  * Prisma giả cho module chi tiêu: chỉ trả về đúng những gì `summary()` / `monthBook()` đọc.
  * Không mô phỏng ghi dữ liệu — phần đó đã đơn giản (create/delete thẳng).
+ *
+ * MỌI truy vấn đều bị khẳng định là có `where.householdId`: nếu ai đó lỡ bỏ bộ lọc theo
+ * sổ trong service, test ở đây gãy ngay chứ không đợi tới lúc rò dữ liệu sang admin khác.
  */
 function makePrisma({ config, members = [], txns = [], incomes = [], allocations = [] }) {
+  const scoped = (where, label) => {
+    assert.equal(where?.householdId, BOOK_ID, `truy vấn ${label} phải lọc theo householdId`);
+    return true;
+  };
   return {
-    householdConfig: { findUnique: async () => config, create: async () => config },
-    householdMember: { findMany: async () => members },
-    householdTxn: { findMany: async () => txns },
+    householdConfig: {
+      findUnique: async ({ where }) => (where.id === BOOK_ID ? config : null),
+      create: async () => config,
+    },
+    householdMember: {
+      findMany: async ({ where } = {}) => (scoped(where, 'householdMember') ? members : []),
+    },
+    householdTxn: {
+      findMany: async ({ where } = {}) => (scoped(where, 'householdTxn') ? txns : []),
+    },
     householdIncome: {
-      aggregate: async () => ({ _sum: { amount: BigInt(incomes.reduce((t, i) => t + Number(i.amount), 0)) } }),
+      aggregate: async ({ where } = {}) =>
+        scoped(where, 'householdIncome.aggregate') && {
+          _sum: { amount: BigInt(incomes.reduce((t, i) => t + Number(i.amount), 0)) },
+        },
       findMany: async ({ where, distinct } = {}) => {
+        scoped(where, 'householdIncome');
         if (distinct) return [...new Set(incomes.map((i) => i.month))].map((month) => ({ month }));
         return incomes.filter((i) => !where?.month || i.month === where.month);
       },
     },
     householdAllocation: {
       findMany: async ({ where, distinct } = {}) => {
+        scoped(where, 'householdAllocation');
         if (distinct) return [...new Set(allocations.map((a) => a.month))].map((month) => ({ month }));
         return allocations.filter((a) => !where?.month || a.month === where.month);
       },
@@ -34,7 +55,7 @@ function makePrisma({ config, members = [], txns = [], incomes = [], allocations
 }
 
 const CONFIG = {
-  id: 1,
+  id: BOOK_ID,
   weeklyAllowance: 500000n,
   weekStartDow: 1,
   anchorDate: day('2026-07-06'), // thứ Hai
@@ -73,7 +94,7 @@ test('HouseholdService: ví tuần KHÔNG cộng dồn — chỉ trừ khoản c
     }),
   );
 
-  const [wallet] = (await service.summary()).wallets;
+  const [wallet] = (await service.summary(BOOK_ID)).wallets;
   assert.equal(wallet.allowance, 500000);
   assert.equal(wallet.spentThisPeriod, 120000);
   assert.equal(wallet.remaining, 380000, 'ví = 500k − chi tuần này, không cộng dồn phần dư tuần trước');
@@ -93,7 +114,7 @@ test('HouseholdService: tiêu quá ví thì nhà phải bù, trừ tiếp vào q
     }),
   );
 
-  const summary = await service.summary();
+  const summary = await service.summary(BOOK_ID);
   const [wallet] = summary.wallets;
   assert.equal(wallet.remaining, -200000);
   assert.equal(wallet.overspend, 200000);
@@ -113,7 +134,7 @@ test('HouseholdService: con nhận theo tháng, phần ngân sách tuần dư v�
     }),
   );
 
-  const [kid] = (await service.summary()).wallets;
+  const [kid] = (await service.summary(BOOK_ID)).wallets;
   assert.equal(kid.periodLabel, 'Tháng này');
   assert.equal(kid.rollover, true, 'ví của con cộng dồn qua các tháng');
   assert.equal(kid.allowance, 500000, 'con cầm tay 500k cho cả tháng');
@@ -133,7 +154,7 @@ test('HouseholdService: con tiêu không hết thì phần thừa dồn sang th�
     }),
   );
 
-  const [kid] = (await service.summary()).wallets;
+  const [kid] = (await service.summary(BOOK_ID)).wallets;
   assert.equal(kid.remaining, kid.handedTotal - 200000, 'ví = tổng đã nhận − tổng đã tiêu, không reset theo tháng');
   assert.ok(kid.remaining > 0);
   assert.equal(kid.kidShortfall, 0);
@@ -151,7 +172,7 @@ test('HouseholdService: con tiêu quá phần cầm tay thì trừ vào quỹ ti
     }),
   );
 
-  const summary = await service.summary();
+  const summary = await service.summary(BOOK_ID);
   const [kid] = summary.wallets;
   const over = 900000 - kid.handedTotal; // phần vượt quá tiền cầm tay
 
@@ -173,7 +194,7 @@ test('HouseholdService: con tiêu vượt cả quỹ tiết kiệm thì nhà m�
     }),
   );
 
-  const summary = await service.summary();
+  const summary = await service.summary(BOOK_ID);
   const [kid] = summary.wallets;
   assert.equal(kid.kidSavings, 0, 'quỹ của con cạn sạch');
   assert.equal(kid.overspend, 99000000 - kid.budgetTotal, 'phần vượt cả ngân sách nhà dành mới là nhà bù');
@@ -191,7 +212,7 @@ test('HouseholdService: người tạm dừng và người bắt đầu muộn k
       ],
     }),
   );
-  const summary = await service.summary();
+  const summary = await service.summary(BOOK_ID);
   const [husband, future, paused] = summary.wallets;
 
   assert.ok(husband.weeks >= 1);
@@ -215,7 +236,7 @@ test('HouseholdService: sổ tháng tự trích tiền tiêu cả nhà, không c
     }),
   );
 
-  const book = await service.monthBook('2026-07');
+  const book = await service.monthBook(BOOK_ID, '2026-07');
   assert.equal(book.incomes.length, 2, 'chỉ lấy khoản thu của đúng tháng');
   assert.equal(book.incomeTotal, 30000000);
   assert.equal(book.manualAllocationTotal, 6000000);
@@ -227,7 +248,7 @@ test('HouseholdService: sổ tháng tự trích tiền tiêu cả nhà, không c
   assert.ok(book.months.includes('2026-06') && book.months.includes('2026-07'));
 
   // Tháng sai định dạng thì rơi về tháng hiện tại thay vì nổ.
-  assert.match((await service.monthBook('linh tinh')).month, /^\d{4}-\d{2}$/);
+  assert.match((await service.monthBook(BOOK_ID, 'linh tinh')).month, /^\d{4}-\d{2}$/);
 });
 
 function viewLocals(section, over = {}) {
@@ -254,10 +275,21 @@ function viewLocals(section, over = {}) {
     spentThisMonth: 1100000,
     spentTotal: 1100000,
   };
+  const currentBook = {
+    id: BOOK_ID,
+    name: 'Sổ chi tiêu gia đình',
+    ownerAdminId: 7n,
+    ownerAdmin: { id: 7n, username: 'admin', displayName: 'Admin' },
+    permissions: [{ id: 5n, admin: { id: 9n, username: 'subadmin', displayName: 'Sub Admin' } }],
+  };
   return {
-    currentUser: { role: 'ADMIN', displayName: 'Admin', email: 'admin@test' },
+    currentUser: { id: '7', role: 'ADMIN', displayName: 'Admin', email: 'admin@test' },
     featureSet: new Set(['HOUSEHOLD']),
     isRoot: true,
+    books: [currentBook],
+    currentBook,
+    isOwner: true,
+    admins: [{ id: 9n, username: 'other', displayName: 'Admin Khác' }],
     path: section === 'tong-quan' ? '/household' : `/household/${section}`,
     formatMoney: (value) => String(Math.round(Number(value) || 0)),
     section,

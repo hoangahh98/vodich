@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Phân quyền</title>
+<meta name="theme-color" content="#0d6efd">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<!-- Bootstrap self-host: bản CDN làm app mở từ màn hình chính iPhone mất sạch giao diện khi mạng/CDN chập. -->
+<link href="/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="/css/app.css">
+<link rel="manifest" href="/manifest.json">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<!-- Ở head (không phải bottom-menu) để cả trang login cũng đăng ký được service worker. -->
+<script src="/js/sw-register.js" defer></script>
+</head>
+<body>
+<nav class="topbar">
+<a class="brand-link" href="/"><img src="/uploads/logo.png" alt="Logo Vô địch"><span>Vô địch</span></a>
+<div class="flex center gap">
+<span class="muted">Admin</span>
+<form method="post" action="/logout"><button class="btn btn-sm btn-danger" data-loading-text="...">Đăng xuất</button></form>
+</div>
+</nav>
+<main class="app-shell permissions-shell">
+<section class="feature-hero p mb">
+<div class="section-heading">
+<div><span class="feature-icon">🔐</span><h1>Phân quyền quản trị</h1><p class="muted">Admin gốc mặc định có toàn quyền. Chỉ tạo và phân quyền cho các admin phụ tại đây.</p></div>
+</div>
+</section>
+<section class="card-lite p mb">
+<div class="section-heading mb">
+<div><span class="feature-icon">➕</span><h2 class="section-title">Tạo quản trị mới</h2><p class="muted">Thông tin admin đã tạo sẽ được sửa ở phần danh sách bên dưới.</p></div>
+</div>
+<form class="permission-create-form" method="post" action="/admins">
+<div><label>Tài khoản</label><input name="username" placeholder="admin_phu" autocomplete="username" required></div>
+<div><label>Tên hiển thị</label><input name="displayName" placeholder="Tên hiển thị"></div>
+<div><label>Mật khẩu</label><input name="password" placeholder="Mật khẩu" value="123456789" autocomplete="new-password"></div>
+<div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang tạo...">Tạo quản trị</button></div>
+</form>
+</section>
+<section class="card-lite p">
+<div class="section-heading mb">
+<div><span class="feature-icon">⚙️</span><h2 class="section-title">Sửa admin và quyền</h2><p class="muted">Sửa thông tin, chọn quyền cho tất cả admin phụ rồi lưu một lần.</p></div>
+<span class="badge">2 admin phụ</span>
+</div>
+<form method="post" action="/permissions">
+<div class="permission-admin-list">
+<section class="permission-admin-card">
+<div class="permission-admin-info">
+<div><label>Tài khoản</label><input name="username_2" value="subadmin" required></div>
+<div><label>Tên hiển thị</label><input name="displayName_2" value="Sub Admin" required></div>
+<div><label>Mật khẩu mới</label><input name="password_2" placeholder="Để trống nếu không đổi" autocomplete="new-password"></div>
+</div>
+<div class="permission-feature-grid">
+<label class="option-card"><input type="checkbox" name="features_2" value="TOURNAMENTS" >
+<span>Giải đấu</span></label>
+<label class="option-card"><input type="checkbox" name="features_2" value="TEAMS" checked>
+<span>Đội bóng</span></label>
+<label class="option-card"><input type="checkbox" name="features_2" value="TRAVEL" >
+<span>Du lịch</span></label>
+<label class="option-card"><input type="checkbox" name="features_2" value="MEDICAL" >
+<span>Y tế</span></label>
+<label class="option-card"><input type="checkbox" name="features_2" value="HOUSEHOLD" >
+<span>HOUSEHOLD</span></label>
+</div>
+</section>
+<section class="permission-admin-card">
+<div class="permission-admin-info">
+<div><label>Tài khoản</label><input name="username_3" value="ketoan" required></div>
+<div><label>Tên hiển thị</label><input name="displayName_3" value="Kế Toán" required></div>
+<div><label>Mật khẩu mới</label><input name="password_3" placeholder="Để trống nếu không đổi" autocomplete="new-password"></div>
+</div>
+<div class="permission-feature-grid">
+<label class="option-card"><input type="checkbox" name="features_3" value="TOURNAMENTS" >
+<span>Giải đấu</span></label>
+<label class="option-card"><input type="checkbox" name="features_3" value="TEAMS" >
+<span>Đội bóng</span></label>
+<label class="option-card"><input type="checkbox" name="features_3" value="TRAVEL" >
+<span>Du lịch</span></label>
+<label class="option-card"><input type="checkbox" name="features_3" value="MEDICAL" >
+<span>Y tế</span></label>
+<label class="option-card"><input type="checkbox" name="features_3" value="HOUSEHOLD" >
+<span>HOUSEHOLD</span></label>
+</div>
+</section>
+</div>
+<div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu tất cả quyền</button></div>
+</form>
+</section>
+</main>
+<nav class="bottom-menu">
+<button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu">☰</button>
+<div class="bottom-menu-inner">
+<a class="" href="/">🏠 Trang chủ</a>
+<a class="active" href="/permissions">🔐 Phân quyền</a>
+</div>
+</nav>
+<script src="/socket.io/socket.io.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/form-controls.js"></script>
+<script src="/js/selection-controls.js"></script>
+<script src="/js/menu.js"></script>
+<script src="/js/modal-copy.js"></script>
+<script src="/js/realtime.js"></script>
+</body>
+</html>

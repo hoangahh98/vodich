@@ -1,0 +1,3 @@
+# Snapshot so sánh theo nội dung nên phải giữ LF trên mọi máy,
+# nếu không Git đổi sang CRLF lúc checkout là test đỏ dù nội dung y hệt.
+test/__snapshots__/*.html text eol=lf

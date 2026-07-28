@@ -1,6 +1,17 @@
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
 import { AppFeature, CurrentUser } from '../types';
+
+/**
+ * Request này mong đợi JSON hay HTML? Các endpoint gọi bằng fetch() phải nhận 401/403 dạng
+ * JSON, chứ trả về redirect 302 sang /login thì phía client chỉ thấy "thành công" rỗng.
+ */
+export function wantsJson(req: Pick<Request, 'get' | 'path'>): boolean {
+  if (req.get('x-requested-with') === 'XMLHttpRequest') return true;
+  const accept = req.get('accept') || '';
+  if (accept.includes('text/html')) return false;
+  return accept.includes('application/json');
+}
 
 export function requireUser(req: Express.Request, res: Response): CurrentUser | undefined {
   if (!req.session.user) {

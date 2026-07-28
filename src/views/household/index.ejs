@@ -19,7 +19,7 @@
         <%# Bọc trong div: ở màn hẹp .feature-hero .flex đổi sang cột, `flex: 0 0 170px`
             của .month-filter sẽ thành CHIỀU CAO 170px và form bị kéo vuông. %>
         <div class="household-hero-tools">
-          <form method="get" action="/household/thu-nhap" class="month-filter">
+          <form method="get" action="/household/thu-nhap" class="month-filter"><input type="hidden" name="book" value="<%= currentBook.id %>">
             <label>Tháng</label>
             <input type="month" name="month" value="<%= book.month %>" data-autosubmit>
           </form>
@@ -134,7 +134,7 @@
     <section class="card-lite mb">
       <div class="card-hdr green"><span>💵 Lương &amp; các khoản thu</span><span><%= formatMoney(book.incomeTotal) %>đ</span></div>
       <div class="p">
-        <form class="household-form mb" method="post" action="/household/income">
+        <form class="household-form mb" method="post" action="/household/income"><input type="hidden" name="book" value="<%= currentBook.id %>">
           <input type="hidden" name="month" value="<%= book.month %>">
           <div><label>Nguồn thu</label><input name="source" placeholder="Lương chồng / Lương vợ / Thưởng" required></div>
           <div><label>Số tiền</label><input class="money-input" name="amount" required></div>
@@ -147,7 +147,7 @@
               <tr>
                 <td><strong><%= i.source %></strong><% if (i.note) { %><br><span class="muted"><%= i.note %></span><% } %></td>
                 <td><strong>+<%= formatMoney(i.amount) %>đ</strong></td>
-                <td class="text-right"><form method="post" action="/household/income/<%= i.id %>/delete" data-confirm="Xoá khoản thu này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
+                <td class="text-right"><form method="post" action="/household/income/<%= i.id %><input type="hidden" name="book" value="<%= currentBook.id %>">/delete" data-confirm="Xoá khoản thu này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
               </tr>
             <% }) %>
             <% if (!book.incomes.length) { %><tr><td colspan="3" class="muted text-center">Chưa nhập khoản thu nào cho tháng <%= monthLabel(book.month) %>.</td></tr><% } %>
@@ -163,7 +163,7 @@
           🤖 <strong>Tiền tiêu cả nhà tháng <%= monthLabel(book.month) %>: <%= formatMoney(book.allowanceCost) %>đ</strong>
           — tự trích, <%= book.weeksInMonth %> tuần × mức tuần của từng người.
         </div>
-        <form class="household-form mb" method="post" action="/household/allocations">
+        <form class="household-form mb" method="post" action="/household/allocations"><input type="hidden" name="book" value="<%= currentBook.id %>">
           <input type="hidden" name="month" value="<%= book.month %>">
           <div><label>Loại</label>
             <select name="kind">
@@ -184,13 +184,13 @@
                 <td><%= kindLabel[a.kind] || kindLabel.other %></td>
                 <td><strong><%= a.name %></strong><% if (a.note) { %><br><span class="muted"><%= a.note %></span><% } %></td>
                 <td><strong>−<%= formatMoney(a.amount) %>đ</strong></td>
-                <td class="text-right"><form method="post" action="/household/allocations/<%= a.id %>/delete" data-confirm="Xoá khoản trích này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
+                <td class="text-right"><form method="post" action="/household/allocations/<%= a.id %><input type="hidden" name="book" value="<%= currentBook.id %>">/delete" data-confirm="Xoá khoản trích này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
               </tr>
             <% }) %>
             <% if (!book.allocations.length) { %><tr><td colspan="4" class="muted text-center">Chưa có khoản trích tay nào cho tháng <%= monthLabel(book.month) %>.</td></tr><% } %>
           </tbody>
         </table></div>
-        <form method="post" action="/household/allocations/copy">
+        <form method="post" action="/household/allocations/copy"><input type="hidden" name="book" value="<%= currentBook.id %>">
           <input type="hidden" name="month" value="<%= book.month %>">
           <button class="btn btn-sm" data-loading-text="Đang chép...">📋 Chép các khoản của tháng trước</button>
         </form>
@@ -203,7 +203,7 @@
     <section class="card-lite mb">
       <div class="card-hdr blue"><span>🧾 Các khoản đã chi</span><span>Tháng này <%= formatMoney(summary.spentThisMonth) %>đ</span></div>
       <div class="p">
-        <form class="household-form mb" method="post" action="/household/txns">
+        <form class="household-form mb" method="post" action="/household/txns"><input type="hidden" name="book" value="<%= currentBook.id %>">
           <div><label>Ngày chi</label><input type="date" name="occurredAt" value="<%= today %>" required></div>
           <div><label>Nội dung</label><input name="description" placeholder="Cà phê, đi chợ, tiền điện..."></div>
           <div><label>Của ai</label>
@@ -224,7 +224,7 @@
                 <td><strong><%= t.description || '(không ghi)' %></strong></td>
                 <td><%= t.member ? t.member.name : '🏠 Chi chung' %></td>
                 <td><strong><%= formatMoney(t.amount) %>đ</strong></td>
-                <td class="text-right"><form method="post" action="/household/txns/<%= t.id %>/delete" data-confirm="Xoá khoản chi này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
+                <td class="text-right"><form method="post" action="/household/txns/<%= t.id %><input type="hidden" name="book" value="<%= currentBook.id %>">/delete" data-confirm="Xoá khoản chi này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
               </tr>
             <% }) %>
             <% if (!txns.length) { %><tr><td colspan="5" class="muted text-center">Chưa ghi khoản chi nào.</td></tr><% } %>
@@ -236,9 +236,25 @@
 
   <!-- ═══ CÀI ĐẶT ═══ -->
   <% if (section === 'cai-dat') { %>
+    <%# Chỉ hiện khi admin này vào được nhiều hơn một sổ — một sổ thì thanh chọn chỉ gây rối. %>
+    <% if (books.length > 1) { %>
+      <section class="card-lite p mb">
+        <form method="get" action="/household/cai-dat" class="month-filter">
+          <label>Sổ chi tiêu</label>
+          <select name="book" data-autosubmit>
+            <% books.forEach((b) => { %>
+              <option value="<%= b.id %>" <%= b.id === currentBook.id ? 'selected' : '' %>>
+                <%= b.name %><%= b.ownerAdminId?.toString() === currentUser.id ? ' (của tôi)' : ` — ${b.ownerAdmin?.displayName || 'admin khác'}` %>
+              </option>
+            <% }) %>
+          </select>
+        </form>
+      </section>
+    <% } %>
+
     <section class="card-lite p tournament-edit-card mb">
       <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt chung</h2><p class="muted">Mức tiền tiêu mặc định và mốc bắt đầu theo dõi.</p></div></div>
-      <form class="household-form" method="post" action="/household/config">
+      <form class="household-form" method="post" action="/household/config"><input type="hidden" name="book" value="<%= currentBook.id %>">
         <div><label>Tiền tiêu mỗi tuần / người</label><input class="money-input" name="weeklyAllowance" value="<%= formatMoney(config.weeklyAllowance) %>"></div>
         <div><label>Tuần bắt đầu từ</label>
           <select name="weekStartDow">
@@ -266,7 +282,7 @@
               (HTML không cho lồng form) — nhờ vậy Lưu và Xoá đứng cạnh nhau trên cùng một hàng. %>
           <form id="hh-del-<%= m.id %>" method="post" action="/household/members/<%= m.id %>/delete"
                 data-confirm="Xoá <%= m.name %>? Các khoản chi cũ của người này sẽ chuyển thành chi chung."></form>
-          <form class="household-form household-member-row" method="post" action="/household/members/<%= m.id %>">
+          <form class="household-form household-member-row" method="post" action="/household/members/<%= m.id %><input type="hidden" name="book" value="<%= currentBook.id %>">">
             <div><label>Tên</label><input name="name" value="<%= m.name %>" required></div>
             <div><label>Chu kỳ nhận</label>
               <select name="cycle">
@@ -290,7 +306,7 @@
         <% }) %>
 
         <h2 class="section-title mb">➕ Thêm thành viên</h2>
-        <form class="household-form" method="post" action="/household/members">
+        <form class="household-form" method="post" action="/household/members"><input type="hidden" name="book" value="<%= currentBook.id %>">
           <div><label>Tên</label><input name="name" placeholder="Chồng / Vợ / Con zai" required></div>
           <div><label>Chu kỳ nhận</label>
             <select name="cycle">
@@ -303,6 +319,43 @@
           <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
         </form>
       </div>
+    </section>
+
+    <%# Phân quyền: chỉ CHỦ SỔ thấy phần này. Người được mời vẫn xem/sửa được sổ
+        nhưng không mời tiếp được người khác — giống hồ sơ y tế. %>
+    <section class="card-lite p tournament-edit-card mt">
+      <div class="section-heading mb"><div><span class="feature-icon">🔐</span><h2 class="section-title">Phân quyền admin</h2><p class="muted">Cho admin khác cùng xem và ghi sổ chi tiêu này.</p></div></div>
+      <div class="grid module-grid mb">
+        <div><span class="muted">Người tạo sổ</span><br><strong><%= currentBook.ownerAdmin?.displayName || currentBook.ownerAdmin?.username || 'Admin gốc / dữ liệu cũ' %></strong></div>
+        <div><span class="muted">Đang được phân quyền</span><br><strong><%= (currentBook.permissions || []).length %> admin</strong></div>
+      </div>
+      <% if (isOwner) { %>
+        <% if (admins && admins.length) { %>
+          <form class="permission-create-form mb" method="post" action="/household/permissions">
+            <input type="hidden" name="book" value="<%= currentBook.id %>">
+            <div><label>Thêm admin</label><select name="adminId" required><% admins.forEach((admin) => { %><option value="<%= admin.id %>"><%= admin.displayName %> (<%= admin.username %>)</option><% }) %></select></div>
+            <div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm quyền</button></div>
+          </form>
+        <% } else { %>
+          <div class="alert-lite info mb">Không còn admin nào để thêm.</div>
+        <% } %>
+        <div class="permission-admin-list">
+          <% (currentBook.permissions || []).forEach((permission) => { %>
+            <div class="permission-admin-card">
+              <div class="flex between center gap">
+                <div><strong><%= permission.admin.displayName %></strong><br><span class="muted"><%= permission.admin.username %></span></div>
+                <form method="post" action="/household/permissions/<%= permission.id %>/delete" data-confirm="Gỡ quyền admin này?">
+                  <input type="hidden" name="book" value="<%= currentBook.id %>">
+                  <button class="btn btn-sm btn-danger" data-loading-text="Đang gỡ...">Gỡ quyền</button>
+                </form>
+              </div>
+            </div>
+          <% }) %>
+          <% if (!(currentBook.permissions || []).length) { %><div class="alert-lite info">Chưa cấp quyền cho admin nào.</div><% } %>
+        </div>
+      <% } else { %>
+        <div class="alert-lite info">Bạn được chủ sổ mời vào sổ này. Chỉ người tạo sổ mới cấp hoặc gỡ quyền được.</div>
+      <% } %>
     </section>
   <% } %>
 </main>

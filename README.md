@@ -38,7 +38,9 @@ REQUIRE_REDIS=false
 - `REDIS_URL`: Redis URL dùng cho session/socket adapter khi chạy nhiều service.
 - `REQUIRE_REDIS`: đặt `true` trên production nhiều service để app fail-fast nếu Redis thiếu hoặc lỗi. Đặt `false` chỉ phù hợp khi chạy một service hoặc môi trường test.
 - `APP_ADMIN_USERNAME`: tài khoản admin gốc, mặc định `admin`.
-- `APP_ADMIN_PASSWORD`: mật khẩu admin gốc khi bootstrap lần đầu.
+- `APP_ADMIN_PASSWORD`: mật khẩu admin gốc khi bootstrap lần đầu. **Ở production app fail-fast nếu để mật khẩu yếu** (`123456789`, `admin`, `password`, `change-me`, rỗng) — cùng cách xử lý với `SESSION_SECRET`.
+- `ALLOW_WEAK_ADMIN_PASSWORD=true`: cửa thoát tạm cho `APP_ADMIN_PASSWORD` yếu (chỉ cảnh báo thay vì chặn khởi động). Dùng khi cần deploy gấp, đổi mật khẩu xong thì gỡ ra.
+- `CSRF_ALLOWED_ORIGINS`: danh sách origin được phép gửi request ghi ngoài chính host của app, ngăn cách bằng dấu phẩy. Hiếm khi cần — chỉ dùng khi app đứng sau nhiều tên miền.
 - `LOG_ALL_HTTP=true`: ghi cả health check/static asset vào log. Mặc định app bỏ qua các request này để giảm DB writes.
 
 Biến chỉ nên dùng cho test/CI:
@@ -99,6 +101,15 @@ E2E_DATABASE_URL=postgresql://... npm run test:e2e
 
 Runner sẽ seed dữ liệu e2e vào DB test và ghi `.e2e-state.json` cục bộ. File này đã được ignore.
 
+Bộ test phân quyền:
+
+- `test/authorization.test.js` — chặn rò dữ liệu giữa hai admin, FeatureGuard, khoá tính năng.
+- `test/security.test.js` — CSRF, che secret trong log, danh sách route công khai.
+- `test/permission-snapshot.test.js` — snapshot giao diện theo từng vai. Đổi giao diện có chủ ý thì chạy `UPDATE_SNAPSHOTS=1 npm test` rồi **soi kỹ diff** trước khi commit.
+- `e2e/permissions.spec.js` — chạy hết stack trong trình duyệt thật. **Chỉ chạy khi có `E2E_DATABASE_URL`**, nếu không nó tự skip. CI đã bật Postgres và có bước `scripts/assert-e2e-permissions-ran.js` để bắt trường hợp bộ test này im lặng không chạy.
+
+Xem [docs/bao-mat.md](docs/bao-mat.md) cho mô hình phân quyền đầy đủ.
+
 ## Tính năng AI (Gemini)
 
 - `GEMINI_API_KEY`: bắt buộc để dùng AI (gợi ý du lịch, phân tích đơn thuốc, game nói chuyện). Lấy tại https://aistudio.google.com/apikey.
@@ -107,15 +118,36 @@ Runner sẽ seed dữ liệu e2e vào DB test và ghi `.e2e-state.json` cục b�
 
 ## Backup / khôi phục dữ liệu
 
-Supabase free không có backup tự động, nên có 2 script thủ công:
+Supabase free không có backup tự động, nên repo tự lo phần này.
+
+### Backup tự động (đã bật)
+
+`.github/workflows/backup.yml` chạy **mỗi ngày 02:00 giờ Việt Nam**, xuất DB rồi đẩy sang repo backup **private**. Bấm chạy tay được bằng nút *Run workflow* trong tab Actions (nên làm ngay trước khi chạy migration lớn).
+
+Cần đặt 2 secret trong repo này (**Settings → Secrets and variables → Actions**):
+
+| Secret | Giá trị |
+|--------|---------|
+| `BACKUP_DATABASE_URL` | Connection string Supabase (chính là `DATABASE_URL` production) |
+| `BACKUP_REPO_TOKEN` | GitHub PAT có quyền ghi repo backup private |
+
+Tuỳ chọn: `PRIVATE_BACKUP_REPO` (variable) để đổi repo đích, `BACKUP_ALERT_WEBHOOK` (secret) để nhận cảnh báo khi backup hỏng.
+
+⚠️ Cron của GitHub **tự tắt sau 60 ngày repo không có hoạt động** — thỉnh thoảng vẫn nên liếc tab Actions xem lần chạy gần nhất.
+
+### Backup / khôi phục thủ công
 
 ```bash
-npm run backup     # xuất toàn bộ bảng ra backups/backup-<time>.json + backups/latest.json
-npm run restore    # phục hồi từ backups/latest.json (hoặc: npm run restore -- đường/dẫn.json)
+npm run backup       # xuất ra backups/backup-<time>.json + backups/latest.json
+npm run backup:push  # backup rồi đẩy luôn lên repo private
+npm run restore      # phục hồi từ backups/latest.json (hoặc: npm run restore -- đường/dẫn.json)
 ```
 
+- **`AppLog` bị loại khỏi backup mặc định** — nó là log vận hành, chiếm ~80% dung lượng (5MB → 1MB) và phình thêm mỗi ngày. Cần cả log thì chạy `BACKUP_INCLUDE_LOGS=true npm run backup`.
+- Repo backup giữ **30 bản** gần nhất kèm mốc thời gian, cộng `latest.json` luôn là bản mới nhất. Đổi bằng `BACKUP_KEEP`.
+- Bảng nào Prisma client đọc không được vì **DB chưa migrate** (thiếu cột mới) sẽ được đọc lại bằng SQL thô thay vì bỏ qua. Đây là tình huống hay gặp nhất khi backup ngay trước lúc migrate — bỏ qua là ra bản backup thiếu mà vẫn báo "xong".
 - `restore` chèn theo thứ tự khóa ngoại, bỏ qua bản ghi trùng, KHÔNG xóa dữ liệu hiện có. Chạy `npx prisma migrate deploy` trước để bảng đã tồn tại (vd khi tạo DB Supabase mới).
-- ⚠️ **KHÔNG commit thư mục `backups/` vào repo này** — repo đang PUBLIC, mà file backup chứa email, hash mật khẩu và (sau này) dữ liệu y tế. `backups/` đã được `.gitignore`. Muốn lưu backup theo lịch, dùng một trong các cách an toàn: repo **private** riêng, artifact được mã hóa, hoặc Supabase paid có Point-in-Time Recovery. Có thể hẹn giờ chạy `npm run backup` bằng cron trên máy/VPS riêng.
+- ⚠️ **KHÔNG commit thư mục `backups/` vào repo này** — repo đang PUBLIC, mà file backup chứa email, hash mật khẩu và dữ liệu y tế. `backups/` đã được `.gitignore`.
 
 ## Health checks
 

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { ownedOrSharedWhere } from '../common/admin-scope';
 import { blankToNull } from '../common/controller-utils';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
@@ -12,11 +13,11 @@ export class MedicalService {
   /**
    * Hồ sơ y tế là dữ liệu nhạy cảm: chỉ admin tạo ra, hoặc admin được cấp quyền, mới
    * thấy. Cùng mẫu với travel/teams. Cố ý KHÔNG cho admin gốc xem hết — bệnh án gia
-   * đình người khác thì phải được cấp quyền tường minh mới xem được.
+   * đình người khác thì phải được cấp quyền tường minh mới xem được, nên ở đây gọi
+   * thẳng ownedOrSharedWhere chứ không kèm nhánh isRootAdmin như các module khác.
    */
   private scopeFor(user: CurrentUser) {
-    const adminId = BigInt(user.id);
-    return { OR: [{ ownerAdminId: adminId }, { permissions: { some: { adminId } } }] };
+    return ownedOrSharedWhere(user);
   }
 
   listPatients(user: CurrentUser) {

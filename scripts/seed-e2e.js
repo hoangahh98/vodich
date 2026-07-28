@@ -93,6 +93,35 @@ async function main() {
     },
   });
 
+  // ─── Hai admin thường để test rò dữ liệu chéo trong trình duyệt thật ───
+  // Alice có TOURNAMENTS + TEAMS, Bob CHỈ có TEAMS. Mỗi người sở hữu một đội riêng,
+  // nên e2e kiểm được đúng hai thứ: thiếu feature thì bị chặn, và có feature nhưng
+  // không sở hữu tài nguyên thì cũng bị chặn.
+  const alice = await upsertAdmin('e2e_alice', 'E2E Alice', adminPassword, ['TOURNAMENTS', 'TEAMS']);
+  const bob = await upsertAdmin('e2e_bob', 'E2E Bob', adminPassword, ['TEAMS']);
+
+  const aliceTeam = await prisma.teamClub.create({
+    data: { name: `E2E Alice Team ${Date.now()}`, description: 'Của riêng Alice', ownerAdminId: alice.id },
+  });
+  const bobTeam = await prisma.teamClub.create({
+    data: { name: `E2E Bob Team ${Date.now()}`, description: 'Của riêng Bob', ownerAdminId: bob.id },
+  });
+  const aliceTournament = await prisma.tournament.create({
+    data: {
+      name: `E2E Alice Cup ${Date.now()}`,
+      venue: 'E2E Court',
+      expectedPlayers: 4,
+      courtCount: 1,
+      playType: 'DOUBLES',
+      format: 'ROUND_ROBIN',
+      touchScore: 11,
+      maxScore: 15,
+      knockoutTouchScore: 15,
+      knockoutMaxScore: 19,
+      ownerAdminId: alice.id,
+    },
+  });
+
   fs.writeFileSync(
     statePath,
     JSON.stringify(
@@ -101,6 +130,11 @@ async function main() {
         teamId: team.id.toString(),
         adminUsername: 'e2e_admin',
         adminPassword,
+        aliceUsername: 'e2e_alice',
+        bobUsername: 'e2e_bob',
+        aliceTeamId: aliceTeam.id.toString(),
+        bobTeamId: bobTeam.id.toString(),
+        aliceTournamentId: aliceTournament.id.toString(),
       },
       null,
       2,
@@ -108,6 +142,23 @@ async function main() {
   );
 
   console.log(`Seeded E2E data: tournament=${tournament.id.toString()} team=${team.id.toString()}`);
+  console.log(`Seeded phân quyền: alice=${alice.id} (đội ${aliceTeam.id}) bob=${bob.id} (đội ${bobTeam.id})`);
+}
+
+/** Admin thường (không phải admin gốc) kèm đúng bộ feature được cấp. */
+async function upsertAdmin(username, displayName, password, features) {
+  const passwordHash = await bcrypt.hash(password, 10);
+  const admin = await prisma.appUser.upsert({
+    where: { username },
+    update: { passwordHash, displayName, role: 'ADMIN' },
+    create: { username, passwordHash, displayName, role: 'ADMIN' },
+  });
+  await prisma.adminFeaturePermission.deleteMany({ where: { adminId: admin.id } });
+  await prisma.adminFeaturePermission.createMany({
+    data: features.map((feature) => ({ adminId: admin.id, feature })),
+    skipDuplicates: true,
+  });
+  return admin;
 }
 
 function upsertPlayer(email, displayName, skillLevel) {

@@ -1,13 +1,11 @@
-import { Body, Controller, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Param, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
-import { FeatureGuard } from '../common/feature.guard';
 import { MatchGateway } from '../tournaments/match.gateway';
 import { currentMonth } from './team.controller';
 import { TeamService } from './team.service';
 
 @Controller()
-@UseGuards(FeatureGuard)
 @FeatureAccess('TEAMS')
 @AdminOnly()
 export class TeamExpenseController {

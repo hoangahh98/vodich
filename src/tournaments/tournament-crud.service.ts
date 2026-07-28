@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Tournament } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
-import { isRootAdmin, rootAdminUsername } from '../common/admin-scope';
+import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere, isRootAdmin, ownedOrSharedWhere } from '../common/admin-scope';
 import { buildTournamentData, normalizePrizes, operatingCostFromForm } from './tournament-form';
 import { minimumFeeForTournament } from './tournament-money';
 
@@ -14,7 +14,7 @@ export class TournamentCrudService {
     const tournaments =
       user.role === 'ADMIN'
         ? await this.prisma.tournament.findMany({
-            where: isRootAdmin(user) ? {} : this.adminTournamentWhere(user),
+            where: isRootAdmin(user) ? {} : ownedOrSharedWhere(user),
             orderBy: { id: 'desc' },
           })
         : await this.clientTournaments(user.email);
@@ -71,7 +71,7 @@ export class TournamentCrudService {
     if (isRootAdmin(user)) return true;
     return (
       (await this.prisma.tournament.count({
-        where: { id: tournamentId, ...this.adminTournamentWhere(user) },
+        where: { id: tournamentId, ...ownedOrSharedWhere(user) },
       })) > 0
     );
   }
@@ -116,13 +116,8 @@ export class TournamentCrudService {
 
   async availableAdmins(tournamentId: bigint, ownerAdminId?: bigint | null) {
     return this.prisma.appUser.findMany({
-      where: {
-        role: 'ADMIN',
-        username: { not: rootAdminUsername() },
-        id: { notIn: [ownerAdminId || 0n] },
-        tournamentPermissions: { none: { tournamentId } },
-      },
-      orderBy: [{ displayName: 'asc' }, { username: 'asc' }],
+      where: availableAdminsWhere(ownerAdminId, { tournamentPermissions: { none: { tournamentId } } }),
+      orderBy: AVAILABLE_ADMINS_ORDER,
     });
   }
 
@@ -133,10 +128,5 @@ export class TournamentCrudService {
   removePermission(tournamentId: bigint, permissionId: bigint) {
     // deleteMany cho phép ràng buộc theo tournamentId; xoá 0 dòng nếu permission thuộc giải khác.
     return this.prisma.tournamentPermission.deleteMany({ where: { id: permissionId, tournamentId } });
-  }
-
-  private adminTournamentWhere(user: CurrentUser) {
-    const adminId = BigInt(user.id);
-    return { OR: [{ ownerAdminId: adminId }, { permissions: { some: { adminId } } }] };
   }
 }

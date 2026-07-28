@@ -1,14 +1,12 @@
-import { Body, Controller, Get, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
-import { FeatureGuard } from '../common/feature.guard';
 import { forbidden, notFound, parseBigId, safeTeamSection } from '../common/controller-utils';
 import { render } from '../common/view';
 import { MatchGateway } from '../tournaments/match.gateway';
 import { TeamService } from './team.service';
 
 @Controller()
-@UseGuards(FeatureGuard)
 @FeatureAccess('TEAMS')
 export class TeamController {
   constructor(

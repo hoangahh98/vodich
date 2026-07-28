@@ -1,8 +1,7 @@
-import { Body, Controller, Get, Param, Post, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { forbidden, notFound, parseBigId } from '../common/controller-utils';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
-import { FeatureGuard } from '../common/feature.guard';
 import { render } from '../common/view';
 import { MatchGateway } from '../tournaments/match.gateway';
 import { CurrentUser } from '../types';
@@ -15,7 +14,6 @@ import { RateLimitService } from '../common/rate-limit.service';
 import { safeTravelSection } from './travel-sections';
 
 @Controller()
-@UseGuards(FeatureGuard)
 @FeatureAccess('TRAVEL')
 export class TravelController {
   private readonly summaryBuilder = new TravelSummaryBuilder();

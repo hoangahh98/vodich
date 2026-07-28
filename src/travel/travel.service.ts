@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { parseBigId } from '../common/controller-utils';
+import { ownedOrSharedWhere } from '../common/admin-scope';
 import { CurrentUser } from '../types';
 import { TRAVEL_SUGGESTION_CATEGORIES, validSuggestionCategory } from './travel.constants';
 
@@ -25,7 +26,7 @@ export class TravelService {
       });
     }
     return this.prisma.travelTrip.findMany({
-      where: { active: true, OR: [{ ownerAdminId: BigInt(user.id) }, { permissions: { some: { adminId: BigInt(user.id) } } }] },
+      where: { active: true, ...ownedOrSharedWhere(user) },
       include: { destination: true, members: { where: { active: true } }, expenses: true },
       orderBy: { id: 'desc' },
     });
@@ -37,7 +38,7 @@ export class TravelService {
       where: {
         id: tripId,
         active: true,
-        OR: [{ ownerAdminId: BigInt(user.id) }, { permissions: { some: { adminId: BigInt(user.id) } } }],
+        ...ownedOrSharedWhere(user),
       },
       select: { id: true },
     }));

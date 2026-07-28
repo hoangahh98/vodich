@@ -2,10 +2,14 @@ import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { render } from '../common/view';
 import { safeNext } from '../common/controller-utils';
+import { Public } from '../common/feature.decorator';
 import { RateLimitService } from '../common/rate-limit.service';
 import { UserRole } from '../types';
 import { AuthService } from './auth.service';
 
+// Cổng đăng nhập/đăng xuất: bắt buộc public, nếu không người chưa đăng nhập
+// sẽ bị guard đá về /login thành vòng lặp vô tận.
+@Public()
 @Controller()
 export class AuthController {
   constructor(
