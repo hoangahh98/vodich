@@ -1,235 +1,575 @@
 /**
  * Toàn bộ phép tính của module chi tiêu — thuần, không đụng Prisma, không đụng Nest.
  *
- * Tách khỏi HouseholdService để phần khó nhất (ví tuần không cộng dồn, ví tháng cộng dồn
- * của con, phần nhà phải bù) test được trực tiếp bằng dữ liệu dựng tay, không cần DB.
+ * Dựng đúng theo bảng tính chiphi.xlsx của chủ nhà. Mỗi tháng là một "sổ" độc lập gồm
+ * 5 phần, và tiền chảy đúng một chiều:
  *
- * Mô hình tiền (đã chốt với người dùng):
- * - Lương 2 vợ chồng (và thu khác) gộp vào QUỸ CHUNG theo tháng.
- * - Mỗi tháng trích ra các khoản cố định: tiết kiệm, trả nợ, khoản khác (nhập tay).
- * - Tiền tiêu của cả nhà TỰ trích khỏi quỹ chung: mỗi đầu tuần dành ra mức tuần chuẩn
- *   (mặc định 500k) cho từng thành viên.
- * - cycle = weekly (vợ chồng): ví KHÔNG cộng dồn — đầu tuần nạp lại đủ mức, số dư tuần cũ
- *   bị xoá. Tiêu quá mức tuần thì phần vượt NHÀ bù ⇒ trừ tiếp vào quỹ chung.
- * - cycle = monthly (con): tiền cầm tay CỘNG DỒN qua các tháng (thừa để sang tháng sau).
- *   Phần ngân sách tuần nhà dành mà con chưa cầm tay là QUỸ TIẾT KIỆM CỦA CON. Con tiêu quá
- *   phần cầm tay thì lẹm dần vào chính quỹ đó; hết quỹ mới đến lượt nhà bù.
- * - Khoản chi gắn với 1 người ⇒ trừ ví người đó; không gắn ai ⇒ chi chung, trừ quỹ chung.
+ *   1. THU               — lương vợ, lương chồng, OT, thu khác.
+ *   2. TIẾT KIỆM         — mỗi quỹ tự nạp một mức cố định hàng tháng.
+ *                          `accumulate` cộng dồn mãi · `reserve` (dự phòng, y tế) KHÔNG cộng
+ *                          dồn, hết tháng còn thừa bao nhiêu dồn hết sang quỹ `fun` (Đi chơi).
+ *   3. TRẢ NỢ            — gốc + lãi nhập tay theo tháng; nợ còn lại = nợ ban đầu − Σ gốc đã trả.
+ *   4. CHI PHÍ CỐ ĐỊNH   — mỗi khoản có TRẦN/tháng và cách tính "đã chi" riêng (xem `FIXED_MODES`).
+ *   5. CHI PHÍ PHÁT SINH — chi mới thì trừ thẳng vào tiền còn thừa; cũng có thể lấy từ một
+ *                          khoản chi phí cố định hoặc một quỹ tiết kiệm (khi đó chỉ ghi vào
+ *                          chỗ đó, KHÔNG trừ thêm lần nữa).
  *
- * Quỹ chung còn lại = Σ thu − Σ trích tay − Σ tiền tiêu đã trích − Σ chi chung − Σ tiêu vượt ví.
+ * Công thức chốt hạ, khớp ô "còn thừa tháng này" của bảng tính:
+ *
+ *   Còn thừa tháng này = Σ thu
+ *                      − (gốc + lãi) trả nợ
+ *                      − Σ mức nạp tiết kiệm
+ *                      − Σ ĐÃ CHI của chi phí cố định   (không phải trần — trần chưa dùng hết thì còn thừa)
+ *                      − Σ chi phí phát sinh nguồn "mới"
+ *
+ *   Tổng còn thừa = còn thừa của MỌI tháng trước + còn thừa tháng này.
+ *
+ * Vì "còn thừa" và số dư quỹ đều cộng dồn, mọi thứ được tính lại từ tháng đầu tiên có dữ
+ * liệu cho tới tháng đang xem — sổ một gia đình chỉ vài trăm dòng nên rẻ, và đổi một con số
+ * ở tháng cũ là mọi tháng sau tự đúng theo, không cần chốt sổ.
  */
 
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-export const ALLOCATION_KINDS = ['savings', 'debt', 'other'] as const;
-export const CYCLES = ['weekly', 'monthly'] as const;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_MONTHS = 600; // chặn vòng lặp nếu dữ liệu có tháng rác ở quá khứ xa
+
+export const FUND_KINDS = ['accumulate', 'reserve', 'fun'] as const;
+export const FIXED_MODES = ['once', 'gradual', 'weekly'] as const;
+export const EXTRA_SOURCES = ['new', 'fixed', 'fund'] as const;
+export const FUND_DIRECTIONS = ['in', 'out'] as const;
+
+// ─── Dữ liệu vào (đúng hình dạng Prisma trả về, nhưng không phụ thuộc Prisma) ───
 
 export interface ConfigLike {
-  weeklyAllowance: bigint;
+  weeklyRate: bigint;
   weekStartDow: number;
   anchorDate: Date;
 }
 
-export interface MemberLike {
-  id: bigint;
-  name: string;
-  cycle: string;
-  allowance: bigint | null;
-  startedOn: Date;
-  active: boolean;
-}
-
-export interface TxnLike {
+export interface IncomeLike {
+  month: string;
   amount: bigint;
-  memberId: bigint | null;
-  occurredAt: Date;
 }
 
-export interface MemberWallet {
+export interface FundLike {
+  id: bigint;
+  name: string;
+  kind: string;
+  monthlyAmount: bigint;
+  startMonth: string;
+  active: boolean;
+}
+
+export interface FundEntryLike {
+  fundId: bigint;
+  month: string;
+  direction: string;
+  amount: bigint;
+}
+
+export interface DebtLike {
+  id: bigint;
+  name: string;
+  initialAmount: bigint;
+  startMonth: string;
+  active: boolean;
+}
+
+export interface DebtPaymentLike {
+  debtId: bigint;
+  month: string;
+  principal: bigint;
+  interest: bigint;
+}
+
+export interface FixedCostLike {
+  id: bigint;
+  name: string;
+  mode: string;
+  capAmount: bigint;
+  weeklyRate: bigint | null;
+  startMonth: string;
+  active: boolean;
+}
+
+export interface FixedSpendLike {
+  costId: bigint;
+  month: string;
+  occurredAt: Date;
+  amount: bigint;
+}
+
+export interface ExtraCostLike {
+  month: string;
+  occurredAt: Date;
+  amount: bigint;
+  source: string;
+  fixedCostId: bigint | null;
+  fundId: bigint | null;
+}
+
+// ─── Dữ liệu ra ───
+
+export interface FundView {
+  id: bigint;
+  name: string;
+  kind: string;
+  active: boolean;
+  monthlyAmount: number;
+  deposited: number; // đã nạp trong tháng đang xem (mức mặc định + nạp thêm)
+  used: number; // đã rút ra dùng trong tháng đang xem
+  leftThisMonth: number; // deposited − used
+  balance: number; // số dư tới cuối tháng đang xem
+  carriesToFun: boolean; // true = phần thừa cuối tháng dồn sang quỹ Đi chơi
+  receivesCarry: boolean; // true = chính là quỹ Đi chơi nhận phần thừa đó
+}
+
+export interface DebtView {
   id: bigint;
   name: string;
   active: boolean;
-  cycle: string; // weekly | monthly
-  allowance: number; // tiền cầm tay mỗi kỳ
-  weeklyBudget: number; // ngân sách nhà dành ra mỗi tuần cho người này
-  hasOwnRate: boolean;
-  startedOn: Date;
-  weeks: number; // số tuần nhà đã dành ngân sách
-  months: number; // số tháng đã trôi (chỉ có nghĩa với cycle = monthly)
-  budgetTotal: number; // tổng ngân sách đã trích khỏi quỹ chung cho người này
-  periodLabel: string; // "Tuần này" | "Tháng này"
-  rollover: boolean; // true = số dư dồn sang kỳ sau (chỉ cycle = monthly)
-  handedTotal: number; // tổng tiền đã cầm tay (cycle = monthly thì cộng dồn qua các tháng)
-  spentThisPeriod: number;
-  remaining: number; // weekly: mức tuần − chi tuần này · monthly: Σ đã nhận − Σ đã tiêu
-  spentTotal: number;
-  overspend: number; // phần vượt mà QUỸ CHUNG phải bù
-  kidSavings: number; // quỹ tiết kiệm riêng còn lại (chỉ cycle = monthly)
-  kidShortfall: number; // phần con đã tiêu lẹm vào quỹ tiết kiệm của mình
+  initialAmount: number;
+  principal: number; // gốc trả trong tháng đang xem
+  interest: number; // lãi trả trong tháng đang xem
+  paidThisMonth: number;
+  principalPaid: number; // tổng gốc đã trả tới hết tháng đang xem
+  remaining: number; // nợ còn lại = nợ ban đầu − tổng gốc đã trả
 }
 
-export interface HouseholdSummary {
-  defaultWeeklyAllowance: number;
-  weekStartDow: number;
-  anchorDate: Date;
-  wallets: MemberWallet[];
-  weeklyPayout: number; // ngân sách tiền tiêu cả nhà mỗi tuần
-  totalIncome: number;
-  manualAllocation: number; // các khoản trích nhập tay
-  savingsTotal: number;
-  debtTotal: number;
-  otherAllocationTotal: number;
-  allowanceBudget: number; // tiền tiêu đã trích khỏi quỹ chung (mọi thành viên)
-  kidSavingsTotal: number; // phần đang nằm trong quỹ tiết kiệm của con
-  commonSpent: number;
-  overspendTotal: number; // nhà đã phải bù thêm khi ai đó tiêu quá ví
-  potBalance: number;
-  spentThisWeek: number;
-  spentThisMonth: number;
-  spentTotal: number;
+export interface FixedCostView {
+  id: bigint;
+  name: string;
+  mode: string;
+  active: boolean;
+  cap: number; // trần của tháng đang xem
+  spent: number; // đã chi
+  left: number; // cap − spent (âm = vượt trần)
+  weeklyRate: number; // chỉ có nghĩa với mode weekly
+  autoFilled: boolean; // true = số "đã chi" đang do hệ thống tự điền, chưa ghi khoản nào
+  weeks: WeekView[]; // chỉ có nghĩa với mode weekly
 }
 
-/** Gom chi tiêu theo người và theo KỲ của người đó (tuần hay tháng tuỳ cycle). */
-function groupSpending(txns: TxnLike[], members: MemberLike[], config: ConfigLike, now: Date) {
-  const cycleOf = new Map(members.map((m) => [String(m.id), m.cycle]));
-  const wkStart = weekStart(now, config.weekStartDow);
-  const moStart = new Date(now.getFullYear(), now.getMonth(), 1);
+export interface WeekView {
+  index: number; // 1..n
+  start: Date;
+  end: Date; // ngày cuối tuần (đã trong tuần đó)
+  closed: boolean; // tuần đã trôi qua ⇒ mặc định coi như chi hết mức tuần
+  amount: number;
+  manual: boolean; // true = có ghi khoản chi thật cho tuần này
+}
 
-  const byMemberPeriod = new Map<string, Map<string, number>>();
-  const byMember = new Map<string, number>();
-  let commonSpent = 0;
-  let spentThisWeek = 0;
-  let spentThisMonth = 0;
-  let spentTotal = 0;
+export interface MonthTotals {
+  incomeTotal: number;
+  fundDeposit: number;
+  fundUsed: number;
+  debtPrincipal: number;
+  debtInterest: number;
+  debtPaid: number;
+  fixedCap: number;
+  fixedSpent: number;
+  extraNew: number;
+  extraFromFixed: number;
+  extraFromFund: number;
+  extraTotal: number;
+  leftover: number;
+}
 
-  for (const t of txns) {
-    const amount = Number(t.amount);
-    spentTotal += amount;
-    if (t.occurredAt >= wkStart) spentThisWeek += amount;
-    if (t.occurredAt >= moStart) spentThisMonth += amount;
-    if (t.memberId === null) {
-      commonSpent += amount;
-      continue;
-    }
-    const key = String(t.memberId);
-    byMember.set(key, (byMember.get(key) ?? 0) + amount);
-    const period = cycleOf.get(key) === 'monthly' ? monthKey(t.occurredAt) : dateKey(weekStart(t.occurredAt, config.weekStartDow));
-    const periods = byMemberPeriod.get(key) ?? new Map<string, number>();
-    periods.set(period, (periods.get(period) ?? 0) + amount);
-    byMemberPeriod.set(key, periods);
+export interface MonthReport extends MonthTotals {
+  month: string;
+  months: string[]; // các tháng có dữ liệu, mới nhất trước
+  weeksInMonth: number;
+  weekStarts: Date[];
+  funds: FundView[];
+  debts: DebtView[];
+  fixedCosts: FixedCostView[];
+  fundBalanceTotal: number; // tổng số dư mọi quỹ tới cuối tháng đang xem
+  reserveCarryThisMonth: number; // phần dự phòng/y tế sẽ dồn sang Đi chơi cuối tháng này
+  funFundName: string | null; // tên quỹ nhận phần thừa đó
+  debtRemainingTotal: number;
+  leftoverPrevious: number; // còn thừa lũy kế của MỌI tháng trước
+  leftoverTotal: number; // = leftoverPrevious + leftover
+}
+
+// ─── Tính một tháng ───
+
+interface Indexed {
+  config: ConfigLike;
+  now: Date;
+  funds: FundLike[];
+  debts: DebtLike[];
+  fixedCosts: FixedCostLike[];
+  incomeByMonth: Map<string, number>;
+  fundEntries: Map<string, { in: number; out: number }>; // key = fundId|month
+  debtPayments: Map<string, { principal: number; interest: number }>; // key = debtId|month
+  fixedSpends: Map<string, Array<{ occurredAt: Date; amount: number }>>; // key = costId|month
+  extraNewByMonth: Map<string, number>;
+  extraByFixed: Map<string, Array<{ occurredAt: Date; amount: number }>>; // key = costId|month
+  extraByFund: Map<string, number>; // key = fundId|month
+}
+
+const key = (id: bigint, month: string) => `${id}|${month}`;
+
+/**
+ * Danh mục đang "Tạm dừng" thì ngừng chạy TỪ THÁNG NÀY TRỞ ĐI, các tháng đã qua giữ nguyên
+ * số cũ — nếu không, bấm tạm dừng một khoản là lịch sử vài tháng trước tự đổi theo.
+ */
+function runsIn(item: { startMonth: string; active: boolean }, month: string, data: Indexed): boolean {
+  if (month < item.startMonth) return false;
+  return item.active || month < monthKey(data.now);
+}
+
+/** Số tiền một quỹ được nạp trong tháng: mức mặc định (nếu quỹ đã bắt đầu) + các lần nạp thêm. */
+function fundDeposit(fund: FundLike, month: string, data: Indexed): number {
+  const base = runsIn(fund, month, data) ? Number(fund.monthlyAmount) : 0;
+  return base + (data.fundEntries.get(key(fund.id, month))?.in ?? 0);
+}
+
+/** Tiền rút khỏi quỹ trong tháng: rút trực tiếp + các khoản phát sinh khai là lấy từ quỹ này. */
+function fundUsed(fund: FundLike, month: string, data: Indexed): number {
+  return (data.fundEntries.get(key(fund.id, month))?.out ?? 0) + (data.extraByFund.get(key(fund.id, month)) ?? 0);
+}
+
+/** Trần của một khoản chi cố định trong tháng. Kiểu `weekly` thì trần = số tuần × mức tuần. */
+function fixedCap(cost: FixedCostLike, month: string, data: Indexed): number {
+  if (!runsIn(cost, month, data)) return 0;
+  if (cost.mode !== 'weekly') return Number(cost.capAmount);
+  return weekStartsInMonth(month, data.config.weekStartDow).length * weeklyRateOf(cost, data.config);
+}
+
+/**
+ * "Đã chi" của một khoản cố định trong tháng, kèm chi tiết từng tuần (chỉ kiểu `weekly`).
+ *
+ * Các lần chi thật gồm cả khoản phát sinh khai là lấy từ chính khoản này — nhờ vậy khoản
+ * phát sinh đó không bị trừ hai lần (một lần ở đây, một lần ở phần còn thừa).
+ */
+function fixedSpentOf(cost: FixedCostLike, month: string, data: Indexed) {
+  const entries = [
+    ...(data.fixedSpends.get(key(cost.id, month)) ?? []),
+    ...(data.extraByFixed.get(key(cost.id, month)) ?? []),
+  ];
+  const manualTotal = entries.reduce((total, e) => total + e.amount, 0);
+
+  // Khoản đang tạm dừng thì hết trần và hết phần tự điền, nhưng tiền ĐÃ ghi ra thì vẫn là
+  // tiền đã ra khỏi nhà — vẫn phải tính, không được xoá khỏi công thức.
+  if (!runsIn(cost, month, data)) return { spent: manualTotal, autoFilled: false, weeks: [] as WeekView[] };
+
+  if (cost.mode === 'weekly') {
+    const rate = weeklyRateOf(cost, data.config);
+    const starts = weekStartsInMonth(month, data.config.weekStartDow);
+    const weeks: WeekView[] = [];
+    const matched = new Set<number>();
+    let spent = 0;
+
+    starts.forEach((start, index) => {
+      const nextStart = new Date(start.getTime() + 7 * DAY_MS);
+      const inWeek = entries.filter((e, i) => {
+        const hit = e.occurredAt >= start && e.occurredAt < nextStart;
+        if (hit) matched.add(i);
+        return hit;
+      });
+      const manual = inWeek.reduce((total, e) => total + e.amount, 0);
+      // Hết tuần nào thì tuần đó mặc định coi như đã tiêu hết mức tuần — trừ khi đã ghi số thật.
+      const closed = nextStart.getTime() <= data.now.getTime();
+      const amount = inWeek.length ? manual : closed ? rate : 0;
+      spent += amount;
+      weeks.push({
+        index: index + 1,
+        start,
+        end: new Date(nextStart.getTime() - DAY_MS),
+        closed,
+        amount,
+        manual: inWeek.length > 0,
+      });
+    });
+
+    // Khoản ghi rơi ngoài các tuần của tháng (mấy ngày đầu tháng trước thứ Hai đầu tiên)
+    // vẫn phải được tính, nếu không tiền tự bốc hơi khỏi sổ.
+    spent += entries.reduce((total, e, i) => (matched.has(i) ? total : total + e.amount), 0);
+    return { spent, autoFilled: weeks.some((w) => w.closed && !w.manual), weeks };
   }
 
-  return { byMemberPeriod, byMember, commonSpent, spentThisWeek, spentThisMonth, spentTotal, wkStart };
+  // `once`: thường chi hết luôn một lần — chưa ghi khoản nào thì coi như đã chi đủ trần.
+  // Tháng chưa tới thì chưa chi đồng nào.
+  if (cost.mode === 'once' && manualTotal === 0) {
+    const started = month <= monthKey(data.now);
+    return { spent: started ? Number(cost.capAmount) : 0, autoFilled: started, weeks: [] };
+  }
+
+  return { spent: manualTotal, autoFilled: false, weeks: [] };
 }
 
-/** Ví của MỘT người: bao nhiêu đã được dành ra, đã cầm tay, đã tiêu, còn lại bao nhiêu. */
-function buildWallet(
-  member: MemberLike,
-  config: ConfigLike,
-  spending: ReturnType<typeof groupSpending>,
-  now: Date,
-): MemberWallet {
-  const key = String(member.id);
-  const monthly = member.cycle === 'monthly';
-  const weeklyBudget = weeklyBudgetOf(member, config.weeklyAllowance);
-  const allowance = Number(member.allowance ?? config.weeklyAllowance);
-  const from = effectiveStart(member.startedOn, config.anchorDate);
-  const weeks = member.active ? countWeeks(from, config.weekStartDow, now) : 0;
-  const months = member.active ? countMonths(from, now) : 0;
+/** Toàn bộ con số của MỘT tháng — dùng cho cả tháng đang xem lẫn các tháng trước (để cộng dồn). */
+function computeMonth(month: string, data: Indexed) {
+  const incomeTotal = data.incomeByMonth.get(month) ?? 0;
 
-  const byPeriod = spending.byMemberPeriod.get(key) ?? new Map<string, number>();
-  const currentPeriod = monthly ? monthKey(now) : dateKey(spending.wkStart);
-  const spentThisPeriod = byPeriod.get(currentPeriod) ?? 0;
-  const spentTotal = spending.byMember.get(key) ?? 0;
-  const budgetTotal = weeks * weeklyBudget;
+  const funds = data.funds.map((fund) => {
+    const deposited = fundDeposit(fund, month, data);
+    const used = fundUsed(fund, month, data);
+    return { fund, deposited, used, leftThisMonth: deposited - used };
+  });
+  const fundDepositTotal = funds.reduce((total, f) => total + f.deposited, 0);
+  const fundUsedTotal = funds.reduce((total, f) => total + f.used, 0);
+  // Dự phòng / y tế không cộng dồn: hết tháng còn thừa bao nhiêu dồn hết sang quỹ Đi chơi.
+  const reserveCarry = funds
+    .filter((f) => f.fund.kind === 'reserve')
+    .reduce((total, f) => total + Math.max(0, f.leftThisMonth), 0);
 
-  // Con (monthly): tiền cầm tay CỘNG DỒN qua các tháng — thừa thì để sang tháng sau.
-  // Người lớn (weekly): mỗi tuần nạp lại, số dư tuần cũ bị xoá.
-  const handedTotal = monthly ? months * allowance : weeks * allowance;
-  const remaining = monthly ? handedTotal - spentTotal : allowance - spentThisPeriod;
+  const debts = data.debts.map((debt) => {
+    const paid = data.debtPayments.get(key(debt.id, month));
+    return { debt, principal: paid?.principal ?? 0, interest: paid?.interest ?? 0 };
+  });
+  const debtPrincipal = debts.reduce((total, d) => total + d.principal, 0);
+  const debtInterest = debts.reduce((total, d) => total + d.interest, 0);
 
-  // Nhà dành mức tuần chuẩn nhưng con chỉ cầm tay mức tháng ⇒ phần chênh là quỹ của con.
-  // Con tiêu quá phần cầm tay thì lẹm dần vào chính quỹ đó; hết quỹ mới đến lượt nhà bù.
-  const savingsBase = monthly ? Math.max(0, budgetTotal - handedTotal) : 0;
-  const kidShortfall = monthly ? Math.max(0, spentTotal - handedTotal) : 0;
+  const fixedCosts = data.fixedCosts.map((cost) => {
+    const { spent, autoFilled, weeks } = fixedSpentOf(cost, month, data);
+    const cap = fixedCap(cost, month, data);
+    return { cost, cap, spent, autoFilled, weeks };
+  });
+  const fixedCapTotal = fixedCosts.reduce((total, f) => total + f.cap, 0);
+  const fixedSpentTotal = fixedCosts.reduce((total, f) => total + f.spent, 0);
+
+  const extraNew = data.extraNewByMonth.get(month) ?? 0;
 
   return {
-    id: member.id,
-    name: member.name,
-    active: member.active,
-    cycle: member.cycle,
-    allowance,
-    weeklyBudget,
-    hasOwnRate: member.allowance !== null,
-    startedOn: member.startedOn,
-    weeks,
-    months,
-    budgetTotal,
-    periodLabel: monthly ? 'Tháng này' : 'Tuần này',
-    rollover: monthly,
-    handedTotal,
-    spentThisPeriod,
-    remaining,
-    spentTotal,
-    overspend: monthly
-      ? Math.max(0, kidShortfall - savingsBase) // vượt cả quỹ tiết kiệm của con
-      : [...byPeriod.values()].reduce((total, spent) => total + Math.max(0, spent - allowance), 0),
-    kidSavings: Math.max(0, savingsBase - kidShortfall),
-    kidShortfall: Math.min(kidShortfall, savingsBase),
+    month,
+    incomeTotal,
+    funds,
+    fundDepositTotal,
+    fundUsedTotal,
+    reserveCarry,
+    debts,
+    debtPrincipal,
+    debtInterest,
+    fixedCosts,
+    fixedCapTotal,
+    fixedSpentTotal,
+    extraNew,
+    leftover: incomeTotal - debtPrincipal - debtInterest - fundDepositTotal - fixedSpentTotal - extraNew,
   };
 }
 
-export function buildSummary(input: {
+// ─── Dựng sổ của tháng đang xem ───
+
+export interface LedgerInput {
   config: ConfigLike;
-  members: MemberLike[];
-  txns: TxnLike[];
-  totalIncome: number;
-  allocations: Array<{ kind: string; amount: bigint }>;
+  month: string;
+  incomes: IncomeLike[];
+  funds: FundLike[];
+  fundEntries: FundEntryLike[];
+  debts: DebtLike[];
+  debtPayments: DebtPaymentLike[];
+  fixedCosts: FixedCostLike[];
+  fixedSpends: FixedSpendLike[];
+  extraCosts: ExtraCostLike[];
   now?: Date;
-}): HouseholdSummary {
-  const now = input.now ?? new Date();
-  const { config, members, allocations, totalIncome } = input;
-  const spending = groupSpending(input.txns, members, config, now);
-  const wallets = members.map((member) => buildWallet(member, config, spending, now));
+}
 
-  const savingsTotal = sumAllocation(allocations, 'savings');
-  const debtTotal = sumAllocation(allocations, 'debt');
-  const otherAllocationTotal = sumAllocation(allocations, 'other');
-  const manualAllocation = savingsTotal + debtTotal + otherAllocationTotal;
-  const allowanceBudget = wallets.reduce((total, w) => total + w.budgetTotal, 0);
-  const overspendTotal = wallets.reduce((total, w) => total + w.overspend, 0);
+export function buildMonthReport(input: LedgerInput): MonthReport {
+  const now = input.now ?? new Date();
+  const data = indexInput(input, now);
+  const month = input.month;
+
+  // Cộng dồn từ tháng đầu tiên có dữ liệu tới tháng đang xem: "còn thừa" và số dư quỹ đều
+  // là số lũy kế, nên không thể tính riêng lẻ một tháng.
+  const timeline = monthsUpTo(firstMonth(input, now), month).map((m) => computeMonth(m, data));
+  const current = timeline[timeline.length - 1];
+  const previous = timeline.slice(0, -1);
+
+  const funFund = input.funds.find((f) => f.kind === 'fun') ?? null;
+  const carryIntoFun = previous.reduce((total, m) => total + m.reserveCarry, 0);
+
+  const funds: FundView[] = current.funds.map((row, index) => {
+    const reserve = row.fund.kind === 'reserve';
+    const isFun = funFund !== null && row.fund.id === funFund.id;
+    // Quỹ không cộng dồn thì số dư chỉ là phần của chính tháng này.
+    const accumulated = reserve
+      ? row.leftThisMonth
+      : timeline.reduce((total, m) => total + m.funds[index].leftThisMonth, 0);
+    return {
+      id: row.fund.id,
+      name: row.fund.name,
+      kind: row.fund.kind,
+      active: row.fund.active,
+      monthlyAmount: Number(row.fund.monthlyAmount),
+      deposited: row.deposited,
+      used: row.used,
+      leftThisMonth: row.leftThisMonth,
+      balance: accumulated + (isFun ? carryIntoFun : 0),
+      carriesToFun: reserve,
+      receivesCarry: isFun,
+    };
+  });
+
+  const debts: DebtView[] = current.debts.map((row, index) => {
+    const principalPaid = timeline.reduce((total, m) => total + m.debts[index].principal, 0);
+    return {
+      id: row.debt.id,
+      name: row.debt.name,
+      active: row.debt.active,
+      initialAmount: Number(row.debt.initialAmount),
+      principal: row.principal,
+      interest: row.interest,
+      paidThisMonth: row.principal + row.interest,
+      principalPaid,
+      remaining: Number(row.debt.initialAmount) - principalPaid,
+    };
+  });
+
+  const fixedCosts: FixedCostView[] = current.fixedCosts.map((row) => ({
+    id: row.cost.id,
+    name: row.cost.name,
+    mode: row.cost.mode,
+    active: row.cost.active,
+    cap: row.cap,
+    spent: row.spent,
+    left: row.cap - row.spent,
+    weeklyRate: weeklyRateOf(row.cost, input.config),
+    autoFilled: row.autoFilled,
+    weeks: row.weeks,
+  }));
+
+  const extraFromFixed = input.extraCosts
+    .filter((e) => e.month === month && e.source === 'fixed' && e.fixedCostId !== null)
+    .reduce((total, e) => total + Number(e.amount), 0);
+  const extraFromFund = input.extraCosts
+    .filter((e) => e.month === month && e.source === 'fund' && e.fundId !== null)
+    .reduce((total, e) => total + Number(e.amount), 0);
+  const leftoverPrevious = previous.reduce((total, m) => total + m.leftover, 0);
 
   return {
-    defaultWeeklyAllowance: Number(config.weeklyAllowance),
-    weekStartDow: config.weekStartDow,
-    anchorDate: config.anchorDate,
-    wallets,
-    weeklyPayout: wallets.filter((w) => w.active).reduce((total, w) => total + w.weeklyBudget, 0),
-    totalIncome,
-    manualAllocation,
-    savingsTotal,
-    debtTotal,
-    otherAllocationTotal,
-    allowanceBudget,
-    kidSavingsTotal: wallets.reduce((total, w) => total + w.kidSavings, 0),
-    commonSpent: spending.commonSpent,
-    overspendTotal,
-    potBalance: totalIncome - manualAllocation - allowanceBudget - spending.commonSpent - overspendTotal,
-    spentThisWeek: spending.spentThisWeek,
-    spentThisMonth: spending.spentThisMonth,
-    spentTotal: spending.spentTotal,
+    month,
+    months: knownMonths(input, month),
+    weeksInMonth: weekStartsInMonth(month, input.config.weekStartDow).length,
+    weekStarts: weekStartsInMonth(month, input.config.weekStartDow),
+    incomeTotal: current.incomeTotal,
+    funds,
+    fundDeposit: current.fundDepositTotal,
+    fundUsed: current.fundUsedTotal,
+    fundBalanceTotal: funds.reduce((total, f) => total + f.balance, 0),
+    reserveCarryThisMonth: current.reserveCarry,
+    funFundName: funFund?.name ?? null,
+    debts,
+    debtPrincipal: current.debtPrincipal,
+    debtInterest: current.debtInterest,
+    debtPaid: current.debtPrincipal + current.debtInterest,
+    debtRemainingTotal: debts.reduce((total, d) => total + d.remaining, 0),
+    fixedCosts,
+    fixedCap: current.fixedCapTotal,
+    fixedSpent: current.fixedSpentTotal,
+    extraNew: current.extraNew,
+    extraFromFixed,
+    extraFromFund,
+    extraTotal: current.extraNew + extraFromFixed + extraFromFund,
+    leftover: current.leftover,
+    leftoverPrevious,
+    leftoverTotal: leftoverPrevious + current.leftover,
   };
 }
 
-/** Tiền tiêu tự trích của một tháng = Σ (mức tuần chuẩn × số tuần người đó được nhận trong tháng). */
-export function monthAllowanceCost(month: string, config: ConfigLike, members: MemberLike[]) {
-  const weekStarts = weekStartsInMonth(month, config.weekStartDow);
-  const allowanceCost = members.reduce((total, m) => {
-    if (!m.active) return total;
-    const from = weekStart(effectiveStart(m.startedOn, config.anchorDate), config.weekStartDow);
-    const weeks = weekStarts.filter((ws) => ws >= from).length;
-    return total + weeks * weeklyBudgetOf(m, config.weeklyAllowance);
-  }, 0);
-  return { allowanceCost, weeksInMonth: weekStarts.length };
+function indexInput(input: LedgerInput, now: Date): Indexed {
+  const incomeByMonth = new Map<string, number>();
+  for (const row of input.incomes) {
+    incomeByMonth.set(row.month, (incomeByMonth.get(row.month) ?? 0) + Number(row.amount));
+  }
+
+  const fundEntries = new Map<string, { in: number; out: number }>();
+  for (const row of input.fundEntries) {
+    const k = key(row.fundId, row.month);
+    const bucket = fundEntries.get(k) ?? { in: 0, out: 0 };
+    if (row.direction === 'in') bucket.in += Number(row.amount);
+    else bucket.out += Number(row.amount);
+    fundEntries.set(k, bucket);
+  }
+
+  const debtPayments = new Map<string, { principal: number; interest: number }>();
+  for (const row of input.debtPayments) {
+    const k = key(row.debtId, row.month);
+    const bucket = debtPayments.get(k) ?? { principal: 0, interest: 0 };
+    bucket.principal += Number(row.principal);
+    bucket.interest += Number(row.interest);
+    debtPayments.set(k, bucket);
+  }
+
+  const fixedSpends = new Map<string, Array<{ occurredAt: Date; amount: number }>>();
+  for (const row of input.fixedSpends) {
+    const k = key(row.costId, row.month);
+    const bucket = fixedSpends.get(k) ?? [];
+    bucket.push({ occurredAt: row.occurredAt, amount: Number(row.amount) });
+    fixedSpends.set(k, bucket);
+  }
+
+  const extraNewByMonth = new Map<string, number>();
+  const extraByFixed = new Map<string, Array<{ occurredAt: Date; amount: number }>>();
+  const extraByFund = new Map<string, number>();
+  for (const row of input.extraCosts) {
+    const amount = Number(row.amount);
+    if (row.source === 'fixed' && row.fixedCostId !== null) {
+      const k = key(row.fixedCostId, row.month);
+      const bucket = extraByFixed.get(k) ?? [];
+      bucket.push({ occurredAt: row.occurredAt, amount });
+      extraByFixed.set(k, bucket);
+    } else if (row.source === 'fund' && row.fundId !== null) {
+      const k = key(row.fundId, row.month);
+      extraByFund.set(k, (extraByFund.get(k) ?? 0) + amount);
+    } else {
+      // Kể cả dòng khai nguồn "fixed"/"fund" nhưng khoản gốc đã bị xoá: coi là chi mới,
+      // vì tiền vẫn ra khỏi nhà, không được biến mất khỏi công thức.
+      extraNewByMonth.set(row.month, (extraNewByMonth.get(row.month) ?? 0) + amount);
+    }
+  }
+
+  return {
+    config: input.config,
+    now,
+    funds: input.funds,
+    debts: input.debts,
+    fixedCosts: input.fixedCosts,
+    incomeByMonth,
+    fundEntries,
+    debtPayments,
+    fixedSpends,
+    extraNewByMonth,
+    extraByFixed,
+    extraByFund,
+  };
+}
+
+/** Tháng sớm nhất phải tính lại: sớm nhất trong mốc theo dõi, các danh mục và mọi dòng dữ liệu. */
+function firstMonth(input: LedgerInput, now: Date): string {
+  const candidates = [
+    monthKey(input.config.anchorDate),
+    ...input.funds.map((f) => f.startMonth),
+    ...input.debts.map((d) => d.startMonth),
+    ...input.fixedCosts.map((c) => c.startMonth),
+    ...input.incomes.map((i) => i.month),
+    ...input.fundEntries.map((e) => e.month),
+    ...input.debtPayments.map((p) => p.month),
+    ...input.fixedSpends.map((s) => s.month),
+    ...input.extraCosts.map((e) => e.month),
+  ].filter(isMonth);
+  const earliest = candidates.sort()[0] ?? monthKey(now);
+  return earliest < input.month ? earliest : input.month;
+}
+
+/** Các tháng đã có dữ liệu (kèm tháng đang xem), mới nhất trước — dùng cho ô chọn tháng. */
+function knownMonths(input: LedgerInput, month: string): string[] {
+  const all = new Set<string>([month, monthKey(input.config.anchorDate)]);
+  for (const row of input.incomes) all.add(row.month);
+  for (const row of input.fundEntries) all.add(row.month);
+  for (const row of input.debtPayments) all.add(row.month);
+  for (const row of input.fixedSpends) all.add(row.month);
+  for (const row of input.extraCosts) all.add(row.month);
+  return [...all].filter(isMonth).sort().reverse();
+}
+
+function monthsUpTo(from: string, to: string): string[] {
+  const out: string[] = [];
+  let cursor = from;
+  while (cursor <= to && out.length < MAX_MONTHS) {
+    out.push(cursor);
+    cursor = nextMonth(cursor);
+  }
+  return out.length ? out : [to];
 }
 
 // ─── Helpers thời gian & số ───
@@ -242,30 +582,13 @@ export function weekStart(d: Date, startDow: number): Date {
   return x;
 }
 
-/** Ngày nhà bắt đầu dành ngân sách cho một người: muộn hơn giữa ngày theo dõi và ngày người đó vào. */
-function effectiveStart(startedOn: Date, anchorDate: Date): Date {
-  return startedOn > anchorDate ? startedOn : anchorDate;
-}
-
-/** Số lần "nạp tiền tuần" đã diễn ra từ `from` đến `now` (tuần chứa `from` tính là 1). */
-function countWeeks(from: Date, startDow: number, now: Date): number {
-  const wsFrom = weekStart(from, startDow).getTime();
-  const wsNow = weekStart(now, startDow).getTime();
-  return Math.max(0, Math.floor((wsNow - wsFrom) / WEEK_MS) + 1);
-}
-
-/** Số tháng đã trôi qua từ `from` đến `now` (tháng chứa `from` tính là 1). */
-function countMonths(from: Date, now: Date): number {
-  const diff = (now.getFullYear() - from.getFullYear()) * 12 + (now.getMonth() - from.getMonth()) + 1;
-  return Math.max(0, diff);
-}
-
 /**
- * Các ngày đầu tuần được tính vào tháng `YYYY-MM`. Mỗi tuần thuộc về tháng chứa NGÀY
- * ĐẦU TUẦN của nó, nên cộng 12 tháng lại vẫn đúng 52/53 tuần, không đếm trùng.
+ * Các tuần được tính vào tháng `YYYY-MM`: bắt đầu từ THỨ HAI ĐẦU TIÊN của tháng, mỗi 7 ngày
+ * một tuần. Đây chính là cách chủ nhà đếm "tháng này mấy tuần" để ra 2 triệu hay 2 triệu rưỡi.
  */
-function weekStartsInMonth(month: string, startDow: number): Date[] {
+export function weekStartsInMonth(month: string, startDow: number): Date[] {
   const [year, mon] = month.split('-').map((v) => Number.parseInt(v, 10));
+  if (!Number.isFinite(year) || !Number.isFinite(mon)) return [];
   const first = new Date(year, mon - 1, 1);
   const last = new Date(year, mon, 0);
   const out: Date[] = [];
@@ -278,28 +601,8 @@ function weekStartsInMonth(month: string, startDow: number): Date[] {
   return out;
 }
 
-/**
- * Ngân sách nhà dành ra mỗi tuần cho một người. Người nhận theo tuần thì đúng bằng mức
- * của họ; người nhận theo tháng (con) vẫn được dành mức tuần CHUẨN của nhà — phần con
- * không cầm tay chính là quỹ tiết kiệm của con.
- */
-function weeklyBudgetOf(member: { cycle: string; allowance: bigint | null }, defaultWeekly: bigint): number {
-  if (member.cycle === 'monthly') return Number(defaultWeekly);
-  return Number(member.allowance ?? defaultWeekly);
-}
-
-export function normalizeCycle(value: unknown): string {
-  return (CYCLES as readonly string[]).includes(String(value)) ? String(value) : 'weekly';
-}
-
-/** Mức riêng của thành viên; bỏ trống hoặc trùng mức mặc định ⇒ null để bám theo cài đặt. */
-export function ownAllowance(value: unknown, defaultWeekly: bigint): bigint | null {
-  const amount = parseVnd(value);
-  return amount > 0 && amount !== Number(defaultWeekly) ? BigInt(amount) : null;
-}
-
-export function dateKey(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+function weeklyRateOf(cost: { weeklyRate: bigint | null }, config: ConfigLike): number {
+  return Number(cost.weeklyRate ?? config.weeklyRate);
 }
 
 export function monthKey(d: Date): string {
@@ -310,14 +613,28 @@ export function currentMonth(): string {
   return monthKey(new Date());
 }
 
+function isMonth(value: string): boolean {
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(value);
+}
+
 export function normalizeMonth(value: unknown): string | null {
   const raw = String(value ?? '').trim();
-  return /^\d{4}-(0[1-9]|1[0-2])$/.test(raw) ? raw : null;
+  return isMonth(raw) ? raw : null;
+}
+
+export function nextMonth(month: string): string {
+  const [year, mon] = month.split('-').map((v) => Number.parseInt(v, 10));
+  return monthKey(new Date(year, mon, 1));
 }
 
 export function previousMonth(month: string): string {
   const [year, mon] = month.split('-').map((v) => Number.parseInt(v, 10));
   return monthKey(new Date(year, mon - 2, 1));
+}
+
+/** Tháng của một ngày cụ thể — mọi dòng dữ liệu đều được xếp vào tháng theo ngày xảy ra. */
+export function monthOf(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 export function clampInt(value: unknown, min: number, max: number, fallback: number): number {
@@ -335,7 +652,7 @@ export function parseVnd(value: unknown): number {
 
 export function parseOptionalBigInt(value: unknown): bigint | null {
   const raw = String(value ?? '').trim();
-  if (!/^\d+$/.test(raw)) return null; // '' ⇒ chi chung
+  if (!/^\d+$/.test(raw)) return null;
   try {
     return BigInt(raw);
   } catch {
@@ -351,10 +668,13 @@ export function parseDateOnly(value: unknown): Date | null {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export function sumAmount(rows: Array<{ amount: bigint }>): number {
-  return rows.reduce((total, row) => total + Number(row.amount), 0);
+export function pickOne<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+  const raw = String(value ?? '');
+  return (allowed as readonly string[]).includes(raw) ? (raw as T) : fallback;
 }
 
-function sumAllocation(rows: Array<{ kind: string; amount: bigint }>, kind: string): number {
-  return rows.filter((r) => r.kind === kind).reduce((total, r) => total + Number(r.amount), 0);
+export function parseBool(value: unknown, fallback: boolean): boolean {
+  if (value === undefined) return fallback;
+  const raw = String(value);
+  return raw === 'on' || raw === 'true' || raw === '1';
 }

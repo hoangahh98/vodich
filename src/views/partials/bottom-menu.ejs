@@ -39,9 +39,13 @@
         <a class="<%= currentPath.endsWith('/cau-hinh') ? 'active' : '' %>" href="/medical/patients/<%= menuPatientId %>/cau-hinh">⚙️ Cấu hình</a>
       <% } %>
     <% } else if (currentPath.startsWith('/household') && featureSet.has('HOUSEHOLD')) { %>
+      <%# Đúng 5 phần của bảng tính chi tiêu, cộng Tổng quan và Cài đặt. %>
       <a class="<%= currentPath === '/household' ? 'active' : '' %>" href="/household">📊 Tổng quan</a>
-      <a class="<%= currentPath === '/household/thu-nhap' ? 'active' : '' %>" href="/household/thu-nhap">💵 Thu &amp; phân bổ</a>
-      <a class="<%= currentPath === '/household/chi-tieu' ? 'active' : '' %>" href="/household/chi-tieu">🧾 Chi tiêu</a>
+      <a class="<%= currentPath === '/household/thu' ? 'active' : '' %>" href="/household/thu">💵 Thu</a>
+      <a class="<%= currentPath === '/household/tiet-kiem' ? 'active' : '' %>" href="/household/tiet-kiem">🐷 Tiết kiệm</a>
+      <a class="<%= currentPath === '/household/tra-no' ? 'active' : '' %>" href="/household/tra-no">🏦 Trả nợ</a>
+      <a class="<%= currentPath === '/household/chi-phi-co-dinh' ? 'active' : '' %>" href="/household/chi-phi-co-dinh">📌 Chi phí cố định</a>
+      <a class="<%= currentPath === '/household/phat-sinh' ? 'active' : '' %>" href="/household/phat-sinh">🎁 Phát sinh</a>
       <a class="<%= currentPath === '/household/cai-dat' ? 'active' : '' %>" href="/household/cai-dat">⚙️ Cài đặt</a>
     <% } else if (currentPath.startsWith('/permissions') && featureSet.has('PERMISSIONS')) { %>
       <a class="active" href="/permissions">🔐 Phân quyền</a>

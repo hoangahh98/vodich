@@ -28,73 +28,42 @@
 <div class="flex between center gap">
 <div>
 <h1>💰 Quản lý chi tiêu</h1>
-<div class="muted strong-muted">Lương gộp vào quỹ chung → trích tiết kiệm &amp; trả nợ → mỗi đầu tuần nạp ví cho từng người.</div>
+<div class="muted strong-muted">Thu → Tiết kiệm → Trả nợ → Chi phí cố định → Phát sinh → Còn thừa.</div>
 </div>
 </div>
 </section>
 <!-- ═══ TỔNG QUAN ═══ -->
-<!-- ═══ THU & PHÂN BỔ ═══ -->
-<!-- ═══ CHI TIÊU ═══ -->
+<!-- ═══ 1. THU ═══ -->
+<!-- ═══ 2. TIẾT KIỆM ═══ -->
+<!-- ═══ 3. TRẢ NỢ ═══ -->
+<!-- ═══ 4. CHI PHÍ CỐ ĐỊNH ═══ -->
+<!-- ═══ 5. CHI PHÍ PHÁT SINH ═══ -->
 <!-- ═══ CÀI ĐẶT ═══ -->
 <section class="card-lite p tournament-edit-card mb">
-<div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt chung</h2><p class="muted">Mức tiền tiêu mặc định và mốc bắt đầu theo dõi.</p></div></div>
+<div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt chung</h2><p class="muted">Mức sinh hoạt theo tuần và mốc bắt đầu theo dõi.</p></div></div>
 <form class="household-form" method="post" action="/household/config"><input type="hidden" name="book" value="1">
-<div><label>Tiền tiêu mỗi tuần / người</label><input class="money-input" name="weeklyAllowance" value="500000"></div>
+<div><label>Mức sinh hoạt mỗi tuần</label><input class="money-input" name="weeklyRate" value="500000"></div>
 <div><label>Tuần bắt đầu từ</label>
 <select name="weekStartDow">
 <option value="1" selected>Thứ Hai</option><option value="2" >Thứ Ba</option><option value="3" >Thứ Tư</option><option value="4" >Thứ Năm</option><option value="5" >Thứ Sáu</option><option value="6" >Thứ Bảy</option><option value="0" >Chủ Nhật</option>
 </select>
 </div>
-<div><label>Ngày bắt đầu theo dõi</label><input type="date" name="anchorDate" value="2026-07-06"></div>
+<div><label>Ngày bắt đầu theo dõi</label><input type="date" name="anchorDate" value="2026-06-01"></div>
 <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu cài đặt</button></div>
 </form>
-<p class="muted">Mức mặc định áp dụng cho mọi người không đặt mức riêng. Ngày bắt đầu theo dõi quyết định số tuần đã trích tiền tiêu.</p>
+<p class="muted">
+Mức sinh hoạt tuần áp dụng cho các khoản chi phí cố định kiểu <strong>Theo tuần</strong> nào không đặt mức riêng —
+tháng 5 tuần thì trần của khoản đó là 2500000đ.
+</p>
 </section>
-<section class="card-lite">
-<div class="card-hdr green"><span>👨‍👩‍👦 Thành viên nhận tiền tiêu</span><span>1 người</span></div>
-<div class="p">
-<div class="alert-lite mb">
-<strong>Hàng tuần</strong> (vợ chồng): nhận đủ mức mỗi đầu tuần, số dư tuần cũ bị xoá.<br>
-<strong>Hàng tháng</strong> (con): cầm mức đó cho cả tháng, tiêu không hết thì dồn sang tháng sau. Nhà vẫn dành
-500000đ/tuần cho con — phần chênh vào 🧸 quỹ tiết kiệm của con, con tiêu quá thì quỹ đó vơi đi.
-</div>
-<form id="hh-del-1" method="post" action="/household/members/1/delete"
-data-confirm="Xoá Chồng? Các khoản chi cũ của người này sẽ chuyển thành chi chung."><input type="hidden" name="book" value="1"></form>
-<form class="household-form household-member-row" method="post" action="/household/members/1"><input type="hidden" name="book" value="1">
-<div><label>Tên</label><input name="name" value="Chồng" required></div>
-<div><label>Chu kỳ nhận</label>
-<select name="cycle">
-<option value="weekly" selected>Hàng tuần</option>
-<option value="monthly" >Hàng tháng (con)</option>
-</select>
-</div>
-<div><label>Mức riêng</label><input class="money-input" name="allowance" value="" placeholder="500000"></div>
-<div><label>Nhận từ ngày</label><input type="date" name="startedOn" value="2026-07-06"></div>
-<div><label>Trạng thái</label>
-<select name="active">
-<option value="true" selected>Đang nhận</option>
-<option value="false" >Tạm dừng</option>
-</select>
-</div>
-<div class="household-form-action">
-<button class="btn btn-success" data-loading-text="Đang lưu...">Lưu</button>
-<button class="btn btn-danger" form="hh-del-1" data-loading-text="Đang xoá...">Xoá</button>
-</div>
+<section class="card-lite p tournament-edit-card mb">
+<div class="section-heading mb"><div><span class="feature-icon">📋</span><h2 class="section-title">Danh mục mẫu</h2><p class="muted">Dựng sẵn các quỹ, khoản nợ và chi phí cố định theo bảng tính của gia đình.</p></div></div>
+<form method="post" action="/household/seed"><input type="hidden" name="book" value="1">
+<input type="hidden" name="month" value="2026-06">
+<input type="hidden" name="section" value="cai-dat">
+<button class="btn btn-success" data-loading-text="Đang nạp...">Nạp danh mục mẫu</button>
 </form>
-<h2 class="section-title mb">➕ Thêm thành viên</h2>
-<form class="household-form" method="post" action="/household/members"><input type="hidden" name="book" value="1">
-<div><label>Tên</label><input name="name" placeholder="Chồng / Vợ / Con zai" required></div>
-<div><label>Chu kỳ nhận</label>
-<select name="cycle">
-<option value="weekly" selected>Hàng tuần</option>
-<option value="monthly">Hàng tháng (con)</option>
-</select>
-</div>
-<div><label>Mức riêng</label><input class="money-input" name="allowance" placeholder="500000"></div>
-<div><label>Nhận từ ngày</label><input type="date" name="startedOn" value="2026-07-06"></div>
-<div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
-</form>
-</div>
+<p class="muted">Chỉ nạp phần nào đang trống, nên bấm nhiều lần cũng không sinh dòng trùng.</p>
 </section>
 <section class="card-lite p tournament-edit-card mt">
 <div class="section-heading mb"><div><span class="feature-icon">🔐</span><h2 class="section-title">Phân quyền admin</h2><p class="muted">Cho admin khác cùng xem và ghi sổ chi tiêu này.</p></div></div>
@@ -125,8 +94,11 @@ data-confirm="Xoá Chồng? Các khoản chi cũ của người này sẽ chuy�
 <div class="bottom-menu-inner">
 <a class="" href="/">🏠 Trang chủ</a>
 <a class="" href="/household">📊 Tổng quan</a>
-<a class="" href="/household/thu-nhap">💵 Thu &amp; phân bổ</a>
-<a class="" href="/household/chi-tieu">🧾 Chi tiêu</a>
+<a class="" href="/household/thu">💵 Thu</a>
+<a class="" href="/household/tiet-kiem">🐷 Tiết kiệm</a>
+<a class="" href="/household/tra-no">🏦 Trả nợ</a>
+<a class="" href="/household/chi-phi-co-dinh">📌 Chi phí cố định</a>
+<a class="" href="/household/phat-sinh">🎁 Phát sinh</a>
 <a class="active" href="/household/cai-dat">⚙️ Cài đặt</a>
 </div>
 </nav>

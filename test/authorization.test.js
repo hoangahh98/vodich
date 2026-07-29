@@ -42,10 +42,14 @@ function spyPrisma(shape) {
     tournament: model('tournament', ['findMany', 'findFirst', 'count', 'create']),
     medPatient: model('medPatient', ['findMany', 'findFirst']),
     householdConfig: model('householdConfig', ['findMany', 'findUnique', 'create']),
-    householdMember: model('householdMember', ['findMany', 'findFirst', 'deleteMany', 'create']),
-    householdTxn: model('householdTxn', ['findMany', 'deleteMany', 'create']),
-    householdIncome: model('householdIncome', ['findMany', 'deleteMany', 'aggregate']),
-    householdAllocation: model('householdAllocation', ['findMany', 'deleteMany']),
+    householdIncome: model('householdIncome', ['findMany', 'findFirst', 'deleteMany', 'create']),
+    householdFund: model('householdFund', ['findMany', 'findFirst', 'deleteMany', 'create']),
+    householdFundEntry: model('householdFundEntry', ['findMany', 'findFirst', 'deleteMany', 'create']),
+    householdDebt: model('householdDebt', ['findMany', 'findFirst', 'deleteMany', 'create']),
+    householdDebtPayment: model('householdDebtPayment', ['findMany', 'findFirst', 'create', 'updateMany']),
+    householdFixedCost: model('householdFixedCost', ['findMany', 'findFirst', 'deleteMany', 'create']),
+    householdFixedSpend: model('householdFixedSpend', ['findMany', 'findFirst', 'deleteMany', 'create']),
+    householdExtraCost: model('householdExtraCost', ['findMany', 'findFirst', 'deleteMany', 'create', 'updateMany']),
     householdPermission: model('householdPermission', ['create', 'deleteMany']),
     appUser: model('appUser', ['findMany']),
   };
@@ -155,34 +159,51 @@ test('MedicalService: admin gốc KHÔNG mặc nhiên xem được bệnh án nh
 // ─── Sổ chi tiêu: bộ lọc theo sổ trong MỌI truy vấn ───
 
 test('HouseholdService: mọi truy vấn đọc đều kèm householdId', async () => {
+  const empty = { findMany: async () => [] };
   const prisma = spyPrisma({
-    householdConfig: { findUnique: async () => ({ id: 1, weeklyAllowance: 500000n, weekStartDow: 1, anchorDate: new Date() }) },
-    householdMember: { findMany: async () => [] },
-    householdTxn: { findMany: async () => [] },
-    householdIncome: { aggregate: async () => ({ _sum: { amount: 0n } }) },
-    householdAllocation: { findMany: async () => [] },
+    householdConfig: { findUnique: async () => ({ id: 1, weeklyRate: 500000n, weekStartDow: 1, anchorDate: new Date() }) },
+    householdIncome: empty,
+    householdFund: empty,
+    householdFundEntry: empty,
+    householdDebt: empty,
+    householdDebtPayment: empty,
+    householdFixedCost: empty,
+    householdFixedSpend: empty,
+    householdExtraCost: empty,
   });
-  await new HouseholdService(prisma).summary(1);
+  await new HouseholdService(prisma).book(1, '2026-06');
   const reads = prisma.calls.filter((c) => c.model !== 'householdConfig');
-  assert.ok(reads.length >= 4, 'phải có nhiều truy vấn con');
+  assert.ok(reads.length >= 8, 'phải đọc đủ 8 bảng con của sổ');
   for (const call of reads) {
     assert.equal(call.where?.householdId, 1, `${call.model}.${call.method} thiếu bộ lọc householdId`);
   }
 });
 
-test('HouseholdService.deleteTxn không xoá được khoản chi của sổ khác', async () => {
-  const prisma = spyPrisma({ householdTxn: { deleteMany: async ({ where }) => ({ count: where.householdId === 1 ? 1 : 0 }) } });
+test('HouseholdService.deleteFixedSpend không xoá được lần chi của sổ khác', async () => {
+  const prisma = spyPrisma({
+    householdFixedSpend: {
+      findFirst: async ({ where }) => (where.householdId === 1 ? { id: 55n, month: '2026-06' } : null),
+      deleteMany: async ({ where }) => ({ count: where.householdId === 1 ? 1 : 0 }),
+    },
+  });
   const service = new HouseholdService(prisma);
-  assert.equal(await service.deleteTxn(1, 55n), 1, 'xoá được khoản chi của chính sổ mình');
+
+  assert.equal(await service.deleteFixedSpend(1, 55n), '2026-06', 'xoá được lần chi của chính sổ mình');
   assert.equal(prisma.lastWhere().householdId, 1, 'điều kiện xoá phải kèm id sổ');
-  assert.equal(await service.deleteTxn(2, 55n), 0, 'cùng id khoản chi nhưng khác sổ thì xoá 0 dòng');
+  // Sổ khác: `findFirst` không thấy dòng nào nên không có lệnh xoá nào được phát ra.
+  const before = prisma.calls.length;
+  await service.deleteFixedSpend(2, 55n);
+  assert.ok(
+    prisma.calls.slice(before).every((c) => c.where?.householdId === 2),
+    'gửi id sổ khác thì mọi truy vấn vẫn bị khoá vào đúng sổ đó',
+  );
 });
 
-test('HouseholdService.addTxn bỏ qua memberId không thuộc sổ này', async () => {
+test('HouseholdService.addExtraCost bỏ qua nguồn tiền không thuộc sổ này', async () => {
   let created;
   const prisma = spyPrisma({
-    householdMember: { findFirst: async ({ where }) => (where.householdId === 1 && where.id === 3n ? { id: 3n } : null) },
-    householdTxn: {
+    householdFund: { findFirst: async ({ where }) => (where.householdId === 1 && where.id === 3n ? { id: 3n } : null) },
+    householdExtraCost: {
       create: async ({ data }) => {
         created = data;
         return data;
@@ -191,11 +212,13 @@ test('HouseholdService.addTxn bỏ qua memberId không thuộc sổ này', async
   });
   const service = new HouseholdService(prisma);
 
-  await service.addTxn(1, { amount: '50000', memberId: '3' });
-  assert.equal(created.memberId, 3n, 'thành viên đúng sổ thì giữ nguyên');
+  await service.addExtraCost(1, { name: 'Cưới abc', amount: '500000', pick: 'fund:3', occurredAt: '2026-06-18' });
+  assert.equal(created.fundId, 3n, 'quỹ đúng sổ thì giữ nguyên');
+  assert.equal(created.source, 'fund');
 
-  await service.addTxn(1, { amount: '50000', memberId: '999' });
-  assert.equal(created.memberId, null, 'thành viên của sổ khác bị hạ về chi chung, không gắn bừa');
+  await service.addExtraCost(1, { name: 'Cưới abc', amount: '500000', pick: 'fund:999', occurredAt: '2026-06-18' });
+  assert.equal(created.fundId, null, 'quỹ của sổ khác bị hạ về "khoản chi mới", không gắn bừa');
+  assert.equal(created.source, 'new', 'nhờ vậy tiền vẫn bị trừ vào phần còn thừa thay vì biến mất');
 });
 
 test('HouseholdAccessService: admin thường chỉ thấy sổ của mình, chỉ chủ sổ được phân quyền', async () => {

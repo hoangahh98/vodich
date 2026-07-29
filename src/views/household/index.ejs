@@ -5,23 +5,34 @@
   const ymd = (d) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
   const dmy = (d) => ymd(d).split('-').reverse().join('/');
   const monthLabel = (m) => `${Number(m.slice(5, 7))}/${m.slice(0, 4)}`;
-  const kindLabel = { savings: '🐷 Tiết kiệm', debt: '🏦 Trả nợ', other: '📌 Khác' };
   const today = ymd(new Date());
+
+  const FUND_LABEL = { accumulate: '🐷 Cộng dồn', reserve: '🛟 Dự phòng', fun: '🎡 Đi chơi' };
+  const MODE_LABEL = { once: '⚡ Chi 1 lần', gradual: '💧 Chi dần', weekly: '📅 Theo tuần' };
+  const SOURCE_LABEL = { new: '🆕 Khoản chi mới', fixed: '📌 Lấy từ chi phí cố định', fund: '🐷 Lấy từ quỹ tiết kiệm' };
+
+  // Các mục xoay quanh MỘT tháng thì cần ô chọn tháng; Cài đặt thì không.
+  const MONTH_SECTIONS = ['tong-quan', 'thu', 'tiet-kiem', 'tra-no', 'chi-phi-co-dinh', 'phat-sinh'];
+  const sectionPath = section === 'tong-quan' ? '/household' : `/household/${section}`;
+  const money = (value) => `${formatMoney(value)}đ`;
+  const signed = (value) => `${Number(value) < 0 ? '−' : '+'}${formatMoney(Math.abs(Number(value)))}đ`;
+  const fundById = new Map(book.funds.map((f) => [String(f.id), f]));
+  const costById = new Map(book.fixedCosts.map((c) => [String(c.id), c]));
 %>
 <main class="app-shell">
   <section class="feature-hero p mb">
     <div class="flex between center gap">
       <div>
         <h1>💰 Quản lý chi tiêu</h1>
-        <div class="muted strong-muted">Lương gộp vào quỹ chung → trích tiết kiệm &amp; trả nợ → mỗi đầu tuần nạp ví cho từng người.</div>
+        <div class="muted strong-muted">Thu → Tiết kiệm → Trả nợ → Chi phí cố định → Phát sinh → Còn thừa.</div>
       </div>
-      <% if (section === 'thu-nhap') { %>
+      <% if (MONTH_SECTIONS.includes(section)) { %>
         <%# Bọc trong div: ở màn hẹp .feature-hero .flex đổi sang cột, `flex: 0 0 170px`
             của .month-filter sẽ thành CHIỀU CAO 170px và form bị kéo vuông. %>
         <div class="household-hero-tools">
-          <form method="get" action="/household/thu-nhap" class="month-filter"><input type="hidden" name="book" value="<%= currentBook.id %>">
+          <form method="get" action="<%= sectionPath %>" class="month-filter"><input type="hidden" name="book" value="<%= currentBook.id %>">
             <label>Tháng</label>
-            <input type="month" name="month" value="<%= book.month %>" data-autosubmit>
+            <input type="month" name="month" value="<%= report.month %>" data-autosubmit>
           </form>
         </div>
       <% } %>
@@ -31,113 +42,95 @@
   <% if (msg) { %><div class="alert alert-success mb"><%= msg %></div><% } %>
   <% if (err) { %><div class="alert alert-danger mb"><%= err %></div><% } %>
 
-  <% if (!members.length) { %>
-    <div class="alert-lite warn mb">Chưa có thành viên nào. Vào <a href="/household/cai-dat">⚙️ Cài đặt</a> thêm người nhận tiền tiêu (chồng, vợ, con...).</div>
+  <% if (MONTH_SECTIONS.includes(section)) { %>
+    <%# Dải kết quả cuối cùng, hiện ở mọi mục để lúc nào cũng biết còn bao nhiêu tiền. %>
+    <div class="hh-strip mb">
+      <div><span>Còn thừa tháng trước</span><strong><%= money(report.leftoverPrevious) %></strong></div>
+      <div><span>Còn thừa tháng <%= monthLabel(report.month) %></span><strong class="<%= report.leftover < 0 ? 'hh-neg' : 'hh-pos' %>"><%= money(report.leftover) %></strong></div>
+      <div class="hh-strip-total"><span>Tổng còn thừa</span><strong class="<%= report.leftoverTotal < 0 ? 'hh-neg' : 'hh-pos' %>"><%= money(report.leftoverTotal) %></strong></div>
+    </div>
   <% } %>
 
   <!-- ═══ TỔNG QUAN ═══ -->
   <% if (section === 'tong-quan') { %>
     <section class="grid finance-grid mb">
-      <details class="metric-card <%= summary.potBalance < 0 ? 'red' : 'green' %> metric-drop">
+      <details class="metric-card <%= report.leftoverTotal < 0 ? 'red' : 'green' %> metric-drop">
         <summary>
-          <span>🏦 Quỹ chung còn lại</span><strong><%= formatMoney(summary.potBalance) %>đ</strong>
-          <small>Bấm để xem dòng tiền chi tiết</small>
+          <span>💰 Tổng còn thừa</span><strong><%= money(report.leftoverTotal) %></strong>
+          <small>Bấm để xem cách tính của tháng <%= monthLabel(report.month) %></small>
         </summary>
         <div class="metric-drop-body">
-          <div><span>Tổng thu đã gộp</span><strong>+<%= formatMoney(summary.totalIncome) %>đ</strong></div>
-          <div><span>Trích tiết kiệm</span><strong>−<%= formatMoney(summary.savingsTotal) %>đ</strong></div>
-          <div><span>Trích trả nợ</span><strong>−<%= formatMoney(summary.debtTotal) %>đ</strong></div>
-          <div><span>Trích khoản khác</span><strong>−<%= formatMoney(summary.otherAllocationTotal) %>đ</strong></div>
-          <div><span>Tiền tiêu đã trích</span><strong>−<%= formatMoney(summary.allowanceBudget) %>đ</strong></div>
-          <div><span>Chi chung của nhà</span><strong>−<%= formatMoney(summary.commonSpent) %>đ</strong></div>
-          <% if (summary.overspendTotal > 0) { %>
-            <div><span>Nhà bù khi tiêu quá ví</span><strong>−<%= formatMoney(summary.overspendTotal) %>đ</strong></div>
-          <% } %>
-          <p class="metric-drop-note">Tiền tiêu đã trích không còn trong quỹ chung — nó nằm ở ví từng người.</p>
+          <div><span>Tổng thu</span><strong><%= signed(report.incomeTotal) %></strong></div>
+          <div><span>Trả nợ (gốc <%= money(report.debtPrincipal) %> + lãi <%= money(report.debtInterest) %>)</span><strong><%= signed(-report.debtPaid) %></strong></div>
+          <div><span>Nạp tiết kiệm</span><strong><%= signed(-report.fundDeposit) %></strong></div>
+          <div><span>Chi phí cố định đã chi</span><strong><%= signed(-report.fixedSpent) %></strong></div>
+          <div><span>Chi phí phát sinh (khoản mới)</span><strong><%= signed(-report.extraNew) %></strong></div>
+          <div><span>= Còn thừa tháng này</span><strong><%= money(report.leftover) %></strong></div>
+          <div><span>+ Còn thừa các tháng trước</span><strong><%= money(report.leftoverPrevious) %></strong></div>
+          <p class="metric-drop-note">Trần chi phí cố định chưa dùng hết không bị mất — nó nằm luôn trong phần còn thừa này.</p>
         </div>
       </details>
-      <div class="metric-card orange">
-        <span>👛 Tiền tiêu mỗi tuần</span><strong><%= formatMoney(summary.weeklyPayout) %>đ</strong>
-        <small><%= summary.wallets.filter((w) => w.active).length %> người · mặc định <%= formatMoney(summary.defaultWeeklyAllowance) %>đ/người</small>
-      </div>
       <div class="metric-card blue">
-        <span>🐷 Tiết kiệm lũy kế</span><strong><%= formatMoney(summary.savingsTotal) %>đ</strong>
-        <small>Đã trả nợ <%= formatMoney(summary.debtTotal) %>đ · khoản khác <%= formatMoney(summary.otherAllocationTotal) %>đ</small>
-      </div>
-      <% if (summary.kidSavingsTotal > 0) { %>
-        <div class="metric-card gold">
-          <span>🧸 Quỹ tiết kiệm của con</span><strong><%= formatMoney(summary.kidSavingsTotal) %>đ</strong>
-          <small>Phần con chưa cầm tay · con tiêu quá thì quỹ này vơi đi</small>
-        </div>
-      <% } %>
-    </section>
-
-    <section class="card-lite mb">
-      <div class="card-hdr blue"><span>👛 Ví từng người</span><span>Tuần này chi <%= formatMoney(summary.spentThisWeek) %>đ</span></div>
-      <div class="p">
-        <div class="table-wrap"><table>
-          <thead><tr><th>Người</th><th>Đã tiêu</th><th class="text-right">Còn lại</th></tr></thead>
-          <tbody>
-            <% summary.wallets.forEach((w) => { %>
-              <tr>
-                <td>
-                  <strong><%= w.name %></strong><br>
-                  <span class="muted"><%= formatMoney(w.allowance) %>đ/<%= w.rollover ? 'tháng' : 'tuần' %><%= w.active ? '' : ' · tạm dừng' %></span>
-                </td>
-                <td>
-                  <strong><%= formatMoney(w.rollover ? w.spentTotal : w.spentThisPeriod) %>đ</strong><br>
-                  <span class="muted"><%= w.rollover ? `tháng này ${formatMoney(w.spentThisPeriod)}đ` : 'tuần này' %></span>
-                </td>
-                <td class="text-right">
-                  <strong style="color:<%= w.remaining < 0 ? '#dc3545' : '#198754' %>"><%= formatMoney(w.remaining) %>đ</strong>
-                  <% if (w.rollover && w.kidSavings > 0) { %><br><span class="muted">🧸 <%= formatMoney(w.kidSavings) %>đ</span><% } %>
-                  <% if (w.kidShortfall > 0) { %><br><span class="muted" style="color:#dc3545">lẹm <%= formatMoney(w.kidShortfall) %>đ</span><% } %>
-                  <% if (w.overspend > 0) { %><br><span class="muted" style="color:#dc3545">nhà bù <%= formatMoney(w.overspend) %>đ</span><% } %>
-                </td>
-              </tr>
-            <% }) %>
-            <% if (!summary.wallets.length) { %><tr><td colspan="3" class="muted text-center">Chưa có thành viên nào.</td></tr><% } %>
-          </tbody>
-        </table></div>
-        <p class="muted">
-          <strong>Hàng tuần</strong>: sang tuần mới nạp lại đủ mức, số dư tuần cũ bị xoá.
-          <strong>Hàng tháng</strong> (con): tiêu không hết thì dồn sang tháng sau; tiêu quá thì trừ vào 🧸 quỹ tiết kiệm của con.
-        </p>
-      </div>
-    </section>
-  <% } %>
-
-  <!-- ═══ THU & PHÂN BỔ ═══ -->
-  <% if (section === 'thu-nhap') { %>
-    <section class="grid finance-grid mb">
-      <div class="metric-card green">
-        <span>💵 Tổng thu tháng <%= monthLabel(book.month) %></span><strong><%= formatMoney(book.incomeTotal) %>đ</strong>
+        <span>💵 Thu tháng <%= monthLabel(report.month) %></span><strong><%= money(report.incomeTotal) %></strong>
         <small><%= book.incomes.length %> khoản thu</small>
       </div>
-      <details class="metric-card blue metric-drop">
-        <summary>
-          <span>✂️ Đã trích ra</span><strong><%= formatMoney(book.allocationTotal) %>đ</strong>
-          <small>Bấm để xem chi tiết</small>
-        </summary>
-        <div class="metric-drop-body">
-          <div><span>Trích tay (<%= book.allocations.length %> khoản)</span><strong><%= formatMoney(book.manualAllocationTotal) %>đ</strong></div>
-          <div><span>Tiền tiêu cả nhà (tự trích)</span><strong><%= formatMoney(book.allowanceCost) %>đ</strong></div>
-          <p class="metric-drop-note"><%= book.weeksInMonth %> tuần trong tháng, tính theo mức tuần của từng thành viên — không phải nhập tay.</p>
-        </div>
-      </details>
-      <div class="metric-card <%= book.leftover < 0 ? 'red' : 'orange' %>">
-        <span>💰 Còn lại trong quỹ</span><strong><%= formatMoney(book.leftover) %>đ</strong>
-        <small>= Thu <%= formatMoney(book.incomeTotal) %>đ − Đã trích <%= formatMoney(book.allocationTotal) %>đ</small>
+      <div class="metric-card gold">
+        <span>🐷 Tiết kiệm đang có</span><strong><%= money(report.fundBalanceTotal) %></strong>
+        <small>Tháng này nạp <%= money(report.fundDeposit) %> · rút <%= money(report.fundUsed) %></small>
+      </div>
+      <div class="metric-card <%= report.debtRemainingTotal > 0 ? 'red' : 'green' %>">
+        <span>🏦 Nợ còn lại</span><strong><%= money(report.debtRemainingTotal) %></strong>
+        <small>Tháng này trả gốc <%= money(report.debtPrincipal) %> · lãi <%= money(report.debtInterest) %></small>
       </div>
     </section>
 
     <section class="card-lite mb">
-      <div class="card-hdr green"><span>💵 Lương &amp; các khoản thu</span><span><%= formatMoney(book.incomeTotal) %>đ</span></div>
+      <div class="card-hdr blue"><span>📊 Sổ tháng <%= monthLabel(report.month) %></span><span><%= report.weeksInMonth %> tuần</span></div>
+      <div class="p">
+        <div class="table-wrap"><table>
+          <thead><tr><th>Phần</th><th>Số tiền</th><th>Ghi chú</th></tr></thead>
+          <tbody>
+            <tr><td><strong>1. Thu</strong></td><td><strong class="hh-pos"><%= signed(report.incomeTotal) %></strong></td><td class="muted">Lương, OT và các khoản thu khác</td></tr>
+            <tr><td><strong>2. Tiết kiệm</strong></td><td><strong><%= signed(-report.fundDeposit) %></strong></td><td class="muted">Đang giữ <%= money(report.fundBalanceTotal) %> ở <%= report.funds.length %> quỹ</td></tr>
+            <tr><td><strong>3. Trả nợ</strong></td><td><strong><%= signed(-report.debtPaid) %></strong></td><td class="muted">Còn nợ <%= money(report.debtRemainingTotal) %></td></tr>
+            <tr><td><strong>4. Chi phí cố định</strong></td><td><strong><%= signed(-report.fixedSpent) %></strong></td><td class="muted">Trần <%= money(report.fixedCap) %>, chưa dùng <%= money(report.fixedCap - report.fixedSpent) %></td></tr>
+            <tr><td><strong>5. Chi phí phát sinh</strong></td><td><strong><%= signed(-report.extraNew) %></strong></td><td class="muted">Tổng phát sinh <%= money(report.extraTotal) %>, phần lấy từ khoản có sẵn không trừ lại</td></tr>
+            <tr class="hh-row-total"><td><strong>Còn thừa tháng này</strong></td><td><strong class="<%= report.leftover < 0 ? 'hh-neg' : 'hh-pos' %>"><%= money(report.leftover) %></strong></td><td class="muted">Cộng với <%= money(report.leftoverPrevious) %> của các tháng trước</td></tr>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <% if (report.reserveCarryThisMonth > 0 && report.funFundName) { %>
+      <div class="alert-lite warn mb">
+        🎡 Cuối tháng <%= monthLabel(report.month) %>, phần chưa dùng hết của Dự phòng &amp; Y tế
+        (<strong><%= money(report.reserveCarryThisMonth) %></strong>) sẽ dồn hết sang quỹ <strong><%= report.funFundName %></strong>.
+      </div>
+    <% } %>
+
+    <% if (!book.funds.length && !book.fixedCosts.length) { %>
+      <section class="card-lite p">
+        <h2 class="section-title mb">Sổ còn trống</h2>
+        <p class="muted">Nạp sẵn các quỹ tiết kiệm, khoản nợ và chi phí cố định theo đúng bảng tính của gia đình, rồi sửa lại số cho khớp.</p>
+        <form method="post" action="/household/seed"><input type="hidden" name="book" value="<%= currentBook.id %>">
+          <input type="hidden" name="month" value="<%= report.month %>">
+          <input type="hidden" name="section" value="tong-quan">
+          <button class="btn btn-success" data-loading-text="Đang nạp...">📋 Nạp danh mục mẫu</button>
+        </form>
+      </section>
+    <% } %>
+  <% } %>
+
+  <!-- ═══ 1. THU ═══ -->
+  <% if (section === 'thu') { %>
+    <section class="card-lite mb">
+      <div class="card-hdr green"><span>💵 Các khoản thu tháng <%= monthLabel(report.month) %></span><span><%= money(report.incomeTotal) %></span></div>
       <div class="p">
         <form class="household-form mb" method="post" action="/household/income"><input type="hidden" name="book" value="<%= currentBook.id %>">
-          <input type="hidden" name="month" value="<%= book.month %>">
-          <div><label>Nguồn thu</label><input name="source" placeholder="Lương chồng / Lương vợ / Thưởng" required></div>
+          <input type="hidden" name="month" value="<%= report.month %>">
+          <div><label>Nguồn thu</label><input name="source" placeholder="Lương vợ / Lương chồng / OT / Thưởng" required></div>
           <div><label>Số tiền</label><input class="money-input" name="amount" required></div>
+          <div class="household-form-wide"><label>Ghi chú</label><input name="note" placeholder="Không bắt buộc"></div>
           <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
         </form>
         <div class="table-wrap"><table>
@@ -146,88 +139,408 @@
             <% book.incomes.forEach((i) => { %>
               <tr>
                 <td><strong><%= i.source %></strong><% if (i.note) { %><br><span class="muted"><%= i.note %></span><% } %></td>
-                <td><strong>+<%= formatMoney(i.amount) %>đ</strong></td>
+                <td><strong class="hh-pos"><%= signed(i.amount) %></strong></td>
                 <td class="text-right"><form method="post" action="/household/income/<%= i.id %>/delete" data-confirm="Xoá khoản thu này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
               </tr>
             <% }) %>
-            <% if (!book.incomes.length) { %><tr><td colspan="3" class="muted text-center">Chưa nhập khoản thu nào cho tháng <%= monthLabel(book.month) %>.</td></tr><% } %>
+            <% if (!book.incomes.length) { %><tr><td colspan="3" class="muted text-center">Chưa nhập khoản thu nào cho tháng <%= monthLabel(report.month) %>.</td></tr><% } %>
           </tbody>
         </table></div>
-      </div>
-    </section>
-
-    <section class="card-lite">
-      <div class="card-hdr warn"><span>✂️ Các khoản trích ra</span><span><%= formatMoney(book.allocationTotal) %>đ</span></div>
-      <div class="p">
-        <div class="alert-lite mb">
-          🤖 <strong>Tiền tiêu cả nhà tháng <%= monthLabel(book.month) %>: <%= formatMoney(book.allowanceCost) %>đ</strong>
-          — tự trích, <%= book.weeksInMonth %> tuần × mức tuần của từng người.
-        </div>
-        <form class="household-form mb" method="post" action="/household/allocations"><input type="hidden" name="book" value="<%= currentBook.id %>">
-          <input type="hidden" name="month" value="<%= book.month %>">
-          <div><label>Loại</label>
-            <select name="kind">
-              <option value="savings">🐷 Tiết kiệm</option>
-              <option value="debt">🏦 Trả nợ</option>
-              <option value="other" selected>📌 Khác</option>
-            </select>
-          </div>
-          <div><label>Tên khoản</label><input name="name" placeholder="Tiết kiệm / Trả nợ nhà / Học phí" required></div>
-          <div><label>Số tiền</label><input class="money-input" name="amount" required></div>
-          <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
-        </form>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Loại</th><th>Tên khoản</th><th>Số tiền</th><th></th></tr></thead>
-          <tbody>
-            <% book.allocations.forEach((a) => { %>
-              <tr>
-                <td><%= kindLabel[a.kind] || kindLabel.other %></td>
-                <td><strong><%= a.name %></strong><% if (a.note) { %><br><span class="muted"><%= a.note %></span><% } %></td>
-                <td><strong>−<%= formatMoney(a.amount) %>đ</strong></td>
-                <td class="text-right"><form method="post" action="/household/allocations/<%= a.id %>/delete" data-confirm="Xoá khoản trích này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
-              </tr>
-            <% }) %>
-            <% if (!book.allocations.length) { %><tr><td colspan="4" class="muted text-center">Chưa có khoản trích tay nào cho tháng <%= monthLabel(book.month) %>.</td></tr><% } %>
-          </tbody>
-        </table></div>
-        <form method="post" action="/household/allocations/copy"><input type="hidden" name="book" value="<%= currentBook.id %>">
-          <input type="hidden" name="month" value="<%= book.month %>">
-          <button class="btn btn-sm" data-loading-text="Đang chép...">📋 Chép các khoản của tháng trước</button>
+        <form method="post" action="/household/income/copy"><input type="hidden" name="book" value="<%= currentBook.id %>">
+          <input type="hidden" name="month" value="<%= report.month %>">
+          <button class="btn btn-sm" data-loading-text="Đang chép...">📋 Chép các khoản thu của tháng trước</button>
         </form>
       </div>
     </section>
   <% } %>
 
-  <!-- ═══ CHI TIÊU ═══ -->
-  <% if (section === 'chi-tieu') { %>
+  <!-- ═══ 2. TIẾT KIỆM ═══ -->
+  <% if (section === 'tiet-kiem') { %>
     <section class="card-lite mb">
-      <div class="card-hdr blue"><span>🧾 Các khoản đã chi</span><span>Tháng này <%= formatMoney(summary.spentThisMonth) %>đ</span></div>
+      <div class="card-hdr warn"><span>🐷 Các quỹ tiết kiệm</span><span>Đang có <%= money(report.fundBalanceTotal) %></span></div>
       <div class="p">
-        <form class="household-form mb" method="post" action="/household/txns"><input type="hidden" name="book" value="<%= currentBook.id %>">
+        <div class="alert-lite mb">
+          Mỗi quỹ <strong>tự nạp mức của mình mỗi tháng</strong>, không phải nhập lại.
+          <strong>Cộng dồn</strong> thì để dành mãi; <strong>Dự phòng</strong> (dự phòng, y tế) không cộng dồn —
+          hết tháng còn thừa bao nhiêu dồn hết sang quỹ <strong><%= report.funFundName || 'Đi chơi' %></strong>.
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Quỹ</th><th>Nạp tháng này</th><th>Đã rút</th><th class="text-right">Đang có</th></tr></thead>
+          <tbody>
+            <% report.funds.forEach((f) => { %>
+              <tr>
+                <td>
+                  <strong><%= f.name %></strong><br>
+                  <span class="muted"><%= FUND_LABEL[f.kind] || f.kind %> · <%= money(f.monthlyAmount) %>/tháng<%= f.active ? '' : ' · tạm dừng' %></span>
+                </td>
+                <td><strong><%= money(f.deposited) %></strong></td>
+                <td><strong><%= money(f.used) %></strong></td>
+                <td class="text-right">
+                  <strong class="<%= f.balance < 0 ? 'hh-neg' : 'hh-pos' %>"><%= money(f.balance) %></strong>
+                  <% if (f.carriesToFun && f.leftThisMonth > 0) { %><br><span class="muted">còn <%= money(f.leftThisMonth) %> → dồn sang <%= report.funFundName || 'Đi chơi' %></span><% } %>
+                  <% if (f.receivesCarry) { %><br><span class="muted">đã gồm phần thừa dồn sang từ các tháng trước</span><% } %>
+                </td>
+              </tr>
+            <% }) %>
+            <% if (!report.funds.length) { %><tr><td colspan="4" class="muted text-center">Chưa có quỹ nào.</td></tr><% } %>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section class="card-lite mb">
+      <div class="card-hdr blue"><span>💸 Nạp thêm / rút quỹ trong tháng <%= monthLabel(report.month) %></span><span><%= book.fundEntries.length %> lần</span></div>
+      <div class="p">
+        <% if (book.funds.length) { %>
+          <form class="household-form mb" method="post" action="/household/fund-entries"><input type="hidden" name="book" value="<%= currentBook.id %>">
+            <div><label>Ngày</label><input type="date" name="occurredAt" value="<%= today %>" required></div>
+            <div><label>Quỹ</label><select name="fundId"><% book.funds.forEach((f) => { %><option value="<%= f.id %>"><%= f.name %></option><% }) %></select></div>
+            <div><label>Việc</label>
+              <select name="direction">
+                <option value="out" selected>Rút ra dùng</option>
+                <option value="in">Nạp thêm</option>
+              </select>
+            </div>
+            <div><label>Số tiền</label><input class="money-input" name="amount" required></div>
+            <div class="household-form-wide"><label>Nội dung</label><input name="note" placeholder="Khám bệnh, sửa xe..."></div>
+            <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang lưu...">Ghi</button></div>
+          </form>
+        <% } else { %>
+          <div class="alert-lite warn mb">Thêm quỹ ở phần dưới trước đã.</div>
+        <% } %>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Ngày</th><th>Quỹ</th><th>Nội dung</th><th>Số tiền</th><th></th></tr></thead>
+          <tbody>
+            <% book.fundEntries.forEach((e) => { %>
+              <tr>
+                <td><%= dmy(e.occurredAt) %></td>
+                <td><%= (fundById.get(String(e.fundId)) || {}).name || '(quỹ đã xoá)' %></td>
+                <td><%= e.note || '(không ghi)' %></td>
+                <td><strong class="<%= e.direction === 'in' ? 'hh-pos' : 'hh-neg' %>"><%= e.direction === 'in' ? signed(e.amount) : signed(-Number(e.amount)) %></strong></td>
+                <td class="text-right"><form method="post" action="/household/fund-entries/<%= e.id %>/delete" data-confirm="Xoá dòng này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
+              </tr>
+            <% }) %>
+            <% if (!book.fundEntries.length) { %><tr><td colspan="5" class="muted text-center">Tháng này chưa nạp thêm hay rút quỹ lần nào.</td></tr><% } %>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <details class="card-lite hh-manage">
+      <summary class="card-hdr warn"><span>⚙️ Danh mục quỹ</span><span><%= book.funds.length %> quỹ</span></summary>
+      <div class="p">
+        <% book.funds.forEach((f) => { %>
+          <%# Form xoá để rỗng, nút Xoá nằm trong form sửa và trỏ sang bằng thuộc tính `form`
+              (HTML không cho lồng form) — nhờ vậy Lưu và Xoá đứng cạnh nhau trên cùng một hàng. %>
+          <form id="hh-fund-del-<%= f.id %>" method="post" action="/household/funds/<%= f.id %>/delete"
+                data-confirm="Xoá quỹ <%= f.name %>? Các lần nạp/rút của quỹ này cũng mất theo."><input type="hidden" name="book" value="<%= currentBook.id %>"><input type="hidden" name="month" value="<%= report.month %>"></form>
+          <form class="household-form household-member-row" method="post" action="/household/funds/<%= f.id %>"><input type="hidden" name="book" value="<%= currentBook.id %>">
+            <input type="hidden" name="month" value="<%= report.month %>">
+            <div><label>Tên quỹ</label><input name="name" value="<%= f.name %>" required></div>
+            <div><label>Kiểu</label>
+              <select name="kind">
+                <option value="accumulate" <%= f.kind === 'accumulate' ? 'selected' : '' %>>Cộng dồn</option>
+                <option value="reserve" <%= f.kind === 'reserve' ? 'selected' : '' %>>Dự phòng (thừa dồn sang Đi chơi)</option>
+                <option value="fun" <%= f.kind === 'fun' ? 'selected' : '' %>>Đi chơi (nhận phần thừa)</option>
+              </select>
+            </div>
+            <div><label>Nạp mỗi tháng</label><input class="money-input" name="monthlyAmount" value="<%= formatMoney(f.monthlyAmount) %>"></div>
+            <div><label>Nạp từ tháng</label><input type="month" name="startMonth" value="<%= f.startMonth %>"></div>
+            <div><label>Trạng thái</label>
+              <select name="active">
+                <option value="true" <%= f.active ? 'selected' : '' %>>Đang nạp</option>
+                <option value="false" <%= f.active ? '' : 'selected' %>>Tạm dừng</option>
+              </select>
+            </div>
+            <div class="household-form-action">
+              <button class="btn btn-success" data-loading-text="Đang lưu...">Lưu</button>
+              <button class="btn btn-danger" form="hh-fund-del-<%= f.id %>" data-loading-text="Đang xoá...">Xoá</button>
+            </div>
+          </form>
+        <% }) %>
+
+        <h2 class="section-title mb">➕ Thêm quỹ</h2>
+        <form class="household-form" method="post" action="/household/funds"><input type="hidden" name="book" value="<%= currentBook.id %>">
+          <input type="hidden" name="month" value="<%= report.month %>">
+          <div><label>Tên quỹ</label><input name="name" placeholder="Tiết kiệm 2 vợ chồng" required></div>
+          <div><label>Kiểu</label>
+            <select name="kind">
+              <option value="accumulate" selected>Cộng dồn</option>
+              <option value="reserve">Dự phòng (thừa dồn sang Đi chơi)</option>
+              <option value="fun">Đi chơi (nhận phần thừa)</option>
+            </select>
+          </div>
+          <div><label>Nạp mỗi tháng</label><input class="money-input" name="monthlyAmount"></div>
+          <div><label>Nạp từ tháng</label><input type="month" name="startMonth" value="<%= report.month %>"></div>
+          <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
+        </form>
+
+        <% if (!book.funds.length) { %>
+          <form class="mt" method="post" action="/household/seed"><input type="hidden" name="book" value="<%= currentBook.id %>">
+            <input type="hidden" name="month" value="<%= report.month %>">
+            <input type="hidden" name="section" value="tiet-kiem">
+            <button class="btn btn-sm" data-loading-text="Đang nạp...">📋 Nạp danh mục mẫu</button>
+          </form>
+        <% } %>
+      </div>
+    </details>
+  <% } %>
+
+  <!-- ═══ 3. TRẢ NỢ ═══ -->
+  <% if (section === 'tra-no') { %>
+    <section class="card-lite mb">
+      <div class="card-hdr red"><span>🏦 Các khoản nợ</span><span>Còn <%= money(report.debtRemainingTotal) %></span></div>
+      <div class="p">
+        <div class="alert-lite mb">
+          Nợ ban đầu điền một lần. Mỗi tháng điền <strong>gốc</strong> và <strong>lãi</strong> — chỉ phần
+          <strong>gốc</strong> làm giảm nợ, lãi thì không. Lưu nhiều lần cũng chỉ ghi đè, không trả trùng.
+        </div>
+        <% report.debts.forEach((d) => { %>
+          <div class="hh-debt">
+            <div class="flex between center gap">
+              <div><strong><%= d.name %></strong><br><span class="muted">Nợ ban đầu <%= money(d.initialAmount) %> · đã trả gốc <%= money(d.principalPaid) %><%= d.active ? '' : ' · tạm dừng' %></span></div>
+              <div class="text-right"><span class="muted">Còn nợ</span><br><strong class="hh-neg hh-big"><%= money(d.remaining) %></strong></div>
+            </div>
+            <form class="household-form mt" method="post" action="/household/debt-payments"><input type="hidden" name="book" value="<%= currentBook.id %>">
+              <input type="hidden" name="month" value="<%= report.month %>">
+              <input type="hidden" name="debtId" value="<%= d.id %>">
+              <div><label>Gốc tháng <%= monthLabel(report.month) %></label><input class="money-input" name="principal" value="<%= formatMoney(d.principal) %>"></div>
+              <div><label>Lãi tháng <%= monthLabel(report.month) %></label><input class="money-input" name="interest" value="<%= formatMoney(d.interest) %>"></div>
+              <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu tháng này</button></div>
+            </form>
+          </div>
+        <% }) %>
+        <% if (!report.debts.length) { %><p class="muted text-center">Chưa có khoản nợ nào.</p><% } %>
+      </div>
+    </section>
+
+    <details class="card-lite hh-manage">
+      <summary class="card-hdr warn"><span>⚙️ Danh mục khoản nợ</span><span><%= book.debts.length %> khoản</span></summary>
+      <div class="p">
+        <% book.debts.forEach((d) => { %>
+          <form id="hh-debt-del-<%= d.id %>" method="post" action="/household/debts/<%= d.id %>/delete"
+                data-confirm="Xoá khoản nợ <%= d.name %>? Lịch sử trả gốc/lãi cũng mất theo."><input type="hidden" name="book" value="<%= currentBook.id %>"><input type="hidden" name="month" value="<%= report.month %>"></form>
+          <form class="household-form household-member-row" method="post" action="/household/debts/<%= d.id %>"><input type="hidden" name="book" value="<%= currentBook.id %>">
+            <input type="hidden" name="month" value="<%= report.month %>">
+            <div><label>Tên khoản nợ</label><input name="name" value="<%= d.name %>" required></div>
+            <div><label>Nợ ban đầu</label><input class="money-input" name="initialAmount" value="<%= formatMoney(d.initialAmount) %>"></div>
+            <div><label>Vay từ tháng</label><input type="month" name="startMonth" value="<%= d.startMonth %>"></div>
+            <div><label>Trạng thái</label>
+              <select name="active">
+                <option value="true" <%= d.active ? 'selected' : '' %>>Đang trả</option>
+                <option value="false" <%= d.active ? '' : 'selected' %>>Tạm dừng</option>
+              </select>
+            </div>
+            <div class="household-form-wide"><label>Ghi chú</label><input name="note" value="<%= d.note %>" placeholder="Không bắt buộc"></div>
+            <div class="household-form-action">
+              <button class="btn btn-success" data-loading-text="Đang lưu...">Lưu</button>
+              <button class="btn btn-danger" form="hh-debt-del-<%= d.id %>" data-loading-text="Đang xoá...">Xoá</button>
+            </div>
+          </form>
+        <% }) %>
+
+        <h2 class="section-title mb">➕ Thêm khoản nợ</h2>
+        <form class="household-form" method="post" action="/household/debts"><input type="hidden" name="book" value="<%= currentBook.id %>">
+          <input type="hidden" name="month" value="<%= report.month %>">
+          <div><label>Tên khoản nợ</label><input name="name" placeholder="Ngân hàng" required></div>
+          <div><label>Nợ ban đầu</label><input class="money-input" name="initialAmount"></div>
+          <div><label>Vay từ tháng</label><input type="month" name="startMonth" value="<%= report.month %>"></div>
+          <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
+        </form>
+      </div>
+    </details>
+  <% } %>
+
+  <!-- ═══ 4. CHI PHÍ CỐ ĐỊNH ═══ -->
+  <% if (section === 'chi-phi-co-dinh') { %>
+    <section class="card-lite mb">
+      <div class="card-hdr blue"><span>📌 Chi phí cố định tháng <%= monthLabel(report.month) %></span><span>Đã chi <%= money(report.fixedSpent) %> / <%= money(report.fixedCap) %></span></div>
+      <div class="p">
+        <div class="alert-lite mb">
+          <strong>⚡ Chi 1 lần</strong>: chưa ghi gì thì mặc định coi như đã chi đủ trần.
+          <strong>💧 Chi dần</strong>: cộng theo từng lần ghi, trần chưa dùng hết đẩy vào phần còn thừa.
+          <strong>📅 Theo tuần</strong>: trần = số tuần của tháng (<%= report.weeksInMonth %> tuần, tính từ thứ Hai đầu tiên) × mức tuần,
+          và <strong>hết tuần nào thì tuần đó mặc định đã chi hết mức tuần</strong>.
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Khoản</th><th>Trần/tháng</th><th>Đã chi</th><th class="text-right">Còn lại</th></tr></thead>
+          <tbody>
+            <% report.fixedCosts.forEach((c) => { %>
+              <tr>
+                <td>
+                  <strong><%= c.name %></strong><br>
+                  <span class="muted"><%= MODE_LABEL[c.mode] || c.mode %><%= c.mode === 'weekly' ? ` · ${formatMoney(c.weeklyRate)}đ/tuần` : '' %><%= c.active ? '' : ' · tạm dừng' %></span>
+                </td>
+                <td><strong><%= money(c.cap) %></strong></td>
+                <td>
+                  <strong><%= money(c.spent) %></strong>
+                  <% if (c.autoFilled) { %><br><span class="muted">tự tính</span><% } %>
+                </td>
+                <td class="text-right"><strong class="<%= c.left < 0 ? 'hh-neg' : 'hh-pos' %>"><%= money(c.left) %></strong></td>
+              </tr>
+              <% if (c.mode === 'weekly' && c.weeks.length) { %>
+                <tr class="hh-weekrow">
+                  <td colspan="4">
+                    <div class="hh-weeks">
+                      <% c.weeks.forEach((w) => { %>
+                        <span class="hh-week <%= w.manual ? 'manual' : w.closed ? 'closed' : 'open' %>">
+                          Tuần <%= w.index %> (<%= dmy(w.start) %>–<%= dmy(w.end) %>): <%= money(w.amount) %><%= w.manual ? '' : w.closed ? ' · mặc định' : ' · đang trong tuần' %>
+                        </span>
+                      <% }) %>
+                    </div>
+                  </td>
+                </tr>
+              <% } %>
+            <% }) %>
+            <% if (!report.fixedCosts.length) { %><tr><td colspan="4" class="muted text-center">Chưa có khoản cố định nào.</td></tr><% } %>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section class="card-lite mb">
+      <div class="card-hdr green"><span>🧾 Ghi một lần chi</span><span><%= book.fixedSpends.length %> lần trong tháng</span></div>
+      <div class="p">
+        <% if (book.fixedCosts.length) { %>
+          <form class="household-form mb" method="post" action="/household/fixed-spends"><input type="hidden" name="book" value="<%= currentBook.id %>">
+            <div><label>Ngày chi</label><input type="date" name="occurredAt" value="<%= today %>" required></div>
+            <div><label>Khoản</label><select name="costId"><% book.fixedCosts.forEach((c) => { %><option value="<%= c.id %>"><%= c.name %></option><% }) %></select></div>
+            <div><label>Số tiền</label><input class="money-input" name="amount" required></div>
+            <div class="household-form-wide"><label>Nội dung</label><input name="note" placeholder="Đổ xăng, mua bỉm, sinh hoạt tuần 2..."></div>
+            <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang lưu...">Ghi</button></div>
+          </form>
+          <p class="muted">Ghi số thật cho một tuần của khoản <strong>Theo tuần</strong> thì tuần đó dùng số bạn ghi thay cho mức mặc định.</p>
+        <% } else { %>
+          <div class="alert-lite warn mb">Thêm khoản cố định ở phần dưới trước đã.</div>
+        <% } %>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Ngày</th><th>Khoản</th><th>Nội dung</th><th>Số tiền</th><th></th></tr></thead>
+          <tbody>
+            <% book.fixedSpends.forEach((s) => { %>
+              <tr>
+                <td><%= dmy(s.occurredAt) %></td>
+                <td><%= (costById.get(String(s.costId)) || {}).name || '(khoản đã xoá)' %></td>
+                <td><%= s.note || '(không ghi)' %></td>
+                <td><strong><%= money(s.amount) %></strong></td>
+                <td class="text-right"><form method="post" action="/household/fixed-spends/<%= s.id %>/delete" data-confirm="Xoá lần chi này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
+              </tr>
+            <% }) %>
+            <% if (!book.fixedSpends.length) { %><tr><td colspan="5" class="muted text-center">Tháng này chưa ghi lần chi nào.</td></tr><% } %>
+          </tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <details class="card-lite hh-manage">
+      <summary class="card-hdr warn"><span>⚙️ Danh mục chi phí cố định</span><span><%= book.fixedCosts.length %> khoản</span></summary>
+      <div class="p">
+        <% book.fixedCosts.forEach((c) => { %>
+          <form id="hh-cost-del-<%= c.id %>" method="post" action="/household/fixed-costs/<%= c.id %>/delete"
+                data-confirm="Xoá khoản <%= c.name %>? Các lần chi đã ghi cũng mất theo."><input type="hidden" name="book" value="<%= currentBook.id %>"><input type="hidden" name="month" value="<%= report.month %>"></form>
+          <form class="household-form household-member-row" method="post" action="/household/fixed-costs/<%= c.id %>"><input type="hidden" name="book" value="<%= currentBook.id %>">
+            <input type="hidden" name="month" value="<%= report.month %>">
+            <div><label>Tên khoản</label><input name="name" value="<%= c.name %>" required></div>
+            <div><label>Cách chi</label>
+              <select name="mode">
+                <option value="once" <%= c.mode === 'once' ? 'selected' : '' %>>Chi 1 lần</option>
+                <option value="gradual" <%= c.mode === 'gradual' ? 'selected' : '' %>>Chi dần</option>
+                <option value="weekly" <%= c.mode === 'weekly' ? 'selected' : '' %>>Theo tuần</option>
+              </select>
+            </div>
+            <div><label>Trần/tháng</label><input class="money-input" name="capAmount" value="<%= formatMoney(c.capAmount) %>"><small class="muted">Theo tuần thì bỏ qua ô này</small></div>
+            <div><label>Mức tuần riêng</label><input class="money-input" name="weeklyRate" value="<%= c.weeklyRate === null ? '' : formatMoney(c.weeklyRate) %>" placeholder="<%= formatMoney(config.weeklyRate) %>"></div>
+            <div><label>Áp dụng từ tháng</label><input type="month" name="startMonth" value="<%= c.startMonth %>"></div>
+            <div><label>Trạng thái</label>
+              <select name="active">
+                <option value="true" <%= c.active ? 'selected' : '' %>>Đang chi</option>
+                <option value="false" <%= c.active ? '' : 'selected' %>>Tạm dừng</option>
+              </select>
+            </div>
+            <div class="household-form-wide"><label>Ghi chú</label><input name="note" value="<%= c.note %>" placeholder="Không bắt buộc"></div>
+            <div class="household-form-action">
+              <button class="btn btn-success" data-loading-text="Đang lưu...">Lưu</button>
+              <button class="btn btn-danger" form="hh-cost-del-<%= c.id %>" data-loading-text="Đang xoá...">Xoá</button>
+            </div>
+          </form>
+        <% }) %>
+
+        <h2 class="section-title mb">➕ Thêm khoản cố định</h2>
+        <form class="household-form" method="post" action="/household/fixed-costs"><input type="hidden" name="book" value="<%= currentBook.id %>">
+          <input type="hidden" name="month" value="<%= report.month %>">
+          <div><label>Tên khoản</label><input name="name" placeholder="Gửi xe ô tô / Xăng xe" required></div>
+          <div><label>Cách chi</label>
+            <select name="mode">
+              <option value="once" selected>Chi 1 lần</option>
+              <option value="gradual">Chi dần</option>
+              <option value="weekly">Theo tuần</option>
+            </select>
+          </div>
+          <div><label>Trần/tháng</label><input class="money-input" name="capAmount"></div>
+          <div><label>Mức tuần riêng</label><input class="money-input" name="weeklyRate" placeholder="<%= formatMoney(config.weeklyRate) %>"></div>
+          <div><label>Áp dụng từ tháng</label><input type="month" name="startMonth" value="<%= report.month %>"></div>
+          <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
+        </form>
+
+        <% if (!book.fixedCosts.length) { %>
+          <form class="mt" method="post" action="/household/seed"><input type="hidden" name="book" value="<%= currentBook.id %>">
+            <input type="hidden" name="month" value="<%= report.month %>">
+            <input type="hidden" name="section" value="chi-phi-co-dinh">
+            <button class="btn btn-sm" data-loading-text="Đang nạp...">📋 Nạp danh mục mẫu</button>
+          </form>
+        <% } %>
+      </div>
+    </details>
+  <% } %>
+
+  <!-- ═══ 5. CHI PHÍ PHÁT SINH ═══ -->
+  <% if (section === 'phat-sinh') { %>
+    <section class="card-lite mb">
+      <div class="card-hdr warn"><span>🎁 Chi phí phát sinh tháng <%= monthLabel(report.month) %></span><span><%= money(report.extraTotal) %></span></div>
+      <div class="p">
+        <div class="alert-lite mb">
+          Chọn <strong>lấy tiền từ đâu</strong>: khoản chi mới thì trừ thẳng vào tiền còn thừa
+          (<%= money(report.extraNew) %> tháng này); lấy từ một khoản chi phí cố định
+          (<%= money(report.extraFromFixed) %>) hoặc một quỹ tiết kiệm (<%= money(report.extraFromFund) %>)
+          thì chỉ ghi vào chỗ đó, <strong>không trừ thêm lần nữa</strong>.
+        </div>
+        <form class="household-form mb" method="post" action="/household/extras"><input type="hidden" name="book" value="<%= currentBook.id %>">
           <div><label>Ngày chi</label><input type="date" name="occurredAt" value="<%= today %>" required></div>
-          <div><label>Nội dung</label><input name="description" placeholder="Cà phê, đi chợ, tiền điện..."></div>
-          <div><label>Của ai</label>
-            <select name="memberId">
-              <option value="">🏠 Chi chung</option>
-              <% members.forEach((m) => { %><option value="<%= m.id %>"><%= m.name %></option><% }) %>
+          <div><label>Nội dung</label><input name="name" placeholder="Cưới abc, ăn ngoài sinh nhật..." required></div>
+          <div><label>Lấy tiền từ</label>
+            <select name="pick">
+              <option value="new" selected>🆕 Khoản chi mới</option>
+              <% if (book.fixedCosts.length) { %>
+                <optgroup label="📌 Chi phí cố định">
+                  <% book.fixedCosts.forEach((c) => { %><option value="fixed:<%= c.id %>"><%= c.name %></option><% }) %>
+                </optgroup>
+              <% } %>
+              <% if (book.funds.length) { %>
+                <optgroup label="🐷 Quỹ tiết kiệm">
+                  <% book.funds.forEach((f) => { %><option value="fund:<%= f.id %>"><%= f.name %></option><% }) %>
+                </optgroup>
+              <% } %>
             </select>
           </div>
           <div><label>Số tiền</label><input class="money-input" name="amount" required></div>
           <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang lưu...">Thêm</button></div>
         </form>
         <div class="table-wrap"><table>
-          <thead><tr><th>Ngày</th><th>Nội dung</th><th>Của ai</th><th>Tiền</th><th></th></tr></thead>
+          <thead><tr><th>Ngày</th><th>Nội dung</th><th>Lấy từ</th><th>Số tiền</th><th></th></tr></thead>
           <tbody>
-            <% txns.forEach((t) => { %>
+            <% book.extraCosts.forEach((e) => { %>
               <tr>
-                <td><%= dmy(t.occurredAt) %></td>
-                <td><strong><%= t.description || '(không ghi)' %></strong></td>
-                <td><%= t.member ? t.member.name : '🏠 Chi chung' %></td>
-                <td><strong><%= formatMoney(t.amount) %>đ</strong></td>
-                <td class="text-right"><form method="post" action="/household/txns/<%= t.id %>/delete" data-confirm="Xoá khoản chi này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
+                <td><%= dmy(e.occurredAt) %></td>
+                <td><strong><%= e.name %></strong></td>
+                <td>
+                  <%= SOURCE_LABEL[e.source] || SOURCE_LABEL.new %>
+                  <% if (e.source === 'fixed' && costById.get(String(e.fixedCostId))) { %><br><span class="muted"><%= costById.get(String(e.fixedCostId)).name %></span><% } %>
+                  <% if (e.source === 'fund' && fundById.get(String(e.fundId))) { %><br><span class="muted"><%= fundById.get(String(e.fundId)).name %></span><% } %>
+                </td>
+                <td><strong><%= money(e.amount) %></strong></td>
+                <td class="text-right"><form method="post" action="/household/extras/<%= e.id %>/delete" data-confirm="Xoá khoản phát sinh này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
               </tr>
             <% }) %>
-            <% if (!txns.length) { %><tr><td colspan="5" class="muted text-center">Chưa ghi khoản chi nào.</td></tr><% } %>
+            <% if (!book.extraCosts.length) { %><tr><td colspan="5" class="muted text-center">Tháng này chưa có khoản phát sinh nào.</td></tr><% } %>
           </tbody>
         </table></div>
       </div>
@@ -253,9 +566,9 @@
     <% } %>
 
     <section class="card-lite p tournament-edit-card mb">
-      <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt chung</h2><p class="muted">Mức tiền tiêu mặc định và mốc bắt đầu theo dõi.</p></div></div>
+      <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt chung</h2><p class="muted">Mức sinh hoạt theo tuần và mốc bắt đầu theo dõi.</p></div></div>
       <form class="household-form" method="post" action="/household/config"><input type="hidden" name="book" value="<%= currentBook.id %>">
-        <div><label>Tiền tiêu mỗi tuần / người</label><input class="money-input" name="weeklyAllowance" value="<%= formatMoney(config.weeklyAllowance) %>"></div>
+        <div><label>Mức sinh hoạt mỗi tuần</label><input class="money-input" name="weeklyRate" value="<%= formatMoney(config.weeklyRate) %>"></div>
         <div><label>Tuần bắt đầu từ</label>
           <select name="weekStartDow">
             <% const dows = [['1','Thứ Hai'],['2','Thứ Ba'],['3','Thứ Tư'],['4','Thứ Năm'],['5','Thứ Sáu'],['6','Thứ Bảy'],['0','Chủ Nhật']]; %>
@@ -265,60 +578,20 @@
         <div><label>Ngày bắt đầu theo dõi</label><input type="date" name="anchorDate" value="<%= ymd(config.anchorDate) %>"></div>
         <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu cài đặt</button></div>
       </form>
-      <p class="muted">Mức mặc định áp dụng cho mọi người không đặt mức riêng. Ngày bắt đầu theo dõi quyết định số tuần đã trích tiền tiêu.</p>
+      <p class="muted">
+        Mức sinh hoạt tuần áp dụng cho các khoản chi phí cố định kiểu <strong>Theo tuần</strong> nào không đặt mức riêng —
+        tháng <%= report.weeksInMonth %> tuần thì trần của khoản đó là <%= money(report.weeksInMonth * Number(config.weeklyRate)) %>.
+      </p>
     </section>
 
-    <section class="card-lite">
-      <div class="card-hdr green"><span>👨‍👩‍👦 Thành viên nhận tiền tiêu</span><span><%= members.length %> người</span></div>
-      <div class="p">
-        <div class="alert-lite mb">
-          <strong>Hàng tuần</strong> (vợ chồng): nhận đủ mức mỗi đầu tuần, số dư tuần cũ bị xoá.<br>
-          <strong>Hàng tháng</strong> (con): cầm mức đó cho cả tháng, tiêu không hết thì dồn sang tháng sau. Nhà vẫn dành
-          <%= formatMoney(config.weeklyAllowance) %>đ/tuần cho con — phần chênh vào 🧸 quỹ tiết kiệm của con, con tiêu quá thì quỹ đó vơi đi.
-        </div>
-
-        <% members.forEach((m) => { %>
-          <%# Form xoá để rỗng, nút Xoá nằm trong form sửa và trỏ sang bằng thuộc tính `form`
-              (HTML không cho lồng form) — nhờ vậy Lưu và Xoá đứng cạnh nhau trên cùng một hàng. %>
-          <form id="hh-del-<%= m.id %>" method="post" action="/household/members/<%= m.id %>/delete"
-                data-confirm="Xoá <%= m.name %>? Các khoản chi cũ của người này sẽ chuyển thành chi chung."><input type="hidden" name="book" value="<%= currentBook.id %>"></form>
-          <form class="household-form household-member-row" method="post" action="/household/members/<%= m.id %>"><input type="hidden" name="book" value="<%= currentBook.id %>">
-            <div><label>Tên</label><input name="name" value="<%= m.name %>" required></div>
-            <div><label>Chu kỳ nhận</label>
-              <select name="cycle">
-                <option value="weekly" <%= m.cycle === 'monthly' ? '' : 'selected' %>>Hàng tuần</option>
-                <option value="monthly" <%= m.cycle === 'monthly' ? 'selected' : '' %>>Hàng tháng (con)</option>
-              </select>
-            </div>
-            <div><label>Mức riêng</label><input class="money-input" name="allowance" value="<%= m.allowance === null ? '' : formatMoney(m.allowance) %>" placeholder="<%= formatMoney(config.weeklyAllowance) %>"></div>
-            <div><label>Nhận từ ngày</label><input type="date" name="startedOn" value="<%= ymd(m.startedOn) %>"></div>
-            <div><label>Trạng thái</label>
-              <select name="active">
-                <option value="true" <%= m.active ? 'selected' : '' %>>Đang nhận</option>
-                <option value="false" <%= m.active ? '' : 'selected' %>>Tạm dừng</option>
-              </select>
-            </div>
-            <div class="household-form-action">
-              <button class="btn btn-success" data-loading-text="Đang lưu...">Lưu</button>
-              <button class="btn btn-danger" form="hh-del-<%= m.id %>" data-loading-text="Đang xoá...">Xoá</button>
-            </div>
-          </form>
-        <% }) %>
-
-        <h2 class="section-title mb">➕ Thêm thành viên</h2>
-        <form class="household-form" method="post" action="/household/members"><input type="hidden" name="book" value="<%= currentBook.id %>">
-          <div><label>Tên</label><input name="name" placeholder="Chồng / Vợ / Con zai" required></div>
-          <div><label>Chu kỳ nhận</label>
-            <select name="cycle">
-              <option value="weekly" selected>Hàng tuần</option>
-              <option value="monthly">Hàng tháng (con)</option>
-            </select>
-          </div>
-          <div><label>Mức riêng</label><input class="money-input" name="allowance" placeholder="<%= formatMoney(config.weeklyAllowance) %>"></div>
-          <div><label>Nhận từ ngày</label><input type="date" name="startedOn" value="<%= ymd(config.anchorDate) %>"></div>
-          <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
-        </form>
-      </div>
+    <section class="card-lite p tournament-edit-card mb">
+      <div class="section-heading mb"><div><span class="feature-icon">📋</span><h2 class="section-title">Danh mục mẫu</h2><p class="muted">Dựng sẵn các quỹ, khoản nợ và chi phí cố định theo bảng tính của gia đình.</p></div></div>
+      <form method="post" action="/household/seed"><input type="hidden" name="book" value="<%= currentBook.id %>">
+        <input type="hidden" name="month" value="<%= report.month %>">
+        <input type="hidden" name="section" value="cai-dat">
+        <button class="btn btn-success" data-loading-text="Đang nạp...">Nạp danh mục mẫu</button>
+      </form>
+      <p class="muted">Chỉ nạp phần nào đang trống, nên bấm nhiều lần cũng không sinh dòng trùng.</p>
     </section>
 
     <%# Phân quyền: chỉ CHỦ SỔ thấy phần này. Người được mời vẫn xem/sửa được sổ

@@ -351,7 +351,9 @@ model MedPrescription {
   doctor         String    @default("") @db.VarChar(255)
   clinic         String    @default("") @db.VarChar(255)
   diagnosis      String    @default("")
-  /** Ngày tái khám ghi trong đơn — sinh thêm một lời nhắc buổi sáng hôm đó. */
+  /**
+   * Ngày tái khám ghi trong đơn — sinh thêm một lời nhắc buổi sáng hôm đó.
+   */
   followUpDate   DateTime? @map("follow_up_date") @db.Date
   imageData      String?   @map("image_data")
   imageMime      String?   @map("image_mime") @db.VarChar(80)
@@ -361,17 +363,17 @@ model MedPrescription {
 
   // Lịch đã chốt. Lưu lại để máy khác (hoặc chính máy này lấy lại sau vài ngày)
   // sinh ra đúng phần liệu trình CÒN LẠI, không nạp lại những cữ đã uống xong.
-  scheduleStart DateTime? @map("schedule_start") @db.Date
-  scheduleSlot  String    @default("") @map("schedule_slot") @db.VarChar(10)
+  scheduleStart   DateTime? @map("schedule_start") @db.Date
+  scheduleSlot    String    @default("") @map("schedule_slot") @db.VarChar(10)
   // Đơn đã bị dừng khi có đơn mới thay thế. Vẫn giữ scheduleStart để hiển thị lịch sử.
-  scheduleStopped Boolean @default(false) @map("schedule_stopped")
+  scheduleStopped Boolean   @default(false) @map("schedule_stopped")
   /**
    * KHÔNG CÒN DÙNG. Trước đây đếm số cữ của lần xuất .ics gần nhất để lần sau biết phần
    * dôi ra mà gửi lệnh huỷ — nhưng đã kiểm chứng là iPhone bỏ qua mọi lệnh huỷ, nên phần
    * đó đã gỡ (xem chú thích đầu src/medical/ics.ts). Giữ lại cột vì xoá cột phải chạy
    * migration trên DB thật mà chẳng được lợi gì; không code nào đọc hay ghi nó nữa.
    */
-  icsDoseCount Int @default(0) @map("ics_dose_count")
+  icsDoseCount    Int       @default(0) @map("ics_dose_count")
 
   patient MedPatient            @relation(fields: [patientId], references: [id], onDelete: Cascade)
   items   MedPrescriptionItem[]
@@ -391,33 +393,31 @@ model MedPrescriptionItem {
 
   // Các trường dưới phục vụ lên lịch nhắc uống thuốc.
   // enabled=false là thuốc người dùng quyết định bỏ (bác sĩ gạch, hoặc đã có sẵn ở nhà).
-  enabled     Boolean @default(true)
+  enabled          Boolean @default(true)
   // timesPerDay/days do AI đọc ra nhưng người dùng sửa lại được ở màn hình đơn thuốc.
   // 0 = chưa xác định -> không đưa vào lịch, bắt người dùng điền.
-  timesPerDay Int     @default(0) @map("times_per_day")
+  timesPerDay      Int     @default(0) @map("times_per_day")
   // Số ngày là số thực, KHÔNG phải số nguyên: đơn hay cấp theo số lượng chứ không theo
   // ngày (vd Budesonid 5 ống, khí dung ngày 2 lần = 2,5 ngày). Ép về số nguyên là sai liều.
-  days        Float   @default(0)
-  quantity    String  @default("") @db.VarChar(80)
+  days             Float   @default(0)
+  quantity         String  @default("") @db.VarChar(80)
   // Số lượng dạng số đọc từ đơn (5 ống -> 5). Dùng để suy ra số ngày khi đơn không ghi.
-  quantityCount Int   @default(0) @map("quantity_count")
+  quantityCount    Int     @default(0) @map("quantity_count")
   // days được suy ra TỪ số lượng (không phải đơn ghi). Khi đó số ngày và số lượng khớp
   // nhau theo định nghĩa nên không được cảnh báo lệch.
   daysFromQuantity Boolean @default(false) @map("days_from_quantity")
   // Thuốc dùng KHI CẦN (hạ sốt khi sốt, khí dung khi khó thở): không lên lịch nhắc,
   // nhắc đều đặn thuốc loại này là sai — nhưng vẫn đếm vào tủ thuốc.
-  asNeeded Boolean @default(false) @map("as_needed")
+  asNeeded         Boolean @default(false) @map("as_needed")
 
   /**
    * Đơn GỐC của thuốc này, nếu nó được chuyển sang từ đơn cũ (applyTransition).
    * NULL = thuốc mới kê trong chính đơn đang chứa nó.
-   *
    * Cần lưu vì lúc chuyển, thuốc được CHÉP hẳn sang đơn mới nên mất dấu nguồn. Không có
    * cột này thì trên màn hình lịch không phân biệt được "thuốc mới bác sĩ kê hôm nay" với
    * "thuốc từ đợt trước uống tiếp" — mà đó đúng là thứ cần nhìn ra ngay để soát cho đúng.
    * Trước đây chỉ nhét chữ vào `duration` ("còn N ngày (chuyển từ đơn cũ)"), không tra
    * ngược ra được đơn nào.
-   *
    * KHÔNG đặt quan hệ khoá ngoại: xoá đơn cũ thì thuốc đã chuyển vẫn phải sống tiếp ở đơn
    * mới. Chỉ là con trỏ mềm, tra không thấy thì hiện "đơn cũ" chung chung.
    */
@@ -425,11 +425,9 @@ model MedPrescriptionItem {
 
   /**
    * Số lượng NGƯỜI DÙNG THẬT SỰ MUA cho thuốc này. NULL = chưa quyết định.
-   *
    * Không suy ra được: đơn cần 10, nhà còn 7 thì có người mua 3 cho vừa đủ, có người mua
    * đủ 10 để nhà còn dư phòng khi tái phát. Hai lựa chọn ra hai số tồn kho khác hẳn nhau
    * nên bắt buộc phải hỏi.
-   *
    * Dùng để chỉnh tủ thuốc theo công thức: tủ = tủ_cũ + đã_mua − đơn_cần (kẹp ≥ 0).
    * Lưu lại chứ không chỉ tính rồi bỏ, vì còn phải biết lần sửa sau chênh bao nhiêu mà
    * cộng trừ cho đúng — không thì sửa số hai lần là tủ sai gấp đôi.
@@ -438,11 +436,9 @@ model MedPrescriptionItem {
 
   /**
    * Số thuốc nhà ĐANG CÓ tại đúng lúc khai quyết định mua. NULL = chưa khai.
-   *
    * Phải chụp lại vì ngay sau khi khai, tủ bị trừ phần đơn này dùng nên con số đó không
    * còn dựng lại được. Không có nó thì cảnh báo thiếu tính sai: nhà còn 4, đơn cần 7, mua
    * 0 -> phải báo thiếu 3, nhưng đọc tủ (đã về 0) sẽ ra thiếu 7.
-   *
    * Thiếu = đơn_cần − đã_mua − tồn_lúc_khai. Ba số đều cố định nên cảnh báo đúng mãi mãi,
    * không phụ thuộc tủ về sau bị sửa gì.
    */
@@ -451,21 +447,19 @@ model MedPrescriptionItem {
   /**
    * Cảnh báo an toàn của AI cho RIÊNG thuốc này: trùng hoạt chất, cùng nhóm kháng sinh,
    * tương tác với thuốc đang uống dở hoặc với thuốc còn trong tủ.
-   *
    * Cố ý lưu theo TỪNG DÒNG THUỐC chứ không gộp vào aiSummary của cả đơn: cảnh báo gộp ở
    * đầu trang thì lúc soát tới thuốc thứ 5 phải nhớ lại xem băng-rôn nói về thuốc nào,
    * cuộn lên cuộn xuống đối chiếu — đúng thứ dễ bỏ sót nhất lại nằm ở chỗ khó kiểm soát
    * nhất. Cùng lý do với tồn kho tủ thuốc (xem stockAtPurchase, .med-row-stock).
-   *
    * aiWarnLevel: rỗng = không có gì đáng nói (màn hình im lặng), CHECK = nên để ý,
    * WARN = phải hỏi lại bác sĩ/dược sĩ trước khi cho uống.
    */
   aiWarnLevel String @default("") @map("ai_warn_level") @db.VarChar(10)
   aiWarnNote  String @default("") @map("ai_warn_note")
   // UONG | NHO_MUI | KHI_DUNG | XIT | BOI | KHAC
-  route       String  @default("") @db.VarChar(20)
+  route       String @default("") @db.VarChar(20)
   // SAU_AN | TRUOC_AN | TRUOC_NGU | rỗng
-  timing      String  @default("") @db.VarChar(20)
+  timing      String @default("") @db.VarChar(20)
 
   prescription MedPrescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
 
@@ -478,22 +472,28 @@ model MedPrescriptionItem {
  * hạn dùng phụ thuộc cách bảo quản, đếm tồn không có ý nghĩa.
  */
 model MedCabinetItem {
-  id           BigInt   @id @default(autoincrement())
-  ownerAdminId BigInt   @map("owner_admin_id")
-  drugName     String   @map("drug_name") @db.VarChar(255)
-  /** Tên đã chuẩn hoá (bỏ dấu, bỏ hàm lượng, bỏ tên biệt dược trong ngoặc) để đối chiếu đơn mới. */
-  matchKey     String   @map("match_key") @db.VarChar(255)
-  unit         String   @default("") @db.VarChar(20)
-  quantity     Int      @default(0)
-  /** Ngày mua = ngày kê đơn, dùng để AI ước lượng hạn khi người dùng không điền. */
+  id           BigInt    @id @default(autoincrement())
+  ownerAdminId BigInt    @map("owner_admin_id")
+  drugName     String    @map("drug_name") @db.VarChar(255)
+  /**
+   * Tên đã chuẩn hoá (bỏ dấu, bỏ hàm lượng, bỏ tên biệt dược trong ngoặc) để đối chiếu đơn mới.
+   */
+  matchKey     String    @map("match_key") @db.VarChar(255)
+  unit         String    @default("") @db.VarChar(20)
+  quantity     Int       @default(0)
+  /**
+   * Ngày mua = ngày kê đơn, dùng để AI ước lượng hạn khi người dùng không điền.
+   */
   purchasedAt  DateTime? @map("purchased_at") @db.Date
   expiryDate   DateTime? @map("expiry_date") @db.Date
-  /** Kết quả AI ước lượng hạn (chỉ dùng khi expiryDate trống). */
-  aiExpiryNote String?  @map("ai_expiry_note")
-  aiExpiryRisk String?  @map("ai_expiry_risk") @db.VarChar(20)
-  note         String   @default("")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+  /**
+   * Kết quả AI ước lượng hạn (chỉ dùng khi expiryDate trống).
+   */
+  aiExpiryNote String?   @map("ai_expiry_note")
+  aiExpiryRisk String?   @map("ai_expiry_risk") @db.VarChar(20)
+  note         String    @default("")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
 
   @@index([ownerAdminId, matchKey])
   @@map("med_cabinet_item")
@@ -660,29 +660,35 @@ model TravelTripExpenseSplit {
 }
 
 // ─── Module Quản Lý Chi Tiêu (household) ───
-// Sổ chi tiêu gia đình NHẬP TAY (không quét email). Lương 2 vợ chồng gộp vào quỹ
-// chung → trích ra tiết kiệm / trả nợ / khoản khác → phần còn lại phát tiền tiêu
-// hàng tuần cho từng thành viên. Xem docs/quan-ly-chi-tieu.md.
+// Sổ chi tiêu gia đình NHẬP TAY, dựng đúng theo bảng tính chiphi.xlsx của chủ nhà:
+// Thu → Tiết kiệm → Trả nợ → Chi phí cố định → Chi phí phát sinh → Còn thừa.
+// Xem docs/quan-ly-chi-tieu.md.
 
 /// Một SỔ chi tiêu, đồng thời là cấu hình của sổ đó. Đây là gốc phân quyền của module,
 /// đóng đúng vai trò Tournament / TeamClub ở các module khác: mỗi admin có sổ riêng và
 /// có thể cấp quyền cho admin khác cùng xem/sửa. Mọi bảng con đều trỏ về đây qua
 /// `household_id`, nên không admin nào đọc được sổ của admin khác.
 model HouseholdConfig {
-  id              Int      @id @default(autoincrement())
-  ownerAdminId    BigInt?  @map("owner_admin_id")
-  name            String   @default("Sổ chi tiêu gia đình") @db.VarChar(120)
-  weeklyAllowance BigInt   @default(500000) @map("weekly_allowance") // mặc định mỗi người mỗi tuần
-  weekStartDow    Int      @default(1) @map("week_start_dow") // 1 = Thứ Hai
-  anchorDate      DateTime @default(now()) @map("anchor_date") @db.Date
-  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+  id           Int      @id @default(autoincrement())
+  ownerAdminId BigInt?  @map("owner_admin_id")
+  name         String   @default("Sổ chi tiêu gia đình") @db.VarChar(120)
+  /// Mức sinh hoạt MỖI TUẦN dùng cho khoản chi phí cố định kiểu `weekly` (mặc định 500k):
+  /// tháng 4 tuần ⇒ trần 2 triệu, tháng 5 tuần ⇒ trần 2 triệu rưỡi.
+  weeklyRate   BigInt   @default(500000) @map("weekly_rate")
+  weekStartDow Int      @default(1) @map("week_start_dow") // 1 = Thứ Hai
+  anchorDate   DateTime @default(now()) @map("anchor_date") @db.Date
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
-  ownerAdmin  AppUser?              @relation("HouseholdOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
-  permissions HouseholdPermission[]
-  members     HouseholdMember[]
-  incomes     HouseholdIncome[]
-  allocations HouseholdAllocation[]
-  txns        HouseholdTxn[]
+  ownerAdmin   AppUser?               @relation("HouseholdOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
+  permissions  HouseholdPermission[]
+  incomes      HouseholdIncome[]
+  funds        HouseholdFund[]
+  fundEntries  HouseholdFundEntry[]
+  debts        HouseholdDebt[]
+  debtPayments HouseholdDebtPayment[]
+  fixedCosts   HouseholdFixedCost[]
+  fixedSpends  HouseholdFixedSpend[]
+  extraCosts   HouseholdExtraCost[]
 
   @@index([ownerAdminId])
   @@map("household_config")
@@ -702,32 +708,9 @@ model HouseholdPermission {
   @@map("household_permission")
 }
 
-/// Người được phát tiền tiêu (chồng, vợ, con...). Số người tuỳ ý thêm/xoá trong Cài đặt;
-/// ai không đặt mức riêng thì dùng mức mặc định ở HouseholdConfig.
-///
-/// `cycle` quyết định NHỊP NHẬN TIỀN, không đổi ngân sách nhà bỏ ra:
-/// - `weekly`  — nhận `allowance` mỗi đầu tuần, tuần mới xoá sạch số dư tuần cũ.
-/// - `monthly` — (dành cho con) chỉ nhận `allowance` mỗi đầu tháng; nhà vẫn dành ra
-///   mức tuần chuẩn, phần chênh dồn vào QUỸ TIẾT KIỆM riêng của người đó.
-model HouseholdMember {
-  id          BigInt   @id @default(autoincrement())
-  householdId Int      @map("household_id")
-  name        String   @db.VarChar(80)
-  cycle       String   @default("weekly") @db.VarChar(10) // weekly | monthly
-  allowance   BigInt? // tiền tiêu mỗi kỳ; null = theo mức mặc định
-  startedOn   DateTime @map("started_on") @db.Date // bắt đầu được phát từ tuần chứa ngày này
-  active      Boolean  @default(true)
-  sortOrder   Int      @default(0) @map("sort_order")
-  createdAt   DateTime @default(now()) @map("created_at")
+// ─── 1. THU ───
 
-  household HouseholdConfig @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  txns      HouseholdTxn[]
-
-  @@index([householdId])
-  @@map("household_member")
-}
-
-/// Tiền vào quỹ chung theo tháng: lương chồng, lương vợ, thưởng, thu khác.
+/// Tiền vào của một tháng: lương vợ, lương chồng, OT, thưởng, thu khác.
 model HouseholdIncome {
   id          BigInt   @id @default(autoincrement())
   householdId Int      @map("household_id")
@@ -743,38 +726,168 @@ model HouseholdIncome {
   @@map("household_income")
 }
 
-/// Khoản trích ra khỏi quỹ chung mỗi tháng (tiết kiệm, trả nợ, học phí, bảo hiểm...).
-model HouseholdAllocation {
+// ─── 2. TIẾT KIỆM ───
+
+/// Một quỹ tiết kiệm. Mỗi tháng tự nạp `monthly_amount` (không phải nhập lại), `kind`
+/// quyết định phần chưa tiêu đi đâu:
+/// - `accumulate` — cộng dồn mãi qua các tháng (tiết kiệm 2 vợ chồng, tiết kiệm con).
+/// - `reserve`    — dự phòng / y tế: KHÔNG cộng dồn, hết tháng còn thừa bao nhiêu dồn hết
+///                  sang quỹ `fun`.
+/// - `fun`        — quỹ Đi chơi: cộng dồn, và nhận thêm phần thừa của mọi quỹ `reserve`.
+model HouseholdFund {
+  id            BigInt   @id @default(autoincrement())
+  householdId   Int      @map("household_id")
+  name          String   @db.VarChar(80)
+  kind          String   @default("accumulate") @db.VarChar(12) // accumulate | reserve | fun
+  monthlyAmount BigInt   @default(0) @map("monthly_amount")
+  startMonth    String   @map("start_month") @db.VarChar(7) // nạp từ tháng này trở đi
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  household  HouseholdConfig      @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  entries    HouseholdFundEntry[]
+  extraCosts HouseholdExtraCost[]
+
+  @@index([householdId])
+  @@map("household_fund")
+}
+
+/// Nạp thêm (`in`) hoặc rút ra dùng (`out`) một quỹ trong một tháng — ngoài mức nạp
+/// mặc định hàng tháng của quỹ.
+model HouseholdFundEntry {
   id          BigInt   @id @default(autoincrement())
   householdId Int      @map("household_id")
-  month       String   @db.VarChar(7) // YYYY-MM
-  kind        String   @default("other") @db.VarChar(20) // savings | debt | other
-  name        String   @db.VarChar(80)
+  fundId      BigInt   @map("fund_id")
+  month       String   @db.VarChar(7)
+  occurredAt  DateTime @map("occurred_at") @db.Date
+  direction   String   @default("out") @db.VarChar(3) // in | out
   amount      BigInt   @default(0)
   note        String   @default("")
   createdAt   DateTime @default(now()) @map("created_at")
 
   household HouseholdConfig @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  fund      HouseholdFund   @relation(fields: [fundId], references: [id], onDelete: Cascade)
 
   @@index([householdId, month])
-  @@map("household_allocation")
+  @@index([fundId])
+  @@map("household_fund_entry")
 }
 
-/// Một khoản chi thực tế. memberId = null nghĩa là CHI CHUNG (trừ vào quỹ chung),
-/// có memberId thì trừ vào ví tiền tuần của người đó.
-model HouseholdTxn {
+// ─── 3. TRẢ NỢ ───
+
+/// Một khoản nợ. `initial_amount` là tiền nợ ban đầu; nợ còn lại = số này trừ đi TỔNG
+/// tiền gốc đã trả (lãi không làm giảm nợ).
+model HouseholdDebt {
+  id            BigInt   @id @default(autoincrement())
+  householdId   Int      @map("household_id")
+  name          String   @db.VarChar(80)
+  initialAmount BigInt   @default(0) @map("initial_amount")
+  startMonth    String   @map("start_month") @db.VarChar(7)
+  active        Boolean  @default(true)
+  sortOrder     Int      @default(0) @map("sort_order")
+  note          String   @default("")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  household HouseholdConfig        @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  payments  HouseholdDebtPayment[]
+
+  @@index([householdId])
+  @@map("household_debt")
+}
+
+/// Tiền gốc + lãi đã trả cho một khoản nợ trong một tháng. Mỗi khoản nợ chỉ có MỘT dòng
+/// mỗi tháng — sửa là ghi đè, nên không bao giờ cộng trùng.
+model HouseholdDebtPayment {
   id          BigInt   @id @default(autoincrement())
   householdId Int      @map("household_id")
-  occurredAt  DateTime @map("occurred_at")
-  memberId    BigInt?  @map("member_id")
-  amount      BigInt   @default(0)
-  description String   @default("")
+  debtId      BigInt   @map("debt_id")
+  month       String   @db.VarChar(7)
+  principal   BigInt   @default(0) // gốc
+  interest    BigInt   @default(0) // lãi
+  note        String   @default("")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  household HouseholdConfig  @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  member    HouseholdMember? @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  household HouseholdConfig @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  debt      HouseholdDebt   @relation(fields: [debtId], references: [id], onDelete: Cascade)
 
-  @@index([householdId, occurredAt])
-  @@index([memberId])
-  @@map("household_txn")
+  @@unique([debtId, month])
+  @@index([householdId, month])
+  @@map("household_debt_payment")
+}
+
+// ─── 4. CHI PHÍ CỐ ĐỊNH ───
+
+/// Khoản phải chi hàng tháng, có TRẦN mỗi tháng. `mode` quyết định cách tính "đã chi":
+/// - `once`    — thường chi hết luôn một lần: chưa ghi khoản nào thì mặc định coi như đã
+///               chi đủ trần (gửi xe, học phí, đưa ông bà...).
+/// - `gradual` — chi dần, cộng theo từng lần ghi; trần chưa dùng hết đẩy vào phần còn thừa.
+/// - `weekly`  — sinh hoạt vợ/chồng: trần = số tuần của tháng × mức tuần, và HẾT TUẦN NÀO
+///               thì tuần đó mặc định coi như đã chi hết mức tuần.
+model HouseholdFixedCost {
+  id          BigInt   @id @default(autoincrement())
+  householdId Int      @map("household_id")
+  name        String   @db.VarChar(80)
+  mode        String   @default("once") @db.VarChar(10) // once | gradual | weekly
+  capAmount   BigInt   @default(0) @map("cap_amount") // trần/tháng; mode weekly thì tự tính
+  weeklyRate  BigInt?  @map("weekly_rate") // riêng mode weekly; null = theo mức chung ở Cài đặt
+  startMonth  String   @map("start_month") @db.VarChar(7)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0) @map("sort_order")
+  note        String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household  HouseholdConfig       @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  spends     HouseholdFixedSpend[]
+  extraCosts HouseholdExtraCost[]
+
+  @@index([householdId])
+  @@map("household_fixed_cost")
+}
+
+/// Một lần chi thực tế cho khoản cố định (đổ xăng, mua bỉm, sinh hoạt tuần này...).
+model HouseholdFixedSpend {
+  id          BigInt   @id @default(autoincrement())
+  householdId Int      @map("household_id")
+  costId      BigInt   @map("cost_id")
+  month       String   @db.VarChar(7)
+  occurredAt  DateTime @map("occurred_at") @db.Date
+  amount      BigInt   @default(0)
+  note        String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household HouseholdConfig    @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  cost      HouseholdFixedCost @relation(fields: [costId], references: [id], onDelete: Cascade)
+
+  @@index([householdId, month])
+  @@index([costId])
+  @@map("household_fixed_spend")
+}
+
+// ─── 5. CHI PHÍ PHÁT SINH ───
+
+/// Khoản chi ngoài kế hoạch. `source` cho biết tiền lấy từ đâu — chính chỗ này quyết định
+/// nó có trừ thêm vào phần còn thừa hay không:
+/// - `new`   — khoản chi mới: trừ thẳng vào tiền còn thừa của tháng.
+/// - `fixed` — lấy từ một khoản chi phí cố định: tính là một lần chi của khoản đó.
+/// - `fund`  — lấy từ một quỹ tiết kiệm: tính là một lần rút quỹ đó.
+model HouseholdExtraCost {
+  id          BigInt   @id @default(autoincrement())
+  householdId Int      @map("household_id")
+  month       String   @db.VarChar(7)
+  occurredAt  DateTime @map("occurred_at") @db.Date
+  name        String   @db.VarChar(120)
+  amount      BigInt   @default(0)
+  source      String   @default("new") @db.VarChar(8) // new | fixed | fund
+  fixedCostId BigInt?  @map("fixed_cost_id")
+  fundId      BigInt?  @map("fund_id")
+  note        String   @default("")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household HouseholdConfig     @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  fixedCost HouseholdFixedCost? @relation(fields: [fixedCostId], references: [id], onDelete: SetNull)
+  fund      HouseholdFund?      @relation(fields: [fundId], references: [id], onDelete: SetNull)
+
+  @@index([householdId, month])
+  @@map("household_extra_cost")
 }

@@ -3,6 +3,7 @@ const test = require('node:test');
 const ejs = require('ejs');
 
 const { matchSnapshot } = require('./helpers/snapshot');
+const { buildMonthReport } = require('../dist/household/household-calc');
 
 const root = path.join(__dirname, '..');
 const renderView = (view, locals) => ejs.renderFile(path.join(root, 'src/views', view), locals);
@@ -89,44 +90,36 @@ function householdLocals(over = {}) {
     ownerAdmin: { id: 7n, username: 'admin', displayName: 'Admin' },
     permissions: [{ id: 5n, admin: { id: 9n, username: 'subadmin', displayName: 'Sub Admin' } }],
   };
-  const anchorDate = new Date('2026-07-06T00:00:00Z');
+  const anchorDate = new Date('2026-06-01T00:00:00Z');
+  const config = { id: 1, weeklyRate: 500000n, weekStartDow: 1, anchorDate };
+  // Sổ rỗng: snapshot này chỉ soi khung phân quyền, không cần số liệu tiền nong.
+  const report = buildMonthReport({
+    config,
+    month: '2026-06',
+    now: new Date('2026-06-15T00:00:00Z'),
+    incomes: [],
+    funds: [],
+    fundEntries: [],
+    debts: [],
+    debtPayments: [],
+    fixedCosts: [],
+    fixedSpends: [],
+    extraCosts: [],
+  });
   return {
     ...locals({ featureSet: new Set(['HOUSEHOLD']), path: '/household/cai-dat' }),
     section: 'cai-dat',
-    config: { id: 1, weeklyAllowance: 500000n, weekStartDow: 1, anchorDate },
-    summary: {
-      defaultWeeklyAllowance: 500000,
-      weekStartDow: 1,
-      anchorDate,
-      wallets: [],
-      weeklyPayout: 0,
-      totalIncome: 0,
-      manualAllocation: 0,
-      savingsTotal: 0,
-      debtTotal: 0,
-      otherAllocationTotal: 0,
-      allowanceBudget: 0,
-      kidSavingsTotal: 0,
-      commonSpent: 0,
-      overspendTotal: 0,
-      potBalance: 0,
-      spentThisWeek: 0,
-      spentThisMonth: 0,
-      spentTotal: 0,
-    },
-    members: [{ id: 1n, name: 'Chồng', cycle: 'weekly', allowance: null, startedOn: anchorDate, active: true }],
-    txns: [],
+    config,
+    report,
     book: {
-      month: '2026-07',
+      report,
       incomes: [],
-      allocations: [],
-      incomeTotal: 0,
-      allocationTotal: 0,
-      manualAllocationTotal: 0,
-      allowanceCost: 0,
-      weeksInMonth: 4,
-      leftover: 0,
-      months: ['2026-07'],
+      funds: [],
+      fundEntries: [],
+      debts: [],
+      fixedCosts: [],
+      fixedSpends: [],
+      extraCosts: [],
     },
     books: [currentBook],
     currentBook,

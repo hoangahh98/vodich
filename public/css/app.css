@@ -944,6 +944,34 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .household-member-row { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
 .household-hero-tools { display: flex; align-items: flex-end; gap: 10px; }
 
+/* Dải "còn thừa" của module chi tiêu: hiện ở mọi mục để lúc nào cũng thấy con số cuối cùng. */
+.hh-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.09); padding: 12px 16px; }
+.hh-strip > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.hh-strip span { font-size: 13px; font-weight: 700; color: var(--muted, #6c757d); }
+.hh-strip strong { font-size: 20px; line-height: 1.15; }
+.hh-strip-total { border-left: 3px solid #0d6efd; padding-left: 12px; }
+@media (max-width: 560px) { .hh-strip-total { border-left: 0; border-top: 1px solid var(--line); padding: 8px 0 0; } }
+.hh-pos { color: #198754; }
+.hh-neg { color: #dc3545; }
+.hh-big { font-size: 22px; }
+.hh-row-total td { border-top: 2px solid var(--line); font-size: 16px; }
+.hh-debt { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
+.hh-debt:last-child { border-bottom: 0; margin-bottom: 0; }
+
+/* Chi tiết từng tuần của khoản chi phí cố định kiểu "theo tuần" */
+.hh-weekrow td { background: #f8f9fa; }
+.hh-weeks { display: flex; flex-wrap: wrap; gap: 6px; }
+.hh-week { border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; border: 1px solid transparent; }
+.hh-week.closed { background: #e7f1ff; color: #084298; border-color: #cfe2ff; }
+.hh-week.manual { background: #d1e7dd; color: #0f5132; border-color: #badbcc; }
+.hh-week.open { background: #fff3cd; color: #664d03; border-color: #ffe69c; }
+
+/* Khung "danh mục" gập lại: phần cấu hình ít đụng tới nên mặc định đóng. */
+.hh-manage > summary { cursor: pointer; list-style: none; }
+.hh-manage > summary::-webkit-details-marker { display: none; }
+.hh-manage > summary::after { content: '▾'; font-weight: 800; }
+.hh-manage[open] > summary::after { content: '▴'; }
+
 /* Cài đặt chat (nhập tên/tuổi người học) */
 .chat-setup { width: 100%; max-width: 640px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.25); border-radius: 14px; padding: 12px; }
 .chat-setup label { color: #fff; font-size: 12px; margin-bottom: 4px; }
