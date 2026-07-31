@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import {
-  CATEGORY_KINDS,
+  EXPENSE_KINDS,
+  INCOME_KINDS,
   DEBT_DIRECTIONS,
   MonthReport,
   buildMonthReport,
@@ -54,7 +55,6 @@ export interface HouseholdBook {
     initialAmount: bigint;
     startDate: Date;
     dueDate: Date | null;
-    active: boolean;
     note: string;
   }>;
 }
@@ -90,17 +90,6 @@ export class HouseholdService {
     return this.prisma.householdConfig.findUnique({ where: { id: householdId } });
   }
 
-  async updateConfig(householdId: number, body: Record<string, string>) {
-    const anchor = parseDateOnly(body.anchorDate);
-    await this.prisma.householdConfig.update({
-      where: { id: householdId },
-      data: {
-        name: text(body.name, 120) || 'Sổ chi tiêu gia đình',
-        ...(anchor ? { anchorDate: anchor } : {}),
-      },
-    });
-  }
-
   // ─── Sổ của một tháng ───
 
   /**
@@ -134,19 +123,19 @@ export class HouseholdService {
   // ─── Loại thu nhập / loại chi phí ───
 
   addIncomeCategory(householdId: number, body: Record<string, string>) {
-    return this.addCategory('householdIncomeCategory', householdId, body);
+    return this.addCategory('householdIncomeCategory', INCOME_KINDS, householdId, body);
   }
 
   addExpenseCategory(householdId: number, body: Record<string, string>) {
-    return this.addCategory('householdExpenseCategory', householdId, body);
+    return this.addCategory('householdExpenseCategory', EXPENSE_KINDS, householdId, body);
   }
 
   updateIncomeCategory(householdId: number, id: bigint, body: Record<string, string>) {
-    return this.updateCategory('householdIncomeCategory', householdId, id, body);
+    return this.updateCategory('householdIncomeCategory', INCOME_KINDS, householdId, id, body);
   }
 
   updateExpenseCategory(householdId: number, id: bigint, body: Record<string, string>) {
-    return this.updateCategory('householdExpenseCategory', householdId, id, body);
+    return this.updateCategory('householdExpenseCategory', EXPENSE_KINDS, householdId, id, body);
   }
 
   /**
@@ -174,44 +163,20 @@ export class HouseholdService {
     return row?.month ?? currentMonth();
   }
 
-  /**
-   * Chép các khoản thu của tháng trước sang tháng đang xem — lương thường lặp y hệt.
-   *
-   * CHỈ chép loại `normal`. Khoản "người ta trả nợ" chép sang là tự trừ gốc một lần không có
-   * thật, còn "rút tiết kiệm" chép sang là tự móc két một lần không có thật — cả hai đều làm
-   * sai số của người dùng mà họ không hề bấm gì.
-   */
-  async copyIncomeFromPreviousMonth(householdId: number, rawMonth?: string): Promise<WriteResult> {
-    const month = normalizeMonth(rawMonth) ?? currentMonth();
-    const previous = previousMonth(month);
-    const [source, existing, plainCategories] = await Promise.all([
-      this.prisma.householdIncome.findMany({ where: { householdId, month: previous }, orderBy: { id: 'asc' } }),
-      this.prisma.householdIncome.findMany({ where: { householdId, month }, select: { categoryId: true } }),
-      this.prisma.householdIncomeCategory.findMany({ where: { householdId, kind: 'normal' }, select: { id: true } }),
-    ]);
-    const plain = new Set(plainCategories.map((row) => String(row.id)));
-    const taken = new Set(existing.map((row) => String(row.categoryId)));
-    const fresh = source.filter((row) => plain.has(String(row.categoryId)) && !taken.has(String(row.categoryId)));
-    if (!fresh.length) {
-      return { month, err: `Tháng ${label(previous)} không có khoản thu nào mới để chép` };
-    }
-    await this.prisma.householdIncome.createMany({
-      data: fresh.map((row) => ({
-        householdId,
-        categoryId: row.categoryId,
-        month,
-        occurredAt: firstDayOf(month),
-        amount: row.amount,
-        note: row.note,
-      })),
-    });
-    return { month, msg: `Đã chép ${fresh.length} khoản thu từ tháng ${label(previous)}` };
+  /** Chép các khoản thu loại thường của tháng trước sang tháng đang xem — lương lặp y hệt. */
+  copyIncomeFromPreviousMonth(householdId: number, rawMonth?: string): Promise<WriteResult> {
+    return this.copyFromPreviousMonth('income', householdId, rawMonth);
   }
 
   // ─── Khoản chi ───
 
   addExpense(householdId: number, body: Record<string, string>) {
     return this.addEntry('expense', householdId, body);
+  }
+
+  /** Chép các khoản chi CỐ ĐỊNH của tháng trước — đó là những khoản tháng nào cũng phải trả. */
+  copyExpenseFromPreviousMonth(householdId: number, rawMonth?: string): Promise<WriteResult> {
+    return this.copyFromPreviousMonth('expense', householdId, rawMonth);
   }
 
   async deleteExpense(householdId: number, id: bigint) {
@@ -257,7 +222,6 @@ export class HouseholdService {
         startDate: parseDateOnly(body.startDate) ?? debt.startDate,
         dueDate: parseDateOnly(body.dueDate),
         note: text(body.note, 500),
-        active: parseBool(body.active, debt.active),
       },
     });
     return { month, msg: 'Đã lưu khoản nợ' };
@@ -272,44 +236,57 @@ export class HouseholdService {
     return count;
   }
 
-  // ─── Nạp danh mục mẫu ───
+  // ─── Dùng chung ───
 
   /**
-   * Dựng sẵn vài loại thu/chi thường gặp để sổ mới có cái mà sửa, thay vì bắt gõ lại từ con
-   * số không. Chỉ nạp phần nào đang RỖNG, nên bấm hai lần không sinh trùng.
-   * KHÔNG nạp sẵn khoản nợ hay số tiền nào — tiền là của chủ sổ, tự khai.
+   * Chép các khoản LẶP LẠI của tháng trước sang tháng đang xem: bên thu là loại `normal`
+   * (lương), bên chi là loại `fixed` (học phí, gửi xe, tiền nhà).
+   *
+   * CHỈ chép đúng một kiểu đó. Chép "trả nợ" sang là tự trừ gốc một lần không có thật; chép
+   * "gửi/rút tiết kiệm" sang là tự đụng vào két một lần không có thật; chép "phát sinh" sang
+   * là bịa ra một khoản chưa hề tiêu. Cả ba đều làm sai số của người dùng mà họ không bấm gì.
+   *
+   * Loại nào tháng này đã có khoản rồi thì bỏ qua, nên bấm hai lần không sinh trùng.
    */
-  async seedTemplate(householdId: number, rawMonth?: string): Promise<WriteResult> {
+  private async copyFromPreviousMonth(side: 'income' | 'expense', householdId: number, rawMonth?: string): Promise<WriteResult> {
     const month = normalizeMonth(rawMonth) ?? currentMonth();
-    const [incomeCount, expenseCount] = await Promise.all([
-      this.prisma.householdIncomeCategory.count({ where: { householdId } }),
-      this.prisma.householdExpenseCategory.count({ where: { householdId } }),
+    const previous = previousMonth(month);
+    const isIncome = side === 'income';
+    // Hai bảng thu/chi có hình dạng y hệt nhau; ép về một kiểu hẹp để khỏi viết đôi toàn bộ
+    // hàm này (kiểu union của Prisma không gọi thẳng được).
+    const entries = (isIncome ? this.prisma.householdIncome : this.prisma.householdExpense) as unknown as EntryModel;
+    const categories = (isIncome ? this.prisma.householdIncomeCategory : this.prisma.householdExpenseCategory) as unknown as CategoryModel;
+    const kind = isIncome ? 'normal' : 'fixed';
+    const what = isIncome ? 'khoản thu' : 'khoản chi cố định';
+
+    const [source, existing, repeatable] = await Promise.all([
+      entries.findMany({ where: { householdId, month: previous }, orderBy: { id: 'asc' } }),
+      entries.findMany({ where: { householdId, month }, select: { categoryId: true } }),
+      categories.findMany({ where: { householdId, kind }, select: { id: true } }),
     ]);
-    const added: string[] = [];
 
-    if (!incomeCount) {
-      await this.prisma.householdIncomeCategory.createMany({
-        data: SEED_INCOME_CATEGORIES.map((row, index) => ({ householdId, ...row, sortOrder: index + 1 })),
-      });
-      added.push('loại thu nhập');
-    }
+    const allowed = new Set(repeatable.map((row) => String(row.id)));
+    const taken = new Set(existing.map((row) => String(row.categoryId)));
+    const fresh = source.filter((row) => allowed.has(String(row.categoryId)) && !taken.has(String(row.categoryId)));
+    if (!fresh.length) return { month, err: `Tháng ${label(previous)} không có ${what} nào mới để chép` };
 
-    if (!expenseCount) {
-      await this.prisma.householdExpenseCategory.createMany({
-        data: SEED_EXPENSE_CATEGORIES.map((row, index) => ({ householdId, ...row, sortOrder: index + 1 })),
-      });
-      added.push('loại chi phí');
-    }
+    const data = fresh.map((row) => ({
+      householdId,
+      categoryId: row.categoryId,
+      month,
+      occurredAt: firstDayOf(month),
+      amount: row.amount,
+      note: row.note,
+    }));
+    if (isIncome) await this.prisma.householdIncome.createMany({ data });
+    else await this.prisma.householdExpense.createMany({ data });
 
-    return added.length
-      ? { month, msg: `Đã nạp mẫu: ${added.join(' và ')}` }
-      : { month, err: 'Các loại đã có sẵn, không nạp thêm gì' };
+    return { month, msg: `Đã chép ${fresh.length} ${what} từ tháng ${label(previous)}` };
   }
-
-  // ─── Dùng chung ───
 
   private async addCategory(
     model: 'householdIncomeCategory' | 'householdExpenseCategory',
+    kinds: readonly string[],
     householdId: number,
     body: Record<string, string>,
   ): Promise<WriteResult> {
@@ -321,7 +298,7 @@ export class HouseholdService {
       data: {
         householdId,
         name,
-        kind: pickOne(body.kind, CATEGORY_KINDS, 'normal'),
+        kind: pickOne(body.kind, kinds, kinds[0]),
         note: text(body.note, 500),
         sortOrder: (last?.sortOrder ?? 0) + 1,
       },
@@ -331,6 +308,7 @@ export class HouseholdService {
 
   private async updateCategory(
     model: 'householdIncomeCategory' | 'householdExpenseCategory',
+    kinds: readonly string[],
     householdId: number,
     id: bigint,
     body: Record<string, string>,
@@ -342,7 +320,7 @@ export class HouseholdService {
       where: { id },
       data: {
         name: text(body.name, 80) || category.name,
-        kind: body.kind === undefined ? category.kind : pickOne(body.kind, CATEGORY_KINDS, 'normal'),
+        kind: body.kind === undefined ? category.kind : pickOne(body.kind, kinds, kinds[0]),
         note: text(body.note, 500),
         active: parseBool(body.active, category.active),
       },
@@ -439,35 +417,18 @@ export class HouseholdService {
 /** Phần giao nhau của hai model loại thu / loại chi — đủ cho các thao tác dùng chung ở trên. */
 interface CategoryModel {
   findFirst(args: unknown): Promise<{ id: bigint; name: string; kind: string; active: boolean; sortOrder: number } | null>;
+  findMany(args: unknown): Promise<Array<{ id: bigint }>>;
   create(args: unknown): Promise<unknown>;
   update(args: unknown): Promise<unknown>;
 }
 
+/** Phần giao nhau của hai bảng khoản thu / khoản chi. */
+interface EntryModel {
+  findMany(args: unknown): Promise<Array<{ categoryId: bigint | null; amount: bigint; note: string }>>;
+}
+
 const CATEGORY_ORDER = [{ sortOrder: 'asc' as const }, { id: 'asc' as const }];
 const ENTRY_ORDER = [{ occurredAt: 'desc' as const }, { id: 'desc' as const }];
-
-const SEED_INCOME_CATEGORIES = [
-  { name: 'Lương vợ', kind: 'normal', note: '' },
-  { name: 'Lương chồng', kind: 'normal', note: '' },
-  { name: 'Thưởng / OT', kind: 'normal', note: '' },
-  { name: 'Thu khác', kind: 'normal', note: '' },
-  { name: 'Rút tiết kiệm', kind: 'saving', note: 'Lấy tiền từ két ra tiêu — không phải thu nhập' },
-  { name: 'Người ta trả nợ', kind: 'debt', note: 'Gốc trừ vào khoản mình cho vay trong sổ nợ' },
-];
-
-const SEED_EXPENSE_CATEGORIES = [
-  { name: 'Ăn uống', kind: 'normal', note: '' },
-  { name: 'Sinh hoạt', kind: 'normal', note: '' },
-  { name: 'Xăng xe / đi lại', kind: 'normal', note: '' },
-  { name: 'Tiền học của con', kind: 'normal', note: '' },
-  { name: 'Bỉm sữa của con', kind: 'normal', note: '' },
-  { name: 'Đưa ông bà', kind: 'normal', note: '' },
-  { name: 'Chi phí phát sinh', kind: 'normal', note: '' },
-  { name: 'Tiết kiệm 2 vợ chồng', kind: 'saving', note: 'Dồn qua các tháng' },
-  { name: 'Tiết kiệm con', kind: 'saving', note: 'Dồn qua các tháng' },
-  { name: 'Dự phòng', kind: 'saving', note: 'Dồn qua các tháng' },
-  { name: 'Trả nợ', kind: 'debt', note: 'Nhập gốc & lãi, gốc trừ vào khoản nợ được chọn' },
-];
 
 function text(value: unknown, max: number): string {
   return String(value ?? '').trim().slice(0, max);

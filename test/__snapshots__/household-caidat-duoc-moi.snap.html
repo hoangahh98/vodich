@@ -40,24 +40,6 @@
 <!-- ═══ SỔ NỢ ═══ -->
 <!-- ═══ TRỢ LÝ AI ═══ -->
 <!-- ═══ CÀI ĐẶT ═══ -->
-<section class="card-lite p tournament-edit-card mb">
-<div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt chung</h2><p class="muted">Tên sổ và mốc bắt đầu ghi sổ.</p></div></div>
-<form class="household-form" method="post" action="/household/config"><input type="hidden" name="book" value="1">
-<div><label>Tên sổ</label><input name="name" value="Sổ chi tiêu gia đình" maxlength="120"></div>
-<div><label>Bắt đầu ghi sổ từ</label><input type="date" name="anchorDate" value="2026-06-01"></div>
-<div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu cài đặt</button></div>
-</form>
-<p class="muted">Số <strong>tiết kiệm đang có</strong> và <strong>còn lại luỹ kế</strong> được cộng từ mọi khoản đã khai, nên sửa số của tháng cũ là các tháng sau tự đúng theo — không cần chốt sổ.</p>
-</section>
-<section class="card-lite p tournament-edit-card mb">
-<div class="section-heading mb"><div><span class="feature-icon">📋</span><h2 class="section-title">Danh mục mẫu</h2><p class="muted">Vài loại thu nhập và loại chi phí thường gặp để bắt đầu cho nhanh.</p></div></div>
-<form method="post" action="/household/seed"><input type="hidden" name="book" value="1">
-<input type="hidden" name="month" value="2026-06">
-<input type="hidden" name="section" value="cai-dat">
-<button class="btn btn-success" data-loading-text="Đang nạp...">Nạp danh mục mẫu</button>
-</form>
-<p class="muted">Chỉ nạp phần nào đang trống nên bấm nhiều lần cũng không sinh dòng trùng. Không nạp sẵn số tiền nào.</p>
-</section>
 <section class="card-lite p tournament-edit-card mt">
 <div class="section-heading mb"><div><span class="feature-icon">🔐</span><h2 class="section-title">Phân quyền admin</h2><p class="muted">Cho admin khác cùng xem và ghi sổ chi tiêu này.</p></div></div>
 <div class="grid module-grid mb">

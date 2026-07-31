@@ -731,14 +731,16 @@ model HouseholdIncomeCategory {
 }
 
 /// Một loại chi phí do chủ sổ tự khai (Ăn uống, Xăng xe, Tiết kiệm con, Trả nợ ngân hàng...).
-/// - `normal` — chi phí thường, cộng vào ô Chi phí.
-/// - `saving` — GỬI tiết kiệm: cộng vào số dư tiết kiệm dồn qua các tháng, KHÔNG tính là chi phí.
-/// - `debt`   — trả nợ: phần gốc trừ vào khoản nợ trong sổ nợ, cả gốc lẫn lãi đều là tiền ra.
+/// - `fixed`    — chi phí CỐ ĐỊNH: tháng nào cũng phải trả (học phí, gửi xe, tiền nhà). Chỉ
+///                loại này mới được nút "chép tháng trước" nhân bản sang tháng sau.
+/// - `variable` — chi phí PHÁT SINH: không lặp lại (ăn ngoài, cưới hỏi, sửa xe).
+/// - `saving`   — GỬI tiết kiệm: cộng vào số dư tiết kiệm dồn qua các tháng, KHÔNG tính là chi phí.
+/// - `debt`     — trả nợ: phần gốc trừ vào khoản nợ trong sổ nợ, cả gốc lẫn lãi đều là tiền ra.
 model HouseholdExpenseCategory {
   id          BigInt   @id @default(autoincrement())
   householdId Int      @map("household_id")
   name        String   @db.VarChar(80)
-  kind        String   @default("normal") @db.VarChar(8) // normal | saving | debt
+  kind        String   @default("variable") @db.VarChar(12) // fixed | variable | saving | debt
   active      Boolean  @default(true)
   sortOrder   Int      @default(0) @map("sort_order")
   note        String   @default("")
@@ -821,6 +823,11 @@ model HouseholdDebt {
   initialAmount BigInt    @default(0) @map("initial_amount")
   startDate     DateTime  @map("start_date") @db.Date
   dueDate       DateTime? @map("due_date") @db.Date
+  /// KHÔNG CÒN DÙNG. Mô hình cũ có nút "Tạm dừng" nhưng ở mô hình mới không có gì tự chạy
+  /// theo tháng nên nó chẳng tác động tới con số nào — đã gỡ khỏi giao diện. Cột giữ lại
+  /// (có DEFAULT nên ghi mới vẫn chạy) để tránh một migration phá vỡ tương thích: xoá cột
+  /// thì trong lúc deploy container CŨ vẫn SELECT nó và cả module 500 — đã dính đúng lỗi
+  /// này ngày 31/7/2026. Dọn ở một lần deploy riêng khi tiện.
   active        Boolean   @default(true)
   sortOrder     Int       @default(0) @map("sort_order")
   note          String    @default("")

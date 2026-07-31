@@ -12,13 +12,24 @@ Rule chỉ có **bốn ý**, cố ý giữ ít:
 
 ## Kiểu của một loại (`kind`)
 
-Cả loại thu lẫn loại chi đều có đúng ba kiểu, và chính `kind` quyết định tiền chảy vào ô nào:
+Chính `kind` quyết định tiền chảy vào ô nào ở Tổng quan.
 
-| `kind` | Loại **chi phí** | Loại **thu nhập** |
-|---|---|---|
-| `normal` | 💸 Chi phí | 💵 Thu nhập |
-| `saving` | 🐷 **Gửi** tiết kiệm — không tính là chi phí | 🐷 **Rút** tiết kiệm ra tiêu — không tính là thu nhập |
-| `debt` | 🏦 Trả nợ — gốc trừ vào khoản **mình nợ** | 🤝 Người ta trả nợ mình — gốc trừ vào khoản **mình cho vay** |
+Loại **chi phí** có bốn kiểu:
+
+| `kind` | Nghĩa |
+|---|---|
+| `fixed` | 📌 Chi phí **cố định** — tháng nào cũng phải trả (học phí, gửi xe, tiền nhà). **Chỉ kiểu này** mới được nút "chép tháng trước" nhân bản. |
+| `variable` | 🎁 Chi phí **phát sinh** — không lặp lại (ăn ngoài, cưới hỏi, sửa xe). |
+| `saving` | 🐷 **Gửi** tiết kiệm — không tính là chi phí |
+| `debt` | 🏦 Trả nợ — gốc trừ vào khoản **mình nợ** |
+
+Loại **thu nhập** có ba kiểu:
+
+| `kind` | Nghĩa |
+|---|---|
+| `normal` | 💵 Thu nhập |
+| `saving` | 🐷 **Rút** tiết kiệm ra tiêu — không tính là thu nhập |
+| `debt` | 🤝 Người ta trả nợ mình — gốc trừ vào khoản **mình cho vay** |
 
 Vì sao tách `saving` ra khỏi chi phí: tiền cất vào két **không mất đi**, nó chỉ đổi chỗ. Gộp chung
 thì ô "Chi phí" phồng lên vô nghĩa và tháng nào gửi tiết kiệm nhiều lại trông như tháng tiêu hoang.
@@ -27,7 +38,8 @@ thì ô "Chi phí" phồng lên vô nghĩa và tháng nào gửi tiết kiệm n
 
 ```
 🐷 Tiết kiệm đang có = Σ (gửi − rút) của MỌI tháng từ đầu sổ tới tháng đang xem   ← dồn qua các tháng
-💸 Chi phí tháng     = Σ khoản chi kiểu normal + debt   (gốc lẫn lãi đều là tiền ra)
+💸 Chi phí tháng     = Σ khoản chi kiểu fixed + variable + debt   (gốc lẫn lãi đều là tiền ra)
+                       (tách sẵn expenseFixed / expenseVariable để bày cố định vs phát sinh)
 💵 Thu nhập tháng    = Σ khoản thu kiểu normal + debt
 ```
 
@@ -68,7 +80,8 @@ kết: nếu bỏ im lặng, người dùng tưởng đã trừ nợ xong mà th
 Hai việc, đều chạy qua Groq (cần `GROQ_API_KEY`, xem `src/common/ai.service.ts`):
 
 - **Hỏi đáp** — gửi kèm một bản tóm tắt đã tính sẵn của đúng sổ đang mở (số theo tháng, theo loại,
-  6 tháng gần nhất, sổ nợ, các khoản của tháng này) rồi trả lời. Hội thoại lưu trong
+  6 tháng gần nhất, sổ nợ, các khoản của tháng này) rồi trả lời. Dải 6 tháng đã bỏ khỏi màn hình
+  nhưng `report.trend` vẫn giữ — nó là ngữ cảnh cho trợ lý, không phải code chết. Hội thoại lưu trong
   `household_chat_message` nên hỏi nối tiếp được ("thế còn tháng trước?").
 - **Ghi nhanh bằng câu nói** — "trưa nay ăn cơm hết 65k" → bản nháp một khoản chi.
 
@@ -88,14 +101,14 @@ giống module giải đấu và đội bóng.
 
 | Phần | Đường dẫn | Việc làm ở đó |
 |------|-----------|----------------|
-| 📊 Tổng quan | `/household` | Ba ô Tiết kiệm / Chi phí / Thu nhập, còn lại luỹ kế, tóm tắt sổ nợ, chi–thu theo loại, dải 6 tháng |
+| 📊 Tổng quan | `/household` | Ba ô Tiết kiệm / Chi phí / Thu nhập, còn lại luỹ kế, tóm tắt sổ nợ, chi–thu theo loại |
 | 💵 Thu nhập | `/household/thu` | Khai khoản thu; chép các khoản thu của tháng trước |
-| 💸 Chi phí | `/household/chi` | Khai khoản chi; loại kiểu trả nợ thì có ô gốc/lãi/khoản nợ |
-| 🏦 Sổ nợ | `/household/so-no` | Khai khoản mình nợ và khoản người khác nợ mình, tiến độ trả từng khoản |
+| 💸 Chi phí | `/household/chi` | Khai khoản chi (loại kiểu trả nợ thì có ô gốc/lãi/khoản nợ); chép khoản **cố định** của tháng trước |
+| 🏦 Sổ nợ | `/household/so-no` | Khai khoản nợ mới (phần riêng, mở sẵn) · tiến độ trả từng khoản · sửa khoản cũ (gập) · ✅ Đã xong (gập) |
 | 🤖 Trợ lý | `/household/tro-ly` | Hỏi đáp về sổ, ghi nhanh bằng câu nói |
 | 🏷️ Loại thu nhập | `/household/loai-thu` | Khai/sửa/ẩn loại thu nhập |
 | 🏷️ Loại chi phí | `/household/loai-chi` | Khai/sửa/ẩn loại chi phí |
-| ⚙️ Cài đặt | `/household/cai-dat` | Tên sổ, mốc bắt đầu ghi sổ, **nạp danh mục mẫu**, **phân quyền admin** |
+| ⚙️ Cài đặt | `/household/cai-dat` | **Chỉ còn phân quyền admin** (+ ô chọn sổ nếu vào được nhiều sổ) |
 
 Mọi mục xoay quanh một tháng đều có ô chọn tháng ở đầu trang (tự chuyển ngay khi đổi) và một dải
 **Thu nhập / Chi phí / Còn lại** để lúc nào cũng thấy ba con số chính.
@@ -107,8 +120,15 @@ dòng đó tự về đúng tháng của nó.
 "(loại đã xoá)" và được tính như chi phí/thu nhập thường. Xoá một khoản nợ cũng vậy: các lần trả
 vẫn nằm trong sổ. Tiền đã ra khỏi nhà thì phải còn trong công thức, kể cả khi mất cái nhãn.
 
-**Nạp danh mục mẫu** dựng sẵn vài loại thu/chi thường gặp, **không nạp sẵn số tiền nào**. Chỉ nạp
-phần đang trống nên bấm nhiều lần cũng không sinh dòng trùng.
+**Chép tháng trước** có ở cả hai mục: bên Thu chép loại `normal` (lương), bên Chi chép loại
+`fixed` (khoản cố định). Loại nào tháng này đã có khoản rồi thì bỏ qua, nên bấm hai lần không
+sinh trùng. Cố ý **không** chép `variable` / `saving` / `debt`: chép phát sinh là bịa ra khoản
+chưa hề tiêu, chép trả nợ là tự trừ gốc một lần không có thật, chép tiết kiệm là tự đụng vào két.
+
+**Khoản nợ trả/thu xong** (`initialAmount > 0` và còn lại ≤ 0) tự gập xuống mục **✅ Đã xong** và
+biến khỏi ô chọn khi khai chi/thu — vẫn tra lại được đã trả bao nhiêu gốc, bao nhiêu lãi. Bắt buộc
+`initialAmount > 0` vì khoản vừa khai chưa điền tiền cũng có còn lại = 0, nhận nhầm là xong thì nó
+biến mất ngay lúc người dùng đang định điền tiếp.
 
 ## Sổ riêng của từng admin
 

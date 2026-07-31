@@ -6,11 +6,14 @@
  *   1. Chủ sổ tự khai LOẠI THU NHẬP và LOẠI CHI PHÍ. Mỗi khoản thu/chi thuộc một loại.
  *   2. Mỗi loại có `kind` quyết định tiền chảy vào ô nào ở Tổng quan:
  *
- *        kind      | loại chi phí                        | loại thu nhập
- *        ----------|-------------------------------------|-----------------------------------
- *        normal    | 💸 Chi phí                          | 💵 Thu nhập
- *        saving    | 🐷 GỬI tiết kiệm (không phải chi phí)| 🐷 RÚT tiết kiệm (không phải thu nhập)
- *        debt      | 💸 Chi phí, gốc trừ khoản MÌNH NỢ   | 💵 Thu nhập, gốc trừ khoản NGƯỜI TA NỢ MÌNH
+ *        loại CHI PHÍ                                loại THU NHẬP
+ *        --------------------------------------      ---------------------------------------
+ *        fixed    | 💸 Chi phí — CỐ ĐỊNH             normal | 💵 Thu nhập
+ *        variable | 💸 Chi phí — PHÁT SINH           saving | 🐷 RÚT tiết kiệm (không phải thu)
+ *        saving   | 🐷 GỬI tiết kiệm (không phải chi) debt   | 💵 Thu, gốc trừ khoản NGƯỜI TA NỢ MÌNH
+ *        debt     | 💸 Chi phí, gốc trừ khoản MÌNH NỢ
+ *
+ *      Chỉ `fixed` mới chép được sang tháng sau — đó là lý do tách cố định / phát sinh.
  *
  *   3. TIẾT KIỆM DỒN QUA CÁC THÁNG:
  *
@@ -39,10 +42,18 @@
 const MAX_MONTHS = 600; // chặn vòng lặp nếu dữ liệu có tháng rác ở quá khứ xa
 const TREND_MONTHS = 6; // số tháng bày ở biểu đồ xu hướng và gửi cho trợ lý AI
 
-export const CATEGORY_KINDS = ['normal', 'saving', 'debt'] as const;
+/**
+ * Kiểu của loại CHI PHÍ. Chi phí tách làm hai để biết khoản nào tháng nào cũng phải trả:
+ * - `fixed`    — chi phí CỐ ĐỊNH (học phí, gửi xe, tiền nhà): lặp đều, chép được sang tháng sau.
+ * - `variable` — chi phí PHÁT SINH (ăn ngoài, cưới hỏi, sửa xe): không lặp, không chép.
+ * Cả hai đều cộng vào ô 💸 Chi phí; `saving` và `debt` xem chú thích đầu file.
+ */
+export const EXPENSE_KINDS = ['fixed', 'variable', 'saving', 'debt'] as const;
+export const INCOME_KINDS = ['normal', 'saving', 'debt'] as const;
 export const DEBT_DIRECTIONS = ['owe', 'lend'] as const;
 
-export type CategoryKind = (typeof CATEGORY_KINDS)[number];
+export type ExpenseKind = (typeof EXPENSE_KINDS)[number];
+export type IncomeKind = (typeof INCOME_KINDS)[number];
 export type DebtDirection = (typeof DEBT_DIRECTIONS)[number];
 
 // ─── Dữ liệu vào (đúng hình dạng Prisma trả về, nhưng không phụ thuộc Prisma) ───
@@ -75,7 +86,6 @@ export interface DebtLike {
   initialAmount: bigint;
   startDate: Date;
   dueDate: Date | null;
-  active: boolean;
   note: string;
 }
 
@@ -99,14 +109,20 @@ export interface DebtView {
   initialAmount: number;
   startDate: Date;
   dueDate: Date | null;
-  active: boolean;
   note: string;
   principalPaid: number; // tổng gốc đã trả tới hết tháng đang xem
   interestPaid: number; // tổng lãi đã trả tới hết tháng đang xem
   principalThisMonth: number;
   interestThisMonth: number;
   remaining: number; // số ban đầu − tổng gốc đã trả
-  settled: boolean; // đã trả xong (còn lại ≤ 0)
+  /**
+   * Đã trả/thu xong. Màn hình dùng cờ này để gập khoản đó xuống mục "Đã xong" và bỏ nó khỏi
+   * ô chọn khi khai chi/thu.
+   *
+   * Bắt buộc `initialAmount > 0`: khoản vừa khai mà chưa điền số tiền cũng có còn lại = 0,
+   * nhận nhầm là xong thì nó biến mất khỏi danh sách ngay lúc người dùng đang định điền tiếp.
+   */
+  settled: boolean;
   progress: number; // % gốc đã trả, 0..100
 }
 
@@ -122,6 +138,8 @@ export interface MonthTotals {
 
 export interface MonthReport extends MonthTotals {
   months: string[]; // các tháng có dữ liệu, mới nhất trước
+  expenseFixed: number; // phần chi phí cố định + trả nợ của tháng
+  expenseVariable: number; // phần chi phí phát sinh của tháng
   savingNet: number; // gửi − rút trong tháng đang xem
   savingBalance: number; // ← số của ô 🐷: tiết kiệm dồn qua các tháng
   leftoverPrevious: number;
@@ -154,8 +172,8 @@ export interface LedgerInput {
 
 export function buildMonthReport(input: LedgerInput): MonthReport {
   const month = normalizeMonth(input.month) ?? monthKey(new Date());
-  const incomeKind = kindLookup(input.incomeCategories);
-  const expenseKind = kindLookup(input.expenseCategories);
+  const incomeKind = kindLookup(input.incomeCategories, 'normal');
+  const expenseKind = kindLookup(input.expenseCategories, 'variable');
 
   // Chỉ tính tới tháng đang xem: đứng ở tháng 6 thì không được thấy tiền của tháng 7.
   const incomes = input.incomes.filter((row) => row.month <= month);
@@ -173,6 +191,9 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
   const savingOut = sum(incomeRows, (row) => (incomeKind(row) === 'saving' ? amount(row) : 0));
   const income = sum(incomeRows, (row) => (incomeKind(row) === 'saving' ? 0 : amount(row)));
   const expense = sum(expenseRows, (row) => (expenseKind(row) === 'saving' ? 0 : amount(row)));
+  // Tách cố định / phát sinh để biết mỗi tháng bao nhiêu là khoản KHÔNG tránh được.
+  // Khoản trả nợ gộp vào cố định: tháng nào cũng phải trả.
+  const expenseFixed = sum(expenseRows, (row) => (['fixed', 'debt'].includes(expenseKind(row)) ? amount(row) : 0));
 
   // Tiền còn lại: mọi thứ vào trừ mọi thứ ra. Tính cho từng tháng rồi cộng dồn, vì đó là số
   // duy nhất người dùng cần khi hỏi "từ đầu năm tới giờ nhà mình còn dư bao nhiêu".
@@ -193,6 +214,8 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
     expense,
     savingIn,
     savingOut,
+    expenseFixed,
+    expenseVariable: expense - expenseFixed,
     savingNet: savingIn - savingOut,
     savingBalance,
     leftover,
@@ -235,14 +258,13 @@ function buildDebtViews(debts: DebtLike[], incomes: EntryLike[], expenses: Entry
       initialAmount,
       startDate: debt.startDate,
       dueDate: debt.dueDate,
-      active: debt.active,
       note: debt.note,
       principalPaid,
       interestPaid: sum(rows, (row) => Number(row.interest)),
       principalThisMonth: sum(rowsThisMonth, (row) => Number(row.principal)),
       interestThisMonth: sum(rowsThisMonth, (row) => Number(row.interest)),
       remaining,
-      settled: remaining <= 0,
+      settled: initialAmount > 0 && remaining <= 0,
       progress: initialAmount > 0 ? Math.min(100, Math.round((principalPaid / initialAmount) * 100)) : 0,
     };
   });
@@ -308,12 +330,15 @@ function buildTrend(
 }
 
 /**
- * Kiểu của loại mà một khoản trỏ vào. Loại đã bị xoá (`categoryId` null) coi như `normal`:
+ * Kiểu của loại mà một khoản trỏ vào. Loại đã bị xoá (`categoryId` null) rơi về `fallback` —
  * tiền vẫn ra/vào thật, không được biến mất khỏi công thức chỉ vì mất cái nhãn.
+ *
+ * Bên chi phí fallback là `variable`, để `expenseFixed + expenseVariable` luôn đúng bằng
+ * `expense`: nếu rơi về một kiểu lạ thì khoản đó không thuộc bên nào và hai số cộng lại hụt.
  */
-function kindLookup(categories: CategoryLike[]): (row: EntryLike) => string {
+function kindLookup(categories: CategoryLike[], fallback: string): (row: EntryLike) => string {
   const byId = new Map(categories.map((category) => [String(category.id), category.kind]));
-  return (row: EntryLike) => byId.get(String(row.categoryId ?? '')) ?? 'normal';
+  return (row: EntryLike) => byId.get(String(row.categoryId ?? '')) ?? fallback;
 }
 
 /** Các tháng đã có dữ liệu (kèm tháng đang xem), mới nhất trước — dùng cho ô chọn tháng. */

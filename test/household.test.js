@@ -28,8 +28,8 @@ const INCOME_CATEGORIES = [
 ];
 
 const EXPENSE_CATEGORIES = [
-  { id: 11n, name: 'Ăn uống', kind: 'normal', active: true, note: '' },
-  { id: 12n, name: 'Xăng xe', kind: 'normal', active: true, note: '' },
+  { id: 11n, name: 'Ăn uống', kind: 'variable', active: true, note: '' },
+  { id: 12n, name: 'Xăng xe', kind: 'fixed', active: true, note: '' },
   { id: 13n, name: 'Tiết kiệm 2 vợ chồng', kind: 'saving', active: true, note: '' },
   { id: 14n, name: 'Tiết kiệm con', kind: 'saving', active: true, note: '' },
   { id: 15n, name: 'Trả nợ', kind: 'debt', active: true, note: '' },
@@ -44,7 +44,6 @@ const DEBTS = [
     initialAmount: 904000000n,
     startDate: day('2026-05-01'),
     dueDate: null,
-    active: true,
     note: '',
   },
   {
@@ -55,7 +54,6 @@ const DEBTS = [
     initialAmount: 50000000n,
     startDate: day('2026-05-10'),
     dueDate: day('2026-12-31'),
-    active: true,
     note: '',
   },
 ];
@@ -533,17 +531,46 @@ test('household view: mục khai thu chỉ cho chọn khoản CHO VAY khi thu ti
   assert.match(html, /Chép các khoản thu của tháng trước/);
 });
 
-test('household view: hai mục danh mục cho khai đủ ba kiểu loại', async () => {
-  const expenseHtml = await renderSection('loai-chi');
-  assert.match(expenseHtml, /value="normal"/);
-  assert.match(expenseHtml, /value="saving"/);
-  assert.match(expenseHtml, /value="debt"/);
-  assert.match(expenseHtml, /Gửi tiết kiệm/);
-  assert.match(expenseHtml, /dồn qua các tháng/i);
+test('household view: loại chi phí khai được đủ BỐN kiểu, có cố định & phát sinh', async () => {
+  const html = await renderSection('loai-chi');
 
-  const incomeHtml = await renderSection('loai-thu');
-  assert.match(incomeHtml, /Rút tiết kiệm/);
-  assert.match(incomeHtml, /Người ta trả nợ mình/);
+  for (const kind of ['fixed', 'variable', 'saving', 'debt']) {
+    assert.match(html, new RegExp(`value="${kind}"`), `thiếu kiểu ${kind}`);
+  }
+  assert.match(html, /Chi phí cố định/);
+  assert.match(html, /Chi phí phát sinh/);
+  assert.match(html, /chép được sang tháng sau/i, 'phải nói rõ chỉ cố định mới chép được');
+  assert.doesNotMatch(html, /value="normal"/, 'bên chi phí không còn kiểu normal');
+});
+
+test('household view: loại thu nhập vẫn ba kiểu, không dính cố định/phát sinh', async () => {
+  const html = await renderSection('loai-thu');
+
+  assert.match(html, /value="normal"/);
+  assert.match(html, /Rút tiết kiệm/);
+  assert.match(html, /Người ta trả nợ mình/);
+  assert.doesNotMatch(html, /value="fixed"|value="variable"/, 'cố định/phát sinh chỉ có ở bên chi phí');
+});
+
+test('household view: mục chi có nút chép khoản CỐ ĐỊNH của tháng trước', async () => {
+  const html = await renderSection('chi');
+
+  assert.match(html, /action="\/household\/expenses\/copy"/);
+  assert.match(html, /Chép các khoản chi cố định của tháng trước/);
+  assert.match(html, /Chỉ chép loại/, 'phải nói rõ chỉ chép loại cố định');
+});
+
+test('household view: đã bỏ hẳn nạp danh mục mẫu, dải 6 tháng và cài đặt chung', async () => {
+  for (const section of SECTIONS) {
+    const html = await renderSection(section);
+    assert.doesNotMatch(html, /Nạp danh mục mẫu|household\/seed/, `mục ${section} còn phần nạp mẫu`);
+    assert.doesNotMatch(html, /Sáu tháng gần nhất/, `mục ${section} còn dải 6 tháng`);
+    assert.doesNotMatch(html, /household\/config|name="anchorDate"/, `mục ${section} còn form cài đặt chung`);
+  }
+  // Cài đặt giờ chỉ còn đúng khung phân quyền.
+  const settings = await renderSection('cai-dat');
+  assert.match(settings, /Phân quyền admin/);
+  assert.doesNotMatch(settings, /Cài đặt chung|Danh mục mẫu/);
 });
 
 test('household view: sổ nợ tách rõ hai chiều và hiện tiến độ trả', async () => {
@@ -606,18 +633,89 @@ test('household view: chọn tháng tự chuyển ngay, không cần bấm nút'
   assert.match(html, /type="month"[^>]*data-autosubmit/, 'ô chọn tháng phải có data-autosubmit');
 });
 
-/**
- * Sổ thật sau khi nâng cấp có 2 loại thu nhập (chuyển từ cột `source` cũ) nhưng 0 loại chi phí
- * — thiếu một bên là đã không ghi nổi khoản chi nào, nên Tổng quan phải nhắc ngay chứ đừng đợi
- * cả hai cùng rỗng.
- */
-test('household view: thiếu MỘT bên danh mục là tổng quan đã nhắc nạp mẫu', async () => {
-  const half = (over) => renderSection('tong-quan', over);
-  const noExpense = await half({
-    book: { ...viewLocals('tong-quan').book, expenseCategories: [] },
-  });
-  assert.match(noExpense, /Nạp danh mục mẫu/, 'có loại thu nhưng chưa có loại chi thì vẫn phải nhắc');
 
-  const full = await half();
-  assert.doesNotMatch(full, /Nạp danh mục mẫu/, 'khai đủ hai bên rồi thì không nhắc nữa');
+// ─── Chép khoản lặp lại của tháng trước ───
+
+/**
+ * Chỉ loại CỐ ĐỊNH mới được chép. Chép "phát sinh" là bịa ra một khoản chưa hề tiêu; chép
+ * "trả nợ" là tự trừ gốc một lần không có thật; chép "gửi tiết kiệm" là tự móc két.
+ */
+test('HouseholdService.copyExpenseFromPreviousMonth: chỉ chép loại CỐ ĐỊNH', async () => {
+  let created = null;
+  const service = new HouseholdService({
+    householdExpense: {
+      findMany: async ({ where, select }) => {
+        if (select) return [];
+        return where.month === '2026-05'
+          ? [
+              { id: 1n, categoryId: 12n, amount: 2000000n, note: 'xăng' }, // fixed
+              { id: 2n, categoryId: 11n, amount: 6000000n, note: 'ăn' }, // variable
+              { id: 3n, categoryId: 13n, amount: 20000000n, note: 'tiết kiệm' }, // saving
+              { id: 4n, categoryId: 15n, amount: 9000000n, note: 'trả nợ' }, // debt
+            ]
+          : [];
+      },
+      createMany: async ({ data }) => (created = data),
+    },
+    householdExpenseCategory: { findMany: async ({ where }) => (where.kind === 'fixed' ? [{ id: 12n }] : []) },
+  });
+
+  const result = await service.copyExpenseFromPreviousMonth(BOOK_ID, '2026-06');
+  assert.equal(created.length, 1, 'chỉ chép khoản của loại cố định');
+  assert.equal(created[0].categoryId, 12n);
+  assert.equal(created[0].amount, 2000000n);
+  assert.match(result.msg, /Đã chép 1 khoản chi cố định/);
+});
+
+test('HouseholdService.copyExpenseFromPreviousMonth: loại đã có khoản tháng này thì bỏ qua', async () => {
+  let created = null;
+  const service = new HouseholdService({
+    householdExpense: {
+      findMany: async ({ where, select }) => {
+        if (select) return [{ categoryId: 12n }]; // tháng 6 đã ghi khoản của loại 12
+        return where.month === '2026-05' ? [{ id: 1n, categoryId: 12n, amount: 2000000n, note: '' }] : [];
+      },
+      createMany: async ({ data }) => (created = data),
+    },
+    householdExpenseCategory: { findMany: async () => [{ id: 12n }] },
+  });
+
+  const result = await service.copyExpenseFromPreviousMonth(BOOK_ID, '2026-06');
+  assert.equal(created, null, 'không tạo dòng trùng');
+  assert.match(result.err, /không có khoản chi cố định nào mới/);
+});
+
+// ─── Khoản nợ đã xong ───
+
+test('chi tiêu: khoản vừa khai chưa điền tiền KHÔNG bị coi là đã xong', () => {
+  const book = ledger();
+  book.debts = [...DEBTS, { ...DEBTS[0], id: 103n, name: 'Mới khai', initialAmount: 0n }];
+  const fresh = debtOf(buildMonthReport(book), 'Mới khai');
+
+  assert.equal(fresh.remaining, 0);
+  assert.equal(fresh.settled, false, 'còn lại 0 vì chưa điền số tiền, không phải vì đã trả xong');
+});
+
+test('household view: khoản nợ đã xong gập xuống mục riêng, không nằm trong ô chọn khi khai chi', async () => {
+  const book = ledger();
+  // Trả nốt 900tr còn lại của khoản ngân hàng ⇒ tất toán.
+  book.expenses.push(expense({ categoryId: 15n, amount: 900000000n, principal: 900000000n, debtId: 101n }));
+  const report = buildMonthReport(book);
+  const locals = { ...viewLocals('so-no'), report, book: { ...viewLocals('so-no').book, report } };
+  const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), locals);
+
+  assert.match(html, /✅ Đã xong/, 'phải có mục gập cho khoản đã tất toán');
+  const openList = html.slice(html.indexOf('Mình đang nợ ai'), html.indexOf('✅ Đã xong'));
+  assert.doesNotMatch(openList, /Vay ngân hàng/, 'khoản đã xong không còn ở danh sách đang theo dõi');
+
+  // Ô chọn khoản nợ ở mục khai chi cũng không được đề nghị khoản đã xong nữa.
+  const chi = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), { ...locals, section: 'chi', path: '/household/chi' });
+  const debtSelect = chi.split('name="debtId"')[1].split('</select>')[0];
+  assert.doesNotMatch(debtSelect, /Vay ngân hàng/);
+});
+
+test('household view: form sửa khoản nợ không còn ô Trạng thái vô nghĩa', async () => {
+  const html = await renderSection('so-no');
+  assert.doesNotMatch(html, /Tạm dừng/, 'nút không tác động tới con số nào thì đừng để trên màn hình');
+  assert.doesNotMatch(html, /name="active"/);
 });

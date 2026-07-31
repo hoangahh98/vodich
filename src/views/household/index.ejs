@@ -8,7 +8,7 @@
   const today = ymd(new Date());
 
   const INCOME_KIND = { normal: '💵 Thu nhập', saving: '🐷 Rút tiết kiệm', debt: '🤝 Người ta trả nợ mình' };
-  const EXPENSE_KIND = { normal: '💸 Chi phí', saving: '🐷 Gửi tiết kiệm', debt: '🏦 Trả nợ' };
+  const EXPENSE_KIND = { fixed: '📌 Chi phí cố định', variable: '🎁 Chi phí phát sinh', saving: '🐷 Gửi tiết kiệm', debt: '🏦 Trả nợ' };
 
   // Các mục xoay quanh MỘT tháng thì cần ô chọn tháng; danh mục và cài đặt thì không.
   const MONTH_SECTIONS = ['tong-quan', 'thu', 'chi', 'so-no', 'tro-ly'];
@@ -19,13 +19,15 @@
   const incomeCatById = new Map(book.incomeCategories.map((c) => [String(c.id), c]));
   const expenseCatById = new Map(book.expenseCategories.map((c) => [String(c.id), c]));
   const debtById = new Map(book.debts.map((d) => [String(d.id), d]));
-  const oweDebts = book.debts.filter((d) => d.direction === 'owe');
-  const lendDebts = book.debts.filter((d) => d.direction === 'lend');
+  // Khoản đã trả/thu xong không còn là việc phải làm: bỏ khỏi ô chọn khi khai chi/thu và
+  // gập xuống mục "Đã xong" thay vì nằm mãi trong danh sách đang theo dõi.
+  const openDebts = (direction) => report.debts.filter((d) => d.direction === direction && !d.settled);
+  const oweDebts = openDebts('owe');
+  const lendDebts = openDebts('lend');
+  const doneDebts = report.debts.filter((d) => d.settled);
   const liveIncomeCats = book.incomeCategories.filter((c) => c.active);
   const liveExpenseCats = book.expenseCategories.filter((c) => c.active);
   const catName = (map, id) => (map.get(String(id)) || {}).name || '(loại đã xoá)';
-  // Thang tỷ lệ của dải 6 tháng: lấy số lớn nhất làm 100% để các cột so được với nhau.
-  const trendPeak = Math.max(1, ...report.trend.map((t) => Math.max(t.income, t.expense)));
 %>
 <main class="app-shell">
   <section class="feature-hero p mb">
@@ -79,7 +81,7 @@
       </details>
       <div class="metric-card red">
         <span>💸 Chi phí tháng <%= monthLabel(report.month) %></span><strong><%= money(report.expense) %></strong>
-        <small><%= book.expenses.length %> khoản đã khai · gồm cả gốc &amp; lãi trả nợ</small>
+        <small>📌 Cố định <%= money(report.expenseFixed) %> · 🎁 Phát sinh <%= money(report.expenseVariable) %></small>
       </div>
       <div class="metric-card green">
         <span>💵 Thu nhập tháng <%= monthLabel(report.month) %></span><strong><%= money(report.income) %></strong>
@@ -153,44 +155,13 @@
       </div>
     </section>
 
-    <section class="card-lite mb">
-      <div class="card-hdr blue"><span>📈 Sáu tháng gần nhất</span><span>Tiết kiệm đang có <%= money(report.savingBalance) %></span></div>
-      <div class="p">
-        <div class="table-wrap"><table>
-          <thead><tr><th>Tháng</th><th>Thu / Chi</th><th>Gửi tiết kiệm</th><th class="text-right">Còn lại</th></tr></thead>
-          <tbody>
-            <% report.trend.forEach((row) => { %>
-              <tr class="<%= row.month === report.month ? 'hh-row-total' : '' %>">
-                <td><strong><%= monthLabel(row.month) %></strong></td>
-                <td>
-                  <div class="hh-bar"><span class="hh-bar-fill green" style="width: <%= Math.round((row.income / trendPeak) * 100) %>%"></span></div>
-                  <div class="hh-bar"><span class="hh-bar-fill red" style="width: <%= Math.round((row.expense / trendPeak) * 100) %>%"></span></div>
-                  <span class="muted"><%= money(row.income) %> / <%= money(row.expense) %></span>
-                </td>
-                <td><%= money(row.savingIn) %></td>
-                <td class="text-right"><strong class="<%= row.leftover < 0 ? 'hh-neg' : 'hh-pos' %>"><%= money(row.leftover) %></strong></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table></div>
-      </div>
-    </section>
-
-    <%# Thiếu MỘT trong hai bên là đã không khai được rồi (không có loại chi phí thì không ghi
-        nổi khoản chi nào), nên nhắc ngay ở Tổng quan chứ đừng đợi cả hai cùng rỗng. %>
     <% if (!book.incomeCategories.length || !book.expenseCategories.length) { %>
-      <section class="card-lite p">
-        <h2 class="section-title mb">Sổ chưa khai đủ loại</h2>
-        <p class="muted">
-          Đang có <%= book.incomeCategories.length %> loại thu nhập và <%= book.expenseCategories.length %> loại chi phí.
-          Nạp sẵn vài loại thường gặp rồi sửa lại cho khớp nhà mình — không có số tiền nào được nạp sẵn.
-        </p>
-        <form method="post" action="/household/seed"><input type="hidden" name="book" value="<%= currentBook.id %>">
-          <input type="hidden" name="month" value="<%= report.month %>">
-          <input type="hidden" name="section" value="tong-quan">
-          <button class="btn btn-success" data-loading-text="Đang nạp...">📋 Nạp danh mục mẫu</button>
-        </form>
-      </section>
+      <div class="alert-lite warn mb">
+        Sổ đang có <strong><%= book.incomeCategories.length %></strong> loại thu nhập và
+        <strong><%= book.expenseCategories.length %></strong> loại chi phí. Thiếu bên nào thì chưa
+        khai được khoản của bên đó — vào <strong>🏷️ Loại thu nhập</strong> hoặc
+        <strong>🏷️ Loại chi phí</strong> ở menu để khai.
+      </div>
     <% } %>
   <% } %>
 
@@ -268,7 +239,9 @@
             <div><label>Ngày chi</label><input type="date" name="occurredAt" value="<%= today %>" required></div>
             <div><label>Loại chi phí</label>
               <select name="categoryId" data-entry-kind>
-                <% liveExpenseCats.forEach((c) => { %><option value="<%= c.id %>" data-kind="<%= c.kind %>"><%= c.name %><%= c.kind === 'normal' ? '' : ` — ${EXPENSE_KIND[c.kind]}` %></option><% }) %>
+                <%# Bên chi phí kiểu nào cũng có nghĩa (cố định / phát sinh / tiết kiệm / trả nợ)
+                    nên luôn ghi rõ ra, không giấu kiểu nào cả. %>
+                <% liveExpenseCats.forEach((c) => { %><option value="<%= c.id %>" data-kind="<%= c.kind %>"><%= c.name %> — <%= EXPENSE_KIND[c.kind] || c.kind %></option><% }) %>
               </select>
             </div>
             <div data-entry-plain><label>Số tiền</label><input class="money-input" name="amount"></div>
@@ -306,6 +279,11 @@
             <% if (!book.expenses.length) { %><tr><td colspan="5" class="muted text-center">Chưa khai khoản chi nào cho tháng <%= monthLabel(report.month) %>.</td></tr><% } %>
           </tbody>
         </table></div>
+        <form method="post" action="/household/expenses/copy"><input type="hidden" name="book" value="<%= currentBook.id %>">
+          <input type="hidden" name="month" value="<%= report.month %>">
+          <button class="btn btn-sm" data-loading-text="Đang chép...">📋 Chép các khoản chi cố định của tháng trước</button>
+        </form>
+        <p class="muted">Chỉ chép loại <strong>📌 Chi phí cố định</strong>; loại nào tháng này đã có khoản rồi thì bỏ qua.</p>
       </div>
     </section>
   <% } %>
@@ -365,13 +343,6 @@
           <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
         </form>
 
-        <% if (!book.incomeCategories.length) { %>
-          <form class="mt" method="post" action="/household/seed"><input type="hidden" name="book" value="<%= currentBook.id %>">
-            <input type="hidden" name="month" value="<%= report.month %>">
-            <input type="hidden" name="section" value="loai-thu">
-            <button class="btn btn-sm" data-loading-text="Đang nạp...">📋 Nạp danh mục mẫu</button>
-          </form>
-        <% } %>
       </div>
     </section>
   <% } %>
@@ -382,7 +353,8 @@
       <div class="card-hdr red"><span>🏷️ Loại chi phí</span><span><%= book.expenseCategories.length %> loại</span></div>
       <div class="p">
         <div class="alert-lite mb">
-          <strong>💸 Chi phí</strong>: tiền ra thường ngày.
+          <strong>📌 Chi phí cố định</strong>: tháng nào cũng phải trả (học phí, gửi xe, tiền nhà) — <strong>chép được sang tháng sau</strong>.
+          <strong>🎁 Chi phí phát sinh</strong>: không lặp lại (ăn ngoài, cưới hỏi, sửa xe) — không chép.
           <strong>🐷 Gửi tiết kiệm</strong>: tiền cất đi — cộng vào ô Tiết kiệm và <strong>dồn qua các tháng</strong>, không tính là chi phí.
           <strong>🏦 Trả nợ</strong>: khai gốc &amp; lãi riêng, gốc tự trừ vào khoản nợ được chọn trong sổ nợ.
         </div>
@@ -394,7 +366,8 @@
             <div><label>Tên loại</label><input name="name" value="<%= c.name %>" required></div>
             <div><label>Kiểu</label>
               <select name="kind">
-                <option value="normal" <%= c.kind === 'normal' ? 'selected' : '' %>>💸 Chi phí</option>
+                <option value="fixed" <%= c.kind === 'fixed' ? 'selected' : '' %>>📌 Chi phí cố định</option>
+                <option value="variable" <%= c.kind === 'variable' ? 'selected' : '' %>>🎁 Chi phí phát sinh</option>
                 <option value="saving" <%= c.kind === 'saving' ? 'selected' : '' %>>🐷 Gửi tiết kiệm</option>
                 <option value="debt" <%= c.kind === 'debt' ? 'selected' : '' %>>🏦 Trả nợ</option>
               </select>
@@ -420,7 +393,8 @@
           <div><label>Tên loại</label><input name="name" placeholder="Ăn uống / Xăng xe / Tiết kiệm con" required></div>
           <div><label>Kiểu</label>
             <select name="kind">
-              <option value="normal" selected>💸 Chi phí</option>
+              <option value="fixed" selected>📌 Chi phí cố định</option>
+              <option value="variable">🎁 Chi phí phát sinh</option>
               <option value="saving">🐷 Gửi tiết kiệm</option>
               <option value="debt">🏦 Trả nợ</option>
             </select>
@@ -429,13 +403,6 @@
           <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
         </form>
 
-        <% if (!book.expenseCategories.length) { %>
-          <form class="mt" method="post" action="/household/seed"><input type="hidden" name="book" value="<%= currentBook.id %>">
-            <input type="hidden" name="month" value="<%= report.month %>">
-            <input type="hidden" name="section" value="loai-chi">
-            <button class="btn btn-sm" data-loading-text="Đang nạp...">📋 Nạp danh mục mẫu</button>
-          </form>
-        <% } %>
       </div>
     </section>
   <% } %>
@@ -463,7 +430,7 @@
     </div>
 
     <% [['owe', '🏦 Mình đang nợ ai', 'red'], ['lend', '🤝 Ai đang nợ mình', 'blue']].forEach((group) => { %>
-      <% const rows = report.debts.filter((d) => d.direction === group[0]); %>
+      <% const rows = openDebts(group[0]); %>
       <section class="card-lite mb">
         <div class="card-hdr <%= group[2] %>"><span><%= group[1] %></span><span><%= rows.length %> khoản</span></div>
         <div class="p">
@@ -471,14 +438,14 @@
             <div class="hh-debt">
               <div class="flex between center gap">
                 <div>
-                  <strong><%= d.name %></strong><%= d.settled ? ' ✅' : '' %><br>
+                  <strong><%= d.name %></strong><br>
                   <span class="muted">
-                    <%= d.counterparty || 'chưa ghi tên' %> · từ <%= dmy(d.startDate) %><%= d.dueDate ? ` · hẹn ${dmy(d.dueDate)}` : '' %><%= d.active ? '' : ' · tạm dừng theo dõi' %>
+                    <%= d.counterparty || 'chưa ghi tên' %> · từ <%= dmy(d.startDate) %><%= d.dueDate ? ` · hẹn ${dmy(d.dueDate)}` : '' %>
                   </span>
                 </div>
                 <div class="text-right">
                   <span class="muted"><%= group[0] === 'owe' ? 'Còn nợ' : 'Còn phải thu' %></span><br>
-                  <strong class="<%= d.settled ? 'hh-pos' : 'hh-neg' %> hh-big"><%= money(Math.max(0, d.remaining)) %></strong>
+                  <strong class="hh-neg hh-big"><%= money(Math.max(0, d.remaining)) %></strong>
                 </div>
               </div>
               <div class="hh-bar mt"><span class="hh-bar-fill <%= group[2] %>" style="width: <%= d.progress %>%"></span></div>
@@ -495,6 +462,29 @@
         </div>
       </section>
     <% }) %>
+
+    <%# Trả/thu xong rồi thì không còn là việc phải làm nữa — gập xuống đây để danh sách trên
+        chỉ còn khoản đang theo dõi, nhưng vẫn tra lại được đã trả bao nhiêu gốc, bao nhiêu lãi. %>
+    <% if (doneDebts.length) { %>
+      <details class="card-lite hh-manage mb">
+        <summary class="card-hdr green"><span>✅ Đã xong</span><span><%= doneDebts.length %> khoản</span></summary>
+        <div class="p">
+          <div class="table-wrap"><table>
+            <thead><tr><th>Khoản</th><th>Với ai</th><th>Ban đầu</th><th class="text-right">Đã trả/thu</th></tr></thead>
+            <tbody>
+              <% doneDebts.forEach((d) => { %>
+                <tr>
+                  <td><strong><%= d.name %></strong><br><span class="muted"><%= d.direction === 'owe' ? '🏦 mình nợ' : '🤝 nợ mình' %> · từ <%= dmy(d.startDate) %></span></td>
+                  <td><%= d.counterparty || '(chưa ghi)' %></td>
+                  <td><%= money(d.initialAmount) %></td>
+                  <td class="text-right"><strong class="hh-pos"><%= money(d.principalPaid) %></strong><br><span class="muted">lãi <%= money(d.interestPaid) %></span></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table></div>
+        </div>
+      </details>
+    <% } %>
 
     <%# KHAI mới và SỬA khoản cũ tách làm hai phần riêng: khai là việc thỉnh thoảng mới làm
         nhưng cần thấy ngay, còn sửa thì lọt thỏm giữa một đống form nếu để chung. %>
@@ -540,12 +530,6 @@
             <div><label>Số tiền ban đầu</label><input class="money-input" name="initialAmount" value="<%= formatMoney(d.initialAmount) %>"></div>
             <div><label>Từ ngày</label><input type="date" name="startDate" value="<%= ymd(d.startDate) %>"></div>
             <div><label>Hẹn trả</label><input type="date" name="dueDate" value="<%= d.dueDate ? ymd(d.dueDate) : '' %>"></div>
-            <div><label>Trạng thái</label>
-              <select name="active">
-                <option value="true" <%= d.active ? 'selected' : '' %>>Đang theo dõi</option>
-                <option value="false" <%= d.active ? '' : 'selected' %>>Tạm dừng</option>
-              </select>
-            </div>
             <div class="household-form-wide"><label>Ghi chú</label><input name="note" value="<%= d.note %>" placeholder="Không bắt buộc"></div>
             <div class="household-form-action">
               <button class="btn btn-success" data-loading-text="Đang lưu...">Lưu</button>
@@ -643,26 +627,6 @@
         </form>
       </section>
     <% } %>
-
-    <section class="card-lite p tournament-edit-card mb">
-      <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt chung</h2><p class="muted">Tên sổ và mốc bắt đầu ghi sổ.</p></div></div>
-      <form class="household-form" method="post" action="/household/config"><input type="hidden" name="book" value="<%= currentBook.id %>">
-        <div><label>Tên sổ</label><input name="name" value="<%= currentBook.name %>" maxlength="120"></div>
-        <div><label>Bắt đầu ghi sổ từ</label><input type="date" name="anchorDate" value="<%= ymd(config.anchorDate) %>"></div>
-        <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang lưu...">Lưu cài đặt</button></div>
-      </form>
-      <p class="muted">Số <strong>tiết kiệm đang có</strong> và <strong>còn lại luỹ kế</strong> được cộng từ mọi khoản đã khai, nên sửa số của tháng cũ là các tháng sau tự đúng theo — không cần chốt sổ.</p>
-    </section>
-
-    <section class="card-lite p tournament-edit-card mb">
-      <div class="section-heading mb"><div><span class="feature-icon">📋</span><h2 class="section-title">Danh mục mẫu</h2><p class="muted">Vài loại thu nhập và loại chi phí thường gặp để bắt đầu cho nhanh.</p></div></div>
-      <form method="post" action="/household/seed"><input type="hidden" name="book" value="<%= currentBook.id %>">
-        <input type="hidden" name="month" value="<%= report.month %>">
-        <input type="hidden" name="section" value="cai-dat">
-        <button class="btn btn-success" data-loading-text="Đang nạp...">Nạp danh mục mẫu</button>
-      </form>
-      <p class="muted">Chỉ nạp phần nào đang trống nên bấm nhiều lần cũng không sinh dòng trùng. Không nạp sẵn số tiền nào.</p>
-    </section>
 
     <%# Phân quyền: chỉ CHỦ SỔ thấy phần này. Người được mời vẫn xem/sửa được sổ
         nhưng không mời tiếp được người khác — giống hồ sơ y tế. %>

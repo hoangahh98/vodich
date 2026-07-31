@@ -66,23 +66,6 @@ export class HouseholdController {
     });
   }
 
-  @Post('/household/config')
-  async saveConfig(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
-    const id = await this.book(req, res);
-    if (id === null) return;
-    await this.household.updateConfig(id, body);
-    return this.backTo(res, id, 'cai-dat', { msg: 'Đã lưu cài đặt' });
-  }
-
-  @Post('/household/seed')
-  async seed(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
-    const id = await this.book(req, res);
-    if (id === null) return;
-    const result = await this.household.seedTemplate(id, body.month);
-    const back = SECTIONS.includes(String(body.section)) ? String(body.section) : 'cai-dat';
-    return this.backTo(res, id, back, result);
-  }
-
   // ─── Khoản thu ───
 
   @Post('/household/income')
@@ -116,6 +99,13 @@ export class HouseholdController {
     const id = await this.book(req, res);
     if (id === null) return;
     return this.backTo(res, id, 'chi', await this.household.addExpense(id, body));
+  }
+
+  @Post('/household/expenses/copy')
+  async copyExpense(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
+    const id = await this.book(req, res);
+    if (id === null) return;
+    return this.backTo(res, id, 'chi', await this.household.copyExpenseFromPreviousMonth(id, body.month));
   }
 
   @Post('/household/expenses/:id/delete')
