@@ -113,10 +113,19 @@ export interface CategoryTotal {
   id: string; // '' = khoản của loại đã bị xoá
   name: string;
   kind: string;
-  amount: number;
+  amount: number; // tiền ĐÃ CHI/THU thật
   count: number;
-  /** Phần trăm trong tổng của chính nhóm đó — để vẽ thanh tỷ trọng, 0 nếu nhóm rỗng. */
+  /**
+   * Chiếm bao nhiêu phần trăm TỔNG CHI (hoặc tổng thu) của tháng. 0 nếu nhóm rỗng.
+   *
+   * KHÁC HẲN `usedPercent` — đừng lẫn. Khoản duy nhất của tháng luôn có `share` = 100%
+   * dù mới tiêu một phần nhỏ mức dự kiến; chính chỗ này từng làm chủ sổ hiểu nhầm.
+   */
   share: number;
+  /** Tổng mức DỰ KIẾN của các khoản trong loại (chỉ khoản cố định mới có). 0 = không đặt mức. */
+  planned: number;
+  /** Đã tiêu bao nhiêu phần trăm mức dự kiến. 0 nếu loại không đặt mức. */
+  usedPercent: number;
 }
 
 export interface DebtView {
@@ -330,15 +339,21 @@ function groupByCategory(rows: EntryLike[], categories: CategoryLike[], keep: (k
       amount: 0,
       count: 0,
       share: 0,
+      planned: 0,
+      usedPercent: 0,
     };
     bucket.amount += amount(row);
+    bucket.planned += Number(row.plannedAmount ?? 0n);
     bucket.count += 1;
     totals.set(id, bucket);
   }
 
   const list = [...totals.values()].sort((a, b) => b.amount - a.amount || a.name.localeCompare(b.name, 'vi'));
   const total = list.reduce((all, item) => all + item.amount, 0);
-  for (const item of list) item.share = total > 0 ? Math.round((item.amount / total) * 100) : 0;
+  for (const item of list) {
+    item.share = total > 0 ? Math.round((item.amount / total) * 100) : 0;
+    item.usedPercent = item.planned > 0 ? Math.round((item.amount / item.planned) * 100) : 0;
+  }
   return list;
 }
 

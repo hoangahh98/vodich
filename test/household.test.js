@@ -916,3 +916,53 @@ test('household view: tổng quan có ô "Còn du lịch năm ..."', async () =>
   assert.match(html, /Tiết kiệm du lịch/, 'phải chỉ rõ cách tiêu quỹ này');
 });
 
+
+// ─── Hai loại phần trăm, đừng lẫn ───
+
+/**
+ * CA THẬT (31/7/2026): chủ sổ khai Dự phòng dự kiến 3tr, đã chi 2tr, và thấy cột "Tỷ trọng"
+ * ghi 100% — hiểu nhầm thành "đã tiêu hết quỹ 3tr". Con số đúng về số học (2tr là khoản chi
+ * DUY NHẤT của tháng nên chiếm 100% tổng chi) nhưng CÁI NHÃN sai. Nay tách hai số rõ ràng.
+ */
+test('chi tiêu: "% tổng chi" và "đã dùng bao nhiêu mức dự kiến" là HAI số khác nhau', () => {
+  const book = ledger({ incomes: [], expenses: [] });
+  book.expenses.push(expense({ categoryId: 12n, amount: 2000000n, plannedAmount: 3000000n }));
+  const [row] = buildMonthReport(book).expenseByCategory;
+
+  assert.equal(row.amount, 2000000);
+  assert.equal(row.planned, 3000000);
+  assert.equal(row.share, 100, 'khoản chi duy nhất của tháng ⇒ chiếm 100% TỔNG CHI');
+  assert.equal(row.usedPercent, 67, 'nhưng mới dùng 2tr/3tr mức dự kiến ⇒ 67%');
+});
+
+test('chi tiêu: loại không đặt mức dự kiến thì không có phần trăm "đã dùng"', () => {
+  const row = buildMonthReport(ledger()).expenseByCategory.find((r) => r.name === 'Ăn uống');
+
+  assert.equal(row.planned, 0);
+  assert.equal(row.usedPercent, 0, 'không đặt mức thì không bịa ra tỷ lệ nào');
+});
+
+test('chi tiêu: chi vượt mức dự kiến thì "đã dùng" quá 100%', () => {
+  const book = ledger({ incomes: [], expenses: [] });
+  book.expenses.push(expense({ categoryId: 12n, amount: 2500000n, plannedAmount: 2000000n }));
+  const [row] = buildMonthReport(book).expenseByCategory;
+
+  assert.equal(row.usedPercent, 125);
+});
+
+test('household view: bảng chi theo loại ghi rõ hai phần trăm, không để chữ "Tỷ trọng" mơ hồ', async () => {
+  const book = ledger();
+  book.expenses.push(expense({ categoryId: 12n, amount: 2000000n, plannedAmount: 3000000n }));
+  const report = buildMonthReport(book);
+  const base = viewLocals('tong-quan');
+  const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), {
+    ...base,
+    report,
+    book: { ...base.book, report },
+  });
+
+  assert.match(html, /% tổng chi/, 'phải nói rõ phần trăm kia là so với tổng chi');
+  assert.match(html, /Đã dùng/, 'phải có cột đã dùng bao nhiêu mức dự kiến');
+  assert.doesNotMatch(html, /<th>Tỷ trọng<\/th>/, 'không để lại nhãn mơ hồ');
+  assert.match(html, /của 3000000đ/, 'ghi rõ đang so với mức dự kiến nào');
+});

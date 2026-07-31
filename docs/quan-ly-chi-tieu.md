@@ -141,6 +141,17 @@ Khoản cố định thường được "sizing" một mức rồi thực tế c
 Bỏ trống ô "đã chi" = **đã chi 0đ** (chưa tiêu đồng nào tháng này), *không phải* "chi đúng dự
 kiến". Loại cố định chỉ cần **mức dự kiến > 0** là ghi được.
 
+### Hai phần trăm ở bảng "Chi phí theo loại" — đừng lẫn
+
+| Cột | Nghĩa | Công thức |
+|---|---|---|
+| **Đã dùng** | tiêu hết bao nhiêu phần **mức dự kiến** của chính loại đó | `đã chi / dự kiến` |
+| **% tổng chi** | loại đó chiếm bao nhiêu phần **tổng chi của tháng** | `đã chi / Σ chi tháng` |
+
+Khoản chi **duy nhất** của tháng luôn có *% tổng chi* = 100% dù mới tiêu một phần nhỏ mức dự kiến
+— ví dụ Dự phòng dự kiến 3tr, đã chi 2tr, không có khoản nào khác: *đã dùng* 67%, *% tổng chi* 100%.
+Bản trước gộp làm một cột tên "Tỷ trọng" nên chủ sổ đọc 100% và tưởng đã tiêu hết quỹ 3tr.
+
 ### Ô "🏖️ Còn du lịch năm ..." — số TỰ TÍNH, không phải dòng ghi
 
 ```

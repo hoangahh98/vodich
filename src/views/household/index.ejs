@@ -137,13 +137,27 @@
     <section class="card-lite mb">
       <div class="card-hdr red"><span>💸 Chi phí tháng <%= monthLabel(report.month) %> theo loại</span><span><%= money(report.expense) %></span></div>
       <div class="p">
+        <%# HAI phần trăm khác hẳn nhau, phải ghi rõ kẻo hiểu nhầm:
+            · "đã dùng"  = đã tiêu bao nhiêu phần MỨC DỰ KIẾN của chính loại đó
+            · "% tổng chi" = loại đó chiếm bao nhiêu phần tổng chi của tháng
+            Khoản duy nhất trong tháng luôn có % tổng chi = 100% dù mới tiêu một phần nhỏ. %>
         <div class="table-wrap"><table>
-          <thead><tr><th>Loại</th><th>Số khoản</th><th>Tỷ trọng</th><th class="text-right">Số tiền</th></tr></thead>
+          <thead><tr><th>Loại</th><th>Đã dùng</th><th>% tổng chi</th><th class="text-right">Số tiền</th></tr></thead>
           <tbody>
             <% report.expenseByCategory.forEach((row) => { %>
               <tr>
-                <td><strong><%= row.name %></strong><% if (row.kind === 'debt') { %> <span class="muted">🏦 trả nợ</span><% } %></td>
-                <td><%= row.count %></td>
+                <td>
+                  <strong><%= row.name %></strong><% if (row.kind === 'debt') { %> <span class="muted">🏦 trả nợ</span><% } %>
+                  <br><span class="muted"><%= row.count %> khoản</span>
+                </td>
+                <td>
+                  <% if (row.planned > 0) { %>
+                    <div class="hh-bar"><span class="hh-bar-fill <%= row.usedPercent > 100 ? 'red' : 'green' %>" style="width: <%= Math.min(100, row.usedPercent) %>%"></span></div>
+                    <span class="muted"><%= row.usedPercent %>% của <%= money(row.planned) %><%= row.planned > row.amount ? ` · dư ${money(row.planned - row.amount)}` : '' %></span>
+                  <% } else { %>
+                    <span class="muted">không đặt mức</span>
+                  <% } %>
+                </td>
                 <td><div class="hh-bar"><span class="hh-bar-fill red" style="width: <%= row.share %>%"></span></div><span class="muted"><%= row.share %>%</span></td>
                 <td class="text-right"><strong><%= money(row.amount) %></strong></td>
               </tr>
@@ -158,7 +172,7 @@
       <div class="card-hdr green"><span>💵 Thu nhập tháng <%= monthLabel(report.month) %> theo loại</span><span><%= money(report.income) %></span></div>
       <div class="p">
         <div class="table-wrap"><table>
-          <thead><tr><th>Loại</th><th>Số khoản</th><th>Tỷ trọng</th><th class="text-right">Số tiền</th></tr></thead>
+          <thead><tr><th>Loại</th><th>Số khoản</th><th>% tổng thu</th><th class="text-right">Số tiền</th></tr></thead>
           <tbody>
             <% report.incomeByCategory.forEach((row) => { %>
               <tr>
