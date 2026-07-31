@@ -53,11 +53,18 @@ export const INCOME_KINDS = ['normal', 'saving', 'debt'] as const;
 export const DEBT_DIRECTIONS = ['owe', 'lend'] as const;
 
 /**
- * Quỹ hứng phần dư giữa mức dự kiến và tiền đã chi thật của các khoản CỐ ĐỊNH.
+ * Quỹ du lịch — số SUY RA, không phải dòng ghi trong sổ.
  *
- * Nhận diện theo TÊN ở cả hai bên: loại CHI kiểu `saving` tên này là tiền BỎ VÀO quỹ, loại
- * THU kiểu `saving` cùng tên là tiền LẤY RA tiêu. Khớp theo tên (không phân biệt hoa thường)
- * vì hai bảng loại thu / loại chi tách nhau, không có khoá ngoại nào nối chúng lại.
+ *   Còn du lịch = Σ (dự kiến − đã chi) của MỌI khoản cố định
+ *               − Σ các khoản chi khai vào loại tên "Tiết kiệm du lịch"
+ *
+ * Vì sao suy ra chứ không ghi thành dòng: nó *kế thừa* từ rất nhiều khoản cố định, nên nếu
+ * ghi thành một dòng riêng thì dòng đó vừa lẫn vào danh sách khoản chi, vừa sửa được — sửa
+ * xong là nó lệch khỏi các khoản đã sinh ra nó và không còn cách nào biết số nào đúng.
+ * Suy ra thì luôn khớp với dữ liệu gốc, và không có gì để sửa sai.
+ *
+ * Tiền của quỹ này VẪN NẰM TRONG "còn lại" — nó chỉ là phần đã đánh dấu để dành đi chơi,
+ * chưa rời khỏi ví. Tiêu vào nó thì khai một khoản chi bình thường vào loại cùng tên.
  */
 export const TRAVEL_SAVING = 'Tiết kiệm du lịch';
 
@@ -82,6 +89,8 @@ export interface EntryLike {
   categoryId: bigint | null;
   month: string;
   amount: bigint;
+  /** Chỉ khoản CHI mới có: mức dự kiến của khoản cố định. Khoản thu luôn bỏ trống. */
+  plannedAmount?: bigint;
   principal: bigint;
   interest: bigint;
   debtId: bigint | null;
@@ -150,7 +159,8 @@ export interface MonthReport extends MonthTotals {
   expenseFixed: number; // phần chi phí cố định + trả nợ của tháng
   expenseVariable: number; // phần chi phí phát sinh của tháng
   savingNet: number; // gửi − rút trong tháng đang xem
-  savingBalance: number; // ← số của ô 🐷: tiết kiệm dồn qua các tháng
+  /** ← số của ô 🐷: tiền đã CẤT ĐI, dồn qua các tháng. Quỹ du lịch tính riêng, xem TRAVEL_SAVING. */
+  savingBalance: number;
   travelYear: number; // năm của tháng đang xem, cho nhãn "Còn du lịch năm ..."
   travelThisYear: number; // quỹ du lịch dồn được trong RIÊNG năm đó (bỏ vào − lấy ra)
   travelAllTime: number; // quỹ du lịch dồn từ đầu sổ tới hết tháng đang xem
@@ -195,12 +205,29 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
   const incomeRows = thisMonth(incomes);
   const expenseRows = thisMonth(expenses);
 
-  // Tiết kiệm là số LUỸ KẾ nên cộng trên toàn bộ lịch sử; thu/chi thì chỉ của tháng đang xem.
-  const savingBalance = sum(expenses, (row) => (expenseKind(row) === 'saving' ? amount(row) : 0)) -
-    sum(incomes, (row) => (incomeKind(row) === 'saving' ? amount(row) : 0));
+  // Quỹ du lịch: CỘNG phần dư của mọi khoản cố định, TRỪ các khoản chi khai vào loại cùng tên.
+  const travelSpendIds = new Set(
+    input.expenseCategories.filter((c) => c.name.trim().toLowerCase() === TRAVEL_SAVING.toLowerCase()).map((c) => String(c.id)),
+  );
+  const isTravelRow = (row: EntryLike) => travelSpendIds.has(String(row.categoryId));
+  const spare = (row: EntryLike) => Math.max(0, Number(row.plannedAmount ?? 0n) - amount(row));
+  const travelBalance = (from?: string) => {
+    const rows = from ? expenses.filter((row) => row.month >= from) : expenses;
+    return sum(rows, (row) => (isTravelRow(row) ? -amount(row) : spare(row)));
+  };
+  const yearStart = `${month.slice(0, 4)}-01`;
 
+  // GỬI / RÚT tiết kiệm của tháng, tính CẢ quỹ du lịch. Hai số này phải trọn vẹn vì phép tính
+  // tiền mặt ở dưới dựa vào chúng: "còn lại = thu + rút − chi − gửi" chỉ đúng khi không sót
+  // đồng nào. Ô 🐷 trên màn hình dùng bộ `...Other` (không gồm du lịch) ở ngay dưới.
   const savingIn = sum(expenseRows, (row) => (expenseKind(row) === 'saving' ? amount(row) : 0));
   const savingOut = sum(incomeRows, (row) => (incomeKind(row) === 'saving' ? amount(row) : 0));
+
+  // Ô 🐷 "Tiết kiệm đang có": tiền đã CẤT ĐI thật, luỹ kế qua các tháng. Không dính gì tới quỹ
+  // du lịch — quỹ đó là số suy ra từ phần dư của khoản cố định, tiền vẫn nằm trong "còn lại".
+  const savingBalance =
+    sum(expenses, (row) => (expenseKind(row) === 'saving' ? amount(row) : 0)) -
+    sum(incomes, (row) => (incomeKind(row) === 'saving' ? amount(row) : 0));
   const income = sum(incomeRows, (row) => (incomeKind(row) === 'saving' ? 0 : amount(row)));
   const expense = sum(expenseRows, (row) => (expenseKind(row) === 'saving' ? 0 : amount(row)));
   // Tách cố định / phát sinh để biết mỗi tháng bao nhiêu là khoản KHÔNG tránh được.
@@ -219,15 +246,6 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
 
   const debts = buildDebtViews(input.debts, incomes, expenses, month);
 
-  // Quỹ du lịch: bỏ vào ở bên CHI, lấy ra ở bên THU, khớp theo tên quỹ.
-  const isTravel = (category: CategoryLike) =>
-    category.kind === 'saving' && category.name.trim().toLowerCase() === TRAVEL_SAVING.toLowerCase();
-  const travelExpenseIds = new Set(input.expenseCategories.filter(isTravel).map((c) => String(c.id)));
-  const travelIncomeIds = new Set(input.incomeCategories.filter(isTravel).map((c) => String(c.id)));
-  const travelIn = (rows: EntryLike[], ids: Set<string>, from?: string) =>
-    sum(rows, (row) => (ids.has(String(row.categoryId)) && (!from || row.month >= from) ? amount(row) : 0));
-  const yearStart = `${month.slice(0, 4)}-01`;
-
   return {
     month,
     months: knownMonths(input, month),
@@ -240,9 +258,8 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
     savingNet: savingIn - savingOut,
     savingBalance,
     travelYear: Number(month.slice(0, 4)),
-    travelThisYear:
-      travelIn(expenses, travelExpenseIds, yearStart) - travelIn(incomes, travelIncomeIds, yearStart),
-    travelAllTime: travelIn(expenses, travelExpenseIds) - travelIn(incomes, travelIncomeIds),
+    travelThisYear: travelBalance(yearStart),
+    travelAllTime: travelBalance(),
     leftover,
     leftoverPrevious: leftoverTotal - leftover,
     leftoverTotal,

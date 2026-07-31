@@ -505,7 +505,7 @@ test('household view: tổng quan bày đủ ba ô Tiết kiệm / Chi phí / Th
   assert.match(html, /💸 Chi phí tháng/);
   assert.match(html, /💵 Thu nhập tháng/);
   assert.match(html, /39000000/, 'số tiết kiệm dồn qua các tháng phải hiện ra');
-  assert.match(html, /Dồn qua tất cả các tháng/);
+  assert.match(html, /dồn qua tất cả các tháng/i);
   assert.match(html, /metric-card/, 'dùng chung ô số liệu với module đội bóng');
   assert.match(html, /900000000/, 'nợ còn lại sau khi trừ gốc phải hiện ra');
 });
@@ -750,72 +750,28 @@ test('HouseholdService.addExpense: khoản cố định lưu cả mức dự ki�
   assert.equal(created[0].plannedAmount, 2000000n, 'mức dự kiến lưu riêng để còn đối chiếu');
 });
 
-test('HouseholdService.addExpense: phần dư của khoản cố định thành một dòng tiết kiệm THẬT', async () => {
+test('HouseholdService.addExpense: phần dư KHÔNG được ghi thành dòng chi nào', async () => {
   const { created, prisma } = fixedExpensePrisma();
   const service = new HouseholdService(prisma);
 
   const result = await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', actualAmount: '1500000', occurredAt: '2026-06-05' });
 
-  assert.equal(created.length, 2, 'một dòng chi thật + một dòng dồn vào quỹ');
-  assert.equal(created[1].categoryId, 99n, 'dòng thứ hai nằm ở quỹ Tiết kiệm du lịch');
-  assert.equal(created[1].amount, 500000n, '2tr dự kiến − 1tr5 đã chi');
-  assert.equal(created[1].month, '2026-06');
-  assert.match(result.msg, /Tiết kiệm du lịch/, 'phải báo cho người dùng biết, không làm lặng lẽ');
+  assert.equal(created.length, 1, 'chỉ đúng MỘT dòng: khoản chi thật. Phần dư là số tự tính.');
+  assert.equal(created[0].amount, 1500000n);
+  assert.equal(created[0].plannedAmount, 2000000n, 'mức dự kiến lưu lại để công thức suy ra phần dư');
+  assert.match(result.msg, /quỹ du lịch/, 'vẫn báo cho người dùng biết phần dư đi đâu');
 });
 
-test('HouseholdService.addExpense: bỏ trống ô "đã chi" = ĐÃ CHI 0đ, cả mức dự kiến vào quỹ', async () => {
-  const { created, prisma } = fixedExpensePrisma();
-  const service = new HouseholdService(prisma);
-
-  await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', occurredAt: '2026-06-05' });
-
-  assert.equal(created[0].amount, 0n, 'chưa tiêu đồng nào thì tiền chi thật là 0');
-  assert.equal(created[0].plannedAmount, 2000000n);
-  assert.equal(created.length, 2, 'cả 2tr dự kiến chưa tiêu dồn sang quỹ du lịch');
-  assert.equal(created[1].amount, 2000000n);
-});
-
-test('HouseholdService.addExpense: loại cố định chỉ cần MỨC DỰ KIẾN > 0, đã chi 0đ vẫn ghi được', async () => {
-  const { prisma } = fixedExpensePrisma();
-  const service = new HouseholdService(prisma);
-
-  const ok = await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', actualAmount: '0', occurredAt: '2026-06-05' });
-  assert.equal(ok.err, undefined);
-
-  const empty = await service.addExpense(BOOK_ID, { categoryId: '12', amount: '0', occurredAt: '2026-06-05' });
-  assert.match(empty.err, /dự kiến phải lớn hơn 0/);
-});
-
-test('HouseholdService.addExpense: chi VƯỢT dự kiến thì không sinh dòng dư âm', async () => {
+test('HouseholdService.addExpense: chi VƯỢT dự kiến thì quỹ du lịch không bị trừ âm', async () => {
   const { created, prisma } = fixedExpensePrisma();
   const service = new HouseholdService(prisma);
 
   await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', actualAmount: '2500000', occurredAt: '2026-06-05' });
-
-  assert.equal(created.length, 1, 'vượt dự kiến thì chẳng có gì để cất đi');
   assert.equal(created[0].amount, 2500000n);
-});
 
-test('HouseholdService.addExpense: chưa có quỹ Tiết kiệm du lịch thì tự tạo, đúng kiểu saving', async () => {
-  let madeCategory = null;
-  const created = [];
-  const service = new HouseholdService({
-    householdExpenseCategory: {
-      findFirst: async ({ where }) => (where.kind === 'saving' ? null : where.id === 12n ? { id: 12n, kind: 'fixed' } : null),
-      create: async ({ data }) => {
-        madeCategory = data;
-        return { id: 77n };
-      },
-    },
-    householdExpense: { create: async ({ data }) => created.push(data) },
-  });
-
-  await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', actualAmount: '1800000', occurredAt: '2026-06-05' });
-
-  assert.equal(madeCategory.name, 'Tiết kiệm du lịch');
-  assert.equal(madeCategory.kind, 'saving');
-  assert.equal(madeCategory.householdId, BOOK_ID, 'quỹ mới phải thuộc đúng sổ đang thao tác');
-  assert.equal(created[1].amount, 200000n);
+  const book = ledger();
+  book.expenses.push(expense({ categoryId: 12n, amount: 2500000n, plannedAmount: 2000000n }));
+  assert.equal(buildMonthReport(book).travelAllTime, 0, 'chi vượt thì phần dư là 0, không phải số âm');
 });
 
 test('household view: mục chi có ô "đã chi thực tế" chỉ dành cho loại cố định', async () => {
@@ -827,41 +783,67 @@ test('household view: mục chi có ô "đã chi thực tế" chỉ dành cho lo
   assert.match(html, /Tiết kiệm du lịch/, 'phải nói rõ phần dư chảy đi đâu');
 });
 
-// ─── Quỹ du lịch ───
+// ─── Quỹ du lịch (số SUY RA) ───
 
 /**
- * Quỹ du lịch nhận diện theo TÊN ở cả hai bên: loại CHI kiểu saving tên "Tiết kiệm du lịch"
- * là bỏ vào, loại THU cùng tên là lấy ra tiêu.
+ * Quỹ du lịch KHÔNG có dòng nào trong sổ: nó cộng từ phần dư (dự kiến − đã chi) của mọi khoản
+ * cố định, và trừ đi các khoản chi khai vào loại tên "Tiết kiệm du lịch".
  */
-test('chi tiêu: quỹ du lịch cộng dồn phần bỏ vào và TRỪ phần lấy ra tiêu', () => {
-  const book = ledger();
-  book.expenseCategories = [...EXPENSE_CATEGORIES, { id: 20n, name: 'Tiết kiệm du lịch', kind: 'saving', active: true, note: '' }];
-  book.incomeCategories = [...INCOME_CATEGORIES, { id: 21n, name: 'Tiết kiệm du lịch', kind: 'saving', active: true, note: '' }];
-  book.expenses.push(expense({ month: '2026-05', categoryId: 20n, amount: 500000n }));
-  book.expenses.push(expense({ categoryId: 20n, amount: 300000n }));
-  book.incomes.push(income({ categoryId: 21n, amount: 200000n })); // lấy ra tiêu
+function travelBook(over = {}) {
+  const book = ledger(over);
+  book.expenseCategories = [...EXPENSE_CATEGORIES, { id: 20n, name: 'Tiết kiệm du lịch', kind: 'variable', active: true, note: '' }];
+  return book;
+}
+
+test('chi tiêu: quỹ du lịch cộng phần dư của khoản cố định, không cần dòng ghi nào', () => {
+  const book = travelBook();
+  book.expenses.push(expense({ month: '2026-05', categoryId: 12n, amount: 1500000n, plannedAmount: 2000000n }));
+  book.expenses.push(expense({ categoryId: 12n, amount: 800000n, plannedAmount: 1000000n }));
 
   const report = buildMonthReport(book);
-  assert.equal(report.travelAllTime, 600000, '500k + 300k − 200k');
-  assert.equal(report.travelThisYear, 600000, 'cả ba dòng đều trong năm 2026');
+  assert.equal(report.travelAllTime, 700000, '500k của tháng 5 + 200k của tháng 6');
   assert.equal(report.travelYear, 2026);
 });
 
+test('chi tiêu: tiêu vào loại "Tiết kiệm du lịch" thì quỹ bị TRỪ', () => {
+  const book = travelBook();
+  book.expenses.push(expense({ categoryId: 12n, amount: 1500000n, plannedAmount: 2000000n }));
+  book.expenses.push(expense({ categoryId: 20n, amount: 300000n }));
+
+  assert.equal(buildMonthReport(book).travelAllTime, 200000, '500k dư − 300k đã tiêu');
+});
+
 test('chi tiêu: "còn du lịch năm ..." chỉ tính trong NĂM đó, tổng luỹ kế thì tính hết', () => {
-  const book = ledger();
-  book.expenseCategories = [...EXPENSE_CATEGORIES, { id: 20n, name: 'Tiết kiệm du lịch', kind: 'saving', active: true, note: '' }];
-  book.expenses.push(expense({ month: '2025-11', categoryId: 20n, amount: 1000000n }));
-  book.expenses.push(expense({ categoryId: 20n, amount: 400000n }));
+  const book = travelBook();
+  book.expenses.push(expense({ month: '2025-11', categoryId: 12n, amount: 0n, plannedAmount: 1000000n }));
+  book.expenses.push(expense({ categoryId: 12n, amount: 600000n, plannedAmount: 1000000n }));
 
   const report = buildMonthReport(book);
-  assert.equal(report.travelThisYear, 400000, 'chỉ phần dồn trong năm 2026');
+  assert.equal(report.travelThisYear, 400000, 'chỉ phần dư sinh trong năm 2026');
   assert.equal(report.travelAllTime, 1400000, 'gồm cả 1tr của năm 2025');
 });
 
-test('chi tiêu: quỹ du lịch KHÔNG lẫn với các loại tiết kiệm khác', () => {
-  const report = buildMonthReport(ledger());
-  assert.equal(report.travelAllTime, 0, 'sổ mẫu chưa có quỹ du lịch nào');
-  assert.ok(report.savingBalance > 0, 'nhưng vẫn có tiết kiệm thường');
+test('chi tiêu: quỹ du lịch KHÔNG đụng tới ô 🐷 Tiết kiệm đang có', () => {
+  const book = travelBook();
+  const base = buildMonthReport(book);
+  book.expenses.push(expense({ categoryId: 12n, amount: 1500000n, plannedAmount: 2000000n }));
+  const report = buildMonthReport(book);
+
+  assert.equal(report.travelAllTime, 500000);
+  assert.equal(report.savingBalance, base.savingBalance, 'ô 🐷 chỉ đếm tiền đã CẤT ĐI thật');
+});
+
+/**
+ * Tiền của quỹ du lịch vẫn nằm trong "còn lại" — nó chỉ là phần đã đánh dấu để dành, chưa rời
+ * khỏi ví. Đẳng thức tiền mặt vì thế không được đụng tới quỹ này.
+ */
+test('chi tiêu: quỹ du lịch là số đánh dấu, không làm lệch phép tính tiền mặt', () => {
+  const book = travelBook();
+  book.expenses.push(expense({ categoryId: 12n, amount: 1500000n, plannedAmount: 2000000n }));
+  const r = buildMonthReport(book);
+
+  assert.equal(r.leftover, r.income + r.savingOut - r.expense - r.savingIn, 'còn lại = thu + rút − chi − gửi');
+  assert.ok(r.travelAllTime > 0, 'quỹ có tiền nhưng không xuất hiện trong đẳng thức trên');
 });
 
 // ─── Sửa khoản đã ghi ───
@@ -933,3 +915,4 @@ test('household view: tổng quan có ô "Còn du lịch năm ..."', async () =>
   assert.match(html, /Còn du lịch năm 2026/);
   assert.match(html, /Tiết kiệm du lịch/, 'phải chỉ rõ cách tiêu quỹ này');
 });
+

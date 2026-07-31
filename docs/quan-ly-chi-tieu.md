@@ -139,36 +139,31 @@ Khoản cố định thường được "sizing" một mức rồi thực tế c
 | **Đã chi thực tế** | `amount` | tiền thật đã ra khỏi ví — **mọi công thức tính từ đây** |
 
 Bỏ trống ô "đã chi" = **đã chi 0đ** (chưa tiêu đồng nào tháng này), *không phải* "chi đúng dự
-kiến" — khi đó cả mức dự kiến dồn sang quỹ. Loại cố định chỉ cần **mức dự kiến > 0** là ghi được.
+kiến". Loại cố định chỉ cần **mức dự kiến > 0** là ghi được.
 
-Chi **ít hơn** dự kiến thì phần dư được ghi thành **một khoản chi thật** thuộc loại tiết kiệm
-**Tiết kiệm du lịch** (tự tạo lần đầu nếu chưa có):
+### Ô "🏖️ Còn du lịch năm ..." — số TỰ TÍNH, không phải dòng ghi
 
 ```
-Dự kiến 2.000.000 · đã chi 1.500.000
-  → dòng 1: chi phí cố định        1.500.000   (vào ô 💸 Chi phí)
-  → dòng 2: Tiết kiệm du lịch        500.000   (vào ô 🐷 Tiết kiệm)
-  Tiền rời khỏi ví: đúng 2.000.000
+Còn du lịch = Σ (dự kiến − đã chi) của MỌI khoản cố định
+            − Σ các khoản chi khai vào loại tên "Tiết kiệm du lịch"
 ```
 
-Cố ý ghi thành **dòng thật** chứ không tính ngầm trong công thức: nhờ vậy nó hiện ra ở danh sách,
-sửa/xoá được, và không có phép tính ẩn nào nằm ở chỗ khác. Vì thế **sửa** một khoản cố định
-KHÔNG tự tính lại dòng dư đã sinh ra — dòng đó nằm ngay trong danh sách, sửa thẳng.
+**Không có dòng nào trong danh sách khoản chi cho quỹ này, và không sửa được nó.** Đó là chủ ý:
+quỹ kế thừa từ *rất nhiều* khoản cố định, nên nếu ghi thành một dòng riêng thì dòng đó vừa lẫn vào
+danh sách vừa sửa được — sửa xong là lệch khỏi các khoản đã sinh ra nó và không còn cách nào biết
+số nào đúng. Suy ra thì luôn khớp dữ liệu gốc: sửa khoản cố định là ô này tự đúng theo.
 
-### Ô "Còn du lịch năm ..."
+**Tiền của quỹ vẫn nằm trong "còn lại"** — nó chỉ là phần đã *đánh dấu* để dành đi chơi, chưa rời
+khỏi ví. Vì thế quỹ này **không** xuất hiện trong đẳng thức tiền mặt, và **không** cộng vào ô 🐷
+(ô đó chỉ đếm tiền đã cất đi thật).
 
-Tổng quan có một ô riêng cho quỹ này: **dồn** khi khoản cố định chi hụt, **trừ** khi lấy ra tiêu.
-Nhận diện theo **tên quỹ** ở cả hai bên (hai bảng loại thu / loại chi tách nhau, không có khoá
-ngoại nối):
+Muốn **tiêu** quỹ: khai một khoản chi bình thường vào loại **Tiết kiệm du lịch** — tiền ra khỏi ví
+(giảm "còn lại") và ô này trừ đi tương ứng.
 
-| Chiều | Khai ở đâu |
-|---|---|
-| Bỏ vào | loại **chi phí** kiểu `saving` tên `Tiết kiệm du lịch` (tự tạo) |
-| Lấy ra tiêu | loại **thu nhập** kiểu `saving` đặt **đúng tên đó** |
-
-Ô hiện số của **riêng năm** đang xem (`travelThisYear`); mở ra thấy thêm số dồn từ đầu sổ
-(`travelAllTime`). Chi **vượt** dự kiến thì không sinh dòng nào
-(chẳng có gì để cất đi). Thao tác xong có báo rõ đã chuyển bao nhiêu sang quỹ, không làm lặng lẽ.
+> Bản trước (đã bỏ, migration `20260731210000`) ghi phần dư thành một khoản chi thật trong loại đó.
+> Chủ sổ chốt bỏ vì đúng lý do ở trên. Migration xoá các dòng máy tự sinh — điều kiện bám rất chặt
+> (đúng ghi chú máy đặt + đúng loại + không có mức dự kiến) nên không đụng dòng người dùng tự gõ,
+> đã diễn tập trên schema nháp với chính dữ liệu thật để xác nhận.
 
 **Khoản nợ trả/thu xong** (`initialAmount > 0` và còn lại ≤ 0) tự gập xuống mục **✅ Đã xong** và
 biến khỏi ô chọn khi khai chi/thu — vẫn tra lại được đã trả bao nhiêu gốc, bao nhiêu lãi. Bắt buộc

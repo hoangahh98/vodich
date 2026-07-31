@@ -463,46 +463,11 @@ export class HouseholdService {
 
     await this.prisma.householdExpense.create({ data: { ...data, plannedAmount: BigInt(planned) } });
 
-    // Dự kiến 2tr mà chỉ chi hết 1tr5 thì 500k còn lại không tự bốc hơi: nó chảy vào quỹ
-    // tiết kiệm du lịch. Ghi thành MỘT DÒNG THẬT chứ không tính ngầm trong công thức —
-    // nhờ vậy nó hiện ra ở danh sách, sửa/xoá được, và không có phép tính ẩn nào ở chỗ khác.
+    // Phần dư giữa dự kiến và đã chi KHÔNG được ghi thành dòng riêng: nó là số SUY RA ở
+    // household-calc (ô "Còn du lịch"). Ghi thành dòng thì dòng đó vừa lẫn vào danh sách
+    // khoản chi vừa sửa được — sửa xong là lệch khỏi các khoản cố định đã sinh ra nó.
     const spare = planned - Number(data.amount);
-    if (spare <= 0) return { month, msg: 'Đã ghi khoản chi' };
-    const jar = await this.travelSavingCategory(householdId);
-    await this.prisma.householdExpense.create({
-      data: {
-        householdId,
-        categoryId: jar.id,
-        month,
-        occurredAt: data.occurredAt,
-        amount: BigInt(spare),
-        note: `Dư từ khoản cố định ngày ${data.occurredAt.toISOString().slice(0, 10)}`,
-      },
-    });
-    return { month, msg: `Đã ghi khoản chi · dư ${vnd(spare)} chuyển sang ${TRAVEL_SAVING}` };
-  }
-
-  /**
-   * Quỹ nhận phần dư của các khoản cố định, tạo lần đầu nếu chưa có. Tìm theo TÊN trong các
-   * loại kiểu `saving` để chủ sổ đổi tên/gộp thoải mái mà không sinh ra quỹ trùng.
-   */
-  private async travelSavingCategory(householdId: number): Promise<{ id: bigint }> {
-    const existing = await this.prisma.householdExpenseCategory.findFirst({
-      where: { householdId, kind: 'saving', name: { equals: TRAVEL_SAVING, mode: 'insensitive' } },
-      select: { id: true },
-    });
-    if (existing) return existing;
-    const last = await this.prisma.householdExpenseCategory.findFirst({ where: { householdId }, orderBy: { sortOrder: 'desc' } });
-    return this.prisma.householdExpenseCategory.create({
-      data: {
-        householdId,
-        name: TRAVEL_SAVING,
-        kind: 'saving',
-        note: 'Nhận phần dư giữa mức dự kiến và tiền đã chi thật của các khoản cố định',
-        sortOrder: (last?.sortOrder ?? 0) + 1,
-      },
-      select: { id: true },
-    });
+    return { month, msg: spare > 0 ? `Đã ghi khoản chi · dư ${vnd(spare)} vào quỹ du lịch` : 'Đã ghi khoản chi' };
   }
 
   /** Một loại của ĐÚNG sổ này — gửi lên id loại của sổ khác thì trả null. */

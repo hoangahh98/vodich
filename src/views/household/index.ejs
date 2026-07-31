@@ -67,7 +67,7 @@
       <details class="metric-card gold metric-drop">
         <summary>
           <span>🐷 Tiết kiệm đang có</span><strong><%= money(report.savingBalance) %></strong>
-          <small>Dồn qua tất cả các tháng, tính tới hết tháng <%= monthLabel(report.month) %></small>
+          <small>Tiền đã cất đi, dồn qua tất cả các tháng</small>
         </summary>
         <div class="metric-drop-body">
           <div><span>Gửi thêm tháng này</span><strong><%= signed(report.savingIn) %></strong></div>
@@ -76,7 +76,10 @@
           <% report.savingByCategory.forEach((row) => { %>
             <div><span><%= row.name %></span><strong><%= money(row.amount) %></strong></div>
           <% }) %>
-          <p class="metric-drop-note">Mọi loại chi phí đánh dấu <strong>Gửi tiết kiệm</strong> đều chảy vào chung ô này.</p>
+          <p class="metric-drop-note">
+            Mọi loại chi phí đánh dấu <strong>Gửi tiết kiệm</strong> đều chảy vào chung ô này.
+            Quỹ du lịch tính riêng ở ô 🏖️ — đó là tiền chưa cất đi, vẫn nằm trong "còn lại".
+          </p>
         </div>
       </details>
       <div class="metric-card red">
@@ -117,14 +120,15 @@
       <details class="metric-card gold metric-drop">
         <summary>
           <span>🏖️ Còn du lịch năm <%= report.travelYear %></span><strong><%= money(report.travelThisYear) %></strong>
-          <small>Dồn từ phần dư của các khoản chi cố định</small>
+          <small>Kế thừa từ phần dư của mọi khoản chi cố định</small>
         </summary>
         <div class="metric-drop-body">
           <div><span>Dồn từ đầu sổ tới nay</span><strong><%= money(report.travelAllTime) %></strong></div>
           <p class="metric-drop-note">
-            Khoản cố định chi ít hơn dự kiến thì phần dư tự vào đây. Muốn <strong>tiêu</strong> quỹ này
-            thì khai một khoản thu loại <strong>🐷 Rút tiết kiệm</strong> đặt đúng tên
-            <strong>Tiết kiệm du lịch</strong> — số ở đây sẽ trừ đi tương ứng.
+            Số này <strong>tự tính</strong> từ phần dư (dự kiến − đã chi) của mọi khoản cố định, nên
+            không có dòng nào trong danh sách khoản chi để sửa — sửa khoản cố định là nó tự đúng theo.
+            Muốn <strong>tiêu</strong> quỹ thì khai một khoản chi bình thường vào loại
+            <strong>Tiết kiệm du lịch</strong>, số ở đây trừ đi tương ứng.
           </p>
         </div>
       </details>
@@ -344,7 +348,6 @@
                   <button class="btn btn-danger" form="hh-exp-row-del-<%= e.id %>" data-loading-text="Đang xoá...">Xoá</button>
                 </div>
               </form>
-              <p class="muted">Sửa ở đây KHÔNG tự tính lại dòng &quot;dư chuyển sang quỹ du lịch&quot; đã sinh lúc ghi — dòng đó nằm ngay trong danh sách này, sửa hoặc xoá thẳng.</p>
             </div>
           </details>
         <% }) %>
