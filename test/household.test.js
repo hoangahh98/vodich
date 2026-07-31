@@ -945,7 +945,7 @@ test('chi tiêu: chi vượt mức dự kiến thì "đã dùng" quá 100%', () 
   assert.equal(row.usedPercent, 125);
 });
 
-test('household view: bảng chi theo loại ghi rõ hai phần trăm, không để chữ "Tỷ trọng" mơ hồ', async () => {
+test('household view: bảng chi theo loại chỉ còn "đã dùng", bỏ hẳn cột tỷ trọng', async () => {
   const book = ledger();
   book.expenses.push(expense({ categoryId: 12n, amount: 2000000n, plannedAmount: 3000000n }));
   const report = buildMonthReport(book);
@@ -956,10 +956,11 @@ test('household view: bảng chi theo loại ghi rõ hai phần trăm, không đ
     book: { ...base.book, report },
   });
 
-  assert.match(html, /% tổng chi/, 'phải nói rõ phần trăm kia là so với tổng chi');
   assert.match(html, /Đã dùng/, 'phải có cột đã dùng bao nhiêu mức dự kiến');
-  assert.doesNotMatch(html, /<th>Tỷ trọng<\/th>/, 'không để lại nhãn mơ hồ');
   assert.match(html, /của 3000000đ/, 'ghi rõ đang so với mức dự kiến nào');
+  // Cột tỷ trọng (chiếm bao nhiêu phần tổng chi tháng) đã bỏ — chủ sổ thấy rối, và với sổ
+  // chỉ có một loại thì nó luôn là 100%, chẳng nói lên điều gì.
+  assert.doesNotMatch(html, /<th>Tỷ trọng<\/th>|% tổng chi|% tổng thu/, 'không còn cột tỷ trọng');
 });
 
 /**
