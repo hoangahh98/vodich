@@ -1012,3 +1012,94 @@ test('household view: không còn chữ nào hứa "bỏ trống = đúng dự k
   await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', occurredAt: '2026-06-05' });
   assert.equal(saved.amount, 0n, 'bỏ trống ô "đã chi" là 0đ, đúng như màn hình không hứa gì khác');
 });
+
+// ─── Ngân sách chưa tiêu vs tiền tự do ───
+
+/**
+ * Sổ thật tháng 8/2026 của chủ sổ, dựng lại nguyên xi — đây là bộ số làm lộ ra vấn đề:
+ * thu 44tr, khai dự kiến 8,65tr nhưng mới chi thật 3tr. "Còn lại 41tr" nghe như tiền rảnh,
+ * thực ra 5,65tr đã có chỗ (bỉm sữa, sinh hoạt chồng chưa mua chứ không phải để dành được).
+ */
+function augustBook(over = {}) {
+  const fixed = (planned, spent) => expense({ month: '2026-08', categoryId: 12n, amount: BigInt(spent), plannedAmount: BigInt(planned) });
+  return ledger({
+    month: '2026-08',
+    now: day('2026-08-15'), // đang giữa tháng 8
+    incomes: [
+      income({ month: '2026-08', categoryId: 1n, amount: 20000000n }),
+      income({ month: '2026-08', categoryId: 2n, amount: 24000000n }),
+    ],
+    expenses: [
+      fixed(3000000, 2000000), // Dự phòng
+      fixed(2000000, 0), // Bỉm sữa của con — chưa mua
+      fixed(350000, 200000), // Gửi xe máy
+      fixed(800000, 800000), // Gửi xe ô tô
+      fixed(2500000, 0), // Sinh hoạt của chồng — chưa tiêu
+    ],
+    ...over,
+  });
+}
+
+test('chi tiêu: tách rõ đã chi · ngân sách chưa tiêu · tiền tự do', () => {
+  const r = buildMonthReport(augustBook());
+
+  assert.equal(r.income, 44000000);
+  assert.equal(r.expense, 3000000, 'chỉ tiền ĐÃ RA KHỎI VÍ');
+  assert.equal(r.plannedTotal, 8650000, 'tổng mức dự kiến đã khai');
+  assert.equal(r.budgetLeft, 5650000, 'dự kiến − đã chi: còn trong ví nhưng đã có chỗ');
+  assert.equal(r.leftover, 41000000, 'tiền mặt còn = 44tr − 3tr');
+  assert.equal(r.freeThisMonth, 35350000, 'tiền chưa hứa với ai = 41tr − 5,65tr = thu − dự kiến');
+  assert.equal(r.freeThisMonth, r.income - r.plannedTotal, 'đúng bằng thu trừ tổng dự kiến');
+});
+
+/**
+ * Điểm mấu chốt chủ sổ chốt (31/7/2026): tháng ĐANG SỐNG thì phần chưa tiêu KHÔNG phải tiền
+ * để dành. Bỉm sữa khai 2tr chưa mua ngày nào mà tính ngay vào quỹ du lịch thì giữa tháng con
+ * số bị phóng đại rồi tụt dần — nhìn không tin được gì.
+ */
+test('chi tiêu: quỹ du lịch CHƯA tính tháng đang sống, chỉ chốt khi tháng đã qua', () => {
+  const now = buildMonthReport(augustBook());
+  assert.equal(now.travelAllTime, 0, 'tháng 8 chưa đóng ⇒ chưa chốt đồng nào vào quỹ');
+  assert.equal(now.budgetLeft, 5650000, 'phần đó vẫn đang là ngân sách chưa tiêu');
+
+  // Sang tháng 9, tháng 8 đã đóng ⇒ phần thật sự không tiêu hết mới thành tiền để dành.
+  const later = buildMonthReport(augustBook({ month: '2026-09', now: day('2026-09-10') }));
+  assert.equal(later.travelAllTime, 5650000);
+  assert.equal(later.budgetLeft, 0, 'tháng 9 chưa khai gì');
+});
+
+test('chi tiêu: "còn tự do luỹ kế" không trừ hai lần khi tháng đã chốt', () => {
+  const later = buildMonthReport(augustBook({ month: '2026-09', now: day('2026-09-10') }));
+
+  // Tiền mặt vẫn 41tr; 5,65tr đã nằm trong quỹ du lịch nên chỉ được trừ ĐÚNG MỘT LẦN.
+  assert.equal(later.leftoverTotal, 41000000);
+  assert.equal(later.travelAllTime, 5650000);
+  assert.equal(later.freeTotal, 35350000, '41tr − 5,65tr, không phải trừ tiếp lần nữa');
+});
+
+test('chi tiêu: tiêu vào quỹ du lịch thì cả quỹ lẫn tiền mặt cùng giảm', () => {
+  const book = augustBook({ month: '2026-09', now: day('2026-09-10') });
+  book.expenseCategories = [...EXPENSE_CATEGORIES, { id: 20n, name: 'Tiết kiệm du lịch', kind: 'variable', active: true, note: '' }];
+  book.expenses.push(expense({ month: '2026-09', categoryId: 20n, amount: 2000000n }));
+  const r = buildMonthReport(book);
+
+  assert.equal(r.travelAllTime, 3650000, '5,65tr − 2tr đã tiêu');
+  assert.equal(r.leftoverTotal, 39000000, 'tiền mặt cũng ra khỏi ví 2tr');
+  assert.equal(r.freeTotal, 35350000, 'tiền tự do KHÔNG đổi — tiêu đúng phần đã để dành');
+});
+
+test('household view: dải số bày đủ bốn ô và ô chi phí ghi cả mức dự kiến', async () => {
+  const report = buildMonthReport(augustBook());
+  const base = viewLocals('tong-quan');
+  const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), {
+    ...base,
+    report,
+    book: { ...base.book, report },
+  });
+
+  assert.match(html, /Ngân sách còn/);
+  assert.match(html, /Còn tự do/);
+  assert.match(html, /5650000/, 'ngân sách chưa tiêu phải hiện ra');
+  assert.match(html, /35350000/, 'tiền tự do phải hiện ra');
+  assert.match(html, /Dự kiến 8650000đ/, 'ô chi phí phải bày cả mức dự kiến');
+});

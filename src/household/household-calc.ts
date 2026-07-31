@@ -28,6 +28,12 @@
  *        Còn lại tháng này = Σ mọi khoản thu − Σ mọi khoản chi
  *        Còn lại luỹ kế    = còn lại của MỌI tháng trước + còn lại tháng này
  *
+ *      Nhưng "còn lại" CHƯA phải tiền rảnh: khoản cố định đã khai mức dự kiến mà chưa tiêu
+ *      thì tiền vẫn nằm đó nhưng đã có chỗ. Nên tách thêm:
+ *
+ *        Ngân sách còn = Σ (dự kiến − đã chi) của khoản cố định trong tháng
+ *        Còn tự do     = còn lại − ngân sách còn        ← tiền chưa hứa hẹn với ai
+ *
  *      (Gửi tiết kiệm nằm ở vế trừ, rút tiết kiệm nằm ở vế cộng — nên tiền không đếm hai lần:
  *       cất vào két thì rời khỏi ví, lấy ra tiêu thì quay lại ví.)
  *
@@ -167,6 +173,13 @@ export interface MonthReport extends MonthTotals {
   months: string[]; // các tháng có dữ liệu, mới nhất trước
   expenseFixed: number; // phần chi phí cố định + trả nợ của tháng
   expenseVariable: number; // phần chi phí phát sinh của tháng
+  plannedTotal: number; // tổng mức DỰ KIẾN đã khai cho tháng
+  /** Dự kiến − đã chi của tháng đang xem: tiền còn nằm trong ví nhưng đã có chỗ. */
+  budgetLeft: number;
+  /** Còn lại của tháng, trừ đi phần ngân sách chưa tiêu — tiền thật sự chưa hứa với ai. */
+  freeThisMonth: number;
+  /** Còn tự do luỹ kế: tiền mặt trừ quỹ du lịch đã chốt và ngân sách tháng này chưa tiêu. */
+  freeTotal: number;
   savingNet: number; // gửi − rút trong tháng đang xem
   /** ← số của ô 🐷: tiền đã CẤT ĐI, dồn qua các tháng. Quỹ du lịch tính riêng, xem TRAVEL_SAVING. */
   savingBalance: number;
@@ -192,6 +205,8 @@ export interface MonthReport extends MonthTotals {
 export interface LedgerInput {
   config: ConfigLike;
   month: string;
+  /** Mốc "bây giờ" để biết tháng nào đã đóng. Test truyền vào; chạy thật thì bỏ trống. */
+  now?: Date;
   incomeCategories: CategoryLike[];
   expenseCategories: CategoryLike[];
   incomes: EntryLike[];
@@ -215,16 +230,28 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
   const expenseRows = thisMonth(expenses);
 
   // Quỹ du lịch: CỘNG phần dư của mọi khoản cố định, TRỪ các khoản chi khai vào loại cùng tên.
+  //
+  // CHỈ tính phần dư của THÁNG ĐÃ ĐÓNG. Tháng đang sống mà đã tính là sai hẳn ý nghĩa: bỉm sữa
+  // khai 2tr chưa mua ngày nào thì đó là ngân sách chưa tiêu, không phải tiền tiết kiệm được —
+  // giữa tháng con số quỹ sẽ bị phóng đại rồi tụt dần, nhìn chẳng tin được gì.
+  const openMonth = monthKey(input.now ?? new Date());
   const travelSpendIds = new Set(
     input.expenseCategories.filter((c) => c.name.trim().toLowerCase() === TRAVEL_SAVING.toLowerCase()).map((c) => String(c.id)),
   );
   const isTravelRow = (row: EntryLike) => travelSpendIds.has(String(row.categoryId));
-  const spare = (row: EntryLike) => Math.max(0, Number(row.plannedAmount ?? 0n) - amount(row));
+  const spare = (row: EntryLike) => (isTravelRow(row) ? 0 : Math.max(0, Number(row.plannedAmount ?? 0n) - amount(row)));
+  const closed = (row: EntryLike) => row.month < openMonth;
   const travelBalance = (from?: string) => {
     const rows = from ? expenses.filter((row) => row.month >= from) : expenses;
-    return sum(rows, (row) => (isTravelRow(row) ? -amount(row) : spare(row)));
+    return sum(rows, (row) => (isTravelRow(row) ? -amount(row) : closed(row) ? spare(row) : 0));
   };
   const yearStart = `${month.slice(0, 4)}-01`;
+
+  // Ngân sách chưa tiêu: của riêng tháng đang xem (cho dải số), và của các tháng CHƯA đóng
+  // (cho số luỹ kế — tháng đã đóng thì phần dư đã nằm trong quỹ du lịch rồi, trừ nữa là trừ hai lần).
+  const plannedTotal = sum(expenseRows, (row) => Number(row.plannedAmount ?? 0n));
+  const budgetLeft = sum(expenseRows, spare);
+  const budgetOpen = sum(expenses, (row) => (closed(row) ? 0 : spare(row)));
 
   // GỬI / RÚT tiết kiệm của tháng, tính CẢ quỹ du lịch. Hai số này phải trọn vẹn vì phép tính
   // tiền mặt ở dưới dựa vào chúng: "còn lại = thu + rút − chi − gửi" chỉ đúng khi không sót
@@ -269,6 +296,10 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
     travelYear: Number(month.slice(0, 4)),
     travelThisYear: travelBalance(yearStart),
     travelAllTime: travelBalance(),
+    plannedTotal,
+    budgetLeft,
+    freeThisMonth: leftover - budgetLeft,
+    freeTotal: leftoverTotal - travelBalance() - budgetOpen,
     leftover,
     leftoverPrevious: leftoverTotal - leftover,
     leftoverTotal,

@@ -168,8 +168,12 @@ export class HouseholdAiService {
       tiet_kiem_dang_co: report.savingBalance, // không gồm quỹ du lịch, quỹ đó tách riêng ở dưới
       quy_du_lich_nam_nay: report.travelThisYear,
       quy_du_lich_tu_dau_so: report.travelAllTime,
-      con_lai_thang: report.leftover,
+      con_lai_thang: report.leftover, // tiền mặt còn, CHƯA trừ ngân sách đã hứa
+      ngan_sach_da_khai_thang: report.plannedTotal,
+      ngan_sach_chua_tieu: report.budgetLeft,
+      con_tu_do_thang: report.freeThisMonth, // đã trừ ngân sách chưa tiêu
       con_lai_luy_ke: report.leftoverTotal,
+      con_tu_do_luy_ke: report.freeTotal,
       thu_theo_loai: report.incomeByCategory.map((row) => ({ loai: row.name, tien: row.amount, so_khoan: row.count })),
       chi_theo_loai: report.expenseByCategory.map((row) => ({ loai: row.name, tien: row.amount, so_khoan: row.count, ty_trong_phan_tram: row.share })),
       tiet_kiem_theo_loai: report.savingByCategory.map((row) => ({ loai: row.name, tien: row.amount })),

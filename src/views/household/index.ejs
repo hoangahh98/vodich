@@ -53,11 +53,13 @@
   <% if (err) { %><div class="alert alert-danger mb"><%= err %></div><% } %>
 
   <% if (MONTH_SECTIONS.includes(section)) { %>
-    <%# Ba con số của tháng, hiện ở mọi mục để lúc nào cũng biết đang đứng ở đâu. %>
+    <%# Bốn con số của tháng. "Đã chi" là tiền ĐÃ RA KHỎI VÍ, "Ngân sách còn" là tiền còn
+        trong ví nhưng đã có chỗ, "Còn tự do" mới là tiền chưa hứa với ai. %>
     <div class="hh-strip mb">
       <div><span>Thu nhập tháng <%= monthLabel(report.month) %></span><strong class="hh-pos"><%= money(report.income) %></strong></div>
-      <div><span>Chi phí tháng <%= monthLabel(report.month) %></span><strong class="hh-neg"><%= money(report.expense) %></strong></div>
-      <div class="hh-strip-total"><span>Còn lại tháng này</span><strong class="<%= report.leftover < 0 ? 'hh-neg' : 'hh-pos' %>"><%= money(report.leftover) %></strong></div>
+      <div><span>Đã chi tháng <%= monthLabel(report.month) %></span><strong class="hh-neg"><%= money(report.expense) %></strong></div>
+      <div><span>Ngân sách còn</span><strong><%= money(report.budgetLeft) %></strong></div>
+      <div class="hh-strip-total"><span>Còn tự do</span><strong class="<%= report.freeThisMonth < 0 ? 'hh-neg' : 'hh-pos' %>"><%= money(report.freeThisMonth) %></strong></div>
     </div>
   <% } %>
 
@@ -79,25 +81,27 @@
         </div>
       </details>
       <div class="metric-card red">
-        <span>💸 Chi phí tháng <%= monthLabel(report.month) %></span><strong><%= money(report.expense) %></strong>
-        <small>📌 Cố định <%= money(report.expenseFixed) %> · 🎁 Phát sinh <%= money(report.expenseVariable) %></small>
+        <span>💸 Đã chi tháng <%= monthLabel(report.month) %></span><strong><%= money(report.expense) %></strong>
+        <small>Dự kiến <%= money(report.plannedTotal) %> · chưa tiêu <%= money(report.budgetLeft) %></small>
       </div>
       <div class="metric-card green">
         <span>💵 Thu nhập tháng <%= monthLabel(report.month) %></span><strong><%= money(report.income) %></strong>
         <small><%= book.incomes.length %> khoản đã khai</small>
       </div>
-      <details class="metric-card <%= report.leftoverTotal < 0 ? 'red' : 'blue' %> metric-drop">
+      <details class="metric-card <%= report.freeTotal < 0 ? 'red' : 'blue' %> metric-drop">
         <summary>
-          <span>💰 Còn lại luỹ kế</span><strong><%= money(report.leftoverTotal) %></strong>
-          <small>Bấm để xem cách tính của tháng <%= monthLabel(report.month) %></small>
+          <span>💰 Còn tự do luỹ kế</span><strong><%= money(report.freeTotal) %></strong>
+          <small>Tiền mặt <%= money(report.leftoverTotal) %>, đã trừ phần có chỗ</small>
         </summary>
         <div class="metric-drop-body">
-          <div><span>Thu nhập</span><strong><%= signed(report.income) %></strong></div>
-          <div><span>Rút tiết kiệm ra tiêu</span><strong><%= signed(report.savingOut) %></strong></div>
-          <div><span>Chi phí (gồm trả nợ)</span><strong><%= signed(-report.expense) %></strong></div>
-          <div><span>Gửi tiết kiệm</span><strong><%= signed(-report.savingIn) %></strong></div>
-          <div><span>= Còn lại tháng này</span><strong><%= money(report.leftover) %></strong></div>
-          <div><span>+ Còn lại các tháng trước</span><strong><%= money(report.leftoverPrevious) %></strong></div>
+          <div><span>Tiền mặt luỹ kế</span><strong><%= money(report.leftoverTotal) %></strong></div>
+          <div><span>− Để dành du lịch</span><strong><%= signed(-report.travelAllTime) %></strong></div>
+          <div><span>− Ngân sách tháng này chưa tiêu</span><strong><%= signed(-report.budgetLeft) %></strong></div>
+          <div><span>= Còn tự do</span><strong><%= money(report.freeTotal) %></strong></div>
+          <div><span>Riêng tháng <%= monthLabel(report.month) %>: thu</span><strong><%= signed(report.income) %></strong></div>
+          <div><span>đã chi (gồm trả nợ)</span><strong><%= signed(-report.expense) %></strong></div>
+          <div><span>gửi tiết kiệm</span><strong><%= signed(-report.savingIn) %></strong></div>
+          <div><span>rút tiết kiệm ra tiêu</span><strong><%= signed(report.savingOut) %></strong></div>
         </div>
       </details>
     </section>
@@ -115,10 +119,11 @@
       <details class="metric-card gold metric-drop">
         <summary>
           <span>🏖️ Còn du lịch năm <%= report.travelYear %></span><strong><%= money(report.travelThisYear) %></strong>
-          <small>Kế thừa từ phần dư của mọi khoản chi cố định</small>
+          <small>Phần dư của khoản cố định, chốt khi hết tháng</small>
         </summary>
         <div class="metric-drop-body">
           <div><span>Dồn từ đầu sổ tới nay</span><strong><%= money(report.travelAllTime) %></strong></div>
+          <div><span>Tháng <%= monthLabel(report.month) %> chưa tiêu (chưa chốt)</span><strong><%= money(report.budgetLeft) %></strong></div>
         </div>
       </details>
     </section>

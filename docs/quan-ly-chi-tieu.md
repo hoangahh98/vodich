@@ -43,12 +43,20 @@ thì ô "Chi phí" phồng lên vô nghĩa và tháng nào gửi tiết kiệm n
 💵 Thu nhập tháng    = Σ khoản thu kiểu normal + debt
 ```
 
-Thêm một ô thứ tư cho tiền mặt chưa cất đi đâu:
+## Đã chi · Ngân sách còn · Còn tự do
+
+Khoản cố định khai **mức dự kiến** trước rồi mới chi thật, nên "còn lại" chưa phải tiền rảnh:
 
 ```
-Còn lại tháng này = Σ MỌI khoản thu − Σ MỌI khoản chi        (gồm cả gửi/rút tiết kiệm)
-Còn lại luỹ kế    = còn lại của MỌI tháng trước + tháng này
+Đã chi          = Σ tiền THẬT đã ra khỏi ví
+Ngân sách còn   = Σ (dự kiến − đã chi) của khoản cố định trong tháng   ← còn trong ví, đã có chỗ
+Còn lại         = Σ mọi khoản thu − Σ mọi khoản chi                     (tiền mặt)
+Còn tự do       = Còn lại − Ngân sách còn        = thu − tổng dự kiến   ← chưa hứa với ai
+Còn tự do luỹ kế = tiền mặt luỹ kế − quỹ du lịch − ngân sách tháng này chưa tiêu
 ```
+
+Ví dụ thật (8/2026): thu 44tr, khai dự kiến 8,65tr, mới chi thật 3tr → *còn lại* 41tr nhưng
+*còn tự do* chỉ **35,35tr**; 5,65tr kia là bỉm sữa và sinh hoạt chưa mua chứ không phải tiền rảnh.
 
 Gửi tiết kiệm nằm ở vế trừ, rút tiết kiệm nằm ở vế cộng — nên tiền **không bị đếm hai lần**: cất
 vào két thì rời khỏi ví, lấy ra tiêu thì quay lại ví. Tổng tài sản = ô 🐷 + ô 💰.
@@ -155,9 +163,13 @@ Bản trước gộp làm một cột tên "Tỷ trọng" nên chủ sổ đọc
 ### Ô "🏖️ Còn du lịch năm ..." — số TỰ TÍNH, không phải dòng ghi
 
 ```
-Còn du lịch = Σ (dự kiến − đã chi) của MỌI khoản cố định
+Còn du lịch = Σ (dự kiến − đã chi) của khoản cố định thuộc THÁNG ĐÃ ĐÓNG
             − Σ các khoản chi khai vào loại tên "Tiết kiệm du lịch"
 ```
+
+**Chỉ tính tháng đã qua.** Tháng đang sống mà tính ngay là sai hẳn ý nghĩa: bỉm sữa khai 2tr chưa
+mua ngày nào thì đó là *ngân sách chưa tiêu*, không phải *tiết kiệm được* — giữa tháng con số sẽ bị
+phóng đại rồi tụt dần, nhìn không tin được gì. Phần chưa chốt nằm ở ô **Ngân sách còn**.
 
 **Không có dòng nào trong danh sách khoản chi cho quỹ này, và không sửa được nó.** Đó là chủ ý:
 quỹ kế thừa từ *rất nhiều* khoản cố định, nên nếu ghi thành một dòng riêng thì dòng đó vừa lẫn vào
