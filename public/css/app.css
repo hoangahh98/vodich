@@ -944,7 +944,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .household-member-row { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
 .household-hero-tools { display: flex; align-items: flex-end; gap: 10px; }
 
-/* Dải "còn thừa" của module chi tiêu: hiện ở mọi mục để lúc nào cũng thấy con số cuối cùng. */
+/* Dải "thu / chi / còn lại" của module chi tiêu: hiện ở mọi mục theo tháng để lúc nào cũng
+   thấy ba con số chính mà không phải quay về Tổng quan. */
 .hh-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.09); padding: 12px 16px; }
 .hh-strip > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .hh-strip span { font-size: 13px; font-weight: 700; color: var(--muted, #6c757d); }
@@ -958,13 +959,21 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .hh-debt { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
 .hh-debt:last-child { border-bottom: 0; margin-bottom: 0; }
 
-/* Chi tiết từng tuần của khoản chi phí cố định kiểu "theo tuần" */
-.hh-weekrow td { background: #f8f9fa; }
-.hh-weeks { display: flex; flex-wrap: wrap; gap: 6px; }
-.hh-week { border-radius: 999px; padding: 4px 10px; font-size: 12px; font-weight: 700; border: 1px solid transparent; }
-.hh-week.closed { background: #e7f1ff; color: #084298; border-color: #cfe2ff; }
-.hh-week.manual { background: #d1e7dd; color: #0f5132; border-color: #badbcc; }
-.hh-week.open { background: #fff3cd; color: #664d03; border-color: #ffe69c; }
+/* Thanh tỷ trọng: dùng cho "chi theo loại", dải 6 tháng và tiến độ trả nợ. */
+.hh-bar { height: 8px; border-radius: 999px; background: #e9ecef; overflow: hidden; min-width: 60px; margin-bottom: 4px; }
+.hh-bar-fill { display: block; height: 100%; border-radius: 999px; background: #6c757d; }
+.hh-bar-fill.red { background: #dc3545; }
+.hh-bar-fill.green { background: #198754; }
+.hh-bar-fill.blue { background: #0d6efd; }
+
+/* Trợ lý AI: khung hội thoại kiểu chat, tin của mình lệch phải. */
+.hh-chat { display: flex; flex-direction: column; gap: 10px; max-height: 460px; overflow-y: auto; padding: 4px; }
+.hh-msg { max-width: 88%; border-radius: 14px; padding: 10px 14px; }
+.hh-msg p { margin: 0; white-space: pre-wrap; line-height: 1.5; }
+.hh-msg-who { display: block; font-size: 12px; font-weight: 700; opacity: .75; margin-bottom: 2px; }
+.hh-msg.bot { align-self: flex-start; background: #f1f3f5; border-bottom-left-radius: 4px; }
+.hh-msg.me { align-self: flex-end; background: #d1e7dd; color: #0f5132; border-bottom-right-radius: 4px; }
+.hh-draft { border: 2px dashed #198754; border-radius: 12px; padding: 14px; }
 
 /* Khung "danh mục" gập lại: phần cấu hình ít đụng tới nên mặc định đóng. */
 .hh-manage > summary { cursor: pointer; list-style: none; }

@@ -91,40 +91,23 @@ function householdLocals(over = {}) {
     permissions: [{ id: 5n, admin: { id: 9n, username: 'subadmin', displayName: 'Sub Admin' } }],
   };
   const anchorDate = new Date('2026-06-01T00:00:00Z');
-  const config = { id: 1, weeklyRate: 500000n, weekStartDow: 1, anchorDate };
+  const config = { id: 1, anchorDate };
   // Sổ rỗng: snapshot này chỉ soi khung phân quyền, không cần số liệu tiền nong.
-  const report = buildMonthReport({
-    config,
-    month: '2026-06',
-    now: new Date('2026-06-15T00:00:00Z'),
-    incomes: [],
-    funds: [],
-    fundEntries: [],
-    debts: [],
-    debtPayments: [],
-    fixedCosts: [],
-    fixedSpends: [],
-    extraCosts: [],
-  });
+  const empty = { incomeCategories: [], expenseCategories: [], incomes: [], expenses: [], debts: [] };
+  const report = buildMonthReport({ config, month: '2026-06', ...empty });
   return {
     ...locals({ featureSet: new Set(['HOUSEHOLD']), path: '/household/cai-dat' }),
     section: 'cai-dat',
     config,
     report,
-    book: {
-      report,
-      incomes: [],
-      funds: [],
-      fundEntries: [],
-      debts: [],
-      fixedCosts: [],
-      fixedSpends: [],
-      extraCosts: [],
-    },
+    book: { report, ...empty },
     books: [currentBook],
     currentBook,
     isOwner: true,
     admins: [{ id: 9n, username: 'other', displayName: 'Admin Khác' }],
+    chat: [],
+    aiConfigured: true,
+    draft: null,
     msg: '',
     err: '',
     ...over,

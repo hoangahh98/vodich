@@ -39,13 +39,14 @@
         <a class="<%= currentPath.endsWith('/cau-hinh') ? 'active' : '' %>" href="/medical/patients/<%= menuPatientId %>/cau-hinh">⚙️ Cấu hình</a>
       <% } %>
     <% } else if (currentPath.startsWith('/household') && featureSet.has('HOUSEHOLD')) { %>
-      <%# Đúng 5 phần của bảng tính chi tiêu, cộng Tổng quan và Cài đặt. %>
+      <%# Khai hằng ngày (Thu/Chi) đứng trước, khai danh mục và sổ nợ đứng sau. %>
       <a class="<%= currentPath === '/household' ? 'active' : '' %>" href="/household">📊 Tổng quan</a>
-      <a class="<%= currentPath === '/household/thu' ? 'active' : '' %>" href="/household/thu">💵 Thu</a>
-      <a class="<%= currentPath === '/household/tiet-kiem' ? 'active' : '' %>" href="/household/tiet-kiem">🐷 Tiết kiệm</a>
-      <a class="<%= currentPath === '/household/tra-no' ? 'active' : '' %>" href="/household/tra-no">🏦 Trả nợ</a>
-      <a class="<%= currentPath === '/household/chi-phi-co-dinh' ? 'active' : '' %>" href="/household/chi-phi-co-dinh">📌 Chi phí cố định</a>
-      <a class="<%= currentPath === '/household/phat-sinh' ? 'active' : '' %>" href="/household/phat-sinh">🎁 Phát sinh</a>
+      <a class="<%= currentPath === '/household/thu' ? 'active' : '' %>" href="/household/thu">💵 Thu nhập</a>
+      <a class="<%= currentPath === '/household/chi' ? 'active' : '' %>" href="/household/chi">💸 Chi phí</a>
+      <a class="<%= currentPath === '/household/so-no' ? 'active' : '' %>" href="/household/so-no">🏦 Sổ nợ</a>
+      <a class="<%= currentPath === '/household/tro-ly' ? 'active' : '' %>" href="/household/tro-ly">🤖 Trợ lý</a>
+      <a class="<%= currentPath === '/household/loai-thu' ? 'active' : '' %>" href="/household/loai-thu">🏷️ Loại thu nhập</a>
+      <a class="<%= currentPath === '/household/loai-chi' ? 'active' : '' %>" href="/household/loai-chi">🏷️ Loại chi phí</a>
       <a class="<%= currentPath === '/household/cai-dat' ? 'active' : '' %>" href="/household/cai-dat">⚙️ Cài đặt</a>
     <% } else if (currentPath.startsWith('/permissions') && featureSet.has('PERMISSIONS')) { %>
       <a class="active" href="/permissions">🔐 Phân quyền</a>

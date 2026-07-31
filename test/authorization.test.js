@@ -42,14 +42,12 @@ function spyPrisma(shape) {
     tournament: model('tournament', ['findMany', 'findFirst', 'count', 'create']),
     medPatient: model('medPatient', ['findMany', 'findFirst']),
     householdConfig: model('householdConfig', ['findMany', 'findUnique', 'create']),
-    householdIncome: model('householdIncome', ['findMany', 'findFirst', 'deleteMany', 'create']),
-    householdFund: model('householdFund', ['findMany', 'findFirst', 'deleteMany', 'create']),
-    householdFundEntry: model('householdFundEntry', ['findMany', 'findFirst', 'deleteMany', 'create']),
-    householdDebt: model('householdDebt', ['findMany', 'findFirst', 'deleteMany', 'create']),
-    householdDebtPayment: model('householdDebtPayment', ['findMany', 'findFirst', 'create', 'updateMany']),
-    householdFixedCost: model('householdFixedCost', ['findMany', 'findFirst', 'deleteMany', 'create']),
-    householdFixedSpend: model('householdFixedSpend', ['findMany', 'findFirst', 'deleteMany', 'create']),
-    householdExtraCost: model('householdExtraCost', ['findMany', 'findFirst', 'deleteMany', 'create', 'updateMany']),
+    householdIncomeCategory: model('householdIncomeCategory', ['findMany', 'findFirst', 'deleteMany', 'create', 'update']),
+    householdExpenseCategory: model('householdExpenseCategory', ['findMany', 'findFirst', 'deleteMany', 'create', 'update']),
+    householdIncome: model('householdIncome', ['findMany', 'findFirst', 'deleteMany', 'create', 'createMany']),
+    householdExpense: model('householdExpense', ['findMany', 'findFirst', 'deleteMany', 'create']),
+    householdDebt: model('householdDebt', ['findMany', 'findFirst', 'deleteMany', 'create', 'update']),
+    householdChatMessage: model('householdChatMessage', ['findMany', 'createMany', 'deleteMany']),
     householdPermission: model('householdPermission', ['create', 'deleteMany']),
     appUser: model('appUser', ['findMany']),
   };
@@ -161,49 +159,49 @@ test('MedicalService: admin gốc KHÔNG mặc nhiên xem được bệnh án nh
 test('HouseholdService: mọi truy vấn đọc đều kèm householdId', async () => {
   const empty = { findMany: async () => [] };
   const prisma = spyPrisma({
-    householdConfig: { findUnique: async () => ({ id: 1, weeklyRate: 500000n, weekStartDow: 1, anchorDate: new Date() }) },
+    householdConfig: { findUnique: async () => ({ id: 1, anchorDate: new Date() }) },
+    householdIncomeCategory: empty,
+    householdExpenseCategory: empty,
     householdIncome: empty,
-    householdFund: empty,
-    householdFundEntry: empty,
+    householdExpense: empty,
     householdDebt: empty,
-    householdDebtPayment: empty,
-    householdFixedCost: empty,
-    householdFixedSpend: empty,
-    householdExtraCost: empty,
   });
   await new HouseholdService(prisma).book(1, '2026-06');
   const reads = prisma.calls.filter((c) => c.model !== 'householdConfig');
-  assert.ok(reads.length >= 8, 'phải đọc đủ 8 bảng con của sổ');
+  assert.ok(reads.length >= 5, 'phải đọc đủ 5 bảng con của sổ');
   for (const call of reads) {
     assert.equal(call.where?.householdId, 1, `${call.model}.${call.method} thiếu bộ lọc householdId`);
   }
 });
 
-test('HouseholdService.deleteFixedSpend không xoá được lần chi của sổ khác', async () => {
+test('HouseholdService.deleteExpense không xoá được khoản chi của sổ khác', async () => {
   const prisma = spyPrisma({
-    householdFixedSpend: {
+    householdExpense: {
       findFirst: async ({ where }) => (where.householdId === 1 ? { id: 55n, month: '2026-06' } : null),
       deleteMany: async ({ where }) => ({ count: where.householdId === 1 ? 1 : 0 }),
     },
   });
   const service = new HouseholdService(prisma);
 
-  assert.equal(await service.deleteFixedSpend(1, 55n), '2026-06', 'xoá được lần chi của chính sổ mình');
+  assert.equal(await service.deleteExpense(1, 55n), '2026-06', 'xoá được khoản chi của chính sổ mình');
   assert.equal(prisma.lastWhere().householdId, 1, 'điều kiện xoá phải kèm id sổ');
   // Sổ khác: `findFirst` không thấy dòng nào nên không có lệnh xoá nào được phát ra.
   const before = prisma.calls.length;
-  await service.deleteFixedSpend(2, 55n);
+  await service.deleteExpense(2, 55n);
   assert.ok(
     prisma.calls.slice(before).every((c) => c.where?.householdId === 2),
     'gửi id sổ khác thì mọi truy vấn vẫn bị khoá vào đúng sổ đó',
   );
 });
 
-test('HouseholdService.addExtraCost bỏ qua nguồn tiền không thuộc sổ này', async () => {
-  let created;
+test('HouseholdService.addExpense từ chối loại và khoản nợ không thuộc sổ này', async () => {
+  let created = null;
   const prisma = spyPrisma({
-    householdFund: { findFirst: async ({ where }) => (where.householdId === 1 && where.id === 3n ? { id: 3n } : null) },
-    householdExtraCost: {
+    householdExpenseCategory: {
+      findFirst: async ({ where }) => (where.householdId === 1 && where.id === 11n ? { id: 11n, kind: 'normal' } : null),
+    },
+    householdDebt: { findFirst: async ({ where }) => (where.householdId === 1 && where.id === 9n ? { id: 9n } : null) },
+    householdExpense: {
       create: async ({ data }) => {
         created = data;
         return data;
@@ -212,13 +210,15 @@ test('HouseholdService.addExtraCost bỏ qua nguồn tiền không thuộc sổ 
   });
   const service = new HouseholdService(prisma);
 
-  await service.addExtraCost(1, { name: 'Cưới abc', amount: '500000', pick: 'fund:3', occurredAt: '2026-06-18' });
-  assert.equal(created.fundId, 3n, 'quỹ đúng sổ thì giữ nguyên');
-  assert.equal(created.source, 'fund');
+  const ok = await service.addExpense(1, { categoryId: '11', amount: '500000', occurredAt: '2026-06-18' });
+  assert.equal(ok.err, undefined);
+  assert.equal(created.categoryId, 11n);
+  assert.equal(prisma.calls[0].where.householdId, 1, 'tra loại phải kèm id sổ');
 
-  await service.addExtraCost(1, { name: 'Cưới abc', amount: '500000', pick: 'fund:999', occurredAt: '2026-06-18' });
-  assert.equal(created.fundId, null, 'quỹ của sổ khác bị hạ về "khoản chi mới", không gắn bừa');
-  assert.equal(created.source, 'new', 'nhờ vậy tiền vẫn bị trừ vào phần còn thừa thay vì biến mất');
+  created = null;
+  const foreign = await service.addExpense(2, { categoryId: '11', amount: '500000', occurredAt: '2026-06-18' });
+  assert.match(foreign.err, /Chưa chọn loại/, 'loại của sổ khác thì từ chối ghi');
+  assert.equal(created, null, 'và tuyệt đối không tạo dòng nào');
 });
 
 test('HouseholdAccessService: admin thường chỉ thấy sổ của mình, chỉ chủ sổ được phân quyền', async () => {

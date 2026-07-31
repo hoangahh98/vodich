@@ -25,11 +25,11 @@ const ORDER = [
   'TravelTripExpense', 'TravelTripExpenseSplit',
   'KnightCharacter', 'KnightProgress',
   'MedPatient', 'MedPatientPermission', 'MedPrescription', 'MedPrescriptionItem', 'MedCabinetItem',
-  // Sổ chi tiêu: config là gốc, rồi tới các danh mục (quỹ / nợ / chi phí cố định),
-  // cuối cùng mới tới các dòng trỏ vào danh mục đó.
-  'HouseholdConfig', 'HouseholdPermission', 'HouseholdIncome',
-  'HouseholdFund', 'HouseholdDebt', 'HouseholdFixedCost',
-  'HouseholdFundEntry', 'HouseholdDebtPayment', 'HouseholdFixedSpend', 'HouseholdExtraCost',
+  // Sổ chi tiêu: config là gốc, rồi tới các loại thu/chi và sổ nợ, cuối cùng mới tới
+  // các khoản thu/chi trỏ vào chúng.
+  'HouseholdConfig', 'HouseholdPermission',
+  'HouseholdIncomeCategory', 'HouseholdExpenseCategory', 'HouseholdDebt',
+  'HouseholdIncome', 'HouseholdExpense', 'HouseholdChatMessage',
 ];
 
 /**

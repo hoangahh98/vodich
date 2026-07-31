@@ -24,6 +24,7 @@ import { CabinetService } from './medical/cabinet.service';
 import { HouseholdController } from './household/household.controller';
 import { HouseholdService } from './household/household.service';
 import { HouseholdAccessService } from './household/household-access.service';
+import { HouseholdAiService } from './household/household-ai.service';
 import { PlayersController } from './players/players.controller';
 import { PlayersService } from './players/players.service';
 import { TournamentService } from './tournaments/tournament.service';
@@ -93,6 +94,7 @@ import { CsrfMiddleware } from './common/csrf';
     CabinetService,
     HouseholdService,
     HouseholdAccessService,
+    HouseholdAiService,
     AiService,
     MatchGateway,
     LocalsMiddleware,

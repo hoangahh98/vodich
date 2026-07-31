@@ -1,13 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import {
-  EXTRA_SOURCES,
-  FIXED_MODES,
-  FUND_DIRECTIONS,
-  FUND_KINDS,
+  CATEGORY_KINDS,
+  DEBT_DIRECTIONS,
   MonthReport,
   buildMonthReport,
-  clampInt,
   currentMonth,
   monthOf,
   normalizeMonth,
@@ -19,37 +16,59 @@ import {
   previousMonth,
 } from './household-calc';
 
-export { MonthReport, FundView, DebtView, FixedCostView, WeekView } from './household-calc';
+export { CategoryTotal, DebtView, MonthReport, MonthTotals } from './household-calc';
 
-/** Mọi thứ một màn hình của module cần: số đã tính sẵn + các dòng thô để dựng form sửa. */
+/** Một loại thu / loại chi như màn hình cần: đủ để dựng form sửa. */
+export interface CategoryRow {
+  id: bigint;
+  name: string;
+  kind: string;
+  active: boolean;
+  note: string;
+}
+
+/** Một khoản thu / khoản chi đã khai. */
+export interface EntryRow {
+  id: bigint;
+  categoryId: bigint | null;
+  occurredAt: Date;
+  amount: bigint;
+  principal: bigint;
+  interest: bigint;
+  debtId: bigint | null;
+  note: string;
+}
+
+/** Mọi thứ một màn hình của module cần: số đã tính sẵn + các dòng thô của tháng đang xem. */
 export interface HouseholdBook {
   report: MonthReport;
-  incomes: Array<{ id: bigint; source: string; amount: bigint; note: string }>;
-  funds: Array<{ id: bigint; name: string; kind: string; monthlyAmount: bigint; startMonth: string; active: boolean }>;
-  fundEntries: Array<{ id: bigint; fundId: bigint; occurredAt: Date; direction: string; amount: bigint; note: string }>;
-  debts: Array<{ id: bigint; name: string; initialAmount: bigint; startMonth: string; active: boolean; note: string }>;
-  fixedCosts: Array<{
+  incomeCategories: CategoryRow[];
+  expenseCategories: CategoryRow[];
+  incomes: EntryRow[];
+  expenses: EntryRow[];
+  debts: Array<{
     id: bigint;
+    direction: string;
     name: string;
-    mode: string;
-    capAmount: bigint;
-    weeklyRate: bigint | null;
-    startMonth: string;
+    counterparty: string;
+    initialAmount: bigint;
+    startDate: Date;
+    dueDate: Date | null;
     active: boolean;
     note: string;
   }>;
-  fixedSpends: Array<{ id: bigint; costId: bigint; occurredAt: Date; amount: bigint; note: string }>;
-  extraCosts: Array<{
-    id: bigint;
-    occurredAt: Date;
-    name: string;
-    amount: bigint;
-    source: string;
-    fixedCostId: bigint | null;
-    fundId: bigint | null;
-    note: string;
-  }>;
 }
+
+/**
+ * Kết quả một thao tác ghi: tháng cần quay về + lời báo cho người dùng.
+ * Là `type` chứ không phải `interface` để controller đổ thẳng vào query string được
+ * (interface không có index signature ngầm).
+ */
+export type WriteResult = {
+  month: string;
+  msg?: string;
+  err?: string;
+};
 
 /**
  * Truy cập dữ liệu của MỘT sổ chi tiêu. Mọi phương thức đều nhận `householdId` là tham số
@@ -66,6 +85,7 @@ export class HouseholdService {
   constructor(private readonly prisma: PrismaService) {}
 
   // ─── Cấu hình của sổ ───
+
   getConfig(householdId: number) {
     return this.prisma.householdConfig.findUnique({ where: { id: householdId } });
   }
@@ -75,8 +95,7 @@ export class HouseholdService {
     await this.prisma.householdConfig.update({
       where: { id: householdId },
       data: {
-        weeklyRate: BigInt(parseVnd(body.weeklyRate)),
-        weekStartDow: clampInt(body.weekStartDow, 0, 6, 1),
+        name: text(body.name, 120) || 'Sổ chi tiêu gia đình',
         ...(anchor ? { anchorDate: anchor } : {}),
       },
     });
@@ -85,59 +104,68 @@ export class HouseholdService {
   // ─── Sổ của một tháng ───
 
   /**
-   * Đọc TOÀN BỘ sổ rồi mới tính. Số dư quỹ và tiền "còn thừa" đều cộng dồn qua các tháng,
+   * Đọc TOÀN BỘ sổ rồi mới tính. Số dư tiết kiệm và tiền còn lại đều cộng dồn qua các tháng
    * nên không thể chỉ lấy đúng một tháng — sổ một gia đình chỉ vài trăm dòng nên đọc hết là rẻ.
    */
   async book(householdId: number, rawMonth?: string): Promise<HouseholdBook> {
     const month = normalizeMonth(rawMonth) ?? currentMonth();
     const config = await this.requireConfig(householdId);
-    const [incomes, funds, fundEntries, debts, debtPayments, fixedCosts, fixedSpends, extraCosts] = await Promise.all([
-      this.prisma.householdIncome.findMany({ where: { householdId }, orderBy: { id: 'asc' } }),
-      this.prisma.householdFund.findMany({ where: { householdId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
-      this.prisma.householdFundEntry.findMany({ where: { householdId }, orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }] }),
-      this.prisma.householdDebt.findMany({ where: { householdId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
-      this.prisma.householdDebtPayment.findMany({ where: { householdId } }),
-      this.prisma.householdFixedCost.findMany({ where: { householdId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
-      this.prisma.householdFixedSpend.findMany({ where: { householdId }, orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }] }),
-      this.prisma.householdExtraCost.findMany({ where: { householdId }, orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }] }),
+    const [incomeCategories, expenseCategories, incomes, expenses, debts] = await Promise.all([
+      this.prisma.householdIncomeCategory.findMany({ where: { householdId }, orderBy: CATEGORY_ORDER }),
+      this.prisma.householdExpenseCategory.findMany({ where: { householdId }, orderBy: CATEGORY_ORDER }),
+      this.prisma.householdIncome.findMany({ where: { householdId }, orderBy: ENTRY_ORDER }),
+      this.prisma.householdExpense.findMany({ where: { householdId }, orderBy: ENTRY_ORDER }),
+      this.prisma.householdDebt.findMany({ where: { householdId }, orderBy: CATEGORY_ORDER }),
     ]);
 
-    const report = buildMonthReport({
-      config,
-      month,
-      incomes,
-      funds,
-      fundEntries,
-      debts,
-      debtPayments,
-      fixedCosts,
-      fixedSpends,
-      extraCosts,
-    });
+    const report = buildMonthReport({ config, month, incomeCategories, expenseCategories, incomes, expenses, debts });
 
     // Các danh sách trả về đã lọc theo tháng đang xem — phần cộng dồn nằm hết trong `report`.
     return {
       report,
-      incomes: incomes.filter((r) => r.month === month),
-      funds,
-      fundEntries: fundEntries.filter((r) => r.month === month),
+      incomeCategories,
+      expenseCategories,
+      incomes: incomes.filter((row) => row.month === month),
+      expenses: expenses.filter((row) => row.month === month),
       debts,
-      fixedCosts,
-      fixedSpends: fixedSpends.filter((r) => r.month === month),
-      extraCosts: extraCosts.filter((r) => r.month === month),
     };
   }
 
-  // ─── 1. Thu ───
-  async addIncome(householdId: number, body: Record<string, string>) {
-    const month = normalizeMonth(body.month) ?? currentMonth();
-    const source = text(body.source, 80);
-    const amount = parseVnd(body.amount);
-    if (!source || amount <= 0) return month;
-    await this.prisma.householdIncome.create({
-      data: { householdId, month, source, amount: BigInt(amount), note: text(body.note, 500) },
-    });
-    return month;
+  // ─── Loại thu nhập / loại chi phí ───
+
+  addIncomeCategory(householdId: number, body: Record<string, string>) {
+    return this.addCategory('householdIncomeCategory', householdId, body);
+  }
+
+  addExpenseCategory(householdId: number, body: Record<string, string>) {
+    return this.addCategory('householdExpenseCategory', householdId, body);
+  }
+
+  updateIncomeCategory(householdId: number, id: bigint, body: Record<string, string>) {
+    return this.updateCategory('householdIncomeCategory', householdId, id, body);
+  }
+
+  updateExpenseCategory(householdId: number, id: bigint, body: Record<string, string>) {
+    return this.updateCategory('householdExpenseCategory', householdId, id, body);
+  }
+
+  /**
+   * Xoá một loại. Các khoản đã khai theo loại đó KHÔNG mất — khoá ngoại đặt `SetNull` nên
+   * chúng thành "(loại đã xoá)" và vẫn nằm trong công thức. Tiền đã ra khỏi nhà thì phải
+   * còn trong sổ, kể cả khi cái nhãn bị bỏ đi.
+   */
+  deleteIncomeCategory(householdId: number, id: bigint) {
+    return this.prisma.householdIncomeCategory.deleteMany({ where: { id, householdId } });
+  }
+
+  deleteExpenseCategory(householdId: number, id: bigint) {
+    return this.prisma.householdExpenseCategory.deleteMany({ where: { id, householdId } });
+  }
+
+  // ─── Khoản thu ───
+
+  addIncome(householdId: number, body: Record<string, string>) {
+    return this.addEntry('income', householdId, body);
   }
 
   async deleteIncome(householdId: number, id: bigint) {
@@ -146,348 +174,259 @@ export class HouseholdService {
     return row?.month ?? currentMonth();
   }
 
-  /** Chép các khoản thu của tháng trước sang tháng đang xem — lương thường lặp y hệt. */
-  async copyIncomeFromPreviousMonth(householdId: number, rawMonth?: string) {
+  /**
+   * Chép các khoản thu của tháng trước sang tháng đang xem — lương thường lặp y hệt.
+   *
+   * CHỈ chép loại `normal`. Khoản "người ta trả nợ" chép sang là tự trừ gốc một lần không có
+   * thật, còn "rút tiết kiệm" chép sang là tự móc két một lần không có thật — cả hai đều làm
+   * sai số của người dùng mà họ không hề bấm gì.
+   */
+  async copyIncomeFromPreviousMonth(householdId: number, rawMonth?: string): Promise<WriteResult> {
     const month = normalizeMonth(rawMonth) ?? currentMonth();
-    const [source, existing] = await Promise.all([
-      this.prisma.householdIncome.findMany({ where: { householdId, month: previousMonth(month) }, orderBy: { id: 'asc' } }),
-      this.prisma.householdIncome.findMany({ where: { householdId, month }, select: { source: true } }),
+    const previous = previousMonth(month);
+    const [source, existing, plainCategories] = await Promise.all([
+      this.prisma.householdIncome.findMany({ where: { householdId, month: previous }, orderBy: { id: 'asc' } }),
+      this.prisma.householdIncome.findMany({ where: { householdId, month }, select: { categoryId: true } }),
+      this.prisma.householdIncomeCategory.findMany({ where: { householdId, kind: 'normal' }, select: { id: true } }),
     ]);
-    const taken = new Set(existing.map((r) => r.source.toLowerCase()));
-    const fresh = source.filter((r) => !taken.has(r.source.toLowerCase()));
-    if (fresh.length) {
-      await this.prisma.householdIncome.createMany({
-        data: fresh.map((r) => ({ householdId, month, source: r.source, amount: r.amount, note: r.note })),
-      });
+    const plain = new Set(plainCategories.map((row) => String(row.id)));
+    const taken = new Set(existing.map((row) => String(row.categoryId)));
+    const fresh = source.filter((row) => plain.has(String(row.categoryId)) && !taken.has(String(row.categoryId)));
+    if (!fresh.length) {
+      return { month, err: `Tháng ${label(previous)} không có khoản thu nào mới để chép` };
     }
-    return { month, copied: fresh.length };
-  }
-
-  // ─── 2. Tiết kiệm ───
-  async addFund(householdId: number, body: Record<string, string>) {
-    const name = text(body.name, 80);
-    if (!name) return;
-    const last = await this.prisma.householdFund.findFirst({ where: { householdId }, orderBy: { sortOrder: 'desc' } });
-    await this.prisma.householdFund.create({
-      data: {
+    await this.prisma.householdIncome.createMany({
+      data: fresh.map((row) => ({
         householdId,
-        name,
-        kind: pickOne(body.kind, FUND_KINDS, 'accumulate'),
-        monthlyAmount: BigInt(parseVnd(body.monthlyAmount)),
-        startMonth: normalizeMonth(body.startMonth) ?? currentMonth(),
-        sortOrder: (last?.sortOrder ?? 0) + 1,
-      },
-    });
-  }
-
-  async updateFund(householdId: number, id: bigint, body: Record<string, string>) {
-    const fund = await this.prisma.householdFund.findFirst({ where: { id, householdId } });
-    if (!fund) return;
-    await this.prisma.householdFund.update({
-      where: { id },
-      data: {
-        name: text(body.name, 80) || fund.name,
-        kind: body.kind === undefined ? fund.kind : pickOne(body.kind, FUND_KINDS, fund.kind as 'accumulate'),
-        monthlyAmount: BigInt(parseVnd(body.monthlyAmount)),
-        startMonth: normalizeMonth(body.startMonth) ?? fund.startMonth,
-        active: parseBool(body.active, fund.active),
-      },
-    });
-  }
-
-  async deleteFund(householdId: number, id: bigint): Promise<number> {
-    // Khoản phát sinh từng khai "lấy từ quỹ này" chuyển thành khoản chi mới, để tiền đã ra
-    // khỏi nhà vẫn nằm trong công thức thay vì biến mất cùng cái quỹ.
-    await this.detachExtras(householdId, { fundId: id });
-    const { count } = await this.prisma.householdFund.deleteMany({ where: { id, householdId } });
-    return count;
-  }
-
-  /** Nạp thêm / rút ra khỏi một quỹ. Tháng luôn lấy theo NGÀY xảy ra, không theo tháng đang xem. */
-  async addFundEntry(householdId: number, body: Record<string, string>) {
-    const occurredAt = parseDateOnly(body.occurredAt) ?? new Date();
-    const month = monthOf(occurredAt);
-    const amount = parseVnd(body.amount);
-    const fundId = await this.ownedId('householdFund', householdId, body.fundId);
-    if (!fundId || amount <= 0) return normalizeMonth(body.month) ?? month;
-    await this.prisma.householdFundEntry.create({
-      data: {
-        householdId,
-        fundId,
+        categoryId: row.categoryId,
         month,
-        occurredAt,
-        direction: pickOne(body.direction, FUND_DIRECTIONS, 'out'),
-        amount: BigInt(amount),
-        note: text(body.note, 500),
-      },
+        occurredAt: firstDayOf(month),
+        amount: row.amount,
+        note: row.note,
+      })),
     });
-    return month;
+    return { month, msg: `Đã chép ${fresh.length} khoản thu từ tháng ${label(previous)}` };
   }
 
-  async deleteFundEntry(householdId: number, id: bigint) {
-    const row = await this.prisma.householdFundEntry.findFirst({ where: { id, householdId } });
-    if (row) await this.prisma.householdFundEntry.deleteMany({ where: { id, householdId } });
+  // ─── Khoản chi ───
+
+  addExpense(householdId: number, body: Record<string, string>) {
+    return this.addEntry('expense', householdId, body);
+  }
+
+  async deleteExpense(householdId: number, id: bigint) {
+    const row = await this.prisma.householdExpense.findFirst({ where: { id, householdId } });
+    if (row) await this.prisma.householdExpense.deleteMany({ where: { id, householdId } });
     return row?.month ?? currentMonth();
   }
 
-  // ─── 3. Trả nợ ───
-  async addDebt(householdId: number, body: Record<string, string>) {
+  // ─── Sổ nợ ───
+
+  async addDebt(householdId: number, body: Record<string, string>): Promise<WriteResult> {
+    const month = normalizeMonth(body.month) ?? currentMonth();
     const name = text(body.name, 80);
-    if (!name) return;
+    if (!name) return { month, err: 'Chưa đặt tên cho khoản nợ' };
     const last = await this.prisma.householdDebt.findFirst({ where: { householdId }, orderBy: { sortOrder: 'desc' } });
     await this.prisma.householdDebt.create({
       data: {
         householdId,
+        direction: pickOne(body.direction, DEBT_DIRECTIONS, 'owe'),
         name,
+        counterparty: text(body.counterparty, 80),
         initialAmount: BigInt(parseVnd(body.initialAmount)),
-        startMonth: normalizeMonth(body.startMonth) ?? currentMonth(),
+        startDate: parseDateOnly(body.startDate) ?? firstDayOf(month),
+        dueDate: parseDateOnly(body.dueDate),
         note: text(body.note, 500),
         sortOrder: (last?.sortOrder ?? 0) + 1,
       },
     });
+    return { month, msg: 'Đã thêm khoản nợ' };
   }
 
-  async updateDebt(householdId: number, id: bigint, body: Record<string, string>) {
+  async updateDebt(householdId: number, id: bigint, body: Record<string, string>): Promise<WriteResult> {
+    const month = normalizeMonth(body.month) ?? currentMonth();
     const debt = await this.prisma.householdDebt.findFirst({ where: { id, householdId } });
-    if (!debt) return;
+    if (!debt) return { month, err: 'Không tìm thấy khoản nợ trong sổ này' };
     await this.prisma.householdDebt.update({
       where: { id },
       data: {
+        direction: body.direction === undefined ? debt.direction : pickOne(body.direction, DEBT_DIRECTIONS, 'owe'),
         name: text(body.name, 80) || debt.name,
+        counterparty: text(body.counterparty, 80),
         initialAmount: BigInt(parseVnd(body.initialAmount)),
-        startMonth: normalizeMonth(body.startMonth) ?? debt.startMonth,
+        startDate: parseDateOnly(body.startDate) ?? debt.startDate,
+        dueDate: parseDateOnly(body.dueDate),
         note: text(body.note, 500),
         active: parseBool(body.active, debt.active),
       },
     });
+    return { month, msg: 'Đã lưu khoản nợ' };
   }
 
+  /**
+   * Xoá một khoản nợ. Các khoản chi/thu từng trỏ vào nó vẫn còn (khoá ngoại `SetNull`) vì đó
+   * là tiền thật đã trả — chỉ mất phần "trả cho khoản nào".
+   */
   async deleteDebt(householdId: number, id: bigint): Promise<number> {
     const { count } = await this.prisma.householdDebt.deleteMany({ where: { id, householdId } });
     return count;
   }
 
-  /**
-   * Gốc + lãi của một khoản nợ trong một tháng. Ghi ĐÈ chứ không cộng thêm: mỗi khoản nợ
-   * chỉ có một dòng mỗi tháng (khoá duy nhất ở DB), nên bấm Lưu nhiều lần cũng không trả trùng.
-   */
-  async saveDebtPayment(householdId: number, body: Record<string, string>) {
-    const month = normalizeMonth(body.month) ?? currentMonth();
-    const debtId = await this.ownedId('householdDebt', householdId, body.debtId);
-    if (!debtId) return month;
-    const principal = BigInt(parseVnd(body.principal));
-    const interest = BigInt(parseVnd(body.interest));
-    const note = text(body.note, 500);
-    const existing = await this.prisma.householdDebtPayment.findFirst({ where: { householdId, debtId, month } });
-    if (existing) {
-      await this.prisma.householdDebtPayment.updateMany({
-        where: { id: existing.id, householdId },
-        data: { principal, interest, note },
-      });
-    } else {
-      await this.prisma.householdDebtPayment.create({ data: { householdId, debtId, month, principal, interest, note } });
-    }
-    return month;
-  }
-
-  // ─── 4. Chi phí cố định ───
-  async addFixedCost(householdId: number, body: Record<string, string>) {
-    const name = text(body.name, 80);
-    if (!name) return;
-    const last = await this.prisma.householdFixedCost.findFirst({ where: { householdId }, orderBy: { sortOrder: 'desc' } });
-    await this.prisma.householdFixedCost.create({
-      data: {
-        householdId,
-        name,
-        mode: pickOne(body.mode, FIXED_MODES, 'once'),
-        capAmount: BigInt(parseVnd(body.capAmount)),
-        weeklyRate: ownRate(body.weeklyRate),
-        startMonth: normalizeMonth(body.startMonth) ?? currentMonth(),
-        note: text(body.note, 500),
-        sortOrder: (last?.sortOrder ?? 0) + 1,
-      },
-    });
-  }
-
-  async updateFixedCost(householdId: number, id: bigint, body: Record<string, string>) {
-    const cost = await this.prisma.householdFixedCost.findFirst({ where: { id, householdId } });
-    if (!cost) return;
-    await this.prisma.householdFixedCost.update({
-      where: { id },
-      data: {
-        name: text(body.name, 80) || cost.name,
-        mode: body.mode === undefined ? cost.mode : pickOne(body.mode, FIXED_MODES, cost.mode as 'once'),
-        capAmount: BigInt(parseVnd(body.capAmount)),
-        weeklyRate: ownRate(body.weeklyRate),
-        startMonth: normalizeMonth(body.startMonth) ?? cost.startMonth,
-        note: text(body.note, 500),
-        active: parseBool(body.active, cost.active),
-      },
-    });
-  }
-
-  async deleteFixedCost(householdId: number, id: bigint): Promise<number> {
-    await this.detachExtras(householdId, { fixedCostId: id });
-    const { count } = await this.prisma.householdFixedCost.deleteMany({ where: { id, householdId } });
-    return count;
-  }
-
-  async addFixedSpend(householdId: number, body: Record<string, string>) {
-    const occurredAt = parseDateOnly(body.occurredAt) ?? new Date();
-    const month = monthOf(occurredAt);
-    const amount = parseVnd(body.amount);
-    const costId = await this.ownedId('householdFixedCost', householdId, body.costId);
-    if (!costId || amount <= 0) return normalizeMonth(body.month) ?? month;
-    await this.prisma.householdFixedSpend.create({
-      data: { householdId, costId, month, occurredAt, amount: BigInt(amount), note: text(body.note, 500) },
-    });
-    return month;
-  }
-
-  async deleteFixedSpend(householdId: number, id: bigint) {
-    const row = await this.prisma.householdFixedSpend.findFirst({ where: { id, householdId } });
-    if (row) await this.prisma.householdFixedSpend.deleteMany({ where: { id, householdId } });
-    return row?.month ?? currentMonth();
-  }
-
-  // ─── 5. Chi phí phát sinh ───
-
-  /**
-   * Nguồn tiền quyết định khoản này có trừ thêm vào phần còn thừa hay không, nên id nguồn
-   * phải thuộc đúng sổ này — gửi lên id của sổ khác thì hạ về "khoản chi mới".
-   *
-   * Giao diện gửi lên MỘT ô chọn `pick` dạng `new` / `fixed:<id>` / `fund:<id>` để người
-   * dùng chỉ phải chọn một lần thay vì vừa chọn loại vừa chọn khoản.
-   */
-  async addExtraCost(householdId: number, body: Record<string, string>) {
-    const occurredAt = parseDateOnly(body.occurredAt) ?? new Date();
-    const month = monthOf(occurredAt);
-    const name = text(body.name, 120);
-    const amount = parseVnd(body.amount);
-    if (!name || amount <= 0) return normalizeMonth(body.month) ?? month;
-
-    const [rawSource, rawId] = String(body.pick ?? 'new').split(':');
-    let source = pickOne(rawSource, EXTRA_SOURCES, 'new');
-    let fixedCostId: bigint | null = null;
-    let fundId: bigint | null = null;
-    if (source === 'fixed') fixedCostId = await this.ownedId('householdFixedCost', householdId, rawId);
-    if (source === 'fund') fundId = await this.ownedId('householdFund', householdId, rawId);
-    if ((source === 'fixed' && !fixedCostId) || (source === 'fund' && !fundId)) source = 'new';
-
-    await this.prisma.householdExtraCost.create({
-      data: {
-        householdId,
-        month,
-        occurredAt,
-        name,
-        amount: BigInt(amount),
-        source,
-        fixedCostId,
-        fundId,
-        note: text(body.note, 500),
-      },
-    });
-    return month;
-  }
-
-  async deleteExtraCost(householdId: number, id: bigint) {
-    const row = await this.prisma.householdExtraCost.findFirst({ where: { id, householdId } });
-    if (row) await this.prisma.householdExtraCost.deleteMany({ where: { id, householdId } });
-    return row?.month ?? currentMonth();
-  }
-
   // ─── Nạp danh mục mẫu ───
 
   /**
-   * Dựng sẵn đúng các dòng trong bảng tính chiphi.xlsx để sổ mới có cái mà sửa, thay vì bắt
-   * gõ lại từ con số không. Chỉ nạp phần nào đang RỖNG, nên bấm hai lần không sinh trùng.
+   * Dựng sẵn vài loại thu/chi thường gặp để sổ mới có cái mà sửa, thay vì bắt gõ lại từ con
+   * số không. Chỉ nạp phần nào đang RỖNG, nên bấm hai lần không sinh trùng.
+   * KHÔNG nạp sẵn khoản nợ hay số tiền nào — tiền là của chủ sổ, tự khai.
    */
-  async seedTemplate(householdId: number, rawMonth?: string) {
+  async seedTemplate(householdId: number, rawMonth?: string): Promise<WriteResult> {
     const month = normalizeMonth(rawMonth) ?? currentMonth();
-    const [funds, debts, fixedCosts, incomes] = await Promise.all([
-      this.prisma.householdFund.count({ where: { householdId } }),
-      this.prisma.householdDebt.count({ where: { householdId } }),
-      this.prisma.householdFixedCost.count({ where: { householdId } }),
-      this.prisma.householdIncome.count({ where: { householdId, month } }),
+    const [incomeCount, expenseCount] = await Promise.all([
+      this.prisma.householdIncomeCategory.count({ where: { householdId } }),
+      this.prisma.householdExpenseCategory.count({ where: { householdId } }),
     ]);
     const added: string[] = [];
 
-    if (!incomes) {
-      await this.prisma.householdIncome.createMany({
-        data: [
-          { householdId, month, source: 'Lương vợ', amount: 30000000n, note: '' },
-          { householdId, month, source: 'Lương chồng', amount: 35000000n, note: '' },
-        ],
+    if (!incomeCount) {
+      await this.prisma.householdIncomeCategory.createMany({
+        data: SEED_INCOME_CATEGORIES.map((row, index) => ({ householdId, ...row, sortOrder: index + 1 })),
       });
-      added.push('khoản thu');
+      added.push('loại thu nhập');
     }
 
-    if (!funds) {
-      await this.prisma.householdFund.createMany({
-        data: [
-          { householdId, name: 'Tiết kiệm 2 vợ chồng', kind: 'accumulate', monthlyAmount: 20000000n, startMonth: month, sortOrder: 1 },
-          { householdId, name: 'Tiết kiệm con', kind: 'accumulate', monthlyAmount: 2000000n, startMonth: month, sortOrder: 2 },
-          { householdId, name: 'Dự phòng', kind: 'reserve', monthlyAmount: 3000000n, startMonth: month, sortOrder: 3 },
-          { householdId, name: 'Y tế', kind: 'reserve', monthlyAmount: 3000000n, startMonth: month, sortOrder: 4 },
-          { householdId, name: 'Đi chơi', kind: 'fun', monthlyAmount: 0n, startMonth: month, sortOrder: 5 },
-        ],
+    if (!expenseCount) {
+      await this.prisma.householdExpenseCategory.createMany({
+        data: SEED_EXPENSE_CATEGORIES.map((row, index) => ({ householdId, ...row, sortOrder: index + 1 })),
       });
-      added.push('quỹ tiết kiệm');
+      added.push('loại chi phí');
     }
 
-    if (!debts) {
-      const debt = await this.prisma.householdDebt.create({
-        data: { householdId, name: 'Ngân hàng', initialAmount: 904000000n, startMonth: month, sortOrder: 1 },
-      });
-      await this.prisma.householdDebtPayment.create({
-        data: { householdId, debtId: debt.id, month, principal: 4000000n, interest: 5000000n },
-      });
-      added.push('khoản nợ');
-    }
-
-    if (!fixedCosts) {
-      await this.prisma.householdFixedCost.createMany({
-        data: [
-          { householdId, name: 'Gửi xe ô tô', mode: 'once', capAmount: 800000n, startMonth: month, sortOrder: 1, note: 'Thường chi hết luôn 1 lần' },
-          { householdId, name: 'Xăng xe', mode: 'gradual', capAmount: 2000000n, startMonth: month, sortOrder: 2, note: 'Cập nhật theo mỗi lần đổ' },
-          { householdId, name: 'Tiền học của con', mode: 'once', capAmount: 6000000n, startMonth: month, sortOrder: 3, note: 'Thường chi hết luôn 1 lần' },
-          { householdId, name: 'Bỉm sữa của con', mode: 'gradual', capAmount: 2000000n, startMonth: month, sortOrder: 4, note: 'Cập nhật theo mỗi lần mua' },
-          { householdId, name: 'Đưa ông bà', mode: 'once', capAmount: 9000000n, startMonth: month, sortOrder: 5, note: 'Thường chi hết luôn 1 lần' },
-          { householdId, name: 'Gửi xe máy', mode: 'once', capAmount: 350000n, startMonth: month, sortOrder: 6, note: 'Thường chi hết luôn 1 lần' },
-          { householdId, name: 'Sinh hoạt vợ', mode: 'weekly', capAmount: 0n, startMonth: month, sortOrder: 7, note: 'Theo tuần, tính từ thứ Hai đầu tiên của tháng' },
-          { householdId, name: 'Sinh hoạt chồng', mode: 'weekly', capAmount: 0n, startMonth: month, sortOrder: 8, note: 'Theo tuần, tính từ thứ Hai đầu tiên của tháng' },
-          { householdId, name: 'Sinh hoạt con', mode: 'gradual', capAmount: 500000n, startMonth: month, sortOrder: 9, note: 'Cập nhật theo việc chi tiêu của con' },
-        ],
-      });
-      added.push('chi phí cố định');
-    }
-
-    return { month, added };
+    return added.length
+      ? { month, msg: `Đã nạp mẫu: ${added.join(' và ')}` }
+      : { month, err: 'Các loại đã có sẵn, không nạp thêm gì' };
   }
 
   // ─── Dùng chung ───
 
-  /** Id của một dòng con, CHỈ khi nó thuộc đúng sổ này — nếu không thì null. */
-  private async ownedId(
-    model: 'householdFund' | 'householdFixedCost' | 'householdDebt',
+  private async addCategory(
+    model: 'householdIncomeCategory' | 'householdExpenseCategory',
     householdId: number,
-    raw: unknown,
-  ): Promise<bigint | null> {
-    const id = parseOptionalBigInt(raw);
-    if (id === null) return null;
-    const row = await (this.prisma[model] as { findFirst(args: unknown): Promise<{ id: bigint } | null> }).findFirst({
-      where: { id, householdId },
-      select: { id: true },
+    body: Record<string, string>,
+  ): Promise<WriteResult> {
+    const month = normalizeMonth(body.month) ?? currentMonth();
+    const name = text(body.name, 80);
+    if (!name) return { month, err: 'Chưa đặt tên cho loại này' };
+    const last = await this.categories(model).findFirst({ where: { householdId }, orderBy: { sortOrder: 'desc' } });
+    await this.categories(model).create({
+      data: {
+        householdId,
+        name,
+        kind: pickOne(body.kind, CATEGORY_KINDS, 'normal'),
+        note: text(body.note, 500),
+        sortOrder: (last?.sortOrder ?? 0) + 1,
+      },
     });
-    return row?.id ?? null;
+    return { month, msg: 'Đã thêm loại mới' };
   }
 
-  /** Cắt liên kết nguồn của các khoản phát sinh trước khi xoá quỹ / khoản cố định của chúng. */
-  private detachExtras(householdId: number, link: { fundId?: bigint; fixedCostId?: bigint }) {
-    return this.prisma.householdExtraCost.updateMany({
-      where: { householdId, ...link },
-      data: { source: 'new', fundId: null, fixedCostId: null },
+  private async updateCategory(
+    model: 'householdIncomeCategory' | 'householdExpenseCategory',
+    householdId: number,
+    id: bigint,
+    body: Record<string, string>,
+  ): Promise<WriteResult> {
+    const month = normalizeMonth(body.month) ?? currentMonth();
+    const category = await this.categories(model).findFirst({ where: { id, householdId } });
+    if (!category) return { month, err: 'Không tìm thấy loại này trong sổ' };
+    await this.categories(model).update({
+      where: { id },
+      data: {
+        name: text(body.name, 80) || category.name,
+        kind: body.kind === undefined ? category.kind : pickOne(body.kind, CATEGORY_KINDS, 'normal'),
+        note: text(body.note, 500),
+        active: parseBool(body.active, category.active),
+      },
     });
+    return { month, msg: 'Đã lưu loại' };
+  }
+
+  /**
+   * Ghi một khoản thu hoặc một khoản chi. Tháng luôn suy ra từ NGÀY xảy ra, không theo tháng
+   * đang xem — ghi lùi ngày là dòng đó tự về đúng tháng của nó.
+   *
+   * Loại `debt` thì số tiền = gốc + lãi và phải chọn một khoản nợ ĐÚNG CHIỀU: khoản chi chỉ
+   * trả được khoản MÌNH NỢ, khoản thu chỉ thu được khoản NGƯỜI TA NỢ MÌNH. Chọn sai chiều
+   * (hoặc chọn khoản của sổ khác) thì từ chối ghi, chứ không âm thầm bỏ liên kết — người
+   * dùng sẽ tưởng đã trừ nợ xong.
+   */
+  private async addEntry(kind: 'income' | 'expense', householdId: number, body: Record<string, string>): Promise<WriteResult> {
+    const occurredAt = parseDateOnly(body.occurredAt) ?? today();
+    const month = monthOf(occurredAt);
+    const fallbackMonth = normalizeMonth(body.month) ?? month;
+    const isIncome = kind === 'income';
+
+    const category = await this.ownedCategory(isIncome ? 'householdIncomeCategory' : 'householdExpenseCategory', householdId, body.categoryId);
+    if (!category) return { month: fallbackMonth, err: `Chưa chọn loại ${isIncome ? 'thu nhập' : 'chi phí'}` };
+
+    let amount = parseVnd(body.amount);
+    let principal = 0n;
+    let interest = 0n;
+    let debtId: bigint | null = null;
+
+    if (category.kind === 'debt') {
+      const wanted: (typeof DEBT_DIRECTIONS)[number] = isIncome ? 'lend' : 'owe';
+      const debt = await this.prisma.householdDebt.findFirst({
+        where: { id: parseOptionalBigInt(body.debtId) ?? -1n, householdId, direction: wanted },
+        select: { id: true },
+      });
+      if (!debt) {
+        return {
+          month: fallbackMonth,
+          err: isIncome
+            ? 'Chưa chọn khoản cho vay để ghi tiền người ta trả về'
+            : 'Chưa chọn khoản nợ để trừ tiền gốc',
+        };
+      }
+      debtId = debt.id;
+      principal = BigInt(parseVnd(body.principal));
+      interest = BigInt(parseVnd(body.interest));
+      amount = Number(principal + interest);
+      if (amount <= 0) return { month: fallbackMonth, err: 'Gốc và lãi đều đang để trống' };
+    }
+
+    if (amount <= 0) return { month: fallbackMonth, err: 'Số tiền phải lớn hơn 0' };
+
+    const data = {
+      householdId,
+      categoryId: category.id,
+      month,
+      occurredAt,
+      amount: BigInt(amount),
+      principal,
+      interest,
+      debtId,
+      note: text(body.note, 500),
+    };
+    if (isIncome) await this.prisma.householdIncome.create({ data });
+    else await this.prisma.householdExpense.create({ data });
+
+    return { month, msg: isIncome ? 'Đã ghi khoản thu' : 'Đã ghi khoản chi' };
+  }
+
+  /** Một loại của ĐÚNG sổ này — gửi lên id loại của sổ khác thì trả null. */
+  private ownedCategory(
+    model: 'householdIncomeCategory' | 'householdExpenseCategory',
+    householdId: number,
+    raw: unknown,
+  ): Promise<{ id: bigint; kind: string } | null> {
+    const id = parseOptionalBigInt(raw);
+    if (id === null) return Promise.resolve(null);
+    return this.categories(model).findFirst({ where: { id, householdId }, select: { id: true, kind: true } });
+  }
+
+  /** Hai bảng loại có hình dạng y hệt nhau, nên dùng chung một kiểu để khỏi viết đôi. */
+  private categories(model: 'householdIncomeCategory' | 'householdExpenseCategory') {
+    return this.prisma[model] as unknown as CategoryModel;
   }
 
   private async requireConfig(householdId: number) {
@@ -497,12 +436,53 @@ export class HouseholdService {
   }
 }
 
+/** Phần giao nhau của hai model loại thu / loại chi — đủ cho các thao tác dùng chung ở trên. */
+interface CategoryModel {
+  findFirst(args: unknown): Promise<{ id: bigint; name: string; kind: string; active: boolean; sortOrder: number } | null>;
+  create(args: unknown): Promise<unknown>;
+  update(args: unknown): Promise<unknown>;
+}
+
+const CATEGORY_ORDER = [{ sortOrder: 'asc' as const }, { id: 'asc' as const }];
+const ENTRY_ORDER = [{ occurredAt: 'desc' as const }, { id: 'desc' as const }];
+
+const SEED_INCOME_CATEGORIES = [
+  { name: 'Lương vợ', kind: 'normal', note: '' },
+  { name: 'Lương chồng', kind: 'normal', note: '' },
+  { name: 'Thưởng / OT', kind: 'normal', note: '' },
+  { name: 'Thu khác', kind: 'normal', note: '' },
+  { name: 'Rút tiết kiệm', kind: 'saving', note: 'Lấy tiền từ két ra tiêu — không phải thu nhập' },
+  { name: 'Người ta trả nợ', kind: 'debt', note: 'Gốc trừ vào khoản mình cho vay trong sổ nợ' },
+];
+
+const SEED_EXPENSE_CATEGORIES = [
+  { name: 'Ăn uống', kind: 'normal', note: '' },
+  { name: 'Sinh hoạt', kind: 'normal', note: '' },
+  { name: 'Xăng xe / đi lại', kind: 'normal', note: '' },
+  { name: 'Tiền học của con', kind: 'normal', note: '' },
+  { name: 'Bỉm sữa của con', kind: 'normal', note: '' },
+  { name: 'Đưa ông bà', kind: 'normal', note: '' },
+  { name: 'Chi phí phát sinh', kind: 'normal', note: '' },
+  { name: 'Tiết kiệm 2 vợ chồng', kind: 'saving', note: 'Dồn qua các tháng' },
+  { name: 'Tiết kiệm con', kind: 'saving', note: 'Dồn qua các tháng' },
+  { name: 'Dự phòng', kind: 'saving', note: 'Dồn qua các tháng' },
+  { name: 'Trả nợ', kind: 'debt', note: 'Nhập gốc & lãi, gốc trừ vào khoản nợ được chọn' },
+];
+
 function text(value: unknown, max: number): string {
   return String(value ?? '').trim().slice(0, max);
 }
 
-/** Mức tuần riêng của một khoản; bỏ trống ⇒ null để bám theo mức chung ở Cài đặt. */
-function ownRate(value: unknown): bigint | null {
-  const amount = parseVnd(value);
-  return amount > 0 ? BigInt(amount) : null;
+/** Ngày hôm nay quy về nửa đêm UTC — cùng quy ước với parseDateOnly, khớp cột DATE. */
+function today(): Date {
+  const now = new Date();
+  return new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+}
+
+function firstDayOf(month: string): Date {
+  return new Date(`${month}-01T00:00:00Z`);
+}
+
+function label(month: string): string {
+  return `${Number(month.slice(5, 7))}/${month.slice(0, 4)}`;
 }

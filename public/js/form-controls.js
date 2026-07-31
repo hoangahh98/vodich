@@ -160,8 +160,28 @@
     sync();
   };
 
+  // Sổ chi tiêu: loại chi/thu kiểu "trả nợ" cần thêm ô Gốc / Lãi / chọn khoản nợ, các loại
+  // khác thì chỉ cần một ô Số tiền. Đây CHỈ là tiện nghi — không có JS thì mọi ô đều hiện và
+  // service vẫn đọc đúng ô theo kiểu của loại, nên không ghi sai.
+  const initHouseholdEntryForm = () => {
+    document.querySelectorAll('form[data-entry-form]').forEach((form) => {
+      const select = form.querySelector('[data-entry-kind]');
+      if (!select) return;
+      const debtFields = [...form.querySelectorAll('[data-entry-debt]')];
+      const plainFields = [...form.querySelectorAll('[data-entry-plain]')];
+      const sync = () => {
+        const isDebt = select.selectedOptions[0]?.dataset.kind === 'debt';
+        debtFields.forEach((field) => field.classList.toggle('hidden', !isDebt));
+        plainFields.forEach((field) => field.classList.toggle('hidden', isDebt));
+      };
+      select.addEventListener('change', sync);
+      sync();
+    });
+  };
+
   window.Vodich = { ...(window.Vodich || {}), validateTournamentPrizeForm };
   initKnockoutOptions();
   initPrizeOptions();
   initTeamFeeSuggestion();
+  initHouseholdEntryForm();
 })();

@@ -5,289 +5,249 @@ const ejs = require('ejs');
 
 const { assertWellFormedHtml } = require('./helpers/html');
 
-const { buildMonthReport, weekStartsInMonth } = require('../dist/household/household-calc');
+const { buildMonthReport } = require('../dist/household/household-calc');
 const { HouseholdService } = require('../dist/household/household.service');
 
 const root = path.join(__dirname, '..');
 const day = (iso) => new Date(`${iso}T00:00:00Z`);
 
 const BOOK_ID = 1;
-const SECTIONS = ['tong-quan', 'thu', 'tiet-kiem', 'tra-no', 'chi-phi-co-dinh', 'phat-sinh', 'cai-dat'];
+const SECTIONS = ['tong-quan', 'thu', 'chi', 'loai-thu', 'loai-chi', 'so-no', 'tro-ly', 'cai-dat'];
 /** Tổng quan chỉ để đọc — không có form ghi nào khi sổ đã có dữ liệu. */
 const WRITE_SECTIONS = SECTIONS.filter((s) => s !== 'tong-quan');
 
-const CONFIG = { weeklyRate: 500000n, weekStartDow: 1, anchorDate: day('2026-06-01') };
+const CONFIG = { anchorDate: day('2026-05-01') };
+
+// ─── Sổ dựng tay: đủ cả 3 kiểu loại và cả 2 chiều nợ ───
+
+const INCOME_CATEGORIES = [
+  { id: 1n, name: 'Lương vợ', kind: 'normal', active: true, note: '' },
+  { id: 2n, name: 'Lương chồng', kind: 'normal', active: true, note: '' },
+  { id: 3n, name: 'Rút tiết kiệm', kind: 'saving', active: true, note: '' },
+  { id: 4n, name: 'Người ta trả nợ', kind: 'debt', active: true, note: '' },
+];
+
+const EXPENSE_CATEGORIES = [
+  { id: 11n, name: 'Ăn uống', kind: 'normal', active: true, note: '' },
+  { id: 12n, name: 'Xăng xe', kind: 'normal', active: true, note: '' },
+  { id: 13n, name: 'Tiết kiệm 2 vợ chồng', kind: 'saving', active: true, note: '' },
+  { id: 14n, name: 'Tiết kiệm con', kind: 'saving', active: true, note: '' },
+  { id: 15n, name: 'Trả nợ', kind: 'debt', active: true, note: '' },
+];
+
+const DEBTS = [
+  {
+    id: 101n,
+    direction: 'owe',
+    name: 'Vay ngân hàng',
+    counterparty: 'Ngân hàng',
+    initialAmount: 904000000n,
+    startDate: day('2026-05-01'),
+    dueDate: null,
+    active: true,
+    note: '',
+  },
+  {
+    id: 102n,
+    direction: 'lend',
+    name: 'Cho anh Nam vay',
+    counterparty: 'Anh Nam',
+    initialAmount: 50000000n,
+    startDate: day('2026-05-10'),
+    dueDate: day('2026-12-31'),
+    active: true,
+    note: '',
+  },
+];
+
+const income = (over) => ({ categoryId: 1n, month: '2026-06', amount: 0n, principal: 0n, interest: 0n, debtId: null, ...over });
+const expense = (over) => ({ categoryId: 11n, month: '2026-06', amount: 0n, principal: 0n, interest: 0n, debtId: null, ...over });
 
 /**
- * Đúng bảng tính chiphi.xlsx mà chủ nhà gửi. Con số cuối cùng của bảng đó — ô "còn thừa
- * tháng này" = 2.350.000 đ — chính là mốc để khoá lại toàn bộ công thức của module.
+ * Tháng 5 là tháng "đã qua" (để thử phần dồn qua tháng), tháng 6 là tháng đang xem.
  *
- * Chọn tháng 6/2026 vì bảng tính ghi sinh hoạt vợ/chồng 2 triệu RƯỠI, tức tháng đó có 5
- * tuần; 6/2026 có đúng 5 ngày thứ Hai (1, 8, 15, 22, 29). `now` đặt sau ngày cuối tuần thứ
- * năm (5/7) để cả 5 tuần đều đã đóng ⇒ mặc định chi hết 500k/tuần, ra đúng cột "Đã chi".
+ * Tháng 5: thu 60tr · ăn uống 5tr · gửi tiết kiệm 20tr  ⇒ còn lại 35tr
+ * Tháng 6: thu 65tr · ăn 6tr + xăng 2tr · gửi tiết kiệm 20tr + 2tr · trả nợ gốc 4tr + lãi 5tr
+ *          · rút tiết kiệm 3tr · anh Nam trả gốc 10tr + lãi 500k
  */
-function excelBook(over = {}) {
+function ledger(over = {}) {
   return {
     config: CONFIG,
     month: '2026-06',
-    now: day('2026-07-10'),
+    incomeCategories: INCOME_CATEGORIES,
+    expenseCategories: EXPENSE_CATEGORIES,
+    debts: DEBTS,
     incomes: [
-      { month: '2026-06', amount: 30000000n }, // lương vợ
-      { month: '2026-06', amount: 35000000n }, // lương chồng
+      income({ month: '2026-05', categoryId: 1n, amount: 30000000n }),
+      income({ month: '2026-05', categoryId: 2n, amount: 30000000n }),
+      income({ categoryId: 1n, amount: 30000000n }),
+      income({ categoryId: 2n, amount: 35000000n }),
+      income({ categoryId: 3n, amount: 3000000n }), // rút tiết kiệm ra tiêu
+      income({ categoryId: 4n, amount: 10500000n, principal: 10000000n, interest: 500000n, debtId: 102n }),
     ],
-    funds: [
-      { id: 1n, name: 'Tiết kiệm 2 vợ chồng', kind: 'accumulate', monthlyAmount: 20000000n, startMonth: '2026-06', active: true },
-      { id: 2n, name: 'Tiết kiệm con', kind: 'accumulate', monthlyAmount: 2000000n, startMonth: '2026-06', active: true },
-      { id: 3n, name: 'Dự phòng', kind: 'reserve', monthlyAmount: 3000000n, startMonth: '2026-06', active: true },
-      { id: 4n, name: 'Y tế', kind: 'reserve', monthlyAmount: 3000000n, startMonth: '2026-06', active: true },
-      { id: 5n, name: 'Đi chơi', kind: 'fun', monthlyAmount: 0n, startMonth: '2026-06', active: true },
-    ],
-    fundEntries: [],
-    debts: [{ id: 1n, name: 'Ngân hàng', initialAmount: 904000000n, startMonth: '2026-06', active: true }],
-    debtPayments: [{ debtId: 1n, month: '2026-06', principal: 4000000n, interest: 5000000n }],
-    fixedCosts: [
-      { id: 1n, name: 'Gửi xe ô tô', mode: 'once', capAmount: 800000n, weeklyRate: null, startMonth: '2026-06', active: true },
-      { id: 2n, name: 'Xăng xe', mode: 'gradual', capAmount: 2000000n, weeklyRate: null, startMonth: '2026-06', active: true },
-      { id: 3n, name: 'Tiền học của con', mode: 'once', capAmount: 6000000n, weeklyRate: null, startMonth: '2026-06', active: true },
-      { id: 4n, name: 'Bỉm sữa của con', mode: 'gradual', capAmount: 2000000n, weeklyRate: null, startMonth: '2026-06', active: true },
-      { id: 5n, name: 'Đưa ông bà', mode: 'once', capAmount: 9000000n, weeklyRate: null, startMonth: '2026-06', active: true },
-      { id: 6n, name: 'Gửi xe máy', mode: 'once', capAmount: 350000n, weeklyRate: null, startMonth: '2026-06', active: true },
-      { id: 7n, name: 'Sinh hoạt vợ', mode: 'weekly', capAmount: 0n, weeklyRate: null, startMonth: '2026-06', active: true },
-      { id: 8n, name: 'Sinh hoạt chồng', mode: 'weekly', capAmount: 0n, weeklyRate: null, startMonth: '2026-06', active: true },
-      { id: 9n, name: 'Sinh hoạt con', mode: 'gradual', capAmount: 500000n, weeklyRate: null, startMonth: '2026-06', active: true },
-    ],
-    fixedSpends: [
-      { costId: 2n, month: '2026-06', occurredAt: day('2026-06-10'), amount: 1000000n }, // xăng: mới đổ 1tr/2tr
-      { costId: 4n, month: '2026-06', occurredAt: day('2026-06-12'), amount: 1500000n }, // bỉm sữa: 1tr5/2tr
-      { costId: 9n, month: '2026-06', occurredAt: day('2026-06-15'), amount: 500000n }, // sinh hoạt con
-    ],
-    extraCosts: [
-      { month: '2026-06', occurredAt: day('2026-06-18'), amount: 500000n, source: 'new', fixedCostId: null, fundId: null },
-      { month: '2026-06', occurredAt: day('2026-06-20'), amount: 1000000n, source: 'new', fixedCostId: null, fundId: null },
+    expenses: [
+      expense({ month: '2026-05', categoryId: 11n, amount: 5000000n }),
+      expense({ month: '2026-05', categoryId: 13n, amount: 20000000n }),
+      expense({ categoryId: 11n, amount: 6000000n }),
+      expense({ categoryId: 12n, amount: 2000000n }),
+      expense({ categoryId: 13n, amount: 20000000n }),
+      expense({ categoryId: 14n, amount: 2000000n }),
+      expense({ categoryId: 15n, amount: 9000000n, principal: 4000000n, interest: 5000000n, debtId: 101n }),
     ],
     ...over,
   };
 }
 
-const costOf = (report, name) => report.fixedCosts.find((c) => c.name === name);
-const fundOf = (report, name) => report.funds.find((f) => f.name === name);
+const debtOf = (report, name) => report.debts.find((d) => d.name === name);
+const catOf = (rows, name) => rows.find((r) => r.name === name);
 
-// ─── Công thức: khớp từng ô của bảng tính ───
+// ─── Rule 1: ba ô của Tổng quan ───
 
-test('chi tiêu: ra đúng ô "còn thừa tháng này" của bảng tính chiphi.xlsx', () => {
-  const report = buildMonthReport(excelBook());
+test('chi tiêu: thu nhập KHÔNG gồm tiền rút tiết kiệm, chi phí KHÔNG gồm tiền gửi tiết kiệm', () => {
+  const report = buildMonthReport(ledger());
 
-  assert.equal(report.incomeTotal, 65000000);
-  assert.equal(report.fundDeposit, 28000000, 'nạp 20tr + 2tr + 3tr + 3tr, quỹ Đi chơi 0đ');
-  assert.equal(report.debtPrincipal, 4000000);
-  assert.equal(report.debtInterest, 5000000);
-  assert.equal(report.fixedSpent, 24150000, 'cột "Đã chi": 800k+1tr+6tr+1tr5+9tr+350k+2tr5+2tr5+500k');
-  assert.equal(report.extraNew, 1500000);
-  // 65tr − 9tr nợ − 28tr tiết kiệm − 24,15tr cố định − 1,5tr phát sinh
-  assert.equal(report.leftover, 2350000, 'đúng bằng ô "còn thừa tháng này" trong file Excel');
+  assert.equal(report.income, 75500000, 'lương 30tr + 35tr + gốc & lãi anh Nam trả 10,5tr');
+  assert.equal(report.savingOut, 3000000, 'rút tiết kiệm nằm riêng, không cộng vào thu nhập');
+  assert.equal(report.expense, 17000000, 'ăn 6tr + xăng 2tr + trả nợ 9tr (gốc lẫn lãi đều là tiền ra)');
+  assert.equal(report.savingIn, 22000000, 'gửi tiết kiệm nằm riêng, không cộng vào chi phí');
 });
 
-test('chi tiêu: nợ còn lại = nợ ban đầu trừ TỔNG gốc đã trả, lãi không làm giảm nợ', () => {
-  const report = buildMonthReport(excelBook());
-  const [debt] = report.debts;
+// ─── Rule 2: tiết kiệm dồn qua các tháng ───
+
+test('chi tiêu: tiết kiệm DỒN qua các tháng, trừ đi phần đã rút', () => {
+  const report = buildMonthReport(ledger());
+
+  // Tháng 5 gửi 20tr; tháng 6 gửi 22tr rồi rút ra 3tr.
+  assert.equal(report.savingBalance, 39000000, '20tr + 22tr − 3tr');
+  assert.equal(report.savingNet, 19000000, 'riêng tháng 6 tăng 19tr');
+
+  const may = buildMonthReport(ledger({ month: '2026-05' }));
+  assert.equal(may.savingBalance, 20000000, 'đứng ở tháng 5 thì chưa thấy tiền của tháng 6');
+});
+
+test('chi tiêu: mọi loại đánh dấu tiết kiệm dồn vào CHUNG một ô, không loại nào bị reset', () => {
+  const report = buildMonthReport(ledger());
+
+  assert.deepEqual(report.savingByCategory.map((row) => row.name), ['Tiết kiệm 2 vợ chồng', 'Tiết kiệm con']);
+  assert.equal(catOf(report.savingByCategory, 'Tiết kiệm 2 vợ chồng').amount, 20000000);
+  assert.equal(report.savingByCategory.reduce((all, row) => all + row.amount, 0), report.savingIn);
+
+  // Không còn kiểu quỹ nào "hết tháng là mất" như mô hình cũ: thêm một tháng nữa là dồn tiếp.
+  const book = ledger({ month: '2026-07' });
+  book.expenses.push(expense({ month: '2026-07', categoryId: 13n, amount: 5000000n }));
+  assert.equal(buildMonthReport(book).savingBalance, 44000000, '39tr của tháng 6 + 5tr gửi thêm tháng 7');
+});
+
+// ─── Rule 3: tiền còn lại ───
+
+test('chi tiêu: còn lại = mọi thứ vào trừ mọi thứ ra, và cộng dồn qua các tháng', () => {
+  const report = buildMonthReport(ledger());
+
+  // Vào: 30 + 35 + 3 (rút) + 10,5 = 78,5tr · Ra: 6 + 2 + 20 + 2 + 9 = 39tr
+  assert.equal(report.leftover, 39500000);
+  assert.equal(report.leftoverPrevious, 35000000, 'tháng 5: 60tr − 5tr ăn − 20tr gửi tiết kiệm');
+  assert.equal(report.leftoverTotal, 74500000);
+  assert.equal(report.leftoverTotal, report.leftoverPrevious + report.leftover);
+});
+
+test('chi tiêu: tiền chuyển vào/ra tiết kiệm không bị đếm hai lần', () => {
+  const base = buildMonthReport(ledger());
+  const book = ledger();
+  // Gửi thêm 1tr vào tiết kiệm: tiền rời khỏi ví đúng MỘT lần.
+  book.expenses.push(expense({ categoryId: 13n, amount: 1000000n }));
+  const report = buildMonthReport(book);
+
+  assert.equal(report.savingBalance, base.savingBalance + 1000000);
+  assert.equal(report.leftover, base.leftover - 1000000);
+  assert.equal(report.expense, base.expense, 'gửi tiết kiệm không làm phồng ô Chi phí');
+});
+
+// ─── Rule 4: sổ nợ hai chiều ───
+
+test('chi tiêu: trả nợ thì GỐC tự trừ vào khoản được chọn, lãi thì không', () => {
+  const debt = debtOf(buildMonthReport(ledger()), 'Vay ngân hàng');
 
   assert.equal(debt.initialAmount, 904000000);
   assert.equal(debt.principalPaid, 4000000);
-  assert.equal(debt.remaining, 900000000, 'khớp ô "Tổng nợ" = 904tr − 4tr tiền gốc');
-  assert.equal(debt.paidThisMonth, 9000000, 'tháng này chi ra gốc 4tr + lãi 5tr');
+  assert.equal(debt.interestPaid, 5000000);
+  assert.equal(debt.remaining, 900000000, '904tr − 4tr tiền gốc; 5tr lãi không làm giảm nợ');
+  assert.equal(debt.principalThisMonth, 4000000);
+  assert.equal(debt.settled, false);
 });
 
-test('chi tiêu: khoản "chi 1 lần" chưa ghi gì thì tự tính là đã chi đủ trần, ghi rồi thì theo số thật', () => {
-  const auto = costOf(buildMonthReport(excelBook()), 'Gửi xe ô tô');
-  assert.equal(auto.spent, 800000);
-  assert.equal(auto.autoFilled, true, 'chưa ghi khoản nào ⇒ hệ thống tự điền');
-  assert.equal(auto.left, 0);
+test('chi tiêu: người khác trả nợ mình thì trừ vào khoản CHO VAY, không đụng khoản mình nợ', () => {
+  const report = buildMonthReport(ledger());
+  const lend = debtOf(report, 'Cho anh Nam vay');
+  const owe = debtOf(report, 'Vay ngân hàng');
 
-  const book = excelBook();
-  book.fixedSpends.push({ costId: 1n, month: '2026-06', occurredAt: day('2026-06-03'), amount: 600000n });
-  const manual = costOf(buildMonthReport(book), 'Gửi xe ô tô');
-  assert.equal(manual.spent, 600000, 'đã ghi số thật thì không tự điền đè lên');
-  assert.equal(manual.autoFilled, false);
-  assert.equal(manual.left, 200000, 'phần chưa dùng đẩy vào tiền còn thừa');
+  assert.equal(lend.principalPaid, 10000000);
+  assert.equal(lend.remaining, 40000000, '50tr − 10tr gốc anh Nam đã trả');
+  assert.equal(lend.progress, 20);
+  assert.equal(owe.remaining, 900000000, 'khoản mình nợ không bị đụng tới');
+
+  assert.equal(report.oweRemaining, 900000000);
+  assert.equal(report.lendRemaining, 40000000);
+  assert.equal(report.debtNet, -860000000, 'nợ nhiều hơn cho vay');
+  assert.equal(report.debtPrincipalPaid, 4000000);
+  assert.equal(report.debtPrincipalCollected, 10000000);
 });
 
-test('chi tiêu: khoản "chi dần" chỉ tính theo số đã ghi, trần chưa dùng hết là tiền còn thừa', () => {
-  const petrol = costOf(buildMonthReport(excelBook()), 'Xăng xe');
-  assert.equal(petrol.cap, 2000000);
-  assert.equal(petrol.spent, 1000000);
-  assert.equal(petrol.left, 1000000);
-  assert.equal(petrol.autoFilled, false);
+test('chi tiêu: trả hết gốc thì khoản nợ báo đã tất toán', () => {
+  const book = ledger();
+  book.expenses.push(expense({ categoryId: 15n, amount: 900000000n, principal: 900000000n, debtId: 101n }));
+  const debt = debtOf(buildMonthReport(book), 'Vay ngân hàng');
+
+  assert.equal(debt.remaining, 0);
+  assert.equal(debt.settled, true);
+  assert.equal(debt.progress, 100);
 });
 
-// ─── Khoản sinh hoạt theo tuần ───
+test('chi tiêu: gốc trả ở các tháng TRƯỚC vẫn tính, tháng SAU thì chưa', () => {
+  const book = ledger();
+  book.expenses.push(expense({ month: '2026-05', categoryId: 15n, amount: 4000000n, principal: 4000000n, debtId: 101n }));
+  book.expenses.push(expense({ month: '2026-07', categoryId: 15n, amount: 4000000n, principal: 4000000n, debtId: 101n }));
+  const debt = debtOf(buildMonthReport(book), 'Vay ngân hàng');
 
-test('chi tiêu: trần khoản theo tuần = số tuần của tháng × mức tuần (2tr hay 2tr5)', () => {
-  // 6/2026 có thứ Hai vào 1, 8, 15, 22, 29 ⇒ 5 tuần. 7/2026 có 6, 13, 20, 27 ⇒ 4 tuần.
-  assert.equal(weekStartsInMonth('2026-06', 1).length, 5);
-  assert.equal(weekStartsInMonth('2026-07', 1).length, 4);
-
-  const june = buildMonthReport(excelBook());
-  assert.equal(june.weeksInMonth, 5);
-  assert.equal(costOf(june, 'Sinh hoạt vợ').cap, 2500000, 'tháng 5 tuần ⇒ 2 triệu rưỡi');
-
-  const july = buildMonthReport(excelBook({ month: '2026-07', now: day('2026-08-05') }));
-  assert.equal(july.weeksInMonth, 4);
-  assert.equal(costOf(july, 'Sinh hoạt vợ').cap, 2000000, 'tháng 4 tuần ⇒ 2 triệu');
+  assert.equal(debt.principalPaid, 8000000, 'tháng 5 + tháng 6, chưa tính tháng 7');
+  assert.equal(debt.remaining, 896000000);
 });
 
-test('chi tiêu: hết tuần nào thì tuần đó mặc định đã chi hết 500k, tuần đang chạy thì chưa', () => {
-  // Đang ở giữa tuần thứ ba của tháng 6/2026 (thứ Hai 15/6).
-  const report = buildMonthReport(excelBook({ now: new Date('2026-06-17T10:00:00Z') }));
-  const cost = costOf(report, 'Sinh hoạt chồng');
+// ─── Không để tiền biến mất ───
 
-  assert.equal(cost.weeks.length, 5);
-  assert.deepEqual(cost.weeks.map((w) => w.closed), [true, true, false, false, false]);
-  assert.deepEqual(cost.weeks.map((w) => w.amount), [500000, 500000, 0, 0, 0]);
-  assert.equal(cost.spent, 1000000, 'chỉ 2 tuần đã đóng mới bị tính');
-  assert.equal(cost.cap, 2500000, 'trần vẫn là cả 5 tuần của tháng');
-});
-
-test('chi tiêu: ghi số thật cho một tuần thì tuần đó dùng số đã ghi thay cho mức mặc định', () => {
-  const book = excelBook();
-  // Tuần 2 (8–14/6) chỉ tiêu 200k thay vì 500k.
-  book.fixedSpends.push({ costId: 7n, month: '2026-06', occurredAt: day('2026-06-10'), amount: 200000n });
-  const cost = costOf(buildMonthReport(book), 'Sinh hoạt vợ');
-
-  assert.deepEqual(cost.weeks.map((w) => w.amount), [500000, 200000, 500000, 500000, 500000]);
-  assert.equal(cost.weeks[1].manual, true);
-  assert.equal(cost.spent, 2200000);
-  assert.equal(cost.left, 300000, 'tiêu ít hơn mức tuần thì phần dư thành tiền còn thừa');
-});
-
-// ─── Quỹ tiết kiệm ───
-
-test('chi tiêu: quỹ cộng dồn thì cộng dồn qua các tháng, dự phòng thì không', () => {
-  const report = buildMonthReport(
-    excelBook({
-      month: '2026-07',
-      now: day('2026-08-05'),
-      incomes: [
-        { month: '2026-06', amount: 65000000n },
-        { month: '2026-07', amount: 65000000n },
-      ],
-    }),
-  );
-
-  assert.equal(fundOf(report, 'Tiết kiệm 2 vợ chồng').balance, 40000000, '2 tháng × 20tr');
-  assert.equal(fundOf(report, 'Tiết kiệm con').balance, 4000000);
-  assert.equal(fundOf(report, 'Dự phòng').balance, 3000000, 'dự phòng KHÔNG cộng dồn: chỉ mức của chính tháng này');
-});
-
-test('chi tiêu: dự phòng & y tế không dùng hết thì cuối tháng dồn hết sang quỹ Đi chơi', () => {
-  const report = buildMonthReport(
-    excelBook({
-      month: '2026-07',
-      now: day('2026-08-05'),
-      // Tháng 6 rút 1tr từ Dự phòng ⇒ còn thừa 2tr; Y tế không đụng ⇒ thừa cả 3tr.
-      fundEntries: [{ fundId: 3n, month: '2026-06', direction: 'out', amount: 1000000n }],
-    }),
-  );
-
-  assert.equal(fundOf(report, 'Đi chơi').balance, 5000000, 'nhận 2tr dự phòng + 3tr y tế còn thừa của tháng 6');
-  assert.equal(fundOf(report, 'Đi chơi').receivesCarry, true);
-  assert.equal(fundOf(report, 'Dự phòng').carriesToFun, true);
-  assert.equal(report.reserveCarryThisMonth, 6000000, 'tháng 7 chưa tiêu gì ⇒ cuối tháng sẽ dồn tiếp 6tr');
-  assert.equal(report.funFundName, 'Đi chơi');
-});
-
-test('chi tiêu: tháng đang xem CHƯA dồn phần thừa sang Đi chơi, chỉ báo trước số sẽ dồn', () => {
-  const report = buildMonthReport(excelBook());
-  assert.equal(fundOf(report, 'Đi chơi').balance, 0, 'tháng 6 chưa đóng thì Đi chơi chưa nhận gì');
-  assert.equal(report.reserveCarryThisMonth, 6000000);
-});
-
-// ─── Tiền còn thừa cộng dồn ───
-
-test('chi tiêu: còn thừa của mọi tháng trước cộng hết vào tổng còn thừa', () => {
-  const report = buildMonthReport(
-    excelBook({
-      month: '2026-07',
-      now: day('2026-08-05'),
-      incomes: [
-        { month: '2026-06', amount: 65000000n },
-        { month: '2026-07', amount: 65000000n },
-      ],
-      debtPayments: [
-        { debtId: 1n, month: '2026-06', principal: 4000000n, interest: 5000000n },
-        { debtId: 1n, month: '2026-07', principal: 4000000n, interest: 5000000n },
-      ],
-    }),
-  );
-
-  assert.ok(report.leftoverPrevious > 0, 'tháng 6 phải có tiền còn thừa mang sang');
-  assert.equal(report.leftoverTotal, report.leftoverPrevious + report.leftover);
-  assert.equal(report.debts[0].principalPaid, 8000000, 'trả gốc 2 tháng');
-  assert.equal(report.debts[0].remaining, 896000000);
-});
-
-// ─── Chi phí phát sinh: nguồn tiền quyết định có trừ hai lần hay không ───
-
-test('chi tiêu: phát sinh lấy từ khoản cố định thì tính vào khoản đó, KHÔNG trừ thêm lần nữa', () => {
-  const base = buildMonthReport(excelBook());
-  const book = excelBook();
-  book.extraCosts.push({
-    month: '2026-06',
-    occurredAt: day('2026-06-22'),
-    amount: 400000n,
-    source: 'fixed',
-    fixedCostId: 2n, // xăng xe
-    fundId: null,
-  });
+test('chi tiêu: khoản của loại đã bị xoá vẫn nằm trong công thức, không bốc hơi', () => {
+  const book = ledger();
+  book.expenses.push(expense({ categoryId: null, amount: 700000n }));
   const report = buildMonthReport(book);
 
-  assert.equal(costOf(report, 'Xăng xe').spent, 1400000, 'cộng vào phần đã chi của xăng xe');
-  assert.equal(report.extraNew, base.extraNew, 'không đụng vào phần "khoản chi mới"');
-  assert.equal(report.extraFromFixed, 400000);
-  assert.equal(report.leftover, base.leftover - 400000, 'chỉ trừ đúng MỘT lần, qua đường chi phí cố định');
+  assert.equal(report.expense, 17700000, 'vẫn bị trừ như một khoản chi thường');
+  assert.equal(catOf(report.expenseByCategory, '(loại đã xoá)').amount, 700000);
 });
 
-test('chi tiêu: phát sinh lấy từ quỹ thì trừ vào quỹ đó, tiền còn thừa của tháng không đổi', () => {
-  const base = buildMonthReport(excelBook());
-  const book = excelBook();
-  book.extraCosts.push({
-    month: '2026-06',
-    occurredAt: day('2026-06-25'),
-    amount: 700000n,
-    source: 'fund',
-    fixedCostId: null,
-    fundId: 1n, // tiết kiệm 2 vợ chồng
-  });
-  const report = buildMonthReport(book);
+test('chi tiêu: đứng ở tháng nào thì không thấy tiền của tháng sau', () => {
+  const report = buildMonthReport(ledger({ month: '2026-05' }));
 
-  assert.equal(fundOf(report, 'Tiết kiệm 2 vợ chồng').used, 700000);
-  assert.equal(fundOf(report, 'Tiết kiệm 2 vợ chồng').balance, 19300000);
-  assert.equal(report.extraFromFund, 700000);
-  assert.equal(report.leftover, base.leftover, 'tiền đã trích tiết kiệm rồi, không trừ lại vào phần còn thừa');
+  assert.equal(report.income, 60000000, 'chỉ hai khoản lương của tháng 5');
+  assert.equal(report.leftoverTotal, 35000000, 'không cộng tháng 6 vào');
+  assert.equal(debtOf(report, 'Vay ngân hàng').principalPaid, 0, 'gốc của tháng 6 chưa được tính');
 });
 
-test('chi tiêu: phát sinh khai nguồn đã bị xoá thì rơi về "khoản chi mới", tiền không biến mất', () => {
-  const book = excelBook();
-  book.extraCosts.push({
-    month: '2026-06',
-    occurredAt: day('2026-06-26'),
-    amount: 300000n,
-    source: 'fixed',
-    fixedCostId: null, // khoản gốc đã bị xoá
-    fundId: null,
-  });
-  const report = buildMonthReport(book);
-  assert.equal(report.extraNew, 1800000, 'vẫn bị trừ như một khoản chi mới');
+// ─── Gộp theo loại & dải 6 tháng ───
+
+test('chi tiêu: gộp theo loại xếp nhiều tiền trước và tính đúng tỷ trọng', () => {
+  const rows = buildMonthReport(ledger()).expenseByCategory;
+
+  assert.deepEqual(rows.map((r) => r.name), ['Trả nợ', 'Ăn uống', 'Xăng xe']);
+  assert.equal(catOf(rows, 'Trả nợ').share, 53, '9tr / 17tr');
+  assert.equal(rows.reduce((all, r) => all + r.amount, 0), 17000000);
 });
 
-// ─── Danh mục tạm dừng ───
+test('chi tiêu: dải xu hướng luôn đủ 6 tháng liền nhau, tháng trống vẫn có mặt', () => {
+  const trend = buildMonthReport(ledger()).trend;
 
-test('chi tiêu: tạm dừng một khoản chỉ ngừng từ tháng này, lịch sử tháng cũ giữ nguyên', () => {
-  const book = excelBook({ month: '2026-07', now: day('2026-07-10') });
-  book.funds = book.funds.map((f) => (f.id === 2n ? { ...f, active: false } : f));
-  const report = buildMonthReport(book);
-
-  assert.equal(fundOf(report, 'Tiết kiệm con').deposited, 0, 'tháng này ngừng nạp');
-  assert.equal(fundOf(report, 'Tiết kiệm con').balance, 2000000, 'tháng 6 đã nạp thì vẫn còn nguyên');
+  assert.equal(trend.length, 6);
+  assert.deepEqual(trend.map((t) => t.month), ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05', '2026-06']);
+  assert.equal(trend[3].income, 0, 'tháng chưa ghi gì thì bằng 0 chứ không bị bỏ qua');
+  assert.equal(trend[5].leftover, 39500000, 'tháng cuối dải là tháng đang xem');
 });
 
 // ─── Service: lọc theo sổ ───
@@ -307,14 +267,11 @@ function makePrisma(rows = {}) {
   });
   return {
     householdConfig: { findUnique: async ({ where }) => (where.id === BOOK_ID ? { id: BOOK_ID, ...CONFIG } : null) },
+    householdIncomeCategory: table('householdIncomeCategory', rows.incomeCategories ?? INCOME_CATEGORIES),
+    householdExpenseCategory: table('householdExpenseCategory', rows.expenseCategories ?? EXPENSE_CATEGORIES),
     householdIncome: table('householdIncome', rows.incomes ?? []),
-    householdFund: table('householdFund', rows.funds ?? []),
-    householdFundEntry: table('householdFundEntry', rows.fundEntries ?? []),
-    householdDebt: table('householdDebt', rows.debts ?? []),
-    householdDebtPayment: table('householdDebtPayment', rows.debtPayments ?? []),
-    householdFixedCost: table('householdFixedCost', rows.fixedCosts ?? []),
-    householdFixedSpend: table('householdFixedSpend', rows.fixedSpends ?? []),
-    householdExtraCost: table('householdExtraCost', rows.extraCosts ?? []),
+    householdExpense: table('householdExpense', rows.expenses ?? []),
+    householdDebt: table('householdDebt', rows.debts ?? DEBTS),
   };
 }
 
@@ -322,24 +279,116 @@ test('HouseholdService.book: chỉ trả về dòng của đúng tháng, phần 
   const service = new HouseholdService(
     makePrisma({
       incomes: [
-        { id: 1n, month: '2026-06', source: 'Lương vợ', amount: 30000000n, note: '' },
-        { id: 2n, month: '2026-05', source: 'Lương vợ', amount: 28000000n, note: '' },
+        { id: 1n, ...income({ categoryId: 1n, amount: 30000000n }) },
+        { id: 2n, ...income({ month: '2026-05', categoryId: 1n, amount: 28000000n }) },
       ],
+      expenses: [{ id: 3n, ...expense({ month: '2026-05', categoryId: 13n, amount: 9000000n }) }],
     }),
   );
 
   const data = await service.book(BOOK_ID, '2026-06');
   assert.equal(data.incomes.length, 1, 'danh sách hiển thị chỉ có khoản của tháng đang xem');
-  assert.equal(data.report.incomeTotal, 30000000);
-  assert.equal(data.report.leftoverPrevious, 28000000, 'tháng 5 vẫn được tính vào phần còn thừa mang sang');
+  assert.equal(data.report.income, 30000000);
+  assert.equal(data.report.savingBalance, 9000000, 'tiền gửi tiết kiệm ở tháng 5 vẫn còn nguyên ở tháng 6');
+  assert.equal(data.report.leftoverPrevious, 19000000, '28tr thu − 9tr gửi tiết kiệm của tháng 5');
   assert.match((await service.book(BOOK_ID, 'linh tinh')).report.month, /^\d{4}-\d{2}$/, 'tháng sai định dạng rơi về tháng hiện tại');
+});
+
+/**
+ * Khoản chi loại "trả nợ" BẮT BUỘC gắn được vào một khoản nợ đúng chiều của đúng sổ này.
+ * Gửi lên id khoản nợ của sổ khác (hoặc khoản cho vay) thì phải bị TỪ CHỐI — nếu chỉ âm
+ * thầm bỏ liên kết, người dùng tưởng đã trừ nợ xong mà thực ra không trừ gì cả.
+ */
+test('HouseholdService.addExpense: loại trả nợ phải chọn đúng khoản nợ của sổ này', async () => {
+  const queries = [];
+  const service = new HouseholdService({
+    householdExpenseCategory: {
+      findFirst: async ({ where }) => (where.householdId === BOOK_ID && where.id === 15n ? { id: 15n, kind: 'debt' } : null),
+    },
+    householdDebt: {
+      findFirst: async ({ where }) => {
+        queries.push(where);
+        return where.householdId === BOOK_ID && where.id === 101n && where.direction === 'owe' ? { id: 101n } : null;
+      },
+    },
+    householdExpense: { create: async ({ data }) => data },
+  });
+  const body = { categoryId: '15', occurredAt: '2026-06-05', principal: '4,000,000', interest: '5,000,000' };
+
+  const ok = await service.addExpense(BOOK_ID, { ...body, debtId: '101' });
+  assert.equal(ok.err, undefined);
+  assert.equal(ok.month, '2026-06');
+  assert.equal(queries[0].householdId, BOOK_ID, 'phải lọc khoản nợ theo id sổ');
+  assert.equal(queries[0].direction, 'owe', 'khoản CHI chỉ trả được khoản mình nợ');
+
+  const wrong = await service.addExpense(BOOK_ID, { ...body, debtId: '102' });
+  assert.match(wrong.err, /chọn khoản nợ/i, 'khoản nợ không đúng chiều/không thuộc sổ này thì từ chối ghi');
+});
+
+test('HouseholdService.addExpense: số tiền = gốc + lãi, không cho ghi khoản 0đ', async () => {
+  let saved = null;
+  const service = new HouseholdService({
+    householdExpenseCategory: { findFirst: async ({ where }) => ({ id: where.id, kind: where.id === 15n ? 'debt' : 'normal' }) },
+    householdDebt: { findFirst: async () => ({ id: 101n }) },
+    householdExpense: { create: async ({ data }) => (saved = data) },
+  });
+
+  await service.addExpense(BOOK_ID, { categoryId: '15', debtId: '101', principal: '4000000', interest: '5000000', occurredAt: '2026-06-05' });
+  assert.equal(saved.amount, 9000000n);
+  assert.equal(saved.principal, 4000000n);
+  assert.equal(saved.interest, 5000000n);
+  assert.equal(saved.debtId, 101n);
+
+  const empty = await service.addExpense(BOOK_ID, { categoryId: '11', amount: '0', occurredAt: '2026-06-05' });
+  assert.match(empty.err, /lớn hơn 0/);
+});
+
+/**
+ * Chép khoản thu tháng trước chỉ được chép loại `normal`. Chép nhầm "người ta trả nợ" là tự
+ * trừ gốc một lần không có thật; chép nhầm "rút tiết kiệm" là tự móc két một lần không có thật.
+ */
+test('HouseholdService.copyIncomeFromPreviousMonth: chỉ chép loại thường, bỏ thu nợ & rút tiết kiệm', async () => {
+  let created = null;
+  const service = new HouseholdService({
+    householdIncome: {
+      findMany: async ({ where, select }) => {
+        if (select) return [];
+        return where.month === '2026-05'
+          ? [
+              { id: 1n, categoryId: 1n, amount: 30000000n, note: 'lương', debtId: null },
+              { id: 2n, categoryId: 3n, amount: 3000000n, note: 'rút két', debtId: null },
+              { id: 3n, categoryId: 4n, amount: 10500000n, note: 'anh Nam trả', debtId: 102n },
+            ]
+          : [];
+      },
+      createMany: async ({ data }) => (created = data),
+    },
+    householdIncomeCategory: { findMany: async ({ where }) => (where.kind === 'normal' ? [{ id: 1n }, { id: 2n }] : []) },
+  });
+
+  const result = await service.copyIncomeFromPreviousMonth(BOOK_ID, '2026-06');
+  assert.equal(created.length, 1, 'chỉ chép đúng khoản lương');
+  assert.equal(created[0].categoryId, 1n);
+  assert.equal(created[0].month, '2026-06');
+  assert.match(result.msg, /Đã chép 1 khoản thu/);
+});
+
+test('HouseholdService.addExpense: tháng lấy theo NGÀY chi, không theo tháng đang xem', async () => {
+  let saved = null;
+  const service = new HouseholdService({
+    householdExpenseCategory: { findFirst: async ({ where }) => ({ id: where.id, kind: 'normal' }) },
+    householdExpense: { create: async ({ data }) => (saved = data) },
+  });
+
+  await service.addExpense(BOOK_ID, { categoryId: '11', amount: '500000', occurredAt: '2026-05-28', month: '2026-06' });
+  assert.equal(saved.month, '2026-05', 'ghi lùi ngày thì dòng đó về đúng tháng của nó');
 });
 
 // ─── Giao diện ───
 
 function viewLocals(section, over = {}) {
-  const report = buildMonthReport(excelBook());
-  const source = excelBook();
+  const source = ledger();
+  const report = buildMonthReport(source);
   const currentBook = {
     id: BOOK_ID,
     name: 'Sổ chi tiêu gia đình',
@@ -347,18 +396,17 @@ function viewLocals(section, over = {}) {
     ownerAdmin: { id: 7n, username: 'admin', displayName: 'Admin' },
     permissions: [{ id: 5n, admin: { id: 9n, username: 'subadmin', displayName: 'Sub Admin' } }],
   };
+  const rows = (list) =>
+    list
+      .filter((row) => row.month === '2026-06')
+      .map((row, index) => ({ id: BigInt(index + 1), occurredAt: day('2026-06-10'), note: '', ...row }));
   const book = {
     report,
-    incomes: [{ id: 1n, source: 'Lương vợ', amount: 30000000n, note: '' }],
-    funds: source.funds.map((f) => ({ ...f })),
-    fundEntries: [{ id: 1n, fundId: 3n, occurredAt: day('2026-06-12'), direction: 'out', amount: 400000n, note: 'Khám bệnh' }],
-    debts: source.debts.map((d) => ({ ...d, note: '' })),
-    fixedCosts: source.fixedCosts.map((c) => ({ ...c, note: '' })),
-    fixedSpends: [{ id: 1n, costId: 2n, occurredAt: day('2026-06-10'), amount: 1000000n, note: 'Đổ xăng' }],
-    extraCosts: [
-      { id: 1n, occurredAt: day('2026-06-18'), name: 'Cưới abc', amount: 500000n, source: 'new', fixedCostId: null, fundId: null, note: '' },
-      { id: 2n, occurredAt: day('2026-06-20'), name: 'Ăn ngoài sinh nhật cô Vy', amount: 1000000n, source: 'fund', fixedCostId: null, fundId: 5n, note: '' },
-    ],
+    incomeCategories: INCOME_CATEGORIES,
+    expenseCategories: EXPENSE_CATEGORIES,
+    debts: DEBTS,
+    incomes: rows(source.incomes),
+    expenses: rows(source.expenses),
   };
   return {
     currentUser: { id: '7', role: 'ADMIN', displayName: 'Admin', email: 'admin@test' },
@@ -374,6 +422,12 @@ function viewLocals(section, over = {}) {
     config: { id: BOOK_ID, ...CONFIG },
     book,
     report,
+    chat: [
+      { id: 1n, role: 'user', content: 'Tháng này tiêu nhiều nhất vào đâu?', askedBy: 'Admin', createdAt: day('2026-06-20') },
+      { id: 2n, role: 'assistant', content: 'Nhiều nhất là khoản Trả nợ: 9.000.000đ.', askedBy: '', createdAt: day('2026-06-20') },
+    ],
+    aiConfigured: true,
+    draft: null,
     msg: '',
     err: '',
     ...over,
@@ -388,9 +442,11 @@ test('household view: dựng được mọi mục, không sót dấu vết mô h
     const html = await renderSection(section);
     assert.doesNotMatch(html, /VPBank|Gmail|Quét ngay|IMAP/i, `mục ${section} còn sót phần quét email`);
     assert.doesNotMatch(html, /household-tab/, `mục ${section} còn thanh tab trên đầu (đã có menu ba gạch)`);
-    assert.doesNotMatch(html, /onsubmit=/, `mục ${section} còn JS inline, vi phạm CSP`);
+    assert.doesNotMatch(html, /onsubmit=|onchange=/, `mục ${section} còn JS inline, vi phạm CSP`);
     assert.doesNotMatch(html, /ví tuần|chi chung/i, `mục ${section} còn chữ của mô hình ví tiền cũ`);
-    assert.match(html, /Quản lý chi tiêu/);
+    // Rule của bảng tính chiphi.xlsx: trần/tháng, mức tuần, dự phòng dồn sang quỹ Đi chơi.
+    assert.doesNotMatch(html, /Trần\/tháng|mức tuần|Chi 1 lần|Chi dần|dồn hết sang quỹ/i, `mục ${section} còn rule của bảng tính cũ`);
+    assert.match(html, /Quản lý chi tiêu|Sổ chi tiêu/);
   }
 });
 
@@ -437,57 +493,98 @@ test('household view: mọi số tiền đều dùng formatMoney (có dấu phâ
   assert.doesNotMatch(source, /<%=\s*Number\((config|c|f|d|e|i|s)\./, 'còn số tiền thô chưa qua formatMoney');
 
   const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), {
-    ...viewLocals('cai-dat'),
+    ...viewLocals('so-no'),
     formatMoney: (value) => new Intl.NumberFormat('en-US').format(Number(value) || 0),
   });
-  assert.match(html, /value="500,000"/, 'ô nhập tiền phải hiện sẵn dạng có dấu phẩy');
+  assert.match(html, /value="904,000,000"/, 'ô nhập tiền phải hiện sẵn dạng có dấu phẩy');
   assert.match(html, /class="money-input"/, 'ô nhập tiền phải tự chèn dấu phẩy khi gõ');
 });
 
-test('household view: tổng quan bày đủ 5 phần của bảng tính và con số còn thừa', async () => {
+test('household view: tổng quan bày đủ ba ô Tiết kiệm / Chi phí / Thu nhập', async () => {
   const html = await renderSection('tong-quan');
-  for (const label of ['1. Thu', '2. Tiết kiệm', '3. Trả nợ', '4. Chi phí cố định', '5. Chi phí phát sinh']) {
-    assert.ok(html.includes(label), `tổng quan thiếu phần "${label}"`);
-  }
-  assert.match(html, /Còn thừa tháng này/);
-  assert.match(html, /2350000/, 'số còn thừa của tháng phải hiện ra');
-  assert.match(html, /900000000/, 'nợ còn lại sau khi trừ gốc phải hiện ra');
+
+  assert.match(html, /🐷 Tiết kiệm đang có/);
+  assert.match(html, /💸 Chi phí tháng/);
+  assert.match(html, /💵 Thu nhập tháng/);
+  assert.match(html, /39000000/, 'số tiết kiệm dồn qua các tháng phải hiện ra');
+  assert.match(html, /Dồn qua tất cả các tháng/);
   assert.match(html, /metric-card/, 'dùng chung ô số liệu với module đội bóng');
+  assert.match(html, /900000000/, 'nợ còn lại sau khi trừ gốc phải hiện ra');
 });
 
-test('household view: mục tiết kiệm nói rõ dự phòng thừa thì dồn sang Đi chơi', async () => {
-  const html = await renderSection('tiet-kiem');
-  assert.match(html, /dồn hết sang quỹ/i);
-  assert.match(html, /Đi chơi/);
-  assert.match(html, /name="direction"/, 'phải có ô chọn nạp thêm hay rút ra');
-});
+test('household view: mục khai chi có ô gốc/lãi và ô chọn khoản nợ', async () => {
+  const html = await renderSection('chi');
+  const debtSelect = html.split('name="debtId"')[1].split('</select>')[0];
 
-test('household view: mục trả nợ cho nhập gốc & lãi theo tháng, hiện nợ còn lại', async () => {
-  const html = await renderSection('tra-no');
   assert.match(html, /name="principal"/);
   assert.match(html, /name="interest"/);
-  assert.match(html, /Còn nợ/);
-  assert.match(html, /Nợ ban đầu/);
+  assert.match(html, /data-entry-kind/, 'ô chọn loại phải có mốc để JS bật/tắt phần trả nợ');
+  assert.match(html, /data-kind="debt"/, 'loại kiểu trả nợ phải khai rõ kind ra HTML');
+  assert.match(debtSelect, /Vay ngân hàng/, 'chỉ liệt kê khoản MÌNH nợ');
+  assert.doesNotMatch(debtSelect, /anh Nam/i, 'khoản cho vay không được lọt vào ô trả nợ');
 });
 
-test('household view: mục chi phí cố định bày từng tuần của khoản sinh hoạt', async () => {
-  const html = await renderSection('chi-phi-co-dinh');
-  assert.match(html, /Tuần 1 \(01\/06\/2026–07\/06\/2026\)/, 'tuần tính từ thứ Hai đầu tiên, ngày theo giờ Việt Nam');
-  assert.match(html, /mặc định/, 'tuần đã hết phải ghi rõ là số mặc định');
-  assert.match(html, /Sinh hoạt vợ/);
-  assert.match(html, /tự tính/, 'khoản chi 1 lần chưa ghi gì phải ghi rõ là tự tính');
+test('household view: mục khai thu chỉ cho chọn khoản CHO VAY khi thu tiền nợ về', async () => {
+  const html = await renderSection('thu');
+  const debtSelect = html.split('name="debtId"')[1].split('</select>')[0];
+
+  assert.match(debtSelect, /Cho anh Nam vay/);
+  assert.doesNotMatch(debtSelect, /Vay ngân hàng/, 'khoản mình nợ không được lọt vào ô thu nợ');
+  assert.match(html, /Chép các khoản thu của tháng trước/);
 });
 
-test('household view: mục phát sinh cho chọn lấy tiền từ khoản cố định hoặc quỹ', async () => {
-  const html = await renderSection('phat-sinh');
-  assert.match(html, /name="pick"/);
-  assert.match(html, /value="fixed:2"/, 'chọn được một khoản chi phí cố định làm nguồn');
-  assert.match(html, /value="fund:1"/, 'chọn được một quỹ tiết kiệm làm nguồn');
-  assert.match(html, /không trừ thêm lần nữa/i);
+test('household view: hai mục danh mục cho khai đủ ba kiểu loại', async () => {
+  const expenseHtml = await renderSection('loai-chi');
+  assert.match(expenseHtml, /value="normal"/);
+  assert.match(expenseHtml, /value="saving"/);
+  assert.match(expenseHtml, /value="debt"/);
+  assert.match(expenseHtml, /Gửi tiết kiệm/);
+  assert.match(expenseHtml, /dồn qua các tháng/i);
+
+  const incomeHtml = await renderSection('loai-thu');
+  assert.match(incomeHtml, /Rút tiết kiệm/);
+  assert.match(incomeHtml, /Người ta trả nợ mình/);
+});
+
+test('household view: sổ nợ tách rõ hai chiều và hiện tiến độ trả', async () => {
+  const html = await renderSection('so-no');
+
+  assert.match(html, /Mình đang nợ/);
+  assert.match(html, /Ai đang nợ mình/);
+  assert.match(html, /name="direction"/);
+  assert.match(html, /name="counterparty"/);
+  assert.match(html, /hh-bar-fill/, 'phải có thanh tiến độ trả nợ');
+  assert.match(html, /40000000/, 'còn phải thu của khoản cho vay');
+});
+
+test('household view: trợ lý bày hội thoại và form ghi nhanh, nói rõ AI không tự ghi', async () => {
+  const html = await renderSection('tro-ly');
+
+  assert.match(html, /action="\/household\/ai\/ask"/);
+  assert.match(html, /action="\/household\/ai\/draft"/);
+  assert.match(html, /Tháng này tiêu nhiều nhất vào đâu\?/, 'phải hiện lại lịch sử trò chuyện');
+  assert.match(html, /không bao giờ tự ghi/i);
+});
+
+test('household view: bản nháp trợ lý là form điền sẵn trỏ về đúng đường ghi thường', async () => {
+  const html = await renderSection('tro-ly', {
+    draft: { type: 'expense', categoryId: '11', categoryName: 'Ăn uống', amount: 65000, occurredAt: '2026-06-21', note: 'Ăn trưa' },
+  });
+
+  assert.match(html, /action="\/household\/expenses"/, 'bấm xác nhận thì đi qua đúng route ghi khoản chi');
+  assert.match(html, /value="65000"/);
+  assert.match(html, /value="2026-06-21"/);
+  assert.match(html, /Ghi vào sổ/);
+});
+
+test('household view: trợ lý chưa có API key thì khoá ô nhập chứ không để bấm rồi lỗi', async () => {
+  const html = await renderSection('tro-ly', { aiConfigured: false, chat: [] });
+
+  assert.match(html, /GROQ_API_KEY/);
+  assert.match(html, /disabled/);
 });
 
 test('household view: chọn tháng tự chuyển ngay, không cần bấm nút', async () => {
   const html = await renderSection('thu');
   assert.match(html, /type="month"[^>]*data-autosubmit/, 'ô chọn tháng phải có data-autosubmit');
-  assert.match(html, /Chép các khoản thu của tháng trước/);
 });

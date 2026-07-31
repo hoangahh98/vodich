@@ -2,13 +2,15 @@ import { Body, Controller, Get, Param, Post, Query, Req, Res } from '@nestjs/com
 import { Request, Response } from 'express';
 import { forbidden, notFound, parseBigId } from '../common/controller-utils';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
+import { RateLimitService } from '../common/rate-limit.service';
 import { render } from '../common/view';
 import { CurrentUser } from '../types';
 import { HouseholdAccessService } from './household-access.service';
-import { HouseholdService } from './household.service';
+import { HouseholdAiService, QuickEntryDraft } from './household-ai.service';
+import { HouseholdService, WriteResult } from './household.service';
 
-/** Năm phần của bảng tính, cộng thêm Tổng quan và Cài đặt. Thứ tự này chính là thứ tự menu. */
-const SECTIONS = ['tong-quan', 'thu', 'tiet-kiem', 'tra-no', 'chi-phi-co-dinh', 'phat-sinh', 'cai-dat'];
+/** Các mục của module, theo đúng thứ tự menu ba gạch. */
+const SECTIONS = ['tong-quan', 'thu', 'chi', 'loai-thu', 'loai-chi', 'so-no', 'tro-ly', 'cai-dat'];
 
 /**
  * Module Quản Lý Chi Tiêu — CHỈ dành cho admin (tài chính riêng của gia đình).
@@ -25,6 +27,8 @@ export class HouseholdController {
   constructor(
     private readonly household: HouseholdService,
     private readonly access: HouseholdAccessService,
+    private readonly ai: HouseholdAiService,
+    private readonly rateLimit: RateLimitService,
   ) {}
 
   @Get(['/household', '/household/:section'])
@@ -39,10 +43,11 @@ export class HouseholdController {
   ) {
     const { books, current } = await this.access.resolveBook(user(req), book);
     const active = SECTIONS.includes(String(section)) ? String(section) : 'tong-quan';
-    const [config, data, admins] = await Promise.all([
+    const [config, data, admins, chat] = await Promise.all([
       this.household.getConfig(current.id),
       this.household.book(current.id, month),
       this.access.availableAdmins(current.id, current.ownerAdminId),
+      active === 'tro-ly' ? this.ai.history(current.id) : Promise.resolve([]),
     ]);
     return render(res, 'household/index', {
       section: active,
@@ -53,6 +58,9 @@ export class HouseholdController {
       currentBook: current,
       isOwner: this.access.isOwner(user(req), current),
       admins,
+      chat,
+      aiConfigured: this.ai.isConfigured(),
+      draft: readDraft(req.query),
       msg: String(msg || ''),
       err: String(err || ''),
     });
@@ -70,28 +78,25 @@ export class HouseholdController {
   async seed(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    const { month, added } = await this.household.seedTemplate(id, body.month);
+    const result = await this.household.seedTemplate(id, body.month);
     const back = SECTIONS.includes(String(body.section)) ? String(body.section) : 'cai-dat';
-    const note = added.length ? `Đã nạp mẫu: ${added.join(', ')}` : 'Các danh mục đã có sẵn, không nạp thêm gì';
-    return this.backTo(res, id, back, { month, ...(added.length ? { msg: note } : { err: note }) });
+    return this.backTo(res, id, back, result);
   }
 
-  // ─── 1. Thu ───
+  // ─── Khoản thu ───
+
   @Post('/household/income')
   async addIncome(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    const month = await this.household.addIncome(id, body);
-    return this.backTo(res, id, 'thu', { month });
+    return this.backTo(res, id, 'thu', await this.household.addIncome(id, body));
   }
 
   @Post('/household/income/copy')
   async copyIncome(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    const { month, copied } = await this.household.copyIncomeFromPreviousMonth(id, body.month);
-    const note = copied ? `Đã chép ${copied} khoản thu từ tháng trước` : 'Tháng trước không có khoản thu nào mới để chép';
-    return this.backTo(res, id, 'thu', { month, ...(copied ? { msg: note } : { err: note }) });
+    return this.backTo(res, id, 'thu', await this.household.copyIncomeFromPreviousMonth(id, body.month));
   }
 
   @Post('/household/income/:id/delete')
@@ -101,64 +106,93 @@ export class HouseholdController {
     const incomeId = parseBigId(rawId);
     if (!incomeId) return notFound(res);
     const month = await this.household.deleteIncome(id, incomeId);
-    return this.backTo(res, id, 'thu', { month });
+    return this.backTo(res, id, 'thu', { month, msg: 'Đã xoá khoản thu' });
   }
 
-  // ─── 2. Tiết kiệm ───
-  @Post('/household/funds')
-  async addFund(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
+  // ─── Khoản chi ───
+
+  @Post('/household/expenses')
+  async addExpense(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    await this.household.addFund(id, body);
-    return this.backTo(res, id, 'tiet-kiem', { month: monthOrEmpty(body.month), msg: 'Đã thêm quỹ' });
+    return this.backTo(res, id, 'chi', await this.household.addExpense(id, body));
   }
 
-  @Post('/household/funds/:id')
-  async updateFund(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
+  @Post('/household/expenses/:id/delete')
+  async deleteExpense(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string) {
     const id = await this.book(req, res);
     if (id === null) return;
-    const fundId = parseBigId(rawId);
-    if (!fundId) return notFound(res);
-    await this.household.updateFund(id, fundId, body);
-    return this.backTo(res, id, 'tiet-kiem', { month: monthOrEmpty(body.month), msg: 'Đã lưu quỹ' });
+    const expenseId = parseBigId(rawId);
+    if (!expenseId) return notFound(res);
+    const month = await this.household.deleteExpense(id, expenseId);
+    return this.backTo(res, id, 'chi', { month, msg: 'Đã xoá khoản chi' });
   }
 
-  @Post('/household/funds/:id/delete')
-  async deleteFund(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
+  // ─── Loại thu nhập ───
+
+  @Post('/household/income-categories')
+  async addIncomeCategory(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    const fundId = parseBigId(rawId);
-    if (!fundId) return notFound(res);
-    const removed = await this.household.deleteFund(id, fundId);
-    if (!removed) return notFound(res, 'Không tìm thấy quỹ trong sổ này');
-    return this.backTo(res, id, 'tiet-kiem', { month: monthOrEmpty(body.month), msg: 'Đã xoá quỹ' });
+    return this.backTo(res, id, 'loai-thu', await this.household.addIncomeCategory(id, body));
   }
 
-  @Post('/household/fund-entries')
-  async addFundEntry(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
+  @Post('/household/income-categories/:id')
+  async updateIncomeCategory(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    const month = await this.household.addFundEntry(id, body);
-    return this.backTo(res, id, 'tiet-kiem', { month });
+    const categoryId = parseBigId(rawId);
+    if (!categoryId) return notFound(res);
+    return this.backTo(res, id, 'loai-thu', await this.household.updateIncomeCategory(id, categoryId, body));
   }
 
-  @Post('/household/fund-entries/:id/delete')
-  async deleteFundEntry(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string) {
+  @Post('/household/income-categories/:id/delete')
+  async deleteIncomeCategory(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    const entryId = parseBigId(rawId);
-    if (!entryId) return notFound(res);
-    const month = await this.household.deleteFundEntry(id, entryId);
-    return this.backTo(res, id, 'tiet-kiem', { month });
+    const categoryId = parseBigId(rawId);
+    if (!categoryId) return notFound(res);
+    const { count } = await this.household.deleteIncomeCategory(id, categoryId);
+    if (!count) return notFound(res, 'Không tìm thấy loại thu nhập trong sổ này');
+    return this.backTo(res, id, 'loai-thu', { month: monthOrEmpty(body.month), msg: 'Đã xoá loại thu nhập' });
   }
 
-  // ─── 3. Trả nợ ───
+  // ─── Loại chi phí ───
+
+  @Post('/household/expense-categories')
+  async addExpenseCategory(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
+    const id = await this.book(req, res);
+    if (id === null) return;
+    return this.backTo(res, id, 'loai-chi', await this.household.addExpenseCategory(id, body));
+  }
+
+  @Post('/household/expense-categories/:id')
+  async updateExpenseCategory(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
+    const id = await this.book(req, res);
+    if (id === null) return;
+    const categoryId = parseBigId(rawId);
+    if (!categoryId) return notFound(res);
+    return this.backTo(res, id, 'loai-chi', await this.household.updateExpenseCategory(id, categoryId, body));
+  }
+
+  @Post('/household/expense-categories/:id/delete')
+  async deleteExpenseCategory(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
+    const id = await this.book(req, res);
+    if (id === null) return;
+    const categoryId = parseBigId(rawId);
+    if (!categoryId) return notFound(res);
+    const { count } = await this.household.deleteExpenseCategory(id, categoryId);
+    if (!count) return notFound(res, 'Không tìm thấy loại chi phí trong sổ này');
+    return this.backTo(res, id, 'loai-chi', { month: monthOrEmpty(body.month), msg: 'Đã xoá loại chi phí' });
+  }
+
+  // ─── Sổ nợ ───
+
   @Post('/household/debts')
   async addDebt(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    await this.household.addDebt(id, body);
-    return this.backTo(res, id, 'tra-no', { month: monthOrEmpty(body.month), msg: 'Đã thêm khoản nợ' });
+    return this.backTo(res, id, 'so-no', await this.household.addDebt(id, body));
   }
 
   @Post('/household/debts/:id')
@@ -167,8 +201,7 @@ export class HouseholdController {
     if (id === null) return;
     const debtId = parseBigId(rawId);
     if (!debtId) return notFound(res);
-    await this.household.updateDebt(id, debtId, body);
-    return this.backTo(res, id, 'tra-no', { month: monthOrEmpty(body.month), msg: 'Đã lưu khoản nợ' });
+    return this.backTo(res, id, 'so-no', await this.household.updateDebt(id, debtId, body));
   }
 
   @Post('/household/debts/:id/delete')
@@ -179,85 +212,63 @@ export class HouseholdController {
     if (!debtId) return notFound(res);
     const removed = await this.household.deleteDebt(id, debtId);
     if (!removed) return notFound(res, 'Không tìm thấy khoản nợ trong sổ này');
-    return this.backTo(res, id, 'tra-no', { month: monthOrEmpty(body.month), msg: 'Đã xoá khoản nợ' });
+    return this.backTo(res, id, 'so-no', { month: monthOrEmpty(body.month), msg: 'Đã xoá khoản nợ' });
   }
 
-  @Post('/household/debt-payments')
-  async saveDebtPayment(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
+  // ─── Trợ lý AI ───
+
+  @Post('/household/ai/ask')
+  async askAi(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    const month = await this.household.saveDebtPayment(id, body);
-    return this.backTo(res, id, 'tra-no', { month, msg: 'Đã lưu gốc & lãi tháng này' });
+    const limited = this.limitAi(req);
+    if (limited) return this.backTo(res, id, 'tro-ly', { month: monthOrEmpty(body.month), err: limited });
+    try {
+      await this.ai.ask(id, body.month, String(body.question || ''), user(req).displayName || '');
+    } catch (error) {
+      return this.backTo(res, id, 'tro-ly', { month: monthOrEmpty(body.month), err: message(error) });
+    }
+    return this.backTo(res, id, 'tro-ly', { month: monthOrEmpty(body.month) });
   }
 
-  // ─── 4. Chi phí cố định ───
-  @Post('/household/fixed-costs')
-  async addFixedCost(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
+  @Post('/household/ai/clear')
+  async clearAi(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    await this.household.addFixedCost(id, body);
-    return this.backTo(res, id, 'chi-phi-co-dinh', { month: monthOrEmpty(body.month), msg: 'Đã thêm khoản cố định' });
+    await this.ai.clearHistory(id);
+    return this.backTo(res, id, 'tro-ly', { month: monthOrEmpty(body.month), msg: 'Đã xoá lịch sử trò chuyện' });
   }
 
-  @Post('/household/fixed-costs/:id')
-  async updateFixedCost(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
+  /**
+   * Ghi nhanh bằng câu nói: AI chỉ ĐỌC ra bản nháp rồi trả về màn hình cho người dùng xem;
+   * bấm xác nhận mới thật sự ghi, và lúc đó đi qua đúng đường /household/income|expenses.
+   * Bản nháp đi theo query string nên không cần bảng tạm nào.
+   */
+  @Post('/household/ai/draft')
+  async draftEntry(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
     if (id === null) return;
-    const costId = parseBigId(rawId);
-    if (!costId) return notFound(res);
-    await this.household.updateFixedCost(id, costId, body);
-    return this.backTo(res, id, 'chi-phi-co-dinh', { month: monthOrEmpty(body.month), msg: 'Đã lưu khoản cố định' });
-  }
-
-  @Post('/household/fixed-costs/:id/delete')
-  async deleteFixedCost(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
-    const id = await this.book(req, res);
-    if (id === null) return;
-    const costId = parseBigId(rawId);
-    if (!costId) return notFound(res);
-    const removed = await this.household.deleteFixedCost(id, costId);
-    if (!removed) return notFound(res, 'Không tìm thấy khoản cố định trong sổ này');
-    return this.backTo(res, id, 'chi-phi-co-dinh', { month: monthOrEmpty(body.month), msg: 'Đã xoá khoản cố định' });
-  }
-
-  @Post('/household/fixed-spends')
-  async addFixedSpend(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
-    const id = await this.book(req, res);
-    if (id === null) return;
-    const month = await this.household.addFixedSpend(id, body);
-    return this.backTo(res, id, 'chi-phi-co-dinh', { month });
-  }
-
-  @Post('/household/fixed-spends/:id/delete')
-  async deleteFixedSpend(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string) {
-    const id = await this.book(req, res);
-    if (id === null) return;
-    const spendId = parseBigId(rawId);
-    if (!spendId) return notFound(res);
-    const month = await this.household.deleteFixedSpend(id, spendId);
-    return this.backTo(res, id, 'chi-phi-co-dinh', { month });
-  }
-
-  // ─── 5. Chi phí phát sinh ───
-  @Post('/household/extras')
-  async addExtra(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
-    const id = await this.book(req, res);
-    if (id === null) return;
-    const month = await this.household.addExtraCost(id, body);
-    return this.backTo(res, id, 'phat-sinh', { month });
-  }
-
-  @Post('/household/extras/:id/delete')
-  async deleteExtra(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string) {
-    const id = await this.book(req, res);
-    if (id === null) return;
-    const extraId = parseBigId(rawId);
-    if (!extraId) return notFound(res);
-    const month = await this.household.deleteExtraCost(id, extraId);
-    return this.backTo(res, id, 'phat-sinh', { month });
+    const limited = this.limitAi(req);
+    if (limited) return this.backTo(res, id, 'tro-ly', { month: monthOrEmpty(body.month), err: limited });
+    let draft: QuickEntryDraft;
+    try {
+      draft = await this.ai.draftEntry(id, String(body.text || ''));
+    } catch (error) {
+      return this.backTo(res, id, 'tro-ly', { month: monthOrEmpty(body.month), err: message(error) });
+    }
+    return this.backTo(res, id, 'tro-ly', {
+      month: monthOrEmpty(body.month),
+      draftType: draft.type,
+      draftCategoryId: draft.categoryId,
+      draftCategoryName: draft.categoryName,
+      draftAmount: String(draft.amount),
+      draftDate: draft.occurredAt,
+      draftNote: draft.note,
+    });
   }
 
   // ─── Phân quyền admin (chỉ chủ sổ) ───
+
   @Post('/household/permissions')
   async addPermission(@Req() req: Request, @Res() res: Response, @Body('adminId') adminIdRaw: string) {
     const book = await this.ownedBook(req, res);
@@ -301,9 +312,15 @@ export class HouseholdController {
     return current;
   }
 
-  private backTo(res: Response, bookId: number, section: string, params: Record<string, string> = {}) {
-    const clean = Object.fromEntries(Object.entries(params).filter(([, value]) => value !== ''));
-    const query = new URLSearchParams({ book: String(bookId), ...clean });
+  /** Mỗi lượt gọi AI đều tốn tiền và tốn hạn mức chung của app, nên chặn bấm liên tục. */
+  private limitAi(req: Request): string | null {
+    const limit = this.rateLimit.consume(`ai:household:${req.ip || 'unknown'}`, { max: 12, windowMs: 60_000 });
+    return limit.allowed ? null : `Hỏi hơi nhanh rồi, thử lại sau ${limit.retryAfterSeconds}s nhé`;
+  }
+
+  private backTo(res: Response, bookId: number, section: string, params: Record<string, string | undefined> = {}) {
+    const clean = Object.entries(params).filter((entry): entry is [string, string] => Boolean(entry[1]));
+    const query = new URLSearchParams([['book', String(bookId)], ...clean]);
     return res.redirect(`/household/${section}?${query.toString()}`);
   }
 }
@@ -312,8 +329,29 @@ function user(req: Request): CurrentUser {
   return req.session.user!;
 }
 
-/** Tháng đang xem gửi kèm form sửa danh mục — bỏ trống thì để service rơi về tháng hiện tại. */
+/** Tháng đang xem gửi kèm form — bỏ trống thì để service rơi về tháng hiện tại. */
 function monthOrEmpty(value: unknown): string {
   const raw = String(value ?? '').trim();
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(raw) ? raw : '';
 }
+
+function message(error: unknown): string {
+  return error instanceof Error ? error.message : 'Trợ lý gặp lỗi, thử lại sau nhé';
+}
+
+/** Bản nháp trợ lý vừa đọc ra, lấy lại từ query string để dựng form xác nhận. */
+function readDraft(query: Request['query']): QuickEntryDraft | null {
+  const type = String(query.draftType || '');
+  const amount = Number.parseInt(String(query.draftAmount || ''), 10);
+  if ((type !== 'income' && type !== 'expense') || !Number.isFinite(amount) || amount <= 0) return null;
+  return {
+    type,
+    categoryId: String(query.draftCategoryId || ''),
+    categoryName: String(query.draftCategoryName || ''),
+    amount,
+    occurredAt: String(query.draftDate || ''),
+    note: String(query.draftNote || ''),
+  };
+}
+
+export type { WriteResult };
