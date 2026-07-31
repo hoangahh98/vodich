@@ -557,6 +557,23 @@ test('household view: sổ nợ tách rõ hai chiều và hiện tiến độ tr
   assert.match(html, /40000000/, 'còn phải thu của khoản cho vay');
 });
 
+test('household view: sổ nợ tách KHAI mới và SỬA khoản cũ thành hai phần riêng', async () => {
+  const html = await renderSection('so-no');
+
+  assert.match(html, /➕ Khai khoản nợ mới/);
+  assert.match(html, /⚙️ Sửa khoản nợ đã khai/);
+  assert.doesNotMatch(html, /Khai &amp; sửa khoản nợ/, 'không còn gộp chung một khối');
+
+  // Phần KHAI phải nằm ngoài <details>, không thì lại bị gập vào như cũ.
+  const collapsed = html.slice(html.indexOf('<details'));
+  assert.doesNotMatch(collapsed, /Khai khoản nợ mới/, 'form khai mới không được nằm trong khối gập');
+  assert.match(collapsed, /action="\/household\/debts\/101"/, 'form sửa thì nằm trong khối gập');
+
+  // Đúng một form thêm mới (action không kèm id) — trước đây dễ nhân đôi khi tách khối.
+  const addForms = [...html.matchAll(/action="\/household\/debts"/g)];
+  assert.equal(addForms.length, 1, 'chỉ được có MỘT form khai khoản nợ mới');
+});
+
 test('household view: trợ lý bày hội thoại và form ghi nhanh, nói rõ AI không tự ghi', async () => {
   const html = await renderSection('tro-ly');
 

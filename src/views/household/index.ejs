@@ -496,8 +496,33 @@
       </section>
     <% }) %>
 
+    <%# KHAI mới và SỬA khoản cũ tách làm hai phần riêng: khai là việc thỉnh thoảng mới làm
+        nhưng cần thấy ngay, còn sửa thì lọt thỏm giữa một đống form nếu để chung. %>
+    <section class="card-lite mb">
+      <div class="card-hdr green"><span>➕ Khai khoản nợ mới</span><span>Vay mới, hoặc cho ai đó vay</span></div>
+      <div class="p">
+        <form class="household-form" method="post" action="/household/debts"><input type="hidden" name="book" value="<%= currentBook.id %>">
+          <input type="hidden" name="month" value="<%= report.month %>">
+          <div><label>Chiều</label>
+            <select name="direction">
+              <option value="owe" selected>🏦 Mình nợ người ta</option>
+              <option value="lend">🤝 Người ta nợ mình</option>
+            </select>
+          </div>
+          <div><label>Tên khoản</label><input name="name" placeholder="Vay ngân hàng mua nhà" required></div>
+          <div><label>Với ai</label><input name="counterparty" placeholder="Ngân hàng / anh Nam"></div>
+          <div><label>Số tiền ban đầu</label><input class="money-input" name="initialAmount"></div>
+          <div><label>Từ ngày</label><input type="date" name="startDate" value="<%= today %>"></div>
+          <div><label>Hẹn trả</label><input type="date" name="dueDate"></div>
+          <div class="household-form-wide"><label>Ghi chú</label><input name="note" placeholder="Không bắt buộc"></div>
+          <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Khai khoản nợ</button></div>
+        </form>
+        <p class="muted">Khai xong mới ghi tiền trả hàng tháng được — phần trả nằm ở mục 💸 Chi phí (loại kiểu 🏦 Trả nợ).</p>
+      </div>
+    </section>
+
     <details class="card-lite hh-manage">
-      <summary class="card-hdr warn"><span>⚙️ Khai &amp; sửa khoản nợ</span><span><%= book.debts.length %> khoản</span></summary>
+      <summary class="card-hdr warn"><span>⚙️ Sửa khoản nợ đã khai</span><span><%= book.debts.length %> khoản</span></summary>
       <div class="p">
         <% book.debts.forEach((d) => { %>
           <form id="hh-debt-del-<%= d.id %>" method="post" action="/household/debts/<%= d.id %>/delete"
@@ -528,24 +553,7 @@
             </div>
           </form>
         <% }) %>
-
-        <h2 class="section-title mb">➕ Thêm khoản nợ</h2>
-        <form class="household-form" method="post" action="/household/debts"><input type="hidden" name="book" value="<%= currentBook.id %>">
-          <input type="hidden" name="month" value="<%= report.month %>">
-          <div><label>Chiều</label>
-            <select name="direction">
-              <option value="owe" selected>🏦 Mình nợ người ta</option>
-              <option value="lend">🤝 Người ta nợ mình</option>
-            </select>
-          </div>
-          <div><label>Tên khoản</label><input name="name" placeholder="Vay ngân hàng mua nhà" required></div>
-          <div><label>Với ai</label><input name="counterparty" placeholder="Ngân hàng / anh Nam"></div>
-          <div><label>Số tiền ban đầu</label><input class="money-input" name="initialAmount"></div>
-          <div><label>Từ ngày</label><input type="date" name="startDate" value="<%= today %>"></div>
-          <div><label>Hẹn trả</label><input type="date" name="dueDate"></div>
-          <div class="household-form-wide"><label>Ghi chú</label><input name="note" placeholder="Không bắt buộc"></div>
-          <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm</button></div>
-        </form>
+        <% if (!book.debts.length) { %><p class="muted text-center">Chưa khai khoản nợ nào để mà sửa.</p><% } %>
       </div>
     </details>
   <% } %>
