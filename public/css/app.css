@@ -264,12 +264,23 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .score { font-size: 26px; min-width: 34px; text-align: center; }
 .hidden { display: none !important; }
 
-/* Khoá zoom: `pan-x pan-y` cho phép cuộn nhưng CẤM chụm ngón phóng to, và bỏ luôn nhấn đúp
-   để phóng. Thẻ meta viewport không đủ vì iOS bỏ qua nó — phần chặn cử chỉ nằm ở
-   public/js/no-zoom.js, đây là lớp CSS đi kèm. `overscroll-behavior` chặn kiểu kéo quá đà
-   làm cả trang nhún nhảy. */
-html { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
+/* Khoá zoom + khoá kéo trang. Ba thứ khác nhau, đừng gộp:
+   - `touch-action: pan-x pan-y` — cho cuộn, CẤM chụm ngón phóng to và nhấn đúp để phóng.
+     KHÔNG dùng `pan-y`: touch-action của tổ tiên siết cả con, để `pan-y` là bảng rộng bên
+     trong .table-wrap hết cuộn ngang được.
+   - `overflow-x: hidden` ở CẢ html lẫn body — đây mới là thứ chặn "kéo lê cả trang sang
+     ngang". Trước đây nó nằm trong một media query nên màn to vẫn kéo được. Nội dung rộng
+     (bảng) tự cuộn trong .table-wrap của nó, không đẩy cả trang ra nữa.
+   - `overscroll-behavior: none` — chặn kiểu kéo quá đà làm cả trang nhún nhảy.
+   Phần chặn cử chỉ chụm ngón nằm ở public/js/no-zoom.js vì iOS bỏ qua thẻ meta viewport. */
+html {
+  touch-action: pan-x pan-y;
+  overflow-x: hidden;
+  overscroll-behavior: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+body { touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none; max-width: 100%; }
 
 .card-hdr { color: #fff; font-weight: 700; padding: 10px 16px; border-radius: 9px 9px 0 0; display: flex; align-items: center; justify-content: space-between; }
 .card-hdr.blue { background: #0d6efd; }
@@ -296,13 +307,6 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
 .score-pill { font-size: .92rem; min-width: 76px; }
 .score-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; }
 .score-modal.hidden { display: none !important; }
-
-/* Khoá zoom: `pan-x pan-y` cho phép cuộn nhưng CẤM chụm ngón phóng to, và bỏ luôn nhấn đúp
-   để phóng. Thẻ meta viewport không đủ vì iOS bỏ qua nó — phần chặn cử chỉ nằm ở
-   public/js/no-zoom.js, đây là lớp CSS đi kèm. `overscroll-behavior` chặn kiểu kéo quá đà
-   làm cả trang nhún nhảy. */
-html { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
-body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
 .score-modal-backdrop { position: absolute; inset: 0; background: rgba(17,24,39,.58); }
 .score-modal-panel { position: relative; z-index: 1; width: min(720px, 100%); background: #fff; border-radius: 12px; box-shadow: 0 18px 60px rgba(0,0,0,.32); overflow: hidden; }
 .score-modal-head { background: #0d6efd; color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
@@ -971,6 +975,18 @@ body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
 .hh-big { font-size: 22px; }
 .hh-row-total td { border-top: 2px solid var(--line); font-size: 16px; }
 .hh-debt { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
+
+/* Một dòng khoản thu / khoản chi: bấm vào là mở ra ô sửa & nút xoá. Thay cho bảng có nút
+   Xoá lộ thiên — bấm nhầm nút xoá trên điện thoại quá dễ. */
+.hh-entry { border-bottom: 1px solid var(--line); }
+.hh-entry > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 4px; }
+.hh-entry > summary::-webkit-details-marker { display: none; }
+.hh-entry > summary::after { content: '▾'; font-weight: 800; opacity: .5; }
+.hh-entry[open] > summary::after { content: '▴'; }
+.hh-entry[open] > summary { background: #f8f9fa; }
+.hh-entry-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.hh-entry-main .muted { font-size: 13px; }
+.hh-entry-body { padding: 12px 4px 16px; background: #f8f9fa; }
 .hh-debt:last-child { border-bottom: 0; margin-bottom: 0; }
 
 /* Thanh tỷ trọng: dùng cho "chi theo loại", dải 6 tháng và tiến độ trả nợ. */

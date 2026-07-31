@@ -52,6 +52,15 @@ export const EXPENSE_KINDS = ['fixed', 'variable', 'saving', 'debt'] as const;
 export const INCOME_KINDS = ['normal', 'saving', 'debt'] as const;
 export const DEBT_DIRECTIONS = ['owe', 'lend'] as const;
 
+/**
+ * Quỹ hứng phần dư giữa mức dự kiến và tiền đã chi thật của các khoản CỐ ĐỊNH.
+ *
+ * Nhận diện theo TÊN ở cả hai bên: loại CHI kiểu `saving` tên này là tiền BỎ VÀO quỹ, loại
+ * THU kiểu `saving` cùng tên là tiền LẤY RA tiêu. Khớp theo tên (không phân biệt hoa thường)
+ * vì hai bảng loại thu / loại chi tách nhau, không có khoá ngoại nào nối chúng lại.
+ */
+export const TRAVEL_SAVING = 'Tiết kiệm du lịch';
+
 export type ExpenseKind = (typeof EXPENSE_KINDS)[number];
 export type IncomeKind = (typeof INCOME_KINDS)[number];
 export type DebtDirection = (typeof DEBT_DIRECTIONS)[number];
@@ -142,6 +151,9 @@ export interface MonthReport extends MonthTotals {
   expenseVariable: number; // phần chi phí phát sinh của tháng
   savingNet: number; // gửi − rút trong tháng đang xem
   savingBalance: number; // ← số của ô 🐷: tiết kiệm dồn qua các tháng
+  travelYear: number; // năm của tháng đang xem, cho nhãn "Còn du lịch năm ..."
+  travelThisYear: number; // quỹ du lịch dồn được trong RIÊNG năm đó (bỏ vào − lấy ra)
+  travelAllTime: number; // quỹ du lịch dồn từ đầu sổ tới hết tháng đang xem
   leftoverPrevious: number;
   leftoverTotal: number;
   incomeByCategory: CategoryTotal[];
@@ -207,6 +219,15 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
 
   const debts = buildDebtViews(input.debts, incomes, expenses, month);
 
+  // Quỹ du lịch: bỏ vào ở bên CHI, lấy ra ở bên THU, khớp theo tên quỹ.
+  const isTravel = (category: CategoryLike) =>
+    category.kind === 'saving' && category.name.trim().toLowerCase() === TRAVEL_SAVING.toLowerCase();
+  const travelExpenseIds = new Set(input.expenseCategories.filter(isTravel).map((c) => String(c.id)));
+  const travelIncomeIds = new Set(input.incomeCategories.filter(isTravel).map((c) => String(c.id)));
+  const travelIn = (rows: EntryLike[], ids: Set<string>, from?: string) =>
+    sum(rows, (row) => (ids.has(String(row.categoryId)) && (!from || row.month >= from) ? amount(row) : 0));
+  const yearStart = `${month.slice(0, 4)}-01`;
+
   return {
     month,
     months: knownMonths(input, month),
@@ -218,6 +239,10 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
     expenseVariable: expense - expenseFixed,
     savingNet: savingIn - savingOut,
     savingBalance,
+    travelYear: Number(month.slice(0, 4)),
+    travelThisYear:
+      travelIn(expenses, travelExpenseIds, yearStart) - travelIn(incomes, travelIncomeIds, yearStart),
+    travelAllTime: travelIn(expenses, travelExpenseIds) - travelIn(incomes, travelIncomeIds),
     leftover,
     leftoverPrevious: leftoverTotal - leftover,
     leftoverTotal,

@@ -82,6 +82,15 @@ export class HouseholdController {
     return this.backTo(res, id, 'thu', await this.household.copyIncomeFromPreviousMonth(id, body.month));
   }
 
+  @Post('/household/income/:id')
+  async updateIncome(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
+    const id = await this.book(req, res);
+    if (id === null) return;
+    const incomeId = parseBigId(rawId);
+    if (!incomeId) return notFound(res);
+    return this.backTo(res, id, 'thu', await this.household.updateIncome(id, incomeId, body));
+  }
+
   @Post('/household/income/:id/delete')
   async deleteIncome(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string) {
     const id = await this.book(req, res);
@@ -106,6 +115,15 @@ export class HouseholdController {
     const id = await this.book(req, res);
     if (id === null) return;
     return this.backTo(res, id, 'chi', await this.household.copyExpenseFromPreviousMonth(id, body.month));
+  }
+
+  @Post('/household/expenses/:id')
+  async updateExpense(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
+    const id = await this.book(req, res);
+    if (id === null) return;
+    const expenseId = parseBigId(rawId);
+    if (!expenseId) return notFound(res);
+    return this.backTo(res, id, 'chi', await this.household.updateExpense(id, expenseId, body));
   }
 
   @Post('/household/expenses/:id/delete')

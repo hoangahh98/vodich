@@ -331,6 +331,29 @@ test('khoá zoom đủ ba lớp: meta + CSS touch-action + chặn cử chỉ b�
   assert.match(js, /passive:\s*false/, 'không có passive:false thì preventDefault bị bỏ qua');
 });
 
+/**
+ * CA THẬT (31/7/2026, ngay sau lần trên): zoom đã khoá được nhưng vẫn "kéo lê cả trang sang
+ * ngang". Nguyên nhân: `overflow-x: hidden` nằm trong một media query nên chỉ ăn ở màn hẹp,
+ * còn `touch-action: pan-x pan-y` thì vẫn cho phép kéo ngang. Nội dung rộng (bảng) phải tự
+ * cuộn trong .table-wrap của nó chứ không được đẩy cả trang ra.
+ */
+test('trang không kéo lê sang ngang được: overflow-x khoá ở quy tắc CHUNG', () => {
+  const css = fs.readFileSync(path.join(root, 'public/css/app.css'), 'utf8');
+
+  // Cắt bỏ mọi khối @media rồi mới soi — quy tắc phải nằm ở phần chung.
+  const base = css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+  const htmlRule = base.match(/(^|\n)html\s*\{[^}]*\}/);
+  const bodyRule = base.match(/(^|\n)body\s*\{[^}]*overflow-x[^}]*\}/);
+
+  assert.ok(htmlRule, 'phải có quy tắc chung cho html');
+  assert.match(htmlRule[0], /overflow-x:\s*hidden/, 'html phải chặn kéo ngang');
+  assert.ok(bodyRule, 'body cũng phải chặn kéo ngang ở quy tắc chung, không nhét trong @media');
+  assert.match(base, /overscroll-behavior:\s*none/, 'chặn kéo quá đà làm trang nhún nhảy');
+
+  // Bảng rộng vẫn phải cuộn được trong khung của nó, nếu không là mất dữ liệu trên màn hẹp.
+  assert.match(css, /\.table-wrap\s*\{[^}]*overflow-x:\s*auto/, '.table-wrap phải tự cuộn ngang');
+});
+
 /** Mọi trang hoàn chỉnh đều phải đi qua partials/head — nếu không là lọt lưới khoá zoom. */
 test('không trang nào tự dựng <head> riêng để lọt lưới khoá zoom', () => {
   const views = [];

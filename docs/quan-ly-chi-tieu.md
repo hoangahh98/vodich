@@ -113,6 +113,10 @@ giống module giải đấu và đội bóng.
 Mọi mục xoay quanh một tháng đều có ô chọn tháng ở đầu trang (tự chuyển ngay khi đổi) và một dải
 **Thu nhập / Chi phí / Còn lại** để lúc nào cũng thấy ba con số chính.
 
+**Bấm vào một dòng khoản thu/chi** để mở ô sửa và nút xoá — không có nút Xoá lộ thiên trên danh
+sách, vì trên điện thoại bấm nhầm quá dễ. Sửa dùng lại **đúng bộ kiểm của lúc ghi mới** (loại phải
+thuộc sổ này, khoản nợ phải đúng chiều), nên hai đường không thể lệch quy tắc nhau.
+
 **Tháng của một khoản luôn suy ra từ NGÀY xảy ra**, không theo tháng đang xem — ghi lùi ngày thì
 dòng đó tự về đúng tháng của nó.
 
@@ -134,8 +138,11 @@ Khoản cố định thường được "sizing" một mức rồi thực tế c
 | Số tiền **dự kiến** | `planned_amount` | mức đặt ra đầu tháng |
 | **Đã chi thực tế** | `amount` | tiền thật đã ra khỏi ví — **mọi công thức tính từ đây** |
 
-Bỏ trống ô "đã chi" = chi đúng dự kiến. Chi **ít hơn** dự kiến thì phần dư được ghi thành **một
-khoản chi thật** thuộc loại tiết kiệm **Tiết kiệm du lịch** (tự tạo lần đầu nếu chưa có):
+Bỏ trống ô "đã chi" = **đã chi 0đ** (chưa tiêu đồng nào tháng này), *không phải* "chi đúng dự
+kiến" — khi đó cả mức dự kiến dồn sang quỹ. Loại cố định chỉ cần **mức dự kiến > 0** là ghi được.
+
+Chi **ít hơn** dự kiến thì phần dư được ghi thành **một khoản chi thật** thuộc loại tiết kiệm
+**Tiết kiệm du lịch** (tự tạo lần đầu nếu chưa có):
 
 ```
 Dự kiến 2.000.000 · đã chi 1.500.000
@@ -145,7 +152,22 @@ Dự kiến 2.000.000 · đã chi 1.500.000
 ```
 
 Cố ý ghi thành **dòng thật** chứ không tính ngầm trong công thức: nhờ vậy nó hiện ra ở danh sách,
-xoá được, và không có phép tính ẩn nào nằm ở chỗ khác. Chi **vượt** dự kiến thì không sinh dòng nào
+sửa/xoá được, và không có phép tính ẩn nào nằm ở chỗ khác. Vì thế **sửa** một khoản cố định
+KHÔNG tự tính lại dòng dư đã sinh ra — dòng đó nằm ngay trong danh sách, sửa thẳng.
+
+### Ô "Còn du lịch năm ..."
+
+Tổng quan có một ô riêng cho quỹ này: **dồn** khi khoản cố định chi hụt, **trừ** khi lấy ra tiêu.
+Nhận diện theo **tên quỹ** ở cả hai bên (hai bảng loại thu / loại chi tách nhau, không có khoá
+ngoại nối):
+
+| Chiều | Khai ở đâu |
+|---|---|
+| Bỏ vào | loại **chi phí** kiểu `saving` tên `Tiết kiệm du lịch` (tự tạo) |
+| Lấy ra tiêu | loại **thu nhập** kiểu `saving` đặt **đúng tên đó** |
+
+Ô hiện số của **riêng năm** đang xem (`travelThisYear`); mở ra thấy thêm số dồn từ đầu sổ
+(`travelAllTime`). Chi **vượt** dự kiến thì không sinh dòng nào
 (chẳng có gì để cất đi). Thao tác xong có báo rõ đã chuyển bao nhiêu sang quỹ, không làm lặng lẽ.
 
 **Khoản nợ trả/thu xong** (`initialAmount > 0` và còn lại ≤ 0) tự gập xuống mục **✅ Đã xong** và

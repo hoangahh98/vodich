@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import {
   EXPENSE_KINDS,
+  TRAVEL_SAVING,
   INCOME_KINDS,
   DEBT_DIRECTIONS,
   MonthReport,
@@ -17,7 +18,7 @@ import {
   previousMonth,
 } from './household-calc';
 
-export { CategoryTotal, DebtView, MonthReport, MonthTotals } from './household-calc';
+export { CategoryTotal, DebtView, MonthReport, MonthTotals, TRAVEL_SAVING } from './household-calc';
 
 /** Một loại thu / loại chi như màn hình cần: đủ để dựng form sửa. */
 export interface CategoryRow {
@@ -157,6 +158,10 @@ export class HouseholdService {
     return this.addEntry('income', householdId, body);
   }
 
+  updateIncome(householdId: number, id: bigint, body: Record<string, string>) {
+    return this.updateEntry('income', householdId, id, body);
+  }
+
   async deleteIncome(householdId: number, id: bigint) {
     const row = await this.prisma.householdIncome.findFirst({ where: { id, householdId } });
     if (row) await this.prisma.householdIncome.deleteMany({ where: { id, householdId } });
@@ -177,6 +182,10 @@ export class HouseholdService {
   /** Chép các khoản chi CỐ ĐỊNH của tháng trước — đó là những khoản tháng nào cũng phải trả. */
   copyExpenseFromPreviousMonth(householdId: number, rawMonth?: string): Promise<WriteResult> {
     return this.copyFromPreviousMonth('expense', householdId, rawMonth);
+  }
+
+  updateExpense(householdId: number, id: bigint, body: Record<string, string>) {
+    return this.updateEntry('expense', householdId, id, body);
   }
 
   async deleteExpense(householdId: number, id: bigint) {
@@ -329,6 +338,38 @@ export class HouseholdService {
   }
 
   /**
+   * Sửa một khoản đã ghi. Dùng lại đúng bộ kiểm của `addEntry` (loại phải thuộc sổ này, khoản
+   * nợ phải đúng chiều, số tiền phải hợp lệ) rồi ghi đè.
+   *
+   * CỐ Ý KHÔNG đụng tới dòng "dư chuyển sang quỹ du lịch" đã sinh ra lúc tạo: nó là một khoản
+   * chi độc lập, hiện ngay trong danh sách và sửa/xoá được như mọi dòng khác. Tự động tính lại
+   * nó ở đây nghĩa là một thao tác sửa lại âm thầm đổi một dòng khác — đúng kiểu phép tính ẩn
+   * mà module này tránh từ đầu.
+   */
+  private async updateEntry(
+    side: 'income' | 'expense',
+    householdId: number,
+    id: bigint,
+    body: Record<string, string>,
+  ): Promise<WriteResult> {
+    const isIncome = side === 'income';
+    const table = isIncome ? this.prisma.householdIncome : this.prisma.householdExpense;
+    const existing = await (table as unknown as { findFirst(args: unknown): Promise<{ id: bigint; month: string } | null> }).findFirst({
+      where: { id, householdId },
+    });
+    if (!existing) return { month: currentMonth(), err: `Không tìm thấy khoản ${isIncome ? 'thu' : 'chi'} trong sổ này` };
+
+    const fields = await this.entryFields(side, householdId, body);
+    if ('err' in fields) return { month: existing.month, ...fields };
+
+    const data = isIncome ? fields.data : { ...fields.data, plannedAmount: BigInt(fields.planned) };
+    if (isIncome) await this.prisma.householdIncome.updateMany({ where: { id, householdId }, data });
+    else await this.prisma.householdExpense.updateMany({ where: { id, householdId }, data });
+
+    return { month: fields.data.month, msg: `Đã lưu khoản ${isIncome ? 'thu' : 'chi'}` };
+  }
+
+  /**
    * Ghi một khoản thu hoặc một khoản chi. Tháng luôn suy ra từ NGÀY xảy ra, không theo tháng
    * đang xem — ghi lùi ngày là dòng đó tự về đúng tháng của nó.
    *
@@ -337,14 +378,21 @@ export class HouseholdService {
    * (hoặc chọn khoản của sổ khác) thì từ chối ghi, chứ không âm thầm bỏ liên kết — người
    * dùng sẽ tưởng đã trừ nợ xong.
    */
-  private async addEntry(kind: 'income' | 'expense', householdId: number, body: Record<string, string>): Promise<WriteResult> {
+  /**
+   * Dựng (và kiểm) các trường của một khoản thu/chi từ form. Dùng chung cho cả ghi mới lẫn
+   * sửa, nên hai đường không thể lệch quy tắc nhau — đúng chỗ dễ sinh lỗ hổng nhất.
+   */
+  private async entryFields(
+    side: 'income' | 'expense',
+    householdId: number,
+    body: Record<string, string>,
+  ): Promise<{ err: string } | { data: EntryData; planned: number }> {
     const occurredAt = parseDateOnly(body.occurredAt) ?? today();
     const month = monthOf(occurredAt);
-    const fallbackMonth = normalizeMonth(body.month) ?? month;
-    const isIncome = kind === 'income';
+    const isIncome = side === 'income';
 
     const category = await this.ownedCategory(isIncome ? 'householdIncomeCategory' : 'householdExpenseCategory', householdId, body.categoryId);
-    if (!category) return { month: fallbackMonth, err: `Chưa chọn loại ${isIncome ? 'thu nhập' : 'chi phí'}` };
+    if (!category) return { err: `Chưa chọn loại ${isIncome ? 'thu nhập' : 'chi phí'}` };
 
     let amount = parseVnd(body.amount);
     let planned = 0;
@@ -353,11 +401,11 @@ export class HouseholdService {
     let debtId: bigint | null = null;
 
     // Khoản CỐ ĐỊNH có hai con số: mức dự kiến (sizing) và tiền đã chi thật. `amount` luôn là
-    // tiền THẬT — mọi công thức tính từ nó. Bỏ trống ô "đã chi" nghĩa là chi đúng dự kiến.
+    // tiền THẬT — mọi công thức tính từ nó. Bỏ trống ô "đã chi" là ĐÃ CHI 0đ (chưa tiêu đồng
+    // nào), không phải "chi đúng dự kiến" — khi đó cả mức dự kiến dồn sang quỹ du lịch.
     if (category.kind === 'fixed') {
       planned = amount;
-      const actual = parseVnd(body.actualAmount);
-      if (actual > 0) amount = actual;
+      amount = parseVnd(body.actualAmount);
     }
 
     if (category.kind === 'debt') {
@@ -367,34 +415,48 @@ export class HouseholdService {
         select: { id: true },
       });
       if (!debt) {
-        return {
-          month: fallbackMonth,
-          err: isIncome
-            ? 'Chưa chọn khoản cho vay để ghi tiền người ta trả về'
-            : 'Chưa chọn khoản nợ để trừ tiền gốc',
-        };
+        return { err: isIncome ? 'Chưa chọn khoản cho vay để ghi tiền người ta trả về' : 'Chưa chọn khoản nợ để trừ tiền gốc' };
       }
       debtId = debt.id;
       principal = BigInt(parseVnd(body.principal));
       interest = BigInt(parseVnd(body.interest));
       amount = Number(principal + interest);
-      if (amount <= 0) return { month: fallbackMonth, err: 'Gốc và lãi đều đang để trống' };
+      if (amount <= 0) return { err: 'Gốc và lãi đều đang để trống' };
     }
 
-    if (amount <= 0) return { month: fallbackMonth, err: 'Số tiền phải lớn hơn 0' };
+    // Loại cố định chỉ cần có MỨC DỰ KIẾN: đã chi 0đ là hợp lệ (chưa tiêu đồng nào tháng này).
+    if (category.kind === 'fixed' ? planned <= 0 : amount <= 0) {
+      return { err: category.kind === 'fixed' ? 'Số tiền dự kiến phải lớn hơn 0' : 'Số tiền phải lớn hơn 0' };
+    }
 
-    const data = {
-      householdId,
-      categoryId: category.id,
-      month,
-      occurredAt,
-      amount: BigInt(amount),
-      principal,
-      interest,
-      debtId,
-      note: text(body.note, 500),
+    return {
+      planned,
+      data: {
+        householdId,
+        categoryId: category.id,
+        month,
+        occurredAt,
+        amount: BigInt(amount),
+        principal,
+        interest,
+        debtId,
+        note: text(body.note, 500),
+      },
     };
-    if (isIncome) {
+  }
+
+  /**
+   * Ghi một khoản thu hoặc một khoản chi. Tháng luôn suy ra từ NGÀY xảy ra, không theo tháng
+   * đang xem — ghi lùi ngày là dòng đó tự về đúng tháng của nó.
+   */
+  private async addEntry(side: 'income' | 'expense', householdId: number, body: Record<string, string>): Promise<WriteResult> {
+    const fallbackMonth = normalizeMonth(body.month) ?? currentMonth();
+    const fields = await this.entryFields(side, householdId, body);
+    if ('err' in fields) return { month: fallbackMonth, ...fields };
+
+    const { data, planned } = fields;
+    const month = data.month;
+    if (side === 'income') {
       await this.prisma.householdIncome.create({ data });
       return { month, msg: 'Đã ghi khoản thu' };
     }
@@ -403,8 +465,8 @@ export class HouseholdService {
 
     // Dự kiến 2tr mà chỉ chi hết 1tr5 thì 500k còn lại không tự bốc hơi: nó chảy vào quỹ
     // tiết kiệm du lịch. Ghi thành MỘT DÒNG THẬT chứ không tính ngầm trong công thức —
-    // nhờ vậy nó hiện ra ở danh sách, xoá được, và không có phép tính ẩn nào ở chỗ khác.
-    const spare = planned - amount;
+    // nhờ vậy nó hiện ra ở danh sách, sửa/xoá được, và không có phép tính ẩn nào ở chỗ khác.
+    const spare = planned - Number(data.amount);
     if (spare <= 0) return { month, msg: 'Đã ghi khoản chi' };
     const jar = await this.travelSavingCategory(householdId);
     await this.prisma.householdExpense.create({
@@ -412,9 +474,9 @@ export class HouseholdService {
         householdId,
         categoryId: jar.id,
         month,
-        occurredAt,
+        occurredAt: data.occurredAt,
         amount: BigInt(spare),
-        note: `Dư từ khoản cố định ngày ${occurredAt.toISOString().slice(0, 10)}`,
+        note: `Dư từ khoản cố định ngày ${data.occurredAt.toISOString().slice(0, 10)}`,
       },
     });
     return { month, msg: `Đã ghi khoản chi · dư ${vnd(spare)} chuyển sang ${TRAVEL_SAVING}` };
@@ -474,13 +536,23 @@ interface CategoryModel {
   update(args: unknown): Promise<unknown>;
 }
 
+/** Các trường chung của một khoản thu/chi khi ghi xuống DB. */
+interface EntryData {
+  householdId: number;
+  categoryId: bigint;
+  month: string;
+  occurredAt: Date;
+  amount: bigint;
+  principal: bigint;
+  interest: bigint;
+  debtId: bigint | null;
+  note: string;
+}
+
 /** Phần giao nhau của hai bảng khoản thu / khoản chi. */
 interface EntryModel {
   findMany(args: unknown): Promise<Array<{ categoryId: bigint | null; amount: bigint; note: string }>>;
 }
-
-/** Quỹ mặc định hứng phần dư của khoản chi cố định. */
-export const TRAVEL_SAVING = 'Tiết kiệm du lịch';
 
 const CATEGORY_ORDER = [{ sortOrder: 'asc' as const }, { id: 'asc' as const }];
 const ENTRY_ORDER = [{ occurredAt: 'desc' as const }, { id: 'desc' as const }];

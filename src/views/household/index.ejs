@@ -113,6 +113,21 @@
         <span>🤝 Người khác nợ mình</span><strong><%= money(report.lendRemaining) %></strong>
         <small>Tháng này thu về gốc <%= money(report.debtPrincipalCollected) %> · lãi <%= money(report.debtInterestCollected) %></small>
       </div>
+      <%# Quỹ du lịch: dồn từ phần dư của các khoản cố định, tiêu thì trừ đi. %>
+      <details class="metric-card gold metric-drop">
+        <summary>
+          <span>🏖️ Còn du lịch năm <%= report.travelYear %></span><strong><%= money(report.travelThisYear) %></strong>
+          <small>Dồn từ phần dư của các khoản chi cố định</small>
+        </summary>
+        <div class="metric-drop-body">
+          <div><span>Dồn từ đầu sổ tới nay</span><strong><%= money(report.travelAllTime) %></strong></div>
+          <p class="metric-drop-note">
+            Khoản cố định chi ít hơn dự kiến thì phần dư tự vào đây. Muốn <strong>tiêu</strong> quỹ này
+            thì khai một khoản thu loại <strong>🐷 Rút tiết kiệm</strong> đặt đúng tên
+            <strong>Tiết kiệm du lịch</strong> — số ở đây sẽ trừ đi tương ứng.
+          </p>
+        </div>
+      </details>
     </section>
 
     <section class="card-lite mb">
@@ -197,24 +212,46 @@
         <% } else { %>
           <div class="alert-lite warn mb">Chưa có loại thu nhập nào. Vào mục <strong>🏷️ Loại thu nhập</strong> khai trước đã.</div>
         <% } %>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Ngày</th><th>Loại</th><th>Ghi chú</th><th>Số tiền</th><th></th></tr></thead>
-          <tbody>
-            <% book.incomes.forEach((i) => { %>
-              <tr>
-                <td><%= dmy(i.occurredAt) %></td>
-                <td>
-                  <strong><%= catName(incomeCatById, i.categoryId) %></strong>
-                  <% if (i.debtId) { %><br><span class="muted">🤝 <%= (debtById.get(String(i.debtId)) || {}).name || '(khoản đã xoá)' %> · gốc <%= money(i.principal) %> · lãi <%= money(i.interest) %></span><% } %>
-                </td>
-                <td><%= i.note || '(không ghi)' %></td>
-                <td><strong class="hh-pos"><%= signed(i.amount) %></strong></td>
-                <td class="text-right"><form method="post" action="/household/income/<%= i.id %>/delete" data-confirm="Xoá khoản thu này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
-              </tr>
-            <% }) %>
-            <% if (!book.incomes.length) { %><tr><td colspan="5" class="muted text-center">Chưa khai khoản thu nào cho tháng <%= monthLabel(report.month) %>.</td></tr><% } %>
-          </tbody>
-        </table></div>
+        <%# Bấm vào dòng để mở ô sửa / xoá — không còn nút Xoá lộ thiên để bấm nhầm. %>
+        <% book.incomes.forEach((i) => { %>
+          <details class="hh-entry">
+            <summary>
+              <span class="hh-entry-main">
+                <strong><%= catName(incomeCatById, i.categoryId) %></strong>
+                <span class="muted"><%= dmy(i.occurredAt) %><%= i.note ? ' · ' + i.note : '' %></span>
+              </span>
+              <strong class="hh-pos"><%= signed(i.amount) %></strong>
+            </summary>
+            <div class="hh-entry-body">
+              <form id="hh-inc-row-del-<%= i.id %>" method="post" action="/household/income/<%= i.id %>/delete"
+                    data-confirm="Xoá khoản thu này?"><input type="hidden" name="book" value="<%= currentBook.id %>"></form>
+              <form class="household-form" method="post" action="/household/income/<%= i.id %>" data-entry-form><input type="hidden" name="book" value="<%= currentBook.id %>">
+                <input type="hidden" name="month" value="<%= report.month %>">
+                <div><label>Ngày</label><input type="date" name="occurredAt" value="<%= ymd(i.occurredAt) %>" required></div>
+                <div><label>Loại thu nhập</label>
+                  <select name="categoryId" data-entry-kind>
+                    <% liveIncomeCats.forEach((c) => { %><option value="<%= c.id %>" data-kind="<%= c.kind %>" <%= String(c.id) === String(i.categoryId) ? 'selected' : '' %>><%= c.name %></option><% }) %>
+                  </select>
+                </div>
+                <div data-entry-plain><label>Số tiền</label><input class="money-input" name="amount" value="<%= formatMoney(i.amount) %>"></div>
+                <div data-entry-debt><label>Khoản cho vay</label>
+                  <select name="debtId">
+                    <% lendDebts.forEach((d) => { %><option value="<%= d.id %>" <%= String(d.id) === String(i.debtId) ? 'selected' : '' %>><%= d.name %></option><% }) %>
+                    <% if (!lendDebts.length) { %><option value="">Chưa có khoản cho vay nào</option><% } %>
+                  </select>
+                </div>
+                <div data-entry-debt><label>Gốc thu về</label><input class="money-input" name="principal" value="<%= formatMoney(i.principal) %>"></div>
+                <div data-entry-debt><label>Lãi thu về</label><input class="money-input" name="interest" value="<%= formatMoney(i.interest) %>"></div>
+                <div class="household-form-wide"><label>Ghi chú</label><input name="note" value="<%= i.note %>"></div>
+                <div class="household-form-action">
+                  <button class="btn btn-success" data-loading-text="Đang lưu...">Lưu</button>
+                  <button class="btn btn-danger" form="hh-inc-row-del-<%= i.id %>" data-loading-text="Đang xoá...">Xoá</button>
+                </div>
+              </form>
+            </div>
+          </details>
+        <% }) %>
+        <% if (!book.incomes.length) { %><p class="muted text-center">Chưa khai khoản thu nào cho tháng <%= monthLabel(report.month) %>.</p><% } %>
         <form method="post" action="/household/income/copy"><input type="hidden" name="book" value="<%= currentBook.id %>">
           <input type="hidden" name="month" value="<%= report.month %>">
           <button class="btn btn-sm" data-loading-text="Đang chép...">📋 Chép các khoản thu của tháng trước</button>
@@ -264,37 +301,54 @@
         <% } else { %>
           <div class="alert-lite warn mb">Chưa có loại chi phí nào. Vào mục <strong>🏷️ Loại chi phí</strong> khai trước đã.</div>
         <% } %>
-        <div class="table-wrap"><table>
-          <thead><tr><th>Ngày</th><th>Loại</th><th>Ghi chú</th><th>Số tiền</th><th></th></tr></thead>
-          <tbody>
-            <% book.expenses.forEach((e) => { %>
-              <% const cat = expenseCatById.get(String(e.categoryId)) || {}; %>
-              <tr>
-                <td><%= dmy(e.occurredAt) %></td>
-                <td>
-                  <strong><%= cat.name || '(loại đã xoá)' %></strong>
-                  <% if (cat.kind === 'saving') { %> <span class="muted">🐷 tiết kiệm</span><% } %>
-                  <% if (e.debtId) { %><br><span class="muted">🏦 <%= (debtById.get(String(e.debtId)) || {}).name || '(khoản đã xoá)' %> · gốc <%= money(e.principal) %> · lãi <%= money(e.interest) %></span><% } %>
-                </td>
-                <td><%= e.note || '(không ghi)' %></td>
-                <%# Tính ra biến trước rồi mới in: mọi số tiền hiện ra màn hình đều phải đi
-                    qua money()/formatMoney, không đổ Number(...) thô ra thẻ in. %>
-                <% const planned = Number(e.plannedAmount); const spent = Number(e.amount); %>
-                <td>
-                  <strong class="hh-neg"><%= signed(-spent) %></strong>
+        <% book.expenses.forEach((e) => { %>
+          <% const cat = expenseCatById.get(String(e.categoryId)) || {}; %>
+          <% const planned = Number(e.plannedAmount); const spent = Number(e.amount); %>
+          <details class="hh-entry">
+            <summary>
+              <span class="hh-entry-main">
+                <strong><%= cat.name || '(loại đã xoá)' %></strong>
+                <span class="muted">
+                  <%= dmy(e.occurredAt) %><%= e.note ? ' · ' + e.note : '' %>
                   <% if (planned > 0 && planned !== spent) { %>
-                    <br><span class="muted">
-                      dự kiến <%= money(planned) %>
-                      <% if (planned > spent) { %>· dư <%= money(planned - spent) %><% } else { %>· vượt <%= money(spent - planned) %><% } %>
-                    </span>
+                    · dự kiến <%= money(planned) %><% if (planned > spent) { %> · dư <%= money(planned - spent) %><% } else { %> · vượt <%= money(spent - planned) %><% } %>
                   <% } %>
-                </td>
-                <td class="text-right"><form method="post" action="/household/expenses/<%= e.id %>/delete" data-confirm="Xoá khoản chi này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
-              </tr>
-            <% }) %>
-            <% if (!book.expenses.length) { %><tr><td colspan="5" class="muted text-center">Chưa khai khoản chi nào cho tháng <%= monthLabel(report.month) %>.</td></tr><% } %>
-          </tbody>
-        </table></div>
+                </span>
+              </span>
+              <strong class="<%= cat.kind === 'saving' ? 'hh-pos' : 'hh-neg' %>"><%= cat.kind === 'saving' ? signed(spent) : signed(-spent) %></strong>
+            </summary>
+            <div class="hh-entry-body">
+              <form id="hh-exp-row-del-<%= e.id %>" method="post" action="/household/expenses/<%= e.id %>/delete"
+                    data-confirm="Xoá khoản chi này?"><input type="hidden" name="book" value="<%= currentBook.id %>"></form>
+              <form class="household-form" method="post" action="/household/expenses/<%= e.id %>" data-entry-form><input type="hidden" name="book" value="<%= currentBook.id %>">
+                <input type="hidden" name="month" value="<%= report.month %>">
+                <div><label>Ngày chi</label><input type="date" name="occurredAt" value="<%= ymd(e.occurredAt) %>" required></div>
+                <div><label>Loại chi phí</label>
+                  <select name="categoryId" data-entry-kind>
+                    <% liveExpenseCats.forEach((c) => { %><option value="<%= c.id %>" data-kind="<%= c.kind %>" <%= String(c.id) === String(e.categoryId) ? 'selected' : '' %>><%= c.name %> — <%= EXPENSE_KIND[c.kind] || c.kind %></option><% }) %>
+                  </select>
+                </div>
+                <div data-entry-plain><label data-amount-label>Số tiền</label><input class="money-input" name="amount" value="<%= formatMoney(planned > 0 ? planned : spent) %>"></div>
+                <div data-entry-actual><label>Đã chi thực tế</label><input class="money-input" name="actualAmount" value="<%= formatMoney(spent) %>"></div>
+                <div data-entry-debt><label>Trả cho khoản nợ</label>
+                  <select name="debtId">
+                    <% oweDebts.forEach((d) => { %><option value="<%= d.id %>" <%= String(d.id) === String(e.debtId) ? 'selected' : '' %>><%= d.name %></option><% }) %>
+                    <% if (!oweDebts.length) { %><option value="">Chưa có khoản nợ nào</option><% } %>
+                  </select>
+                </div>
+                <div data-entry-debt><label>Trả gốc</label><input class="money-input" name="principal" value="<%= formatMoney(e.principal) %>"></div>
+                <div data-entry-debt><label>Trả lãi</label><input class="money-input" name="interest" value="<%= formatMoney(e.interest) %>"></div>
+                <div class="household-form-wide"><label>Ghi chú</label><input name="note" value="<%= e.note %>"></div>
+                <div class="household-form-action">
+                  <button class="btn btn-success" data-loading-text="Đang lưu...">Lưu</button>
+                  <button class="btn btn-danger" form="hh-exp-row-del-<%= e.id %>" data-loading-text="Đang xoá...">Xoá</button>
+                </div>
+              </form>
+              <p class="muted">Sửa ở đây KHÔNG tự tính lại dòng &quot;dư chuyển sang quỹ du lịch&quot; đã sinh lúc ghi — dòng đó nằm ngay trong danh sách này, sửa hoặc xoá thẳng.</p>
+            </div>
+          </details>
+        <% }) %>
+        <% if (!book.expenses.length) { %><p class="muted text-center">Chưa khai khoản chi nào cho tháng <%= monthLabel(report.month) %>.</p><% } %>
         <form method="post" action="/household/expenses/copy"><input type="hidden" name="book" value="<%= currentBook.id %>">
           <input type="hidden" name="month" value="<%= report.month %>">
           <button class="btn btn-sm" data-loading-text="Đang chép...">📋 Chép các khoản chi cố định của tháng trước</button>

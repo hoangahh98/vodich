@@ -763,15 +763,27 @@ test('HouseholdService.addExpense: phần dư của khoản cố định thành 
   assert.match(result.msg, /Tiết kiệm du lịch/, 'phải báo cho người dùng biết, không làm lặng lẽ');
 });
 
-test('HouseholdService.addExpense: bỏ trống ô "đã chi" = chi đúng dự kiến, không sinh dòng dư', async () => {
+test('HouseholdService.addExpense: bỏ trống ô "đã chi" = ĐÃ CHI 0đ, cả mức dự kiến vào quỹ', async () => {
   const { created, prisma } = fixedExpensePrisma();
   const service = new HouseholdService(prisma);
 
   await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', occurredAt: '2026-06-05' });
 
-  assert.equal(created.length, 1);
-  assert.equal(created[0].amount, 2000000n);
+  assert.equal(created[0].amount, 0n, 'chưa tiêu đồng nào thì tiền chi thật là 0');
   assert.equal(created[0].plannedAmount, 2000000n);
+  assert.equal(created.length, 2, 'cả 2tr dự kiến chưa tiêu dồn sang quỹ du lịch');
+  assert.equal(created[1].amount, 2000000n);
+});
+
+test('HouseholdService.addExpense: loại cố định chỉ cần MỨC DỰ KIẾN > 0, đã chi 0đ vẫn ghi được', async () => {
+  const { prisma } = fixedExpensePrisma();
+  const service = new HouseholdService(prisma);
+
+  const ok = await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', actualAmount: '0', occurredAt: '2026-06-05' });
+  assert.equal(ok.err, undefined);
+
+  const empty = await service.addExpense(BOOK_ID, { categoryId: '12', amount: '0', occurredAt: '2026-06-05' });
+  assert.match(empty.err, /dự kiến phải lớn hơn 0/);
 });
 
 test('HouseholdService.addExpense: chi VƯỢT dự kiến thì không sinh dòng dư âm', async () => {
@@ -813,4 +825,111 @@ test('household view: mục chi có ô "đã chi thực tế" chỉ dành cho lo
   assert.match(html, /data-entry-actual/, 'phải có mốc để JS chỉ hiện ô này với loại cố định');
   assert.match(html, /data-amount-label/, 'nhãn ô số tiền đổi thành "dự kiến" khi chọn loại cố định');
   assert.match(html, /Tiết kiệm du lịch/, 'phải nói rõ phần dư chảy đi đâu');
+});
+
+// ─── Quỹ du lịch ───
+
+/**
+ * Quỹ du lịch nhận diện theo TÊN ở cả hai bên: loại CHI kiểu saving tên "Tiết kiệm du lịch"
+ * là bỏ vào, loại THU cùng tên là lấy ra tiêu.
+ */
+test('chi tiêu: quỹ du lịch cộng dồn phần bỏ vào và TRỪ phần lấy ra tiêu', () => {
+  const book = ledger();
+  book.expenseCategories = [...EXPENSE_CATEGORIES, { id: 20n, name: 'Tiết kiệm du lịch', kind: 'saving', active: true, note: '' }];
+  book.incomeCategories = [...INCOME_CATEGORIES, { id: 21n, name: 'Tiết kiệm du lịch', kind: 'saving', active: true, note: '' }];
+  book.expenses.push(expense({ month: '2026-05', categoryId: 20n, amount: 500000n }));
+  book.expenses.push(expense({ categoryId: 20n, amount: 300000n }));
+  book.incomes.push(income({ categoryId: 21n, amount: 200000n })); // lấy ra tiêu
+
+  const report = buildMonthReport(book);
+  assert.equal(report.travelAllTime, 600000, '500k + 300k − 200k');
+  assert.equal(report.travelThisYear, 600000, 'cả ba dòng đều trong năm 2026');
+  assert.equal(report.travelYear, 2026);
+});
+
+test('chi tiêu: "còn du lịch năm ..." chỉ tính trong NĂM đó, tổng luỹ kế thì tính hết', () => {
+  const book = ledger();
+  book.expenseCategories = [...EXPENSE_CATEGORIES, { id: 20n, name: 'Tiết kiệm du lịch', kind: 'saving', active: true, note: '' }];
+  book.expenses.push(expense({ month: '2025-11', categoryId: 20n, amount: 1000000n }));
+  book.expenses.push(expense({ categoryId: 20n, amount: 400000n }));
+
+  const report = buildMonthReport(book);
+  assert.equal(report.travelThisYear, 400000, 'chỉ phần dồn trong năm 2026');
+  assert.equal(report.travelAllTime, 1400000, 'gồm cả 1tr của năm 2025');
+});
+
+test('chi tiêu: quỹ du lịch KHÔNG lẫn với các loại tiết kiệm khác', () => {
+  const report = buildMonthReport(ledger());
+  assert.equal(report.travelAllTime, 0, 'sổ mẫu chưa có quỹ du lịch nào');
+  assert.ok(report.savingBalance > 0, 'nhưng vẫn có tiết kiệm thường');
+});
+
+// ─── Sửa khoản đã ghi ───
+
+test('HouseholdService.updateExpense: ghi đè đúng dòng, vẫn lọc theo id sổ', async () => {
+  const where = [];
+  let saved = null;
+  const service = new HouseholdService({
+    householdExpense: {
+      findFirst: async ({ where: w }) => {
+        where.push(w);
+        return w.householdId === BOOK_ID ? { id: 5n, month: '2026-06' } : null;
+      },
+      updateMany: async ({ where: w, data }) => {
+        where.push(w);
+        saved = data;
+        return { count: 1 };
+      },
+    },
+    householdExpenseCategory: { findFirst: async ({ where: w }) => ({ id: w.id, kind: 'variable' }) },
+  });
+
+  const result = await service.updateExpense(BOOK_ID, 5n, { categoryId: '11', amount: '750000', occurredAt: '2026-06-09', note: 'sửa lại' });
+  assert.equal(result.err, undefined);
+  assert.equal(saved.amount, 750000n);
+  assert.equal(saved.note, 'sửa lại');
+  for (const w of where) assert.equal(w.householdId, BOOK_ID, 'mọi truy vấn đều kèm id sổ');
+});
+
+test('HouseholdService.updateExpense: không sửa được dòng của sổ khác', async () => {
+  const service = new HouseholdService({
+    householdExpense: { findFirst: async ({ where }) => (where.householdId === BOOK_ID ? { id: 5n, month: '2026-06' } : null) },
+    householdExpenseCategory: { findFirst: async () => ({ id: 11n, kind: 'variable' }) },
+  });
+
+  const result = await service.updateExpense(2, 5n, { categoryId: '11', amount: '750000', occurredAt: '2026-06-09' });
+  assert.match(result.err, /Không tìm thấy khoản chi/);
+});
+
+test('HouseholdService.updateExpense: dùng lại đúng bộ kiểm của lúc ghi mới', async () => {
+  const service = new HouseholdService({
+    householdExpense: { findFirst: async () => ({ id: 5n, month: '2026-06' }) },
+    householdExpenseCategory: { findFirst: async ({ where }) => (where.id === 15n ? { id: 15n, kind: 'debt' } : null) },
+    householdDebt: { findFirst: async () => null },
+  });
+
+  // Loại trả nợ mà không chọn được khoản nợ hợp lệ ⇒ từ chối, y như lúc ghi mới.
+  const result = await service.updateExpense(BOOK_ID, 5n, { categoryId: '15', debtId: '999', principal: '1000', occurredAt: '2026-06-09' });
+  assert.match(result.err, /chọn khoản nợ/i);
+});
+
+test('household view: dòng khoản thu/chi bấm vào là mở form sửa, không còn nút Xoá lộ thiên', async () => {
+  for (const [section, action] of [['thu', 'income'], ['chi', 'expenses']]) {
+    const html = await renderSection(section);
+    assert.match(html, /class="hh-entry"/, `mục ${section} phải dùng dòng bấm được`);
+    assert.match(html, new RegExp(`action="/household/${action}/1"`), `mục ${section} thiếu form sửa`);
+    assert.match(html, new RegExp(`action="/household/${action}/1/delete"`), `mục ${section} thiếu nút xoá trong form`);
+    // Nút Xoá chỉ được nằm BÊN TRONG phần thân đã mở, không nằm ở dòng tóm tắt.
+    const summaries = html.match(/<summary>[\s\S]*?<\/summary>/g) || [];
+    assert.ok(summaries.length > 0, `mục ${section} phải có dòng tóm tắt`);
+    for (const summary of summaries) {
+      assert.doesNotMatch(summary, /btn-danger/, `mục ${section} còn nút xoá ngay trên dòng tóm tắt`);
+    }
+  }
+});
+
+test('household view: tổng quan có ô "Còn du lịch năm ..."', async () => {
+  const html = await renderSection('tong-quan');
+  assert.match(html, /Còn du lịch năm 2026/);
+  assert.match(html, /Tiết kiệm du lịch/, 'phải chỉ rõ cách tiêu quỹ này');
 });
