@@ -76,10 +76,6 @@
           <% report.savingByCategory.forEach((row) => { %>
             <div><span><%= row.name %></span><strong><%= money(row.amount) %></strong></div>
           <% }) %>
-          <p class="metric-drop-note">
-            Mọi loại chi phí đánh dấu <strong>Gửi tiết kiệm</strong> đều chảy vào chung ô này.
-            Quỹ du lịch tính riêng ở ô 🏖️ — đó là tiền chưa cất đi, vẫn nằm trong "còn lại".
-          </p>
         </div>
       </details>
       <div class="metric-card red">
@@ -102,7 +98,6 @@
           <div><span>Gửi tiết kiệm</span><strong><%= signed(-report.savingIn) %></strong></div>
           <div><span>= Còn lại tháng này</span><strong><%= money(report.leftover) %></strong></div>
           <div><span>+ Còn lại các tháng trước</span><strong><%= money(report.leftoverPrevious) %></strong></div>
-          <p class="metric-drop-note">Đây là tiền mặt chưa cất đi đâu. Tiền đã gửi tiết kiệm nằm ở ô 🐷 bên trên.</p>
         </div>
       </details>
     </section>
@@ -124,12 +119,6 @@
         </summary>
         <div class="metric-drop-body">
           <div><span>Dồn từ đầu sổ tới nay</span><strong><%= money(report.travelAllTime) %></strong></div>
-          <p class="metric-drop-note">
-            Số này <strong>tự tính</strong> từ phần dư (dự kiến − đã chi) của mọi khoản cố định, nên
-            không có dòng nào trong danh sách khoản chi để sửa — sửa khoản cố định là nó tự đúng theo.
-            Muốn <strong>tiêu</strong> quỹ thì khai một khoản chi bình thường vào loại
-            <strong>Tiết kiệm du lịch</strong>, số ở đây trừ đi tương ứng.
-          </p>
         </div>
       </details>
     </section>
@@ -188,14 +177,6 @@
       </div>
     </section>
 
-    <% if (!book.incomeCategories.length || !book.expenseCategories.length) { %>
-      <div class="alert-lite warn mb">
-        Sổ đang có <strong><%= book.incomeCategories.length %></strong> loại thu nhập và
-        <strong><%= book.expenseCategories.length %></strong> loại chi phí. Thiếu bên nào thì chưa
-        khai được khoản của bên đó — vào <strong>🏷️ Loại thu nhập</strong> hoặc
-        <strong>🏷️ Loại chi phí</strong> ở menu để khai.
-      </div>
-    <% } %>
   <% } %>
 
   <!-- ═══ KHAI THU NHẬP ═══ -->
@@ -283,13 +264,6 @@
     <section class="card-lite mb">
       <div class="card-hdr red"><span>💸 Khai một khoản chi</span><span><%= liveExpenseCats.length %> loại chi phí</span></div>
       <div class="p">
-        <div class="alert-lite mb">
-          Loại <strong>📌 Chi phí cố định</strong> khai <strong>mức dự kiến</strong> và <strong>tiền đã chi thật</strong>;
-          chi ít hơn dự kiến thì phần dư tự chuyển vào quỹ <strong>Tiết kiệm du lịch</strong> (hiện thành một dòng riêng, xoá được).
-          Loại đánh dấu <strong>🐷 Gửi tiết kiệm</strong> thì tiền chảy vào ô Tiết kiệm chứ không tính là chi phí.
-          Loại đánh dấu <strong>🏦 Trả nợ</strong> thì nhập <strong>gốc</strong> và <strong>lãi</strong> riêng —
-          phần gốc tự trừ vào khoản nợ bạn chọn, lãi thì không làm giảm nợ.
-        </div>
         <% if (liveExpenseCats.length) { %>
           <form class="household-form mb" method="post" action="/household/expenses" data-entry-form><input type="hidden" name="book" value="<%= currentBook.id %>">
             <input type="hidden" name="month" value="<%= report.month %>">
@@ -370,7 +344,6 @@
           <input type="hidden" name="month" value="<%= report.month %>">
           <button class="btn btn-sm" data-loading-text="Đang chép...">📋 Chép các khoản chi cố định của tháng trước</button>
         </form>
-        <p class="muted">Chỉ chép loại <strong>📌 Chi phí cố định</strong>; loại nào tháng này đã có khoản rồi thì bỏ qua.</p>
       </div>
     </section>
   <% } %>
@@ -380,11 +353,6 @@
     <section class="card-lite mb">
       <div class="card-hdr green"><span>🏷️ Loại thu nhập</span><span><%= book.incomeCategories.length %> loại</span></div>
       <div class="p">
-        <div class="alert-lite mb">
-          <strong>💵 Thu nhập</strong>: tiền vào thật, cộng vào ô Thu nhập.
-          <strong>🐷 Rút tiết kiệm</strong>: lấy tiền từ két ra tiêu — trừ vào ô Tiết kiệm, không tính là thu nhập.
-          <strong>🤝 Người ta trả nợ mình</strong>: nhập gốc &amp; lãi, gốc trừ vào khoản cho vay trong sổ nợ.
-        </div>
         <% book.incomeCategories.forEach((c) => { %>
           <%# Form xoá để rỗng, nút Xoá nằm trong form sửa và trỏ sang bằng thuộc tính `form`
               (HTML không cho lồng form) — nhờ vậy Lưu và Xoá đứng cạnh nhau trên cùng một hàng. %>
@@ -439,12 +407,6 @@
     <section class="card-lite mb">
       <div class="card-hdr red"><span>🏷️ Loại chi phí</span><span><%= book.expenseCategories.length %> loại</span></div>
       <div class="p">
-        <div class="alert-lite mb">
-          <strong>📌 Chi phí cố định</strong>: tháng nào cũng phải trả (học phí, gửi xe, tiền nhà) — <strong>chép được sang tháng sau</strong>.
-          <strong>🎁 Chi phí phát sinh</strong>: không lặp lại (ăn ngoài, cưới hỏi, sửa xe) — không chép.
-          <strong>🐷 Gửi tiết kiệm</strong>: tiền cất đi — cộng vào ô Tiết kiệm và <strong>dồn qua các tháng</strong>, không tính là chi phí.
-          <strong>🏦 Trả nợ</strong>: khai gốc &amp; lãi riêng, gốc tự trừ vào khoản nợ được chọn trong sổ nợ.
-        </div>
         <% book.expenseCategories.forEach((c) => { %>
           <form id="hh-exp-del-<%= c.id %>" method="post" action="/household/expense-categories/<%= c.id %>/delete"
                 data-confirm="Xoá loại <%= c.name %>? Các khoản đã khai theo loại này vẫn còn trong sổ."><input type="hidden" name="book" value="<%= currentBook.id %>"><input type="hidden" name="month" value="<%= report.month %>"></form>
@@ -510,11 +472,6 @@
         <small><%= report.debtNet < 0 ? 'Nợ nhiều hơn cho vay' : 'Cho vay nhiều hơn nợ' %></small>
       </div>
     </section>
-
-    <div class="alert-lite mb">
-      Sổ nợ chỉ <strong>khai</strong> khoản nợ. Tiền trả hàng tháng ghi ở mục <strong>💸 Chi phí</strong> (loại kiểu 🏦 Trả nợ),
-      tiền người ta trả về ghi ở mục <strong>💵 Thu nhập</strong> (loại kiểu 🤝) — phần <strong>gốc</strong> tự trừ vào đúng khoản được chọn.
-    </div>
 
     <% [['owe', '🏦 Mình đang nợ ai', 'red'], ['lend', '🤝 Ai đang nợ mình', 'blue']].forEach((group) => { %>
       <% const rows = openDebts(group[0]); %>
@@ -594,7 +551,6 @@
           <div class="household-form-wide"><label>Ghi chú</label><input name="note" placeholder="Không bắt buộc"></div>
           <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Khai khoản nợ</button></div>
         </form>
-        <p class="muted">Khai xong mới ghi tiền trả hàng tháng được — phần trả nằm ở mục 💸 Chi phí (loại kiểu 🏦 Trả nợ).</p>
       </div>
     </section>
 
@@ -662,7 +618,6 @@
             <div class="household-form-wide"><label>Ghi chú</label><input name="note" value="<%= draft.note %>"></div>
             <div class="household-form-action"><button class="btn btn-success" data-loading-text="Đang ghi...">Ghi vào sổ</button></div>
           </form>
-          <p class="muted">Loại kiểu 🏦 Trả nợ phải khai ở mục <strong>💸 Chi phí</strong> để còn chọn khoản nợ và tách gốc/lãi.</p>
         <% } %>
       </div>
     </section>
@@ -692,7 +647,6 @@
             <button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá lịch sử trò chuyện</button>
           </form>
         <% } %>
-        <p class="muted">Trợ lý chỉ đọc số liệu của sổ này và <strong>không bao giờ tự ghi</strong> khoản nào vào sổ.</p>
       </div>
     </section>
   <% } %>

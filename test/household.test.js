@@ -539,7 +539,6 @@ test('household view: loại chi phí khai được đủ BỐN kiểu, có cố
   }
   assert.match(html, /Chi phí cố định/);
   assert.match(html, /Chi phí phát sinh/);
-  assert.match(html, /chép được sang tháng sau/i, 'phải nói rõ chỉ cố định mới chép được');
   assert.doesNotMatch(html, /value="normal"/, 'bên chi phí không còn kiểu normal');
 });
 
@@ -557,7 +556,6 @@ test('household view: mục chi có nút chép khoản CỐ ĐỊNH của tháng
 
   assert.match(html, /action="\/household\/expenses\/copy"/);
   assert.match(html, /Chép các khoản chi cố định của tháng trước/);
-  assert.match(html, /Chỉ chép loại/, 'phải nói rõ chỉ chép loại cố định');
 });
 
 test('household view: đã bỏ hẳn nạp danh mục mẫu, dải 6 tháng và cài đặt chung', async () => {
@@ -607,7 +605,6 @@ test('household view: trợ lý bày hội thoại và form ghi nhanh, nói rõ 
   assert.match(html, /action="\/household\/ai\/ask"/);
   assert.match(html, /action="\/household\/ai\/draft"/);
   assert.match(html, /Tháng này tiêu nhiều nhất vào đâu\?/, 'phải hiện lại lịch sử trò chuyện');
-  assert.match(html, /không bao giờ tự ghi/i);
 });
 
 test('household view: bản nháp trợ lý là form điền sẵn trỏ về đúng đường ghi thường', async () => {
@@ -780,7 +777,6 @@ test('household view: mục chi có ô "đã chi thực tế" chỉ dành cho lo
   assert.match(html, /name="actualAmount"/);
   assert.match(html, /data-entry-actual/, 'phải có mốc để JS chỉ hiện ô này với loại cố định');
   assert.match(html, /data-amount-label/, 'nhãn ô số tiền đổi thành "dự kiến" khi chọn loại cố định');
-  assert.match(html, /Tiết kiệm du lịch/, 'phải nói rõ phần dư chảy đi đâu');
 });
 
 // ─── Quỹ du lịch (số SUY RA) ───
@@ -913,7 +909,6 @@ test('household view: dòng khoản thu/chi bấm vào là mở form sửa, khô
 test('household view: tổng quan có ô "Còn du lịch năm ..."', async () => {
   const html = await renderSection('tong-quan');
   assert.match(html, /Còn du lịch năm 2026/);
-  assert.match(html, /Tiết kiệm du lịch/, 'phải chỉ rõ cách tiêu quỹ này');
 });
 
 
@@ -965,4 +960,32 @@ test('household view: bảng chi theo loại ghi rõ hai phần trăm, không đ
   assert.match(html, /Đã dùng/, 'phải có cột đã dùng bao nhiêu mức dự kiến');
   assert.doesNotMatch(html, /<th>Tỷ trọng<\/th>/, 'không để lại nhãn mơ hồ');
   assert.match(html, /của 3000000đ/, 'ghi rõ đang so với mức dự kiến nào');
+});
+
+/**
+ * Chủ sổ chốt bỏ HẾT các khối hướng dẫn cách dùng (31/7/2026). Giữ lại đúng bốn thứ có việc
+ * thật: phản hồi sau thao tác, ô trống chỉ đường, cảnh báo thiếu API key, và khung phân quyền.
+ */
+test('household view: không còn khối hướng dẫn cách dùng nào', async () => {
+  const FORBIDDEN = [
+    /khai <strong>mức dự kiến<\/strong>/,
+    /Chỉ chép loại/,
+    /Sổ nợ chỉ <strong>khai<\/strong>/,
+    /Khai xong mới ghi tiền trả/,
+    /không bao giờ tự ghi/,
+    /metric-drop-note/,
+    /Thiếu bên nào thì chưa/,
+  ];
+  for (const section of SECTIONS) {
+    const html = await renderSection(section);
+    for (const pattern of FORBIDDEN) {
+      assert.doesNotMatch(html, pattern, `mục ${section} còn khối hướng dẫn: ${pattern}`);
+    }
+  }
+
+  // Nhưng những thứ CÓ VIỆC THẬT thì phải còn.
+  const chi = await renderSection('chi', { book: { ...viewLocals('chi').book, expenseCategories: [] } });
+  assert.match(chi, /Chưa có loại chi phí nào/, 'ô trống phải chỉ được đường đi tiếp');
+  const troLy = await renderSection('tro-ly', { aiConfigured: false });
+  assert.match(troLy, /GROQ_API_KEY/, 'cảnh báo cấu hình thật thì giữ');
 });
