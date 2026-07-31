@@ -719,3 +719,98 @@ test('household view: form sửa khoản nợ không còn ô Trạng thái vô n
   assert.doesNotMatch(html, /Tạm dừng/, 'nút không tác động tới con số nào thì đừng để trên màn hình');
   assert.doesNotMatch(html, /name="active"/);
 });
+
+// ─── Khoản cố định: dự kiến vs đã chi thật ───
+
+/** Prisma giả cho phần ghi khoản chi cố định, có sẵn quỹ "Tiết kiệm du lịch". */
+function fixedExpensePrisma(over = {}) {
+  const created = [];
+  return {
+    created,
+    prisma: {
+      householdExpenseCategory: {
+        findFirst: async ({ where }) => {
+          if (where.kind === 'saving') return over.jar === null ? null : { id: 99n };
+          return where.id === 12n ? { id: 12n, kind: 'fixed' } : null;
+        },
+        create: async () => ({ id: 99n }),
+      },
+      householdExpense: { create: async ({ data }) => created.push(data) },
+    },
+  };
+}
+
+test('HouseholdService.addExpense: khoản cố định lưu cả mức dự kiến lẫn tiền đã chi thật', async () => {
+  const { created, prisma } = fixedExpensePrisma();
+  const service = new HouseholdService(prisma);
+
+  await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2,000,000', actualAmount: '1,500,000', occurredAt: '2026-06-05' });
+
+  assert.equal(created[0].amount, 1500000n, 'amount LUÔN là tiền đã chi thật');
+  assert.equal(created[0].plannedAmount, 2000000n, 'mức dự kiến lưu riêng để còn đối chiếu');
+});
+
+test('HouseholdService.addExpense: phần dư của khoản cố định thành một dòng tiết kiệm THẬT', async () => {
+  const { created, prisma } = fixedExpensePrisma();
+  const service = new HouseholdService(prisma);
+
+  const result = await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', actualAmount: '1500000', occurredAt: '2026-06-05' });
+
+  assert.equal(created.length, 2, 'một dòng chi thật + một dòng dồn vào quỹ');
+  assert.equal(created[1].categoryId, 99n, 'dòng thứ hai nằm ở quỹ Tiết kiệm du lịch');
+  assert.equal(created[1].amount, 500000n, '2tr dự kiến − 1tr5 đã chi');
+  assert.equal(created[1].month, '2026-06');
+  assert.match(result.msg, /Tiết kiệm du lịch/, 'phải báo cho người dùng biết, không làm lặng lẽ');
+});
+
+test('HouseholdService.addExpense: bỏ trống ô "đã chi" = chi đúng dự kiến, không sinh dòng dư', async () => {
+  const { created, prisma } = fixedExpensePrisma();
+  const service = new HouseholdService(prisma);
+
+  await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', occurredAt: '2026-06-05' });
+
+  assert.equal(created.length, 1);
+  assert.equal(created[0].amount, 2000000n);
+  assert.equal(created[0].plannedAmount, 2000000n);
+});
+
+test('HouseholdService.addExpense: chi VƯỢT dự kiến thì không sinh dòng dư âm', async () => {
+  const { created, prisma } = fixedExpensePrisma();
+  const service = new HouseholdService(prisma);
+
+  await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', actualAmount: '2500000', occurredAt: '2026-06-05' });
+
+  assert.equal(created.length, 1, 'vượt dự kiến thì chẳng có gì để cất đi');
+  assert.equal(created[0].amount, 2500000n);
+});
+
+test('HouseholdService.addExpense: chưa có quỹ Tiết kiệm du lịch thì tự tạo, đúng kiểu saving', async () => {
+  let madeCategory = null;
+  const created = [];
+  const service = new HouseholdService({
+    householdExpenseCategory: {
+      findFirst: async ({ where }) => (where.kind === 'saving' ? null : where.id === 12n ? { id: 12n, kind: 'fixed' } : null),
+      create: async ({ data }) => {
+        madeCategory = data;
+        return { id: 77n };
+      },
+    },
+    householdExpense: { create: async ({ data }) => created.push(data) },
+  });
+
+  await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', actualAmount: '1800000', occurredAt: '2026-06-05' });
+
+  assert.equal(madeCategory.name, 'Tiết kiệm du lịch');
+  assert.equal(madeCategory.kind, 'saving');
+  assert.equal(madeCategory.householdId, BOOK_ID, 'quỹ mới phải thuộc đúng sổ đang thao tác');
+  assert.equal(created[1].amount, 200000n);
+});
+
+test('household view: mục chi có ô "đã chi thực tế" chỉ dành cho loại cố định', async () => {
+  const html = await renderSection('chi');
+
+  assert.match(html, /name="actualAmount"/);
+  assert.match(html, /data-entry-actual/, 'phải có mốc để JS chỉ hiện ô này với loại cố định');
+  assert.match(html, /data-amount-label/, 'nhãn ô số tiền đổi thành "dự kiến" khi chọn loại cố định');
+  assert.match(html, /Tiết kiệm du lịch/, 'phải nói rõ phần dư chảy đi đâu');
+});

@@ -129,3 +129,21 @@ Sai cấu hình bảo mật thì chết ngay lúc deploy vẫn hơn là chạy �
 
 CI có bước `scripts/assert-e2e-permissions-ran.js` để bắt trường hợp bộ e2e phân quyền tự
 skip vì thiếu DB — không có bước đó thì pipeline xanh giả.
+
+## Khoá phóng to trang trên điện thoại
+
+Mọi trang đều có `<meta name="viewport" ... user-scalable=no, maximum-scale=1>`, nhưng **iOS bỏ
+qua hai thuộc tính đó từ iOS 10** — Apple cố tình gỡ quyền của trang web vì lý do trợ năng. Nên
+thẻ meta một mình chưa bao giờ khoá được zoom trên iPhone, thiết bị chính của chủ app.
+
+Khoá thật cần ba lớp, `test/ui-smoke.test.js` khoá cả ba lại:
+
+1. Thẻ `meta viewport` — có tác dụng trên Android/Chrome.
+2. `touch-action: pan-x pan-y` ở `html`/`body` — cho cuộn, cấm chụm ngón và nhấn đúp để phóng.
+3. `public/js/no-zoom.js` — chặn `gesturestart/change/end` (sự kiện riêng của Safari) và
+   `touchmove` từ 2 ngón trở lên. Nạp ở `partials/head` để cả trang đăng nhập lẫn các màn hình
+   game (không có menu dưới) đều được khoá.
+
+Giới hạn phải nói rõ: đây là chặn cử chỉ **trong trang**. Người dùng vẫn phóng to được qua
+Cài đặt → Trợ năng của iOS, và đó là đúng — không nên khoá tuyệt đối. Ctrl + lăn chuột trên máy
+tính cũng cố ý không chặn.

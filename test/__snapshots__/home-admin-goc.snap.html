@@ -14,6 +14,9 @@
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
 <!-- Ở head (không phải bottom-menu) để cả trang login cũng đăng ký được service worker. -->
 <script src="/js/sw-register.js" defer></script>
+<!-- Cũng ở head: iOS BỎ QUA user-scalable/maximum-scale ở thẻ viewport trên, phải chặn
+cử chỉ chụm ngón bằng JS thì mới thật sự khoá được zoom. Xem public/js/no-zoom.js. -->
+<script src="/js/no-zoom.js" defer></script>
 </head>
 <body>
 <nav class="topbar">

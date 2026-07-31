@@ -18,7 +18,7 @@ Loại **chi phí** có bốn kiểu:
 
 | `kind` | Nghĩa |
 |---|---|
-| `fixed` | 📌 Chi phí **cố định** — tháng nào cũng phải trả (học phí, gửi xe, tiền nhà). **Chỉ kiểu này** mới được nút "chép tháng trước" nhân bản. |
+| `fixed` | 📌 Chi phí **cố định** — tháng nào cũng phải trả (học phí, gửi xe, tiền nhà). **Chỉ kiểu này** mới được nút "chép tháng trước" nhân bản, và cũng chỉ kiểu này có ô *đã chi thực tế* (xem dưới). |
 | `variable` | 🎁 Chi phí **phát sinh** — không lặp lại (ăn ngoài, cưới hỏi, sửa xe). |
 | `saving` | 🐷 **Gửi** tiết kiệm — không tính là chi phí |
 | `debt` | 🏦 Trả nợ — gốc trừ vào khoản **mình nợ** |
@@ -124,6 +124,29 @@ vẫn nằm trong sổ. Tiền đã ra khỏi nhà thì phải còn trong công 
 `fixed` (khoản cố định). Loại nào tháng này đã có khoản rồi thì bỏ qua, nên bấm hai lần không
 sinh trùng. Cố ý **không** chép `variable` / `saving` / `debt`: chép phát sinh là bịa ra khoản
 chưa hề tiêu, chép trả nợ là tự trừ gốc một lần không có thật, chép tiết kiệm là tự đụng vào két.
+
+## Khoản cố định: dự kiến vs đã chi thật
+
+Khoản cố định thường được "sizing" một mức rồi thực tế chi khác đi. Form khai chi vì thế có hai ô:
+
+| Ô | Cột DB | Nghĩa |
+|---|---|---|
+| Số tiền **dự kiến** | `planned_amount` | mức đặt ra đầu tháng |
+| **Đã chi thực tế** | `amount` | tiền thật đã ra khỏi ví — **mọi công thức tính từ đây** |
+
+Bỏ trống ô "đã chi" = chi đúng dự kiến. Chi **ít hơn** dự kiến thì phần dư được ghi thành **một
+khoản chi thật** thuộc loại tiết kiệm **Tiết kiệm du lịch** (tự tạo lần đầu nếu chưa có):
+
+```
+Dự kiến 2.000.000 · đã chi 1.500.000
+  → dòng 1: chi phí cố định        1.500.000   (vào ô 💸 Chi phí)
+  → dòng 2: Tiết kiệm du lịch        500.000   (vào ô 🐷 Tiết kiệm)
+  Tiền rời khỏi ví: đúng 2.000.000
+```
+
+Cố ý ghi thành **dòng thật** chứ không tính ngầm trong công thức: nhờ vậy nó hiện ra ở danh sách,
+xoá được, và không có phép tính ẩn nào nằm ở chỗ khác. Chi **vượt** dự kiến thì không sinh dòng nào
+(chẳng có gì để cất đi). Thao tác xong có báo rõ đã chuyển bao nhiêu sang quỹ, không làm lặng lẽ.
 
 **Khoản nợ trả/thu xong** (`initialAmount > 0` và còn lại ≤ 0) tự gập xuống mục **✅ Đã xong** và
 biến khỏi ô chọn khi khai chi/thu — vẫn tra lại được đã trả bao nhiêu gốc, bao nhiêu lãi. Bắt buộc

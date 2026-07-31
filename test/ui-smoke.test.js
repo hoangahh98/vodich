@@ -308,6 +308,52 @@ test('viewport disables mobile zoom and log paths are normalized', async () => {
 });
 
 /**
+ * CA THẬT (31/7/2026): chủ app báo "vẫn zoom được ở mọi trang" dù thẻ meta viewport đã có
+ * `user-scalable=no` từ lâu. Nguyên nhân: **iOS bỏ qua thẻ đó từ iOS 10**, nên nó chưa bao
+ * giờ có tác dụng trên iPhone — thiết bị chính của người dùng. Phải chặn cử chỉ bằng JS.
+ * Test này khoá cả ba lớp lại để lần sau không ai gỡ nhầm một lớp rồi tưởng vẫn còn khoá.
+ */
+test('khoá zoom đủ ba lớp: meta + CSS touch-action + chặn cử chỉ bằng JS', async () => {
+  const head = await renderView('partials/head.ejs', { title: 'Test' });
+  const css = fs.readFileSync(path.join(root, 'public/css/app.css'), 'utf8');
+  const js = fs.readFileSync(path.join(root, 'public/js/no-zoom.js'), 'utf8');
+
+  // Lớp 1 + 2: script phải nạp ở HEAD (không phải bottom-menu) để cả trang đăng nhập và
+  // các màn hình game — vốn không có menu dưới — cũng được khoá.
+  assert.match(head, /no-zoom\.js/, 'phải nạp script chặn cử chỉ ngay ở head');
+  assert.match(css, /touch-action:\s*pan-x pan-y/, 'CSS phải cấm chụm ngón, chỉ cho cuộn');
+
+  // Lớp 3: iOS chỉ chịu thua ba sự kiện gesture* của Safari.
+  for (const name of ['gesturestart', 'gesturechange', 'gestureend']) {
+    assert.match(js, new RegExp(name), `thiếu chặn ${name} — iOS sẽ vẫn phóng to được`);
+  }
+  assert.match(js, /touches\.length > 1/, 'phải có phương án dự phòng cho chạm nhiều ngón');
+  assert.match(js, /passive:\s*false/, 'không có passive:false thì preventDefault bị bỏ qua');
+});
+
+/** Mọi trang hoàn chỉnh đều phải đi qua partials/head — nếu không là lọt lưới khoá zoom. */
+test('không trang nào tự dựng <head> riêng để lọt lưới khoá zoom', () => {
+  const views = [];
+  const walk = (dir) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.ejs')) views.push(full);
+    }
+  };
+  walk(path.join(root, 'src/views'));
+
+  for (const file of views) {
+    const source = fs.readFileSync(file, 'utf8');
+    if (!/<head\b/.test(source)) continue;
+    assert.ok(
+      file.endsWith(`partials${path.sep}head.ejs`),
+      `${path.relative(root, file)} tự dựng <head> riêng — phải include partials/head để có khoá zoom`,
+    );
+  }
+});
+
+/**
  * CA THẬT: ô `type="date"` trên Safari iOS render theo cỡ nội tại, to hơn ô chứa và ĐÈ
  * lên ô bên cạnh. Đã phải vá riêng cho .travel-expense-form, rồi .medical-form, rồi tới
  * form chi tiêu lại dính y hệt — vì bản vá nằm ở từng form thay vì quy tắc chung.

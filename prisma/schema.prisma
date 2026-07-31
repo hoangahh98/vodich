@@ -783,18 +783,24 @@ model HouseholdIncome {
 
 /// Một khoản CHI đã khai. Cùng hình dạng với khoản thu; `principal` / `interest` / `debt_id`
 /// chỉ có nghĩa khi loại chi là `debt` (mình trả nợ).
+///
+/// `amount` LUÔN là tiền ĐÃ CHI THẬT — mọi con số của module đều tính từ nó.
+/// `planned_amount` là mức DỰ KIẾN của khoản cố định (chỉ có nghĩa với loại `fixed`), giữ lại
+/// để màn hình đối chiếu "dự kiến 2tr · đã chi 1tr5". Phần dư giữa hai số KHÔNG nằm ở đây:
+/// nó được ghi hẳn thành một khoản chi loại tiết kiệm riêng, xem HouseholdService.addEntry.
 model HouseholdExpense {
-  id          BigInt   @id @default(autoincrement())
-  householdId Int      @map("household_id")
-  categoryId  BigInt?  @map("category_id")
-  month       String   @db.VarChar(7)
-  occurredAt  DateTime @map("occurred_at") @db.Date
-  amount      BigInt   @default(0)
-  principal   BigInt   @default(0)
-  interest    BigInt   @default(0)
-  debtId      BigInt?  @map("debt_id")
-  note        String   @default("")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id            BigInt   @id @default(autoincrement())
+  householdId   Int      @map("household_id")
+  categoryId    BigInt?  @map("category_id")
+  month         String   @db.VarChar(7)
+  occurredAt    DateTime @map("occurred_at") @db.Date
+  amount        BigInt   @default(0)
+  plannedAmount BigInt   @default(0) @map("planned_amount")
+  principal     BigInt   @default(0)
+  interest      BigInt   @default(0)
+  debtId        BigInt?  @map("debt_id")
+  note          String   @default("")
+  createdAt     DateTime @default(now()) @map("created_at")
 
   household HouseholdConfig           @relation(fields: [householdId], references: [id], onDelete: Cascade)
   category  HouseholdExpenseCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)

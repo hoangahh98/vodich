@@ -160,19 +160,28 @@
     sync();
   };
 
-  // Sổ chi tiêu: loại chi/thu kiểu "trả nợ" cần thêm ô Gốc / Lãi / chọn khoản nợ, các loại
-  // khác thì chỉ cần một ô Số tiền. Đây CHỈ là tiện nghi — không có JS thì mọi ô đều hiện và
-  // service vẫn đọc đúng ô theo kiểu của loại, nên không ghi sai.
+  // Sổ chi tiêu: ô nhập đổi theo KIỂU của loại đang chọn.
+  //   debt  -> Gốc / Lãi / chọn khoản nợ   (ẩn ô Số tiền, vì tiền = gốc + lãi)
+  //   fixed -> Số tiền DỰ KIẾN + Đã chi thực tế
+  //   khác  -> chỉ một ô Số tiền
+  // Đây CHỈ là tiện nghi — không có JS thì mọi ô đều hiện và service vẫn đọc đúng ô theo
+  // kiểu của loại, nên không bao giờ ghi sai.
   const initHouseholdEntryForm = () => {
     document.querySelectorAll('form[data-entry-form]').forEach((form) => {
       const select = form.querySelector('[data-entry-kind]');
       if (!select) return;
       const debtFields = [...form.querySelectorAll('[data-entry-debt]')];
       const plainFields = [...form.querySelectorAll('[data-entry-plain]')];
+      const actualFields = [...form.querySelectorAll('[data-entry-actual]')];
+      const amountLabel = form.querySelector('[data-amount-label]');
       const sync = () => {
-        const isDebt = select.selectedOptions[0]?.dataset.kind === 'debt';
+        const kind = select.selectedOptions[0]?.dataset.kind;
+        const isDebt = kind === 'debt';
+        const isFixed = kind === 'fixed';
         debtFields.forEach((field) => field.classList.toggle('hidden', !isDebt));
         plainFields.forEach((field) => field.classList.toggle('hidden', isDebt));
+        actualFields.forEach((field) => field.classList.toggle('hidden', !isFixed));
+        if (amountLabel) amountLabel.textContent = isFixed ? 'Số tiền dự kiến' : 'Số tiền';
       };
       select.addEventListener('change', sync);
       sync();

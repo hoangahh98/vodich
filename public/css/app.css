@@ -264,6 +264,13 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .score { font-size: 26px; min-width: 34px; text-align: center; }
 .hidden { display: none !important; }
 
+/* Khoá zoom: `pan-x pan-y` cho phép cuộn nhưng CẤM chụm ngón phóng to, và bỏ luôn nhấn đúp
+   để phóng. Thẻ meta viewport không đủ vì iOS bỏ qua nó — phần chặn cử chỉ nằm ở
+   public/js/no-zoom.js, đây là lớp CSS đi kèm. `overscroll-behavior` chặn kiểu kéo quá đà
+   làm cả trang nhún nhảy. */
+html { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
+
 .card-hdr { color: #fff; font-weight: 700; padding: 10px 16px; border-radius: 9px 9px 0 0; display: flex; align-items: center; justify-content: space-between; }
 .card-hdr.blue { background: #0d6efd; }
 .card-hdr.green { background: #198754; }
@@ -289,6 +296,13 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .score-pill { font-size: .92rem; min-width: 76px; }
 .score-modal { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; }
 .score-modal.hidden { display: none !important; }
+
+/* Khoá zoom: `pan-x pan-y` cho phép cuộn nhưng CẤM chụm ngón phóng to, và bỏ luôn nhấn đúp
+   để phóng. Thẻ meta viewport không đủ vì iOS bỏ qua nó — phần chặn cử chỉ nằm ở
+   public/js/no-zoom.js, đây là lớp CSS đi kèm. `overscroll-behavior` chặn kiểu kéo quá đà
+   làm cả trang nhún nhảy. */
+html { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { touch-action: pan-x pan-y; overscroll-behavior-y: none; }
 .score-modal-backdrop { position: absolute; inset: 0; background: rgba(17,24,39,.58); }
 .score-modal-panel { position: relative; z-index: 1; width: min(720px, 100%); background: #fff; border-radius: 12px; box-shadow: 0 18px 60px rgba(0,0,0,.32); overflow: hidden; }
 .score-modal-head { background: #0d6efd; color: #fff; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }

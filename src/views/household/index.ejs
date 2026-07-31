@@ -229,6 +229,8 @@
       <div class="card-hdr red"><span>💸 Khai một khoản chi</span><span><%= liveExpenseCats.length %> loại chi phí</span></div>
       <div class="p">
         <div class="alert-lite mb">
+          Loại <strong>📌 Chi phí cố định</strong> khai <strong>mức dự kiến</strong> và <strong>tiền đã chi thật</strong>;
+          chi ít hơn dự kiến thì phần dư tự chuyển vào quỹ <strong>Tiết kiệm du lịch</strong> (hiện thành một dòng riêng, xoá được).
           Loại đánh dấu <strong>🐷 Gửi tiết kiệm</strong> thì tiền chảy vào ô Tiết kiệm chứ không tính là chi phí.
           Loại đánh dấu <strong>🏦 Trả nợ</strong> thì nhập <strong>gốc</strong> và <strong>lãi</strong> riêng —
           phần gốc tự trừ vào khoản nợ bạn chọn, lãi thì không làm giảm nợ.
@@ -244,7 +246,10 @@
                 <% liveExpenseCats.forEach((c) => { %><option value="<%= c.id %>" data-kind="<%= c.kind %>"><%= c.name %> — <%= EXPENSE_KIND[c.kind] || c.kind %></option><% }) %>
               </select>
             </div>
-            <div data-entry-plain><label>Số tiền</label><input class="money-input" name="amount"></div>
+            <div data-entry-plain><label data-amount-label>Số tiền</label><input class="money-input" name="amount"></div>
+            <%# Khoản cố định khai mức DỰ KIẾN ở ô trên, tiền thật ở ô này. Bỏ trống = chi
+                đúng dự kiến. Dư ra bao nhiêu tự chảy vào quỹ tiết kiệm du lịch. %>
+            <div data-entry-actual><label>Đã chi thực tế</label><input class="money-input" name="actualAmount" placeholder="Bỏ trống = đúng dự kiến"></div>
             <div data-entry-debt><label>Trả cho khoản nợ</label>
               <select name="debtId">
                 <% oweDebts.forEach((d) => { %><option value="<%= d.id %>"><%= d.name %><%= d.counterparty ? ` — ${d.counterparty}` : '' %></option><% }) %>
@@ -272,7 +277,18 @@
                   <% if (e.debtId) { %><br><span class="muted">🏦 <%= (debtById.get(String(e.debtId)) || {}).name || '(khoản đã xoá)' %> · gốc <%= money(e.principal) %> · lãi <%= money(e.interest) %></span><% } %>
                 </td>
                 <td><%= e.note || '(không ghi)' %></td>
-                <td><strong class="hh-neg"><%= signed(-Number(e.amount)) %></strong></td>
+                <%# Tính ra biến trước rồi mới in: mọi số tiền hiện ra màn hình đều phải đi
+                    qua money()/formatMoney, không đổ Number(...) thô ra thẻ in. %>
+                <% const planned = Number(e.plannedAmount); const spent = Number(e.amount); %>
+                <td>
+                  <strong class="hh-neg"><%= signed(-spent) %></strong>
+                  <% if (planned > 0 && planned !== spent) { %>
+                    <br><span class="muted">
+                      dự kiến <%= money(planned) %>
+                      <% if (planned > spent) { %>· dư <%= money(planned - spent) %><% } else { %>· vượt <%= money(spent - planned) %><% } %>
+                    </span>
+                  <% } %>
+                </td>
                 <td class="text-right"><form method="post" action="/household/expenses/<%= e.id %>/delete" data-confirm="Xoá khoản chi này?"><input type="hidden" name="book" value="<%= currentBook.id %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá...">Xoá</button></form></td>
               </tr>
             <% }) %>

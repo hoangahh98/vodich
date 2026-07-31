@@ -347,9 +347,18 @@ export class HouseholdService {
     if (!category) return { month: fallbackMonth, err: `Chưa chọn loại ${isIncome ? 'thu nhập' : 'chi phí'}` };
 
     let amount = parseVnd(body.amount);
+    let planned = 0;
     let principal = 0n;
     let interest = 0n;
     let debtId: bigint | null = null;
+
+    // Khoản CỐ ĐỊNH có hai con số: mức dự kiến (sizing) và tiền đã chi thật. `amount` luôn là
+    // tiền THẬT — mọi công thức tính từ nó. Bỏ trống ô "đã chi" nghĩa là chi đúng dự kiến.
+    if (category.kind === 'fixed') {
+      planned = amount;
+      const actual = parseVnd(body.actualAmount);
+      if (actual > 0) amount = actual;
+    }
 
     if (category.kind === 'debt') {
       const wanted: (typeof DEBT_DIRECTIONS)[number] = isIncome ? 'lend' : 'owe';
@@ -385,10 +394,53 @@ export class HouseholdService {
       debtId,
       note: text(body.note, 500),
     };
-    if (isIncome) await this.prisma.householdIncome.create({ data });
-    else await this.prisma.householdExpense.create({ data });
+    if (isIncome) {
+      await this.prisma.householdIncome.create({ data });
+      return { month, msg: 'Đã ghi khoản thu' };
+    }
 
-    return { month, msg: isIncome ? 'Đã ghi khoản thu' : 'Đã ghi khoản chi' };
+    await this.prisma.householdExpense.create({ data: { ...data, plannedAmount: BigInt(planned) } });
+
+    // Dự kiến 2tr mà chỉ chi hết 1tr5 thì 500k còn lại không tự bốc hơi: nó chảy vào quỹ
+    // tiết kiệm du lịch. Ghi thành MỘT DÒNG THẬT chứ không tính ngầm trong công thức —
+    // nhờ vậy nó hiện ra ở danh sách, xoá được, và không có phép tính ẩn nào ở chỗ khác.
+    const spare = planned - amount;
+    if (spare <= 0) return { month, msg: 'Đã ghi khoản chi' };
+    const jar = await this.travelSavingCategory(householdId);
+    await this.prisma.householdExpense.create({
+      data: {
+        householdId,
+        categoryId: jar.id,
+        month,
+        occurredAt,
+        amount: BigInt(spare),
+        note: `Dư từ khoản cố định ngày ${occurredAt.toISOString().slice(0, 10)}`,
+      },
+    });
+    return { month, msg: `Đã ghi khoản chi · dư ${vnd(spare)} chuyển sang ${TRAVEL_SAVING}` };
+  }
+
+  /**
+   * Quỹ nhận phần dư của các khoản cố định, tạo lần đầu nếu chưa có. Tìm theo TÊN trong các
+   * loại kiểu `saving` để chủ sổ đổi tên/gộp thoải mái mà không sinh ra quỹ trùng.
+   */
+  private async travelSavingCategory(householdId: number): Promise<{ id: bigint }> {
+    const existing = await this.prisma.householdExpenseCategory.findFirst({
+      where: { householdId, kind: 'saving', name: { equals: TRAVEL_SAVING, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (existing) return existing;
+    const last = await this.prisma.householdExpenseCategory.findFirst({ where: { householdId }, orderBy: { sortOrder: 'desc' } });
+    return this.prisma.householdExpenseCategory.create({
+      data: {
+        householdId,
+        name: TRAVEL_SAVING,
+        kind: 'saving',
+        note: 'Nhận phần dư giữa mức dự kiến và tiền đã chi thật của các khoản cố định',
+        sortOrder: (last?.sortOrder ?? 0) + 1,
+      },
+      select: { id: true },
+    });
   }
 
   /** Một loại của ĐÚNG sổ này — gửi lên id loại của sổ khác thì trả null. */
@@ -427,8 +479,15 @@ interface EntryModel {
   findMany(args: unknown): Promise<Array<{ categoryId: bigint | null; amount: bigint; note: string }>>;
 }
 
+/** Quỹ mặc định hứng phần dư của khoản chi cố định. */
+export const TRAVEL_SAVING = 'Tiết kiệm du lịch';
+
 const CATEGORY_ORDER = [{ sortOrder: 'asc' as const }, { id: 'asc' as const }];
 const ENTRY_ORDER = [{ occurredAt: 'desc' as const }, { id: 'desc' as const }];
+
+function vnd(value: number): string {
+  return `${new Intl.NumberFormat('en-US').format(value)}đ`;
+}
 
 function text(value: unknown, max: number): string {
   return String(value ?? '').trim().slice(0, max);
