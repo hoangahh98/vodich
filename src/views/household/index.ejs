@@ -176,10 +176,15 @@
       </div>
     </section>
 
-    <% if (!book.incomeCategories.length && !book.expenseCategories.length) { %>
+    <%# Thiếu MỘT trong hai bên là đã không khai được rồi (không có loại chi phí thì không ghi
+        nổi khoản chi nào), nên nhắc ngay ở Tổng quan chứ đừng đợi cả hai cùng rỗng. %>
+    <% if (!book.incomeCategories.length || !book.expenseCategories.length) { %>
       <section class="card-lite p">
-        <h2 class="section-title mb">Sổ còn trống</h2>
-        <p class="muted">Nạp sẵn vài loại thu nhập và loại chi phí thường gặp, rồi sửa lại cho khớp nhà mình. Không có số tiền nào được nạp sẵn.</p>
+        <h2 class="section-title mb">Sổ chưa khai đủ loại</h2>
+        <p class="muted">
+          Đang có <%= book.incomeCategories.length %> loại thu nhập và <%= book.expenseCategories.length %> loại chi phí.
+          Nạp sẵn vài loại thường gặp rồi sửa lại cho khớp nhà mình — không có số tiền nào được nạp sẵn.
+        </p>
         <form method="post" action="/household/seed"><input type="hidden" name="book" value="<%= currentBook.id %>">
           <input type="hidden" name="month" value="<%= report.month %>">
           <input type="hidden" name="section" value="tong-quan">

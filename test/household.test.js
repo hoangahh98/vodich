@@ -588,3 +588,19 @@ test('household view: chọn tháng tự chuyển ngay, không cần bấm nút'
   const html = await renderSection('thu');
   assert.match(html, /type="month"[^>]*data-autosubmit/, 'ô chọn tháng phải có data-autosubmit');
 });
+
+/**
+ * Sổ thật sau khi nâng cấp có 2 loại thu nhập (chuyển từ cột `source` cũ) nhưng 0 loại chi phí
+ * — thiếu một bên là đã không ghi nổi khoản chi nào, nên Tổng quan phải nhắc ngay chứ đừng đợi
+ * cả hai cùng rỗng.
+ */
+test('household view: thiếu MỘT bên danh mục là tổng quan đã nhắc nạp mẫu', async () => {
+  const half = (over) => renderSection('tong-quan', over);
+  const noExpense = await half({
+    book: { ...viewLocals('tong-quan').book, expenseCategories: [] },
+  });
+  assert.match(noExpense, /Nạp danh mục mẫu/, 'có loại thu nhưng chưa có loại chi thì vẫn phải nhắc');
+
+  const full = await half();
+  assert.doesNotMatch(full, /Nạp danh mục mẫu/, 'khai đủ hai bên rồi thì không nhắc nữa');
+});
