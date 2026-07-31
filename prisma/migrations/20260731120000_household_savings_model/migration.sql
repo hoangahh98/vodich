@@ -234,12 +234,18 @@ WHERE p."principal" + p."interest" > 0;
 ALTER TABLE "household_expense_category" DROP COLUMN "legacy_fund_id";
 ALTER TABLE "household_expense_category" DROP COLUMN "legacy_cost_id";
 
+-- Thứ tự CÓ Ý NGHĨA: bảng CON trước, bảng CHA sau. `household_extra_cost` có khoá ngoại trỏ
+-- vào cả `household_fund` lẫn `household_fixed_cost`, nên xoá quỹ trước nó thì Postgres chặn
+-- (SQLSTATE 2BP01) và cả migration rollback.
+-- Cố ý KHÔNG dùng `DROP ... CASCADE`: cascade sẽ xoá im lặng mọi thứ phụ thuộc, kể cả thứ
+-- mình không lường trước. Xoá đúng thứ tự thì thêm một ràng buộc lạ là migration gãy ngay
+-- và mình biết, thay vì mất dữ liệu mà không hay.
 DROP TABLE IF EXISTS "household_fund_entry";
-DROP TABLE IF EXISTS "household_fund";
-DROP TABLE IF EXISTS "household_fixed_spend";
-DROP TABLE IF EXISTS "household_fixed_cost";
 DROP TABLE IF EXISTS "household_extra_cost";
+DROP TABLE IF EXISTS "household_fixed_spend";
 DROP TABLE IF EXISTS "household_debt_payment";
+DROP TABLE IF EXISTS "household_fund";
+DROP TABLE IF EXISTS "household_fixed_cost";
 
 -- Mức sinh hoạt tuần & thứ bắt đầu tuần chỉ phục vụ khoản chi cố định kiểu `weekly` — đã bỏ.
 ALTER TABLE "household_config" DROP COLUMN IF EXISTS "weekly_rate";
