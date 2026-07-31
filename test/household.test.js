@@ -989,3 +989,25 @@ test('household view: không còn khối hướng dẫn cách dùng nào', async
   const troLy = await renderSection('tro-ly', { aiConfigured: false });
   assert.match(troLy, /GROQ_API_KEY/, 'cảnh báo cấu hình thật thì giữ');
 });
+
+/**
+ * CA THẬT (31/7/2026): đổi quy tắc "bỏ trống ô đã chi" từ *chi đúng dự kiến* sang *đã chi 0đ*
+ * ở service, nhưng quên chữ trong `placeholder` của chính ô đó — màn hình nói một đằng, code
+ * làm một nẻo. Chủ sổ tự phát hiện. Test này khoá lại: không ô nào được HỨA một hành vi khác
+ * với hành vi thật.
+ */
+test('household view: không còn chữ nào hứa "bỏ trống = đúng dự kiến"', async () => {
+  for (const section of SECTIONS) {
+    const html = await renderSection(section);
+    assert.doesNotMatch(html, /đúng dự kiến/i, `mục ${section} còn hứa hành vi cũ`);
+  }
+
+  // Và hành vi thật đúng là 0đ — kiểm thẳng ở service để hai bên không lệch nhau lần nữa.
+  let saved = null;
+  const service = new HouseholdService({
+    householdExpenseCategory: { findFirst: async ({ where }) => ({ id: where.id, kind: 'fixed' }) },
+    householdExpense: { create: async ({ data }) => (saved = data) },
+  });
+  await service.addExpense(BOOK_ID, { categoryId: '12', amount: '2000000', occurredAt: '2026-06-05' });
+  assert.equal(saved.amount, 0n, 'bỏ trống ô "đã chi" là 0đ, đúng như màn hình không hứa gì khác');
+});

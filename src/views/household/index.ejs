@@ -276,9 +276,9 @@
               </select>
             </div>
             <div data-entry-plain><label data-amount-label>Số tiền</label><input class="money-input" name="amount"></div>
-            <%# Khoản cố định khai mức DỰ KIẾN ở ô trên, tiền thật ở ô này. Bỏ trống = chi
-                đúng dự kiến. Dư ra bao nhiêu tự chảy vào quỹ tiết kiệm du lịch. %>
-            <div data-entry-actual><label>Đã chi thực tế</label><input class="money-input" name="actualAmount" placeholder="Bỏ trống = đúng dự kiến"></div>
+            <%# Khoản cố định khai mức DỰ KIẾN ở ô trên, tiền đã chi thật ở ô này. Bỏ trống =
+                đã chi 0đ; phần chênh giữa hai số tự cộng vào ô "Còn du lịch". %>
+            <div data-entry-actual><label>Đã chi thực tế</label><input class="money-input" name="actualAmount"></div>
             <div data-entry-debt><label>Trả cho khoản nợ</label>
               <select name="debtId">
                 <% oweDebts.forEach((d) => { %><option value="<%= d.id %>"><%= d.name %><%= d.counterparty ? ` — ${d.counterparty}` : '' %></option><% }) %>
