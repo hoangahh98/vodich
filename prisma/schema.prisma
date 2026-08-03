@@ -748,6 +748,8 @@ model HouseholdExpenseCategory {
 
   household HouseholdConfig    @relation(fields: [householdId], references: [id], onDelete: Cascade)
   expenses  HouseholdExpense[]
+  /// Các lần RÚT khai là rút từ chính mục tiết kiệm này (chỉ với loại kiểu `saving`).
+  withdrawals HouseholdIncome[] @relation("SavingWithdrawSource")
 
   @@index([householdId])
   @@map("household_expense_category")
@@ -768,16 +770,22 @@ model HouseholdIncome {
   principal   BigInt   @default(0)
   interest    BigInt   @default(0)
   debtId      BigInt?  @map("debt_id")
+  /// RÚT TỪ MỤC TIẾT KIỆM NÀO. Chỉ có nghĩa khi loại thu là `saving` (rút tiết kiệm), và trỏ
+  /// sang một LOẠI CHI PHÍ kiểu `saving` — vì mục tiết kiệm chính là nơi tiền được cất vào.
+  /// Bỏ trống = rút chung, không nói rõ mục nào (dữ liệu khai tay trước khi có ô chọn).
+  sourceCategoryId BigInt? @map("source_category_id")
   note        String   @default("")
   createdAt   DateTime @default(now()) @map("created_at")
 
-  household HouseholdConfig          @relation(fields: [householdId], references: [id], onDelete: Cascade)
-  category  HouseholdIncomeCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  debt      HouseholdDebt?           @relation(fields: [debtId], references: [id], onDelete: SetNull)
+  household      HouseholdConfig           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  category       HouseholdIncomeCategory?  @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  debt           HouseholdDebt?            @relation(fields: [debtId], references: [id], onDelete: SetNull)
+  sourceCategory HouseholdExpenseCategory? @relation("SavingWithdrawSource", fields: [sourceCategoryId], references: [id], onDelete: SetNull)
 
   @@index([householdId, month])
   @@index([categoryId])
   @@index([debtId])
+  @@index([sourceCategoryId])
   @@map("household_income")
 }
 

@@ -1128,8 +1128,7 @@ test('chi tiêu: vượt mức dự kiến thì quỹ du lịch gánh, không đ
   assert.equal(r.deficit, 0, 'nhưng thu 10tr vẫn nhiều hơn chi 2,5tr');
   assert.equal(r.coverFromTravel, 500000, 'phần lố lấy từ quỹ du lịch');
   assert.equal(r.travelAllTime, 0, 'quỹ du lịch cạn đúng bằng phần đã lố');
-  assert.equal(r.coverFromSaving, 0, 'ví vẫn còn tiền ⇒ không móc két');
-  assert.equal(r.uncovered, 0);
+  assert.equal(r.cashShort, 0, 'ví vẫn còn tiền ⇒ chưa phải rút tiết kiệm');
   assert.equal(r.savingBalance, 0);
 });
 
@@ -1152,23 +1151,49 @@ test('chi tiêu: loại không đặt mức dự kiến thì không bao giờ b�
   assert.equal(r.expenseByCategory[0].over, 0);
 });
 
-test('chi tiêu: tiêu quá số kiếm được thì móc tiết kiệm ra bù, và ví được cộng lại đúng bấy nhiêu', () => {
-  // Tháng 5: gửi tiết kiệm 10tr từ 10tr lương ⇒ két 10tr, ví 0.
-  // Tháng 6: thu 1tr, chi 5tr ⇒ ví −4tr, phải rút két 4tr.
+/** Sổ dựng sẵn cảnh thiếu tiền: két 10tr (mục "Tiết kiệm 2 vợ chồng"), tháng 6 thu 1tr chi 5tr. */
+function shortBook() {
   const book = ledger({ incomes: [], expenses: [] });
   book.incomes.push(income({ month: '2026-05', categoryId: 1n, amount: 10000000n }));
   book.expenses.push(expense({ month: '2026-05', categoryId: 13n, amount: 10000000n }));
   book.incomes.push(income({ categoryId: 1n, amount: 1000000n }));
   book.expenses.push(expense({ categoryId: 11n, amount: 5000000n }));
-  const r = buildMonthReport(book);
+  return book;
+}
+
+test('chi tiêu: tiêu quá số kiếm được thì báo thiếu và bày số dư TỪNG mục tiết kiệm', () => {
+  const r = buildMonthReport(shortBook());
 
   assert.equal(r.deficit, 4000000, 'chi 5tr − thu 1tr');
   assert.equal(r.cashShort, 4000000, 'tiền mặt luỹ kế đang âm 4tr');
-  assert.equal(r.coverFromSaving, 4000000, 'lấy đúng 4tr từ két');
-  assert.equal(r.savingBalance, 6000000, '10tr − 4tr đã móc ra');
-  assert.equal(r.leftoverTotal, 0, 'ví được cộng lại 4tr ⇒ về 0, không âm');
+  assert.equal(r.leftoverTotal, -4000000, 'KHÔNG tự cộng bù — thiếu thì phải thấy là đang thiếu');
+  assert.equal(r.savingBalance, 10000000, 'két chưa bị đụng tới: chủ sổ chưa bấm rút');
+  const pool = r.savingPools.find((p) => p.name === 'Tiết kiệm 2 vợ chồng');
+  assert.equal(pool.balance, 10000000, 'phải biết mục nào còn bao nhiêu thì mới chọn rút được');
+  assert.equal(r.savingPools.find((p) => p.name === 'Tiết kiệm con').balance, 0);
+});
+
+test('chi tiêu: ghi khoản rút bù thì két giảm, ví tăng lại đúng bấy nhiêu', () => {
+  const book = shortBook();
+  book.incomes.push(income({ categoryId: 3n, amount: 4000000n, sourceCategoryId: 13n })); // rút tiết kiệm
+  const r = buildMonthReport(book);
+
+  assert.equal(r.savingBalance, 6000000, '10tr − 4tr đã rút');
+  assert.equal(r.savingPools.find((p) => p.name === 'Tiết kiệm 2 vợ chồng').balance, 6000000, 'trừ đúng MỤC đã chọn');
+  assert.equal(r.leftoverTotal, 0, 'ví hết âm — một dòng ghi lo cả hai vế');
+  assert.equal(r.cashShort, 0, 'bù xong thì hết cảnh báo thiếu tiền');
   assert.equal(r.savingBalance + r.leftoverTotal, 6000000, 'tổng tài sản chỉ giảm ĐÚNG MỘT LẦN');
-  assert.equal(r.uncovered, 0);
+  assert.equal(r.savingOut, 4000000, 'vẫn là một khoản rút tiết kiệm bình thường, không phải phép trừ ngầm');
+});
+
+test('chi tiêu: rút tiết kiệm khai tay không gán mục thì gom vào "chưa gán mục"', () => {
+  const book = shortBook();
+  book.incomes.push(income({ categoryId: 3n, amount: 4000000n }));
+  const r = buildMonthReport(book);
+
+  assert.equal(r.savingUnassigned, 4000000);
+  assert.equal(r.savingPools.find((p) => p.name === 'Tiết kiệm 2 vợ chồng').balance, 10000000, 'không đoán bừa là rút của mục nào');
+  assert.equal(r.savingBalance, 6000000, 'nhưng tổng thì vẫn trừ');
 });
 
 test('chi tiêu: tháng này chi hơn thu nhưng tháng trước còn dư thì KHÔNG móc két', () => {
@@ -1180,20 +1205,18 @@ test('chi tiêu: tháng này chi hơn thu nhưng tháng trước còn dư thì K
   const r = buildMonthReport(book);
 
   assert.equal(r.deficit, 4000000, 'vẫn phải BÁO ĐỎ: tháng này tiêu nhiều hơn kiếm');
-  assert.equal(r.cashShort, 0, 'nhưng ví vẫn còn 21tr từ tháng trước');
-  assert.equal(r.coverFromSaving, 0, 'ví còn tiền mà trừ két là bịa ra một lần rút không có thật');
+  assert.equal(r.cashShort, 0, 'nhưng ví vẫn còn 21tr từ tháng trước ⇒ không đòi rút két');
   assert.equal(r.savingBalance, 5000000, 'két nguyên vẹn');
 });
 
-test('chi tiêu: cạn cả quỹ du lịch lẫn tiết kiệm thì báo còn thiếu bao nhiêu', () => {
+test('chi tiêu: không mục tiết kiệm nào còn tiền thì vẫn phải báo thiếu', () => {
   const book = ledger({ incomes: [], expenses: [] });
   book.incomes.push(income({ categoryId: 1n, amount: 1000000n }));
   book.expenses.push(expense({ categoryId: 11n, amount: 5000000n }));
   const r = buildMonthReport(book);
 
-  assert.equal(r.cashShort, 4000000);
-  assert.equal(r.coverFromSaving, 0, 'không có đồng tiết kiệm nào để móc');
-  assert.equal(r.uncovered, 4000000, 'thiếu thật, phải báo cho chủ sổ biết');
+  assert.equal(r.cashShort, 4000000, 'thiếu thật, phải báo cho chủ sổ biết');
+  assert.ok(r.savingPools.every((pool) => pool.balance === 0), 'không mục nào còn tiền để rút');
 });
 
 test('chi tiêu: không vượt gì thì mọi số cảnh báo đều bằng 0', () => {
@@ -1203,8 +1226,6 @@ test('chi tiêu: không vượt gì thì mọi số cảnh báo đều bằng 0'
   assert.equal(r.deficit, 0);
   assert.equal(r.cashShort, 0);
   assert.equal(r.coverFromTravel, 0);
-  assert.equal(r.coverFromSaving, 0);
-  assert.equal(r.uncovered, 0);
 });
 
 test('household view: vượt chi thì hiện cảnh báo ĐỎ, ghi rõ vượt bao nhiêu và lấy bù từ đâu', async () => {
@@ -1225,8 +1246,9 @@ test('household view: vượt chi thì hiện cảnh báo ĐỎ, ghi rõ vượt
   assert.match(html, /đang vượt chi/);
   assert.match(html, /Vượt mức dự kiến/);
   assert.match(html, /Chi nhiều hơn thu/);
-  assert.match(html, /Lấy bù/);
-  assert.match(html, /🐷 tiết kiệm/, 'phải nói rõ móc từ mục nào ra');
+  assert.match(html, /Đang thiếu/);
+  assert.match(html, /action="\/household\/cover"/, 'phải có ô chọn rút bù ngay tại cảnh báo');
+  assert.match(html, /Tiết kiệm 2 vợ chồng · còn 10000000đ/, 'ô chọn phải bày số dư từng mục');
   assert.match(html, /Xăng xe vượt 3000000đ/, 'chỉ đích danh loại nào vượt và vượt bao nhiêu');
 });
 
@@ -1354,4 +1376,104 @@ test('household view: sửa dòng đã trả hết nợ thì khoản đó vẫn 
 
   const editForm = html.slice(html.indexOf('action="/household/expenses/9"'));
   assert.match(editForm.slice(0, editForm.indexOf('</form>')), /value="101" selected/, 'khoản nợ của chính dòng này phải còn đó và đang được chọn');
+});
+
+// ─── Rút tiết kiệm để bù phần chi vượt ───
+
+/** Prisma giả cho nút "rút bù": mục tiết kiệm #13 đã cất `saved`, đã rút `taken`. */
+function coverPrisma({ saved = 10000000n, taken = 0n, incomeCategory = null } = {}) {
+  const created = [];
+  const madeCategories = [];
+  return {
+    created,
+    madeCategories,
+    prisma: {
+      householdExpenseCategory: {
+        findFirst: async ({ where }) =>
+          where.id === 13n && where.householdId === BOOK_ID && where.kind === 'saving'
+            ? { id: 13n, name: 'Tiết kiệm 2 vợ chồng' }
+            : null,
+      },
+      householdExpense: { findMany: async ({ where }) => (where.categoryId === 13n ? [{ amount: saved }] : []) },
+      householdIncome: {
+        findMany: async ({ where }) => (where.sourceCategoryId === 13n ? [{ amount: taken }] : []),
+        create: async ({ data }) => created.push(data),
+      },
+      householdIncomeCategory: {
+        findFirst: async () => incomeCategory,
+        create: async ({ data }) => {
+          madeCategories.push(data);
+          return { id: 55n };
+        },
+      },
+    },
+  };
+}
+
+test('HouseholdService.coverOverspend: ghi ra một khoản RÚT TIẾT KIỆM thật, gắn đúng mục đã chọn', async () => {
+  const { created, madeCategories, prisma } = coverPrisma();
+  const service = new HouseholdService(prisma);
+
+  const result = await service.coverOverspend(BOOK_ID, { sourceCategoryId: '13', amount: '4,000,000', month: '2026-06' });
+
+  assert.equal(result.err, undefined);
+  assert.match(result.msg, /Tiết kiệm 2 vợ chồng/, 'báo rõ đã rút của mục nào');
+  assert.equal(created.length, 1, 'đúng MỘT dòng, không có phép trừ ngầm nào thêm');
+  assert.equal(created[0].amount, 4000000n);
+  assert.equal(created[0].sourceCategoryId, 13n, 'phải biết rút từ mục nào để còn trừ đúng chỗ');
+  assert.equal(created[0].month, '2026-06');
+  assert.equal(madeCategories[0].kind, 'saving', 'sổ chưa có loại "rút tiết kiệm" thì tạo hộ, không bắt bỏ dở việc');
+});
+
+test('HouseholdService.coverOverspend: sổ đã có loại rút tiết kiệm thì dùng lại, không đẻ thêm', async () => {
+  const { madeCategories, created, prisma } = coverPrisma({ incomeCategory: { id: 3n } });
+  const service = new HouseholdService(prisma);
+
+  await service.coverOverspend(BOOK_ID, { sourceCategoryId: '13', amount: '1000000', month: '2026-06' });
+
+  assert.equal(madeCategories.length, 0);
+  assert.equal(created[0].categoryId, 3n);
+});
+
+test('HouseholdService.coverOverspend: không rút quá số dư của chính mục đó', async () => {
+  const { created, prisma } = coverPrisma({ saved: 10000000n, taken: 7000000n });
+  const service = new HouseholdService(prisma);
+
+  const tooMuch = await service.coverOverspend(BOOK_ID, { sourceCategoryId: '13', amount: '5000000', month: '2026-06' });
+  assert.match(tooMuch.err, /chỉ còn 3,000,000đ/);
+  assert.equal(created.length, 0, 'từ chối thì không được ghi gì cả');
+
+  const fits = await service.coverOverspend(BOOK_ID, { sourceCategoryId: '13', amount: '3000000', month: '2026-06' });
+  assert.equal(fits.err, undefined);
+});
+
+test('HouseholdService.coverOverspend: mục không thuộc sổ này (hoặc không phải mục tiết kiệm) thì từ chối', async () => {
+  const { created, prisma } = coverPrisma();
+  const service = new HouseholdService(prisma);
+
+  const wrong = await service.coverOverspend(BOOK_ID, { sourceCategoryId: '11', amount: '1000000', month: '2026-06' });
+  assert.match(wrong.err, /Chưa chọn mục tiết kiệm/);
+
+  const zero = await service.coverOverspend(BOOK_ID, { sourceCategoryId: '13', amount: '0', month: '2026-06' });
+  assert.match(zero.err, /lớn hơn 0/);
+  assert.equal(created.length, 0);
+});
+
+test('household view: thiếu tiền mặt thì cảnh báo có ô chọn mục để rút bù, mang theo đủ id sổ và tháng', async () => {
+  const book = shortBook();
+  const report = buildMonthReport(book);
+  const base = viewLocals('chi');
+  const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), {
+    ...base,
+    report,
+    book: { ...base.book, report },
+  });
+
+  const form = html.slice(html.indexOf('action="/household/cover"'));
+  const body = form.slice(0, form.indexOf('</form>'));
+  assert.match(body, /name="book" value="1"/);
+  assert.match(body, /name="month" value="2026-06"/);
+  assert.match(body, /name="from" value="chi"/, 'ghi xong phải quay về đúng mục đang đứng');
+  assert.match(body, /name="sourceCategoryId"/);
+  assert.match(body, /value="4000000"/, 'điền sẵn đúng số đang thiếu');
 });

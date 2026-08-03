@@ -48,14 +48,17 @@
  *           Tiền vẫn còn trong ví (nó chỉ phá vỡ KẾ HOẠCH), nhưng phần dư của các khoản cố
  *           định chính là thứ dồn nên 🏖️ quỹ du lịch — nên phần vượt ăn thẳng vào quỹ đó.
  *
- *        b) HỤT TIỀN MẶT — tiêu nhiều hơn kiếm được, tiền mặt luỹ kế âm.
- *           Đây là thiếu tiền THẬT, chỉ có một chỗ để lấy: 🐷 tiết kiệm. Phần lấy ra được
- *           coi như một lần RÚT TIẾT KIỆM suy ra: két giảm bao nhiêu thì ví tăng lại bấy
- *           nhiêu, nếu không tổng tài sản bị trừ hai lần (ví đã âm rồi lại trừ tiếp két).
+ *        b) HỤT TIỀN MẶT — tiêu nhiều hơn kiếm được, tiền mặt luỹ kế âm (`cashShort`).
+ *           Đây là thiếu tiền THẬT, chỉ có một chỗ để lấy: 🐷 tiết kiệm. Nhưng KHÔNG tự trừ:
+ *           chủ sổ chọn rút từ MỤC TIẾT KIỆM NÀO rồi bấm, và nó ghi ra một khoản RÚT TIẾT
+ *           KIỆM thật (khoản thu kiểu `saving`, gắn `sourceCategoryId` = mục đó).
  *
- *      Thứ tự lấy vẫn là quỹ du lịch trước, tiết kiệm sau — nhưng tiết kiệm CHỈ vào cuộc khi
- *      ví thật sự âm. Ví còn tiền mà vẫn trừ két là bịa ra một lần rút tiền không có thật.
- *      Cạn cả hai mà vẫn thiếu thì `uncovered` > 0 — cảnh báo nặng nhất của module.
+ *           Vì sao phải là dòng ghi thật chứ không phải phép trừ ngầm: rút két là tiền đổi
+ *           chỗ giữa hai túi, ví phải tăng đúng lúc két giảm. Ghi thành dòng thì công thức
+ *           tiền mặt sẵn có tự lo cả hai vế, sửa/xoá được, và tra lại được đã rút của mục nào.
+ *
+ *      Quỹ du lịch thì KHÔNG có gì để chọn: nó chỉ là nhãn dán trên tiền mặt (không phải túi
+ *      riêng), nên phần vượt mức dự kiến ăn vào nó là hệ quả số học, không phải một lần rút.
  *
  *      Cảnh báo đỏ trên màn hình thì rộng hơn phần bù: bật khi (a) có loại vượt mức dự kiến
  *      của THÁNG ĐANG XEM, hoặc (b) tổng chi tháng đó lớn hơn tổng thu — kể cả khi các tháng
@@ -118,6 +121,8 @@ export interface EntryLike {
   amount: bigint;
   /** Chỉ khoản CHI mới có: mức dự kiến của khoản cố định. Khoản thu luôn bỏ trống. */
   plannedAmount?: bigint;
+  /** Chỉ khoản THU kiểu `saving` mới có: rút ra từ MỤC tiết kiệm nào. */
+  sourceCategoryId?: bigint | null;
   principal: bigint;
   interest: bigint;
   debtId: bigint | null;
@@ -159,6 +164,15 @@ export interface CategoryTotal {
    * cùng loại, một khoản dư một khoản vượt thì phần dư không được che lấp phần vượt.
    */
   over: number;
+}
+
+/** Một mục tiết kiệm (loại chi phí kiểu `saving`) và số dư còn lại của riêng nó. */
+export interface SavingPool {
+  id: string;
+  name: string;
+  active: boolean;
+  /** Σ tiền đã cất vào mục này − Σ các lần rút khai đích danh mục này. */
+  balance: number;
 }
 
 export interface DebtView {
@@ -213,14 +227,14 @@ export interface MonthReport extends MonthTotals {
   overspendTotal: number;
   /** Tháng đang xem chi nhiều hơn thu bao nhiêu. 0 = tháng đó vẫn dư. */
   deficit: number;
-  /** Tiền mặt luỹ kế đang âm bao nhiêu — số tiền THẬT phải móc từ tiết kiệm ra. */
+  /** Tiền mặt luỹ kế đang âm bao nhiêu — số tiền THẬT còn phải rút tiết kiệm ra bù. */
   cashShort: number;
   /** Phần vượt mức dự kiến mà 🏖️ quỹ du lịch gánh được. */
   coverFromTravel: number;
-  /** Phần hụt tiền mặt mà 🐷 tiết kiệm gánh được. Đã trừ vào `savingBalance`, cộng lại vào ví. */
-  coverFromSaving: number;
-  /** Cạn cả quỹ du lịch lẫn tiết kiệm mà vẫn còn thiếu bấy nhiêu — cảnh báo nặng nhất. */
-  uncovered: number;
+  /** Số dư từng MỤC tiết kiệm — để chọn rút bù từ mục nào. */
+  savingPools: SavingPool[];
+  /** Tiền đã rút mà không nói rõ rút từ mục nào (khai tay). Có để tổng luôn khớp. */
+  savingUnassigned: number;
   savingNet: number; // gửi − rút trong tháng đang xem
   /** ← số của ô 🐷: tiền đã CẤT ĐI, dồn qua các tháng. Quỹ du lịch tính riêng, xem TRAVEL_SAVING. */
   savingBalance: number;
@@ -342,15 +356,27 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
   const deficit = Math.max(0, expense - income);
   const cashShort = Math.max(0, -leftoverRawTotal);
   const coverFromTravel = Math.min(Math.max(0, travelRaw), overspendTotal);
-  const coverFromSaving = Math.min(Math.max(0, savingRaw), cashShort);
-  const uncovered = cashShort - coverFromSaving;
-
-  // Phần móc từ két là một lần RÚT TIẾT KIỆM suy ra: két giảm thì ví phải tăng lại đúng bấy
-  // nhiêu, nếu không tổng tài sản bị trừ hai lần.
-  const savingBalance = savingRaw - coverFromSaving;
-  const leftover = leftoverRaw + coverFromSaving;
-  const leftoverTotal = leftoverRawTotal + coverFromSaving;
   const travelAllTime = travelRaw - coverFromTravel;
+
+  // Số dư từng mục tiết kiệm: cất vào bao nhiêu, đã rút đích danh mục đó bao nhiêu. Đây là
+  // danh sách cho ô chọn "rút bù từ mục nào" nên phải là số của TỪNG mục, không phải tổng.
+  const savingPools: SavingPool[] = input.expenseCategories
+    .filter((category) => category.kind === 'saving')
+    .map((category) => ({
+      id: String(category.id),
+      name: category.name,
+      active: category.active,
+      balance:
+        sum(expenses, (row) => (String(row.categoryId) === String(category.id) ? amount(row) : 0)) -
+        sum(incomes, (row) => (String(row.sourceCategoryId ?? '') === String(category.id) ? amount(row) : 0)),
+    }));
+  const savingUnassigned = sum(incomes, (row) =>
+    incomeKind(row) === 'saving' && !row.sourceCategoryId ? amount(row) : 0,
+  );
+
+  const savingBalance = savingRaw;
+  const leftover = leftoverRaw;
+  const leftoverTotal = leftoverRawTotal;
 
   const debts = buildDebtViews(input.debts, incomes, expenses, month);
 
@@ -377,8 +403,8 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
     deficit,
     cashShort,
     coverFromTravel,
-    coverFromSaving,
-    uncovered,
+    savingPools,
+    savingUnassigned,
     freeThisMonth: leftover - budgetLeft,
     freeTotal: leftoverTotal - travelAllTime - budgetOpen,
     leftover,

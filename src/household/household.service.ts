@@ -194,6 +194,62 @@ export class HouseholdService {
     return row?.month ?? currentMonth();
   }
 
+  /**
+   * Rút tiết kiệm để bù phần chi vượt. KHÔNG phải một phép trừ ngầm: nó ghi ra một khoản THU
+   * kiểu `saving` đúng như khi khai tay, chỉ khác là biết rút từ MỤC nào (`sourceCategoryId`).
+   *
+   * Nhờ vậy công thức tiền mặt sẵn có tự lo cả hai vế — két giảm, ví tăng — và dòng này sửa
+   * hay xoá được như mọi dòng khác. Không rút quá số dư của chính mục đó, cùng lý do với sổ
+   * nợ: số âm rồi bị kẹp về 0 ở ô tổng thì tiền biến mất không dấu vết.
+   */
+  async coverOverspend(householdId: number, body: Record<string, string>): Promise<WriteResult> {
+    const month = normalizeMonth(body.month) ?? currentMonth();
+    const pool = await this.prisma.householdExpenseCategory.findFirst({
+      where: { id: parseOptionalBigInt(body.sourceCategoryId) ?? -1n, householdId, kind: 'saving' },
+      select: { id: true, name: true },
+    });
+    if (!pool) return { month, err: 'Chưa chọn mục tiết kiệm để rút' };
+
+    const amount = parseVnd(body.amount);
+    if (amount <= 0) return { month, err: 'Số tiền rút phải lớn hơn 0' };
+
+    const balance = await this.savingPoolBalance(householdId, pool.id);
+    if (amount > balance) {
+      return { month, err: `Mục ${pool.name} ${balance > 0 ? `chỉ còn ${vnd(balance)}` : 'không còn đồng nào'} — rút nhiều hơn thế là sai sổ` };
+    }
+
+    // Rút tiết kiệm là khoản THU kiểu `saving`. Sổ nào chưa khai loại đó thì tạo một loại
+    // dùng chung, chứ không bắt chủ sổ bỏ dở việc để đi khai loại rồi quay lại.
+    const category =
+      (await this.prisma.householdIncomeCategory.findFirst({ where: { householdId, kind: 'saving' }, orderBy: CATEGORY_ORDER })) ??
+      (await this.prisma.householdIncomeCategory.create({
+        data: { householdId, name: 'Rút tiết kiệm', kind: 'saving', note: 'Tự tạo khi rút bù phần chi vượt' },
+      }));
+
+    await this.prisma.householdIncome.create({
+      data: {
+        householdId,
+        categoryId: category.id,
+        month,
+        occurredAt: month === currentMonth() ? today() : firstDayOf(month),
+        amount: BigInt(amount),
+        sourceCategoryId: pool.id,
+        note: `Bù chi vượt tháng ${label(month)}`,
+      },
+    });
+    return { month, msg: `Đã rút ${vnd(amount)} từ ${pool.name} để bù phần chi vượt` };
+  }
+
+  /** Số dư còn lại của một mục tiết kiệm: đã cất vào bao nhiêu, đã rút đích danh mục đó bao nhiêu. */
+  private async savingPoolBalance(householdId: number, poolId: bigint): Promise<number> {
+    const [saved, taken] = await Promise.all([
+      this.prisma.householdExpense.findMany({ where: { householdId, categoryId: poolId }, select: { amount: true } }),
+      this.prisma.householdIncome.findMany({ where: { householdId, sourceCategoryId: poolId }, select: { amount: true } }),
+    ]);
+    const total = (rows: Array<{ amount: bigint }>) => rows.reduce((sum, row) => sum + Number(row.amount), 0);
+    return total(saved) - total(taken);
+  }
+
   // ─── Sổ nợ ───
 
   async addDebt(householdId: number, body: Record<string, string>): Promise<WriteResult> {

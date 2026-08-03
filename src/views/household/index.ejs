@@ -78,7 +78,7 @@
     <%# Cảnh báo vượt chi. Hai kiểu vượt tách riêng vì chúng khác hẳn nhau: vượt mức dự kiến là
         vỡ KẾ HOẠCH (tiền có thể vẫn còn), chi hơn thu là hụt TIỀN THẬT. Rồi nói thẳng số tiền
         đó đang được lấy từ đâu ra. %>
-    <% if (report.overspend > 0 || report.deficit > 0) { %>
+    <% if (report.overspend > 0 || report.deficit > 0 || report.cashShort > 0) { %>
       <div class="alert alert-danger mb hh-over">
         <div class="hh-over-head">⚠️ Tháng <%= monthLabel(report.month) %> đang vượt chi</div>
         <% if (report.overspend > 0) { %>
@@ -88,14 +88,34 @@
         <% if (report.deficit > 0) { %>
           <div>· Chi nhiều hơn thu <strong><%= money(report.deficit) %></strong> (thu <%= money(report.income) %> · đã chi <%= money(report.expense) %>)</div>
         <% } %>
-        <div>· Lấy bù:
-          <% if (report.coverFromTravel > 0) { %>🏖️ quỹ du lịch <strong><%= money(report.coverFromTravel) %></strong><% } %>
-          <% if (report.coverFromTravel > 0 && report.coverFromSaving > 0) { %> · <% } %>
-          <% if (report.coverFromSaving > 0) { %>🐷 tiết kiệm <strong><%= money(report.coverFromSaving) %></strong><% } %>
-          <% if (report.coverFromTravel <= 0 && report.coverFromSaving <= 0) { %>chưa phải móc đồng nào — tiền mặt vẫn còn, phần vượt ăn vào tiền tự do<% } %>
-        </div>
-        <% if (report.uncovered > 0) { %>
-          <div>· Hết cả tiết kiệm mà vẫn thiếu <strong><%= money(report.uncovered) %></strong></div>
+        <% if (report.coverFromTravel > 0) { %>
+          <div>· Đã lấy <strong><%= money(report.coverFromTravel) %></strong> từ 🏖️ quỹ du lịch — phần vượt mức dự kiến ăn thẳng vào quỹ đó, không cần khai gì</div>
+        <% } %>
+        <%# Hụt tiền mặt thì KHÔNG tự trừ két: chủ sổ chọn rút từ mục nào, và nó thành một
+            khoản rút tiết kiệm thật, sửa/xoá được như mọi dòng khác. %>
+        <% if (report.cashShort > 0) { %>
+          <% const livePools = report.savingPools.filter((pool) => pool.balance > 0); %>
+          <div>· Đang thiếu <strong><%= money(report.cashShort) %></strong> tiền mặt — chọn mục tiết kiệm để rút bù:</div>
+          <% if (livePools.length) { %>
+            <form class="household-form hh-cover" method="post" action="/household/cover"><input type="hidden" name="book" value="<%= currentBook.id %>">
+              <input type="hidden" name="month" value="<%= report.month %>">
+              <input type="hidden" name="from" value="<%= section %>">
+              <div><label>Rút từ mục</label>
+                <select name="sourceCategoryId">
+                  <% livePools.forEach((pool) => { %><option value="<%= pool.id %>"><%= pool.name %> · còn <%= money(pool.balance) %></option><% }) %>
+                </select>
+              </div>
+              <div><label>Số tiền rút</label>
+                <input class="money-input" name="amount" value="<%= formatMoney(Math.min(report.cashShort, Math.max(...livePools.map((pool) => pool.balance)))) %>">
+              </div>
+              <div class="household-form-action"><button class="btn btn-danger" data-loading-text="Đang ghi...">Ghi khoản rút bù</button></div>
+            </form>
+          <% } else { %>
+            <div>· Không mục tiết kiệm nào còn tiền để rút — đang tiêu quá cả phần để dành</div>
+          <% } %>
+        <% } %>
+        <% if (report.coverFromTravel <= 0 && report.cashShort <= 0) { %>
+          <div>· Chưa phải móc đồng nào — tiền mặt vẫn còn, phần vượt ăn vào tiền tự do</div>
         <% } %>
       </div>
     <% } %>
@@ -113,12 +133,14 @@
           <div><span>Gửi thêm tháng này</span><strong><%= signed(report.savingIn) %></strong></div>
           <div><span>Rút ra tháng này</span><strong><%= signed(-report.savingOut) %></strong></div>
           <div><span>= Tăng/giảm tháng này</span><strong><%= signed(report.savingNet) %></strong></div>
-          <% if (report.coverFromSaving > 0) { %>
-            <div><span>Đã lấy bù phần chi vượt</span><strong class="hh-neg"><%= signed(-report.coverFromSaving) %></strong></div>
-          <% } %>
-          <% report.savingByCategory.forEach((row) => { %>
-            <div><span><%= row.name %></span><strong><%= money(row.amount) %></strong></div>
+          <%# Số dư TỪNG mục: cất vào bao nhiêu, đã rút của mục đó bao nhiêu — đây mới là số
+              để biết còn rút được ở đâu, khác với "gửi thêm tháng này" ở trên. %>
+          <% report.savingPools.forEach((pool) => { %>
+            <div><span><%= pool.name %> còn</span><strong><%= money(pool.balance) %></strong></div>
           <% }) %>
+          <% if (report.savingUnassigned > 0) { %>
+            <div><span>Đã rút chung (chưa gán mục)</span><strong class="hh-neg"><%= signed(-report.savingUnassigned) %></strong></div>
+          <% } %>
         </div>
       </details>
       <div class="metric-card red">

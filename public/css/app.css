@@ -976,6 +976,8 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none;
 /* Cảnh báo vượt chi: mỗi ý một dòng, đầu đề đậm hơn phần giải thích bên dưới. */
 .hh-over { display: grid; gap: 4px; }
 .hh-over-head { font-weight: 800; font-size: 16px; }
+/* Ô chọn rút bù nằm ngay trong khối cảnh báo: tách khỏi các dòng chữ phía trên cho dễ thấy. */
+.hh-cover { margin-top: 6px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,.12); }
 .hh-row-total td { border-top: 2px solid var(--line); font-size: 16px; }
 .hh-debt { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
 

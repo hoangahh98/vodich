@@ -178,8 +178,8 @@ export class HouseholdAiService {
       vuot_muc_du_kien_thang: report.overspend,
       chi_hon_thu_thang: report.deficit,
       da_bu_tu_quy_du_lich: report.coverFromTravel,
-      da_bu_tu_tiet_kiem: report.coverFromSaving,
-      con_thieu_chua_bu_duoc: report.uncovered,
+      con_thieu_phai_rut_tiet_kiem: report.cashShort,
+      so_du_tung_muc_tiet_kiem: report.savingPools.map((pool) => ({ muc: pool.name, so_du: pool.balance })),
       thu_theo_loai: report.incomeByCategory.map((row) => ({ loai: row.name, tien: row.amount, so_khoan: row.count })),
       chi_theo_loai: report.expenseByCategory.map((row) => ({
         loai: row.name,

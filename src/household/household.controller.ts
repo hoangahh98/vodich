@@ -110,6 +110,15 @@ export class HouseholdController {
     return this.backTo(res, id, 'chi', await this.household.addExpense(id, body));
   }
 
+  /** Rút tiết kiệm bù phần chi vượt. Quay về đúng mục đang đứng, không quăng người dùng đi đâu. */
+  @Post('/household/cover')
+  async coverOverspend(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
+    const id = await this.book(req, res);
+    if (id === null) return;
+    const from = SECTIONS.includes(String(body.from)) ? String(body.from) : 'tong-quan';
+    return this.backTo(res, id, from, await this.household.coverOverspend(id, body));
+  }
+
   @Post('/household/expenses/copy')
   async copyExpense(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);
