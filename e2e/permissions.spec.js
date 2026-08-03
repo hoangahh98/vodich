@@ -30,7 +30,7 @@ test.describe('phân quyền giữa hai admin', () => {
   }
 
   test('chưa đăng nhập thì mọi trang trong đều đá về /login', async ({ page }) => {
-    for (const url of ['/', '/teams', '/tournaments', '/household', '/medical', '/permissions', '/logs']) {
+    for (const url of ['/', '/teams', '/tournaments', '/permissions', '/logs']) {
       await page.goto(url);
       await expect(page, `${url} phải đòi đăng nhập`).toHaveURL(/\/login/);
     }
@@ -49,15 +49,13 @@ test.describe('phân quyền giữa hai admin', () => {
     // Bob chỉ có TEAMS.
     await expect(page.locator('a[href="/teams"]').first()).toBeVisible();
     await expect(page.locator('a[href="/tournaments"]')).toHaveCount(0);
-    await expect(page.locator('a[href="/medical"]')).toHaveCount(0);
-    await expect(page.locator('a[href="/household"]')).toHaveCount(0);
     await expect(page.locator('a[href="/permissions"]')).toHaveCount(0);
     await expect(page.locator('a[href="/logs"]')).toHaveCount(0);
   });
 
   test('gõ thẳng URL của module không được cấp vẫn bị chặn 403', async ({ page }) => {
     await login(page, state.bobUsername);
-    for (const url of ['/tournaments', '/medical', '/household']) {
+    for (const url of ['/tournaments']) {
       const response = await page.goto(url);
       expect(response.status(), `${url} phải trả 403 chứ không phải mở ra`).toBe(403);
       await expect(page.locator('body')).toContainText('Không có quyền');

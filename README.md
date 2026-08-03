@@ -112,7 +112,7 @@ Xem [docs/bao-mat.md](docs/bao-mat.md) cho mô hình phân quyền đầy đủ.
 
 ## Tính năng AI (Gemini)
 
-- `GEMINI_API_KEY`: bắt buộc để dùng AI (gợi ý du lịch, phân tích đơn thuốc, game nói chuyện). Lấy tại https://aistudio.google.com/apikey.
+- `GEMINI_API_KEY`: bắt buộc để dùng AI (game nói chuyện). Lấy tại https://aistudio.google.com/apikey.
 - `GEMINI_MODEL`: model dùng, mặc định `gemini-2.0-flash`. Nếu hay bị lỗi 429 (hết hạn mức/ngày của bản free), thử đổi sang model có hạn mức free cao hơn, ví dụ `gemini-1.5-flash`, hoặc bật billing trong Google Cloud để tăng giới hạn.
 - App tự thử lại vài lần khi gặp 429/503 tạm thời và báo lỗi thân thiện khi hết lượt.
 
@@ -135,10 +135,26 @@ Tuỳ chọn: `PRIVATE_BACKUP_REPO` (variable) để đổi repo đích, `BACKUP
 
 ⚠️ Cron của GitHub **tự tắt sau 60 ngày repo không có hoạt động** — thỉnh thoảng vẫn nên liếc tab Actions xem lần chạy gần nhất.
 
+### Backup CŨ hơn ngày 3/8/2026: 22 bảng không nạp lại được
+
+Ba module Y tế, Chi tiêu, Du lịch đã bị gỡ hẳn ngày 3/8/2026 (migration
+`20260803180000_drop_medical_household_travel`), kèm 22 bảng của chúng. File backup lấy trước
+ngày đó vẫn **chứa** dữ liệu ấy, nhưng schema hiện tại không còn bảng để nạp vào.
+
+`restore-db.js` xử lý ca này bằng cách **bỏ qua và in to** từng bảng cùng số dòng bị bỏ, thay vì
+chặn cả lần khôi phục — chặn hẳn thì một backup cũ mất luôn khả năng phục hồi 16 bảng còn lại.
+Đừng nhầm với ca bảng **vẫn còn** trong schema mà thiếu khai trong `ORDER`: ca đó script vẫn
+dừng ngay, vì đó là lỗi thật.
+
+Muốn lấy lại dữ liệu ba module đó thì phải `git checkout` commit **ngay trước** commit gỡ, rồi
+chạy `db push` + `restore` ở đó.
+
 ### Dựng lại DB từ số không (khi mất Supabase)
 
-**Đã diễn tập thật ngày 28/7/2026** trên một schema nháp: dựng DB trắng → nạp backup →
-đối chiếu **35/35 bảng khớp số dòng**, ảnh đơn thuốc còn nguyên, ghi bản ghi mới không đụng id.
+**Diễn tập lại ngày 3/8/2026** trên một schema nháp của Supabase: dựng DB trắng bằng `db push`
+→ nạp backup → đối chiếu **38/38 bảng khớp số dòng** (11.251 bản ghi), so từng trường của các
+bảng tiền nong, kiểm 52 khoá ngoại có thật, mọi bộ đếm id >= id lớn nhất, và ghi thử một bản
+ghi mới không đụng id cũ. Lần đầu diễn tập là 28/7/2026.
 
 ```bash
 # 1. Trỏ DATABASE_URL sang DB mới, rồi:
@@ -172,7 +188,7 @@ npm run restore      # phục hồi từ backups/latest.json (hoặc: npm run re
 - Repo backup giữ **30 bản** gần nhất kèm mốc thời gian, cộng `latest.json` luôn là bản mới nhất. Đổi bằng `BACKUP_KEEP`.
 - Bảng nào Prisma client đọc không được vì **DB chưa migrate** (thiếu cột mới) sẽ được đọc lại bằng SQL thô thay vì bỏ qua. Đây là tình huống hay gặp nhất khi backup ngay trước lúc migrate — bỏ qua là ra bản backup thiếu mà vẫn báo "xong".
 - `restore` chèn theo thứ tự khóa ngoại, bỏ qua bản ghi trùng, KHÔNG xóa dữ liệu hiện có. Chạy `npx prisma migrate deploy` trước để bảng đã tồn tại (vd khi tạo DB Supabase mới).
-- ⚠️ **KHÔNG commit thư mục `backups/` vào repo này** — repo đang PUBLIC, mà file backup chứa email, hash mật khẩu và dữ liệu y tế. `backups/` đã được `.gitignore`.
+- ⚠️ **KHÔNG commit thư mục `backups/` vào repo này** — repo đang PUBLIC, mà file backup chứa email và hash mật khẩu. `backups/` đã được `.gitignore`.
 
 ## Health checks
 

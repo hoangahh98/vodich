@@ -11,7 +11,7 @@ export function rootAdminUsername(): string {
 /**
  * Điều kiện lọc "tài nguyên mà admin này được đụng vào": chủ sở hữu HOẶC được cấp quyền.
  *
- * Mọi module có chủ sở hữu (giải đấu, đội bóng, chuyến đi, hồ sơ y tế, sổ chi tiêu) đều
+ * Mọi module có chủ sở hữu (giải đấu, đội bóng) đều
  * dùng chung đúng một hàm này. Trước đây mỗi service tự chép lại biểu thức OR — sửa sót
  * một chỗ là rò dữ liệu sang admin khác, nên phải có một nguồn duy nhất.
  */

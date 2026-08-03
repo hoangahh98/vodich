@@ -61,10 +61,7 @@ form[aria-busy="true"] { opacity: .78; }
 body.page-busy .page-busy-toast { display: inline-flex; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .form-control, .form-select, input, select, textarea { width: 100%; min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px; min-height: 44px; background: #fff; font-family: inherit; font-size: 15px; }
-/* Ô ngày/tháng: Safari iOS và một số trình duyệt Android render date input theo cỡ NỘI TẠI,
-   to hơn ô chứa và đè lên ô bên cạnh. Phải bỏ giao diện native rồi ép về đúng cỡ.
-   Đặt ở quy tắc CHUNG chứ không vá theo từng form: trước đây đã phải vá riêng cho
-   .travel-expense-form rồi .medical-form, tới form thứ ba (household) là dính lại y hệt. */
+
 input[type="date"], input[type="month"] {
   -webkit-appearance: none; -moz-appearance: none; appearance: none;
   width: 100%; min-width: 0; max-width: 100%;
@@ -400,43 +397,6 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none;
 .ranking-board { border: 1px solid #cfe2ff; border-radius: 10px; overflow: hidden; background: #fff; }
 .ranking-board-title { display: flex; align-items: center; gap: 8px; padding: 12px 14px; background: #e7f1ff; color: #084298; border-bottom: 1px solid #cfe2ff; font-size: 18px; }
 .ranking-board-title strong { font-weight: 900; }
-.travel-shell { max-width: 1320px; }
-.travel-trip-form { display: grid; grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1fr) minmax(180px, 1fr) minmax(220px, 1.3fr) auto; gap: 12px; align-items: end; }
-.travel-trip-action { min-width: 118px; }
-.travel-trip-action .btn { width: 100%; }
-.travel-subnav { display: flex; flex-wrap: wrap; gap: 10px; }
-.travel-trip-grid { grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
-.travel-trip-card { padding: 0; overflow: hidden; min-height: 230px; display: grid; grid-template-rows: 92px 1fr; }
-.travel-card-image { background: linear-gradient(135deg, #d1f2dc, #cfe2ff); display: grid; place-items: center; font-size: 54px; }
-.travel-card-body { padding: 14px; min-width: 0; }
-.travel-card-body h3, .travel-card-body p { overflow-wrap: anywhere; word-break: break-word; }
-.travel-card-meta { display: grid; gap: 6px; color: var(--muted); font-weight: 750; font-size: 14px; }
-.travel-admin-grid { grid-template-columns: minmax(320px, .95fr) minmax(380px, 1.35fr); }
-.travel-member-form { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr) minmax(180px, 1fr) auto; gap: 10px; align-items: end; }
-.travel-member-list { display: grid; gap: 8px; }
-.travel-member-row { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 1fr) auto auto; gap: 8px; align-items: center; }
-.travel-treasurer-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
-.travel-table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 8px; }
-.travel-table { min-width: 760px; }
-.travel-table thead th { position: sticky; top: 0; z-index: 2; }
-.travel-expense-table td, .travel-expense-table th { white-space: nowrap; }
-.travel-expense-form { display: grid; grid-template-columns: 140px minmax(150px, 1fr) minmax(130px, .8fr) minmax(150px, 1fr) minmax(130px, .75fr) auto; gap: 10px; align-items: end; }
-.travel-expense-note { grid-column: span 5; min-width: 0; }
-.travel-private-grid { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; padding: 10px; border: 1px solid #cfe2ff; border-radius: 8px; background: #f8fbff; }
-.travel-private-grid label, .travel-split-edit-grid label { display: grid; grid-template-columns: minmax(0, 1fr) minmax(90px, 120px); align-items: center; gap: 8px; margin: 0; }
-.travel-edit-expense summary { cursor: pointer; font-weight: 900; color: #0b5ed7; }
-.travel-edit-grid { display: grid; grid-template-columns: 132px 150px 130px 150px minmax(180px, 1fr); gap: 8px; margin-top: 10px; min-width: 720px; }
-.travel-split-edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; margin-top: 8px; min-width: 720px; }
-.travel-suggestion-payments { grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
-.travel-place-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-.travel-place-card { border: 1px solid #cfe2ff; border-radius: 10px; background: #fff; padding: 14px; display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 12px; min-width: 0; }
-.travel-place-card h3, .travel-place-card p { overflow-wrap: anywhere; word-break: break-word; }
-.travel-place-icon { width: 52px; height: 52px; border-radius: 14px; display: grid; place-items: center; background: #e7f1ff; font-size: 28px; box-shadow: inset 0 0 0 1px #cfe2ff; }
-.travel-people-form { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr) auto; gap: 10px; align-items: end; }
-.travel-suggestion-form { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; align-items: end; }
-.travel-suggestion-form.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 10px; }
-.travel-suggestion-wide { grid-column: 1 / -1; }
-.travel-filter-form { display: grid; grid-template-columns: minmax(180px, 1fr) minmax(180px, 1fr) auto; gap: 10px; align-items: center; }
 @media (max-width: 720px) {
   body { overflow-x: hidden; }
   input, select, textarea { min-width: 0; max-width: 100%; }
@@ -529,14 +489,6 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none;
   .hero-actions { width: 100%; justify-content: space-between; flex-direction: row; align-items: center; }
   .hero-action-buttons { order: 2; grid-template-columns: 1fr; }
   .feature-hero-art { order: 1; }
-  .travel-trip-form, .travel-member-form, .travel-member-row, .travel-treasurer-form, .travel-expense-form, .travel-people-form, .travel-suggestion-form, .travel-suggestion-form.compact, .travel-filter-form { grid-template-columns: 1fr; }
-  .travel-trip-action, .travel-expense-note { grid-column: auto; width: 100%; min-width: 0; }
-  .travel-admin-grid { grid-template-columns: 1fr; }
-  .travel-table { min-width: 720px; }
-  .travel-edit-grid, .travel-split-edit-grid { min-width: 0; grid-template-columns: 1fr; }
-  .travel-private-grid label, .travel-split-edit-grid label { grid-template-columns: 1fr; }
-  .travel-place-card { grid-template-columns: 44px minmax(0, 1fr); }
-  .travel-place-icon { width: 44px; height: 44px; font-size: 24px; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
   .app-shell { margin-top: 12px; padding: 0 10px; }
@@ -784,77 +736,8 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none;
   .knight-quiz { padding: 12px; gap: 10px; }
 }
 
-/* ===== Medical ===== */
-.medical-preview { max-width: 100%; max-height: 220px; border-radius: 10px; border: 1px solid var(--line); object-fit: contain; }
-.medical-analysis { background: #f8f9fb; border: 1px solid var(--line); border-left: 4px solid #0d6efd; border-radius: 8px; padding: 12px 14px; }
-.medical-analysis-body { white-space: pre-wrap; margin-top: 6px; font-size: 14px; line-height: 1.55; }
-/* Mỗi thuốc là một khối xếp dọc thay vì một hàng bảng: bảng 6 cột đẩy ô "Số ngày"
-   ra ngoài màn hình điện thoại, mà đó lại là ô người dùng cần soát kỹ nhất. */
-.med-row { border-top: 1px solid var(--line); padding: 12px 0; }
-.med-row:first-of-type { border-top: 0; }
-.med-row-use { display: flex; align-items: flex-start; gap: 10px; }
-.med-row-use input { width: 22px; min-width: 22px; height: 22px; min-height: 22px; margin-top: 2px; }
-.med-row-name { flex: 1; min-width: 0; }
-/* Ô sửa tên thuốc: liền mạch với dòng, chỉ lộ viền khi bấm vào để biết là sửa được. */
-.med-row-name input[type="text"] { font-weight: 650; padding: 4px 6px; min-height: 34px; border-color: transparent; background: transparent; }
-.med-row-name input[type="text"]:focus { border-color: var(--line); background: #fff; }
-.med-row-detail { font-size: 14px; margin: 4px 0 0 32px; }
-.med-row-nums { display: flex; gap: 14px; margin: 8px 0 0 32px; }
-.med-row-nums label { display: flex; align-items: center; gap: 6px; font-size: 14px; margin: 0; }
-.med-num { width: 64px; min-width: 64px; text-align: center; padding: 6px 4px; }
-/* Thẻ người thân có thêm nút nạp lịch nên phần thân mới là link, không phải cả thẻ. */
 .module-card-main { display: block; text-decoration: none; color: inherit; }
-/* Thuốc người dùng bỏ tick: làm mờ để nhìn phát biết ngay dòng nào không dùng. */
-.med-item-off { opacity: .45; }
-/* Tồn kho nhà gắn ngay dưới từng dòng thuốc trong đơn — đọc tới thuốc nào biết ngay
-   thuốc đó, không phải nhớ băng-rôn đầu trang rồi cuộn xuống đối chiếu. */
-.med-row-stock { margin-top: 4px; padding: 6px 8px; border-left: 3px solid var(--line); background: rgba(0,0,0,.03); border-radius: 4px; }
-.med-buy { color: #0a7; }
-/* Cảnh báo an toàn gắn vào từng dòng thuốc, cùng chỗ với tồn kho tủ. Viền trái đậm hơn
-   .med-row-stock để hai khối không lẫn vào nhau: một cái là chuyện mua, một cái là chuyện
-   uống có sao không. Mức WARN đỏ hẳn vì đó là loại phải dừng lại hỏi bác sĩ. */
-.med-row-warn { margin-top: 4px; padding: 6px 8px; border-left: 3px solid #e8a33d; background: rgba(232,163,61,.12); border-radius: 4px; color: #7a4b00; }
-.med-row-warn-hard { border-left-color: #c00; background: rgba(204,0,0,.09); color: #a00; font-weight: 650; }
 
-/* Thanh chỉ bước cho luồng đơn thuốc (partials/med-steps.ejs). Cuộn ngang được trên
-   điện thoại hẹp thay vì vỡ dòng — bốn bước luôn nằm trên một hàng cho dễ đọc mạch. */
-.med-steps { list-style: none; display: flex; gap: 4px; padding: 12px 4px; margin: 0 0 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.med-step { flex: 1 1 0; min-width: 74px; display: flex; flex-direction: column; align-items: center; gap: 6px; position: relative; text-align: center; color: #9aa3af; font-weight: 700; font-size: 12.5px; }
-.med-step::before { content: ''; position: absolute; top: 15px; left: -50%; width: 100%; height: 3px; background: #e5e7eb; z-index: 0; }
-.med-step:first-child::before { display: none; }
-.med-step-dot { position: relative; z-index: 1; width: 32px; height: 32px; border-radius: 999px; display: grid; place-items: center; background: #e5e7eb; color: #6b7280; font-weight: 800; box-shadow: 0 0 0 3px #fff; }
-.med-step-label { line-height: 1.2; }
-.med-step-icon { margin-right: 2px; }
-.med-step.done { color: #157347; }
-.med-step.done .med-step-dot { background: #157347; color: #fff; }
-.med-step.done::before { background: #157347; }
-.med-step.current { color: #0b5ed7; }
-.med-step.current .med-step-dot { background: #0b5ed7; color: #fff; box-shadow: 0 0 0 3px #cfe2ff; }
-
-/* Nhóm thuốc bị kê trùng ở trang soát thuốc: tiêu đề + viền đỏ để nhìn ra ngay mà bỏ bớt. */
-.med-dup-head { margin: 14px 0 0; padding: 7px 10px; border-radius: 6px 6px 0 0; background: #fdecec; color: #8a1f1f; font-weight: 800; font-size: 13.5px; border: 1px solid #f1aeae; border-bottom: 0; }
-.med-row-dup { box-shadow: inset 3px 0 0 #c00; padding-left: 8px; background: rgba(204,0,0,.035); }
-/* Hàng chỉnh nhanh trong tủ thuốc: sửa số lượng nhiều dòng, gộp lưu một lần.
-   Luôn hiện trên cùng một dòng với tên thuốc — giấu vào thẻ bung ra là quay lại
-   cảnh phải mở từng dòng mới sửa được. */
-.med-row-line { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
-.med-row-title { flex: 1; min-width: 180px; }
-.med-row-more { cursor: pointer; font-size: 13px; margin-top: 6px; }
-.med-row-bulk { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; font-size: 14px; }
-.med-row-bulk label { display: flex; align-items: center; gap: 6px; margin: 0; }
-/* Ô khai số thuốc thực tế mua, nằm ngay dưới phần gợi ý của chính dòng thuốc đó. */
-.med-row-buy { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 6px 0 0 32px; font-size: 14px; }
-.med-row-buy label { display: flex; align-items: center; gap: 6px; margin: 0; }
-.med-row-buy .btn { padding: 4px 10px; font-size: 13px; }
-.med-row-short { margin: 4px 0 0 32px; font-size: 14px; color: #c00; }
-/* Một dòng trong lịch sử đơn thuốc: cả dòng là link sang trang chi tiết đơn đó. */
-.med-rx-row { display: block; text-decoration: none; color: inherit; border-top: 1px solid var(--line); padding: 14px 0; }
-.med-rx-row:first-of-type { border-top: 0; }
-.med-rx-row:active { background: var(--bg-soft, #f4f4f4); }
-/* Chẩn đoán hay dài cả dòng — cắt còn 2 dòng để danh sách không giãn ra mất kiểm soát. */
-.med-rx-diagnosis { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-/* ===== Giao diện hội thoại dùng chung (Tập nói chuyện tiếng Anh) ===== */
 .chat-window { width: 100%; max-width: 640px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 14px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); border-radius: 20px; min-height: 46svh; }
 .chat-msg { display: flex; align-items: flex-end; gap: 8px; }
 .chat-msg.chat-user { justify-content: flex-end; }
@@ -872,50 +755,8 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none;
 .chat-send { flex: 0 0 auto; height: 50px; border-radius: 999px; border: 0; background: #2d6cdf; color: #fff; font-weight: 800; padding: 0 18px; cursor: pointer; }
 .chat-warn { color: #fff; background: rgba(0,0,0,.25); padding: 8px 14px; border-radius: 10px; font-weight: 700; }
 
-/* ===== Travel table fixes (frozen col/header giữ được trên mobile) ===== */
-.travel-frozen-wrap { overflow: auto; max-height: 72vh; border: 1px solid var(--line); border-radius: 8px; -webkit-overflow-scrolling: touch; }
-/* border-collapse:separate là bắt buộc: nếu collapse thì nền ô sticky bị trong suốt -> chữ cột sau đè lên. */
-.travel-table-sticky { min-width: max-content; border-collapse: separate; border-spacing: 0; }
-.travel-table-sticky th, .travel-table-sticky td { border-bottom: 1px solid var(--line); background-clip: padding-box; }
-.travel-table-sticky thead th { position: sticky; top: 0; z-index: 3; background: #0d6efd; }
-.travel-table-sticky .sticky-col { position: sticky; left: 0; z-index: 2; width: 150px; min-width: 150px; max-width: 150px; white-space: normal; word-break: break-word; background: #fff; box-shadow: 2px 0 0 rgba(0,0,0,.06); }
-.travel-table-sticky thead .sticky-col { z-index: 5; background: #0d6efd; }
-.travel-table-sticky tr.sufficient-row td { background: #d4edda; }
-.travel-table-sticky tr.insufficient-row td { background: #fff3cd; }
-.travel-table-sticky .money-input { width: 96px; min-width: 96px; height: 38px; padding: 6px 8px; }
-.travel-table-sticky td input[name^="collectionNote_"] { width: 130px; min-width: 130px; }
-.travel-exp-actions { white-space: nowrap; display: flex; gap: 6px; }
-.travel-exp-actions .btn { min-height: 34px; }
-
-/* Thêm khoản chi: không cho ô ngày lòi ra/phình to, wrap gọn trên mọi cỡ màn hình */
-.travel-expense-form { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: end; }
-.travel-expense-form > div, .travel-expense-form > button { min-width: 0; }
-.travel-expense-form input, .travel-expense-form select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
-.travel-expense-form > button[type="submit"], .travel-expense-form > .btn { grid-column: 1 / -1; }
-
-/* Hàng thành viên: [checkbox] [tên] [email] — chỉ sửa inline, nút Lưu/Xóa ở dưới */
-.travel-member-row { grid-template-columns: 34px minmax(110px, 1fr) minmax(150px, 1.3fr); }
-.travel-member-row input[type="checkbox"] { width: 20px; height: 20px; justify-self: center; }
-.travel-member-head { align-items: center; font-size: 13px; font-weight: 700; }
-.travel-member-head span:first-child { text-align: center; }
-@media (max-width: 720px) {
-  .travel-member-row { grid-template-columns: 30px 1fr 1.2fr; }
-}
-
-/* Trạng thái "đã bấm" cho link điều hướng trong game */
 .game-back.navigating { opacity: .6; pointer-events: none; }
 .game-card.navigating { opacity: .7; transform: scale(.98); pointer-events: none; }
-
-/* Form y tế: các ô đều nhau, gọn gàng */
-.medical-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; align-items: end; }
-.medical-form > div { min-width: 0; display: flex; flex-direction: column; }
-.medical-form-wide { grid-column: 1 / -1; }
-.medical-form-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; }
-@media (max-width: 560px) { .medical-form { grid-template-columns: 1fr 1fr; } .medical-form-wide, .medical-form-actions { grid-column: 1 / -1; } }
-
-/* Ô đầu bảng khoản chi: checkbox chọn + tên khoản */
-.travel-exp-check { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
-.travel-exp-check input { margin-top: 3px; width: 18px; height: 18px; flex: 0 0 auto; }
 
 /* ===== Giao diện màu mè (đồng bộ cả app) ===== */
 /* Hero mọi module: nền gradient sống động, chữ trắng */
@@ -934,92 +775,12 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none;
 .home-tile .module-icon { filter: drop-shadow(0 2px 4px rgba(0,0,0,.2)); }
 .ht-tour { background: linear-gradient(135deg,#ff8a00,#ff2d95); }
 .ht-team { background: linear-gradient(135deg,#11998e,#38ef7d); }
-.ht-travel { background: linear-gradient(135deg,#12c2e9,#4568dc); }
 .ht-member { background: linear-gradient(135deg,#8e2de2,#4a00e0); }
-.ht-medical { background: linear-gradient(135deg,#f857a6,#ff5858); }
 .ht-games { background: linear-gradient(135deg,#f7971e,#ffd200); color: #4a3200 !important; }
 .ht-games h3, .ht-games .muted { color: #5a3d00; }
 .ht-perm { background: linear-gradient(135deg,#485563,#29323c); }
 .ht-log { background: linear-gradient(135deg,#3a6073,#16222a); }
-.ht-household { background: linear-gradient(135deg,#1e7a46,#d4af37); }
 
-/* Tab các phần của module Quản lý chi tiêu (cuộn ngang trên mobile) */
-/* Lưới form của module chi tiêu. KHÔNG dùng .row/.col-* vì bootstrap.min.css cũng định
-   nghĩa .col-3/.col-4 kèm `width: 25%/33%` — grid item se lại còn 1/4 bề ngang trên điện
-   thoại. Lưới này tự co theo số ô và luôn cho input rộng hết cột.
-   Điều hướng giữa các phần nằm ở menu ba gạch, module không có thanh tab riêng. */
-.household-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
-.household-form > div { min-width: 0; display: flex; flex-direction: column; }
-.household-form label { font-weight: 700; margin-bottom: 4px; }
-.household-form input, .household-form select { width: 100%; min-width: 0; max-width: 100%; }
-.household-form small { margin-top: 4px; }
-.household-form-action { flex-direction: row !important; gap: 8px; align-items: stretch; }
-.household-form-action .btn { flex: 1; width: auto; }
-@media (max-width: 560px) {
-  .household-form { grid-template-columns: 1fr 1fr; gap: 10px; }
-  .household-form-wide, .household-form-action { grid-column: 1 / -1; }
-}
-.household-member-row { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
-.household-hero-tools { display: flex; align-items: flex-end; gap: 10px; }
-
-/* Dải "thu / chi / còn lại" của module chi tiêu: hiện ở mọi mục theo tháng để lúc nào cũng
-   thấy ba con số chính mà không phải quay về Tổng quan. */
-.hh-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,.09); padding: 12px 16px; }
-.hh-strip > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.hh-strip span { font-size: 13px; font-weight: 700; color: var(--muted, #6c757d); }
-.hh-strip strong { font-size: 20px; line-height: 1.15; }
-.hh-strip-total { border-left: 3px solid #0d6efd; padding-left: 12px; }
-@media (max-width: 560px) { .hh-strip-total { border-left: 0; border-top: 1px solid var(--line); padding: 8px 0 0; } }
-.hh-pos { color: #198754; }
-.hh-neg { color: #dc3545; }
-.hh-big { font-size: 22px; }
-/* Cảnh báo vượt chi: mỗi ý một dòng, đầu đề đậm hơn phần giải thích bên dưới. */
-.hh-over { display: grid; gap: 4px; }
-.hh-over-head { font-weight: 800; font-size: 16px; }
-/* Ô chọn rút bù nằm ngay trong khối cảnh báo: tách khỏi các dòng chữ phía trên cho dễ thấy. */
-.hh-cover { margin-top: 6px; padding-top: 8px; border-top: 1px solid rgba(0,0,0,.12); }
-.hh-row-total td { border-top: 2px solid var(--line); font-size: 16px; }
-.hh-debt { border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
-
-/* Một dòng khoản thu / khoản chi: bấm vào là mở ra ô sửa & nút xoá. Thay cho bảng có nút
-   Xoá lộ thiên — bấm nhầm nút xoá trên điện thoại quá dễ. */
-.hh-entry { border-bottom: 1px solid var(--line); }
-.hh-entry > summary { cursor: pointer; list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 4px; }
-.hh-entry > summary::-webkit-details-marker { display: none; }
-.hh-entry > summary::after { content: '▾'; font-weight: 800; opacity: .5; }
-.hh-entry[open] > summary::after { content: '▴'; }
-.hh-entry[open] > summary { background: #f8f9fa; }
-.hh-entry-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.hh-entry-main .muted { font-size: 13px; }
-.hh-entry-body { padding: 12px 4px 16px; background: #f8f9fa; }
-.hh-debt:last-child { border-bottom: 0; margin-bottom: 0; }
-/* Nút ghi nhanh nằm TRONG một dòng sổ nợ: bỏ gạch dưới của .hh-entry, không thì dòng nợ
-   trông như bị chia làm hai khoản. */
-.hh-settle { border-bottom: 0; margin-top: 4px; }
-
-/* Thanh tỷ trọng: dùng cho "chi theo loại", dải 6 tháng và tiến độ trả nợ. */
-.hh-bar { height: 8px; border-radius: 999px; background: #e9ecef; overflow: hidden; min-width: 60px; margin-bottom: 4px; }
-.hh-bar-fill { display: block; height: 100%; border-radius: 999px; background: #6c757d; }
-.hh-bar-fill.red { background: #dc3545; }
-.hh-bar-fill.green { background: #198754; }
-.hh-bar-fill.blue { background: #0d6efd; }
-
-/* Trợ lý AI: khung hội thoại kiểu chat, tin của mình lệch phải. */
-.hh-chat { display: flex; flex-direction: column; gap: 10px; max-height: 460px; overflow-y: auto; padding: 4px; }
-.hh-msg { max-width: 88%; border-radius: 14px; padding: 10px 14px; }
-.hh-msg p { margin: 0; white-space: pre-wrap; line-height: 1.5; }
-.hh-msg-who { display: block; font-size: 12px; font-weight: 700; opacity: .75; margin-bottom: 2px; }
-.hh-msg.bot { align-self: flex-start; background: #f1f3f5; border-bottom-left-radius: 4px; }
-.hh-msg.me { align-self: flex-end; background: #d1e7dd; color: #0f5132; border-bottom-right-radius: 4px; }
-.hh-draft { border: 2px dashed #198754; border-radius: 12px; padding: 14px; }
-
-/* Khung "danh mục" gập lại: phần cấu hình ít đụng tới nên mặc định đóng. */
-.hh-manage > summary { cursor: pointer; list-style: none; }
-.hh-manage > summary::-webkit-details-marker { display: none; }
-.hh-manage > summary::after { content: '▾'; font-weight: 800; }
-.hh-manage[open] > summary::after { content: '▴'; }
-
-/* Cài đặt chat (nhập tên/tuổi người học) */
 .chat-setup { width: 100%; max-width: 640px; display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.25); border-radius: 14px; padding: 12px; }
 .chat-setup label { color: #fff; font-size: 12px; margin-bottom: 4px; }
 .chat-setup input, .chat-setup select { height: 40px; }
@@ -1155,6 +916,3 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none;
 .tree-start-btn { border: 0; border-radius: 999px; padding: 14px 28px; font-weight: 800; font-size: 18px; cursor: pointer; background: linear-gradient(135deg,#43e97b,#38f9d7); color: #073b1e; }
 .game-card-tree { background: linear-gradient(135deg,#43e97b,#38f9d7); color: #073b1e; }
 .game-card-tree h2, .game-card-tree p { color: #0a4023; }
-/* Ô "chỉ dùng khi cần" trong dòng thuốc: nhỏ, nằm cùng hàng với số lần/số ngày. */
-.med-row-prn { font-size: 13px; gap: 5px; }
-.med-row-prn input { width: 18px; min-width: 18px; height: 18px; min-height: 18px; }

@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const bcrypt = require('bcryptjs');
 
-const { AdminService } = require('../dist/admin/admin.service');
+const { AdminService, ANON_USER } = require('../dist/admin/admin.service');
 const { AuthService } = require('../dist/auth/auth.service');
 const { TeamCrudService } = require('../dist/teams/team-crud.service');
 const { TeamFundService } = require('../dist/teams/team-fund.service');
@@ -158,6 +158,63 @@ test('AdminService saves delegated admin profile and filtered permissions in one
   assert.equal(operations[0][1].data.username, 'subadmin');
   assert.equal(operations[0][1].data.displayName, 'Sub Admin');
   assert.deepEqual(operations[2][1].data, [{ adminId: 5n, feature: 'TEAMS' }]);
+});
+
+/**
+ * Lọc log theo tài khoản. Ba bộ lọc phải CỘNG DỒN vào cùng một `where` — lọc theo người mà
+ * âm thầm bỏ mất mức/nhóm thì bảng bày ra nhiều hơn thứ người xem tưởng mình đang xem.
+ */
+test('AdminService.listLogs cộng dồn cả ba bộ lọc mức / nhóm / tài khoản', async () => {
+  const seen = [];
+  const adminService = new AdminService({
+    appLog: {
+      findMany: async (args) => {
+        seen.push(args.where);
+        return [];
+      },
+    },
+  });
+
+  await adminService.listLogs('ERROR', 'HTTP', 'admin@test');
+  assert.deepEqual(seen[0], { level: 'ERROR', category: 'HTTP', username: 'admin@test' });
+
+  await adminService.listLogs('ALL', 'ALL', 'ALL');
+  assert.deepEqual(seen[1], {}, 'chọn "tất cả" cả ba thì không lọc gì');
+
+  await adminService.listLogs('ALL', 'ALL', ANON_USER);
+  assert.deepEqual(seen[2], { username: null }, 'request chưa đăng nhập lọc bằng username null');
+
+  await adminService.listLogs('WARN', 'ALL');
+  assert.deepEqual(seen[3], { level: 'WARN' }, 'bỏ trống tài khoản thì mặc định không lọc theo ai');
+});
+
+/**
+ * Danh sách tài khoản cho ô lọc lấy từ CHÍNH bảng log, không phải từ danh sách admin: tài khoản
+ * chưa có dòng nào mà bày ra là một ô lọc luôn trả rỗng, còn tài khoản đã xoá thì phải còn tra
+ * lại được — đó đúng là lúc người ta cần soi nhất.
+ */
+test('AdminService.listLogUsers lấy tài khoản từ chính log, kèm mục "chưa đăng nhập"', async () => {
+  let args;
+  const adminService = new AdminService({
+    appLog: {
+      findMany: async (payload) => {
+        args = payload;
+        return [{ username: 'admin@test' }, { username: null }, { username: 'sub@test' }];
+      },
+    },
+  });
+
+  const users = await adminService.listLogUsers();
+
+  assert.deepEqual(args.distinct, ['username'], 'mỗi tài khoản đúng một dòng, không lặp 200 lần');
+  assert.deepEqual(
+    users.map((u) => u.value),
+    ['ALL', 'admin@test', 'sub@test', ANON_USER],
+  );
+
+  const noAnon = new AdminService({ appLog: { findMany: async () => [{ username: 'admin@test' }] } });
+  const only = await noAnon.listLogUsers();
+  assert.deepEqual(only.map((u) => u.value), ['ALL', 'admin@test'], 'không có request ẩn danh thì không bày mục đó ra');
 });
 
 test('TeamFundService sets fund and seeds fixed member payments from previous balance', async () => {

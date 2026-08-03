@@ -31,8 +31,17 @@ export class AdminController {
   async logs(@Req() req: Request, @Res() res: Response) {
     const level = String(req.query.level || 'ERROR');
     const category = String(req.query.category || 'ALL');
-    const logs = await this.adminService.listLogs(level, category);
+    const user = String(req.query.user || 'ALL');
+    const [logs, users] = await Promise.all([this.adminService.listLogs(level, category, user), this.adminService.listLogUsers()]);
     // ACCESS = truy cập bị FeatureGuard/CSRF từ chối; tách riêng để soi nhanh khi nghi bị dò quyền.
-    return render(res, 'logs/index', { logs, level, levels: ['ERROR', 'WARN', 'INFO', 'ALL'], category, categories: ['ALL', 'HTTP', 'ACCESS', 'REDIS'] });
+    return render(res, 'logs/index', {
+      logs,
+      level,
+      levels: ['ERROR', 'WARN', 'INFO', 'ALL'],
+      category,
+      categories: ['ALL', 'HTTP', 'ACCESS', 'REDIS'],
+      user,
+      users,
+    });
   }
 }

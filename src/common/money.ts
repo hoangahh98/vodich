@@ -1,7 +1,6 @@
 /**
  * Parse tiền tệ (VND) về số nguyên, GIỮ DẤU (cho phép âm, vd số dư mang sang âm).
- * Dùng chung cho cả teams lẫn travel để hành vi nhất quán. Travel thêm bước clamp
- * không âm ở travel-money.ts vì khoản thu/chi luôn >= 0.
+ * Dùng chung cho các màn hình tiền nong để hành vi nhất quán.
  */
 export function parseMoney(value: unknown): number {
   if (value === null || value === undefined) return 0;

@@ -4,8 +4,6 @@ const test = require('node:test');
 const { TournamentRankingCalculator } = require('../dist/tournaments/tournament-ranking');
 const { TournamentScheduleBuilder } = require('../dist/tournaments/tournament-schedule');
 const { TeamMonthReportBuilder, suggestMonthlyFee } = require('../dist/teams/team-month-report');
-const { splitEvenly } = require('../dist/travel/travel-money');
-const { TravelSummaryBuilder } = require('../dist/travel/travel-summary');
 
 test('TournamentRankingCalculator ranks finished matches and keeps pending matches out of totals', () => {
   const calculator = new TournamentRankingCalculator();
@@ -127,57 +125,4 @@ test('suggestMonthlyFee splits court + other cost after last month balance and r
   // Quỹ dư đủ lo cả tháng thì không cần thu thêm
   assert.equal(suggestMonthlyFee(300000, 0, 500000, 6), 0);
   assert.equal(suggestMonthlyFee(300000, 0, 0, 0), 0);
-});
-
-test('TravelSummaryBuilder balances paid expenses, collections, and transfer suggestions', () => {
-  const builder = new TravelSummaryBuilder();
-  const members = [
-    { id: 1n, name: 'An', collections: [{ amount: 0 }] },
-    { id: 2n, name: 'Binh', collections: [{ amount: 100 }] },
-    { id: 3n, name: 'Cuong', collections: [{ amount: 0 }] },
-  ];
-  const expenses = [
-    { amount: 300, paidByMemberId: 1n, splits: splitEvenly(300, [1n, 2n, 3n]) },
-    { amount: 90, paidByMemberId: 3n, splits: [{ memberId: 3n, amount: 90 }] },
-  ];
-
-  const summary = builder.build(members, expenses, null);
-
-  assert.equal(summary.totalSpent, 390);
-  assert.equal(summary.memberSpent.get('1'), 100);
-  assert.equal(summary.memberSpent.get('3'), 190);
-  assert.equal(summary.memberAdvanced.get('1'), 200);
-  assert.equal(summary.totalAdvanced, 200);
-  assert.equal(summary.totalCollectedDisplay, 290);
-  assert.equal(summary.balance, -100);
-  assert.equal(summary.memberDebt.get('3'), 100);
-  assert.deepEqual(summary.paymentSuggestions[0], {
-    fromMemberId: '3',
-    fromName: 'Cuong',
-    toMemberId: '1',
-    toName: 'An',
-    amount: 100,
-  });
-});
-
-test('TravelSummaryBuilder giữ sổ cân: có thủ quỹ thì tổng số dư = 0 và tổng ứng trước = tổng thiếu', () => {
-  const builder = new TravelSummaryBuilder();
-  const members = [
-    { id: 1n, name: 'An', collections: [{ amount: 0 }] }, // thủ quỹ
-    { id: 2n, name: 'Binh', collections: [{ amount: 100 }] },
-    { id: 3n, name: 'Cuong', collections: [{ amount: 50 }] },
-  ];
-  const expenses = [{ amount: 300, paidByMemberId: 1n, splits: splitEvenly(300, [1n, 2n, 3n]) }];
-
-  const summary = builder.build(members, expenses, 1n);
-
-  const totalBalance = [...summary.balances.values()].reduce((sum, value) => sum + value, 0);
-  const totalDebt = [...summary.memberDebt.values()].reduce((sum, value) => sum + value, 0);
-  // Bất biến: khi đã chọn thủ quỹ, sổ phải cân tuyệt đối.
-  assert.equal(totalBalance, 0);
-  // "Ứng trước" và "thiếu" là hai mặt của cùng một số dư → tổng phải bằng nhau.
-  assert.equal(summary.totalAdvanced, totalDebt);
-  // Kể cả khi có người nộp DƯ (Binh nộp 100 cho phần 100, Cuong mới 50/100) sổ vẫn cân.
-  assert.equal(summary.memberDebt.get('3'), 50);
-  assert.equal(summary.memberAdvanced.get('1'), 50);
 });

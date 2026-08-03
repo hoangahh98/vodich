@@ -3,7 +3,6 @@ const test = require('node:test');
 const ejs = require('ejs');
 
 const { matchSnapshot } = require('./helpers/snapshot');
-const { buildMonthReport } = require('../dist/household/household-calc');
 
 const root = path.join(__dirname, '..');
 const renderView = (view, locals) => ejs.renderFile(path.join(root, 'src/views', view), locals);
@@ -33,10 +32,10 @@ function locals(over = {}) {
 const ROLES = [
   {
     name: 'client',
-    mo_ta: 'vận động viên: chỉ giải đấu, đội bóng, du lịch',
+    mo_ta: 'vận động viên: chỉ giải đấu và đội bóng',
     locals: locals({
       currentUser: { id: '77', role: 'CLIENT', displayName: 'Vận động viên', email: 'vdv@test' },
-      featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'TRAVEL']),
+      featureSet: new Set(['TOURNAMENTS', 'TEAMS']),
     }),
   },
   {
@@ -52,7 +51,7 @@ const ROLES = [
     mo_ta: 'admin gốc: thấy hết, kể cả Phân quyền và Log',
     locals: locals({
       currentUser: { id: '1', role: 'ADMIN', displayName: 'Admin gốc', email: 'admin' },
-      featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'TRAVEL', 'MEDICAL', 'HOUSEHOLD', 'PERMISSIONS']),
+      featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'PERMISSIONS']),
       isRoot: true,
     }),
   },
@@ -75,56 +74,8 @@ test('snapshot trang phân quyền của admin gốc', async () => {
       { id: 2n, username: 'subadmin', displayName: 'Sub Admin', permissions: [{ feature: 'TEAMS' }] },
       { id: 3n, username: 'ketoan', displayName: 'Kế Toán', permissions: [] },
     ],
-    features: ['TOURNAMENTS', 'TEAMS', 'TRAVEL', 'MEDICAL', 'HOUSEHOLD'],
+    features: ['TOURNAMENTS', 'TEAMS', 'PERMISSIONS'],
   });
   matchSnapshot('permissions-admin-goc', html);
 });
 
-// ─── Sổ chi tiêu: chủ sổ thấy khung phân quyền, người được mời thì không ───
-
-function householdLocals(over = {}) {
-  const currentBook = {
-    id: 1,
-    name: 'Sổ chi tiêu gia đình',
-    ownerAdminId: 7n,
-    ownerAdmin: { id: 7n, username: 'admin', displayName: 'Admin' },
-    permissions: [{ id: 5n, admin: { id: 9n, username: 'subadmin', displayName: 'Sub Admin' } }],
-  };
-  const anchorDate = new Date('2026-06-01T00:00:00Z');
-  const config = { id: 1, anchorDate };
-  // Sổ rỗng: snapshot này chỉ soi khung phân quyền, không cần số liệu tiền nong.
-  const empty = { incomeCategories: [], expenseCategories: [], incomes: [], expenses: [], debts: [] };
-  const report = buildMonthReport({ config, month: '2026-06', ...empty });
-  return {
-    ...locals({ featureSet: new Set(['HOUSEHOLD']), path: '/household/cai-dat' }),
-    section: 'cai-dat',
-    config,
-    report,
-    book: { report, ...empty },
-    books: [currentBook],
-    currentBook,
-    isOwner: true,
-    admins: [{ id: 9n, username: 'other', displayName: 'Admin Khác' }],
-    chat: [],
-    aiConfigured: true,
-    draft: null,
-    msg: '',
-    err: '',
-    ...over,
-  };
-}
-
-test('snapshot cài đặt sổ chi tiêu — chủ sổ được cấp/gỡ quyền', async () => {
-  matchSnapshot('household-caidat-chu-so', await renderView('household/index.ejs', householdLocals()));
-});
-
-test('snapshot cài đặt sổ chi tiêu — người được mời KHÔNG thấy khung phân quyền', async () => {
-  const html = await renderView(
-    'household/index.ejs',
-    householdLocals({
-      currentUser: { id: '9', role: 'ADMIN', displayName: 'Sub Admin', email: 'subadmin' },
-      isOwner: false,
-    }),
-  );
-  matchSnapshot('household-caidat-duoc-moi', html);
-});

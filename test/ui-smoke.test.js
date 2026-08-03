@@ -16,7 +16,7 @@ function renderView(viewPath, locals) {
 function commonLocals(route = '/') {
   return {
     currentUser: { role: 'ADMIN', displayName: 'Admin', email: 'admin@test' },
-    featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'TRAVEL', 'PERMISSIONS']),
+    featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'PERMISSIONS']),
     isRoot: true,
     path: route,
     formatMoney: (value) => String(Math.round(Number(value) || 0)),
@@ -109,13 +109,59 @@ test('permission page renders bulk edit and create admin controls', async () => 
   const html = await renderView('permissions.ejs', {
     ...commonLocals('/permissions'),
     admins: [{ id: 2n, username: 'subadmin', displayName: 'Sub Admin', permissions: [{ feature: 'TEAMS' }] }],
-    features: ['TOURNAMENTS', 'TEAMS', 'TRAVEL', 'PERMISSIONS'],
+    features: ['TOURNAMENTS', 'TEAMS', 'PERMISSIONS'],
   });
 
   assert.match(html, /permission-create-form/);
   assert.match(html, /permission-create-action/);
   assert.match(html, /name="username_2"/);
   assert.match(html, /name="features_2"/);
+});
+
+function logLocals(over = {}) {
+  return {
+    ...commonLocals('/logs'),
+    logs: [
+      { createdAt: new Date('2026-08-03T03:00:00Z'), level: 'ERROR', username: 'admin@test', userRole: 'ADMIN',
+        category: 'HTTP', action: 'POST /teams/1/expenses', method: 'POST', path: '/teams/1/expenses',
+        statusCode: 500, durationMs: 12, details: '', errorMessage: 'boom' },
+    ],
+    level: 'ERROR',
+    levels: ['ERROR', 'WARN', 'INFO', 'ALL'],
+    category: 'ALL',
+    categories: ['ALL', 'HTTP', 'ACCESS', 'REDIS'],
+    user: 'ALL',
+    users: [{ value: 'ALL', label: 'Tất cả' }, { value: 'admin@test', label: 'admin@test' }],
+    ...over,
+  };
+}
+
+test('log page filters by user and every filter link carries all three params', async () => {
+  const html = await renderView('logs/index.ejs', logLocals({ user: 'admin@test' }));
+
+  assert.match(html, /name="user"/, 'phải có ô chọn tài khoản');
+  assert.match(html, /value="admin@test" selected/);
+  // Bấm đổi mức mà mất tham số user thì bảng âm thầm quay về "mọi tài khoản".
+  assert.match(html, /href="\/logs\?level=WARN&amp;category=ALL&amp;user=admin%40test"/);
+  assert.match(html, /href="\/logs\?level=ERROR&amp;category=HTTP&amp;user=admin%40test"/);
+  assert.match(html, /Bỏ lọc/, 'đang lọc một người thì phải có đường thoát');
+});
+
+test('log page keeps REDIS shortcut, hides clear-filter when unfiltered, and states empty results', async () => {
+  const html = await renderView('logs/index.ejs', logLocals());
+  assert.match(html, /href="\/logs\?level=ALL&amp;category=REDIS&amp;user=ALL"/, 'nhóm Redis vẫn mở mức về ALL như cũ');
+  assert.doesNotMatch(html, /Bỏ lọc/, 'chưa lọc ai thì không bày nút bỏ lọc');
+
+  const empty = await renderView('logs/index.ejs', logLocals({ logs: [] }));
+  assert.match(empty, /Không có dòng log nào khớp/, 'bảng rỗng trơn trông như chưa tải xong');
+});
+
+/** Lọc theo tài khoản không có dòng nào: ô chọn phải hiện đúng người đó, không nhảy sang người khác. */
+test('log page keeps the filtered account in the dropdown even with no rows', async () => {
+  const html = await renderView('logs/index.ejs', logLocals({ user: 'ghost@test', logs: [] }));
+
+  assert.match(html, /value="ghost@test" selected/);
+  assert.match(html, /không có log/);
 });
 
 test('tournament schedule view keeps score modal and registration copy contract', async () => {
@@ -184,83 +230,6 @@ test('external registration flow views render form and success login link', asyn
   });
   assert.match(success, /guest%40test/);
   assert.match(success, /next=/);
-});
-
-test('travel views render dashboard and finance detail without overflow-prone placeholders', async () => {
-  const member = {
-    id: 1n,
-    name: 'An',
-    email: 'an@test',
-    collections: [{ amount: 100, note: 'ok' }],
-    player: { email: 'an@test' },
-  };
-  const summary = {
-    totalSpent: 200,
-    totalCollectedDisplay: 100,
-    totalAdvanced: 50,
-    balance: -100,
-    memberSpent: new Map([['1', 200]]),
-    memberPaidTotal: new Map([['1', 50]]),
-    memberAdvanced: new Map([['1', 50]]),
-    memberDebt: new Map([['1', 100]]),
-    actualCollected: new Map([['1', 100]]),
-    balances: new Map([['1', -100]]),
-    paymentSuggestions: [],
-  };
-  const dashboard = await renderView('travel/index.ejs', {
-    ...commonLocals('/travel'),
-    trips: [{ id: 1n, name: 'Trip', description: 'Note', destination: { name: 'Đà Nẵng' }, members: [member], expenses: [{ amount: 200 }] }],
-    destinations: [{ id: 1n, name: 'Đà Nẵng' }],
-  });
-  const home = await renderView('home.ejs', commonLocals('/'));
-  const detailLocals = (section, isTravelAdmin, extra = {}) => ({
-    ...commonLocals('/travel/trips/1'),
-    trip: { id: 1n, name: 'Trip', description: 'Note', destinationId: 1n, destination: { name: 'Đà Nẵng' }, treasurerMemberId: 1n, permissions: [] },
-    members: [member],
-    expenses: [{ id: 1n, title: 'Ẩm thực', amount: 200, note: 'Bữa tối', spentDate: new Date(), paidByMemberId: 1n, paidByMember: member, splits: [{ memberId: 1n, amount: 200 }] }],
-    availablePlayers: [{ id: 9n, displayName: 'Bình', email: 'binh@test' }],
-    admins: [],
-    destinations: [{ id: 1n, name: 'Đà Nẵng' }],
-    destinationSuggestions: [{ id: 1n, category: 'Quán ăn ngon', name: 'Mì Quảng', address: 'Đà Nẵng', description: '', mapUrl: '' }],
-    summary,
-    viewerMemberId: null,
-    expenseCategories: ['Ẩm thực', 'Khác'],
-    suggestionCategories: ['Quán ăn ngon'],
-    hasPlaces: true,
-    section,
-    isTravelAdmin,
-    today: '2026-07-03',
-    ...extra,
-  });
-
-  const overview = await renderView('travel/detail.ejs', detailLocals('overview', true));
-  const membersAdmin = await renderView('travel/detail.ejs', detailLocals('members', true));
-  const expensesAdmin = await renderView('travel/detail.ejs', detailLocals('expenses', true));
-  const membersClient = await renderView('travel/detail.ejs', detailLocals('members', false, { viewerMemberId: 1n }));
-
-  assert.match(dashboard, /data-travel-index/);
-  assert.match(dashboard, /🌴/);
-  // Điều hướng section nằm trong menu ☰ (bottom-menu), là link thật tới từng section.
-  assert.match(overview, /data-travel-trip-id="1"/);
-  assert.match(overview, /href="\/travel\/trips\/1\/members"/);
-  assert.match(overview, /Tổng ứng trước/);
-  // Thu tiền đã chuyển vào Tổng quan.
-  assert.match(overview, /Đã trả/);
-  assert.match(overview, /\/collections/);
-  assert.match(membersAdmin, /danh sách chung/);
-  assert.match(membersAdmin, /name="playerId"/);
-  // Thành viên: 2 nút chung ở dưới (lưu full + xóa đã tích), inline theo id.
-  assert.match(membersAdmin, /Xóa đã tích/);
-  assert.match(membersAdmin, /Lưu thay đổi/);
-  assert.match(membersAdmin, /name="name_9"|name="name_1"/);
-  assert.doesNotMatch(membersAdmin, /members\/1\/edit/);
-  assert.match(expensesAdmin, /travel-expense-form/);
-  // Client không thấy form thêm khoản chi / thu tiền, nhưng vẫn thấy bảng thành viên.
-  assert.doesNotMatch(membersClient, /travel-expense-form/);
-  assert.doesNotMatch(membersClient, /\/collections/);
-  assert.match(membersClient, /class="travel-table"/);
-  assert.match(home, /pickleball-icon/);
-  assert.doesNotMatch(home, /module-card" href="\/score-reader/);
 });
 
 test('score reader renders for standalone friendly scoring', async () => {
@@ -378,9 +347,9 @@ test('không trang nào tự dựng <head> riêng để lọt lưới khoá zoom
 
 /**
  * CA THẬT: ô `type="date"` trên Safari iOS render theo cỡ nội tại, to hơn ô chứa và ĐÈ
- * lên ô bên cạnh. Đã phải vá riêng cho .travel-expense-form, rồi .medical-form, rồi tới
- * form chi tiêu lại dính y hệt — vì bản vá nằm ở từng form thay vì quy tắc chung.
- * Test này khoá bản vá ở quy tắc chung để form thứ tư không phải phát hiện lại.
+ * lên ô bên cạnh. Đã phải vá riêng cho ba form khác nhau, lần nào cũng phát hiện lại từ đầu,
+ * vì bản vá nằm ở từng form thay vì quy tắc chung.
+ * Test này khoá bản vá ở quy tắc chung để form tiếp theo không phải dẫm lại vết đó.
  */
 test('ô ngày được chuẩn hoá ở quy tắc CHUNG, không vá lẻ theo từng form', () => {
   const css = fs.readFileSync(path.join(root, 'public/css/app.css'), 'utf8');

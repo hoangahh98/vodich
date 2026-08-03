@@ -7,9 +7,6 @@ const { requireFeature, requireUser, safeNext, wantsJson } = require('../dist/co
 const { AuthService } = require('../dist/auth/auth.service');
 const { TeamCrudService } = require('../dist/teams/team-crud.service');
 const { TournamentCrudService } = require('../dist/tournaments/tournament-crud.service');
-const { MedicalService } = require('../dist/medical/medical.service');
-const { HouseholdService } = require('../dist/household/household.service');
-const { HouseholdAccessService } = require('../dist/household/household-access.service');
 
 /**
  * Test PHÂN QUYỀN và CHỐNG RÒ DỮ LIỆU giữa hai admin.
@@ -40,15 +37,6 @@ function spyPrisma(shape) {
     teamClub: model('teamClub', ['findMany', 'findFirst', 'count', 'create', 'update']),
     teamMember: model('teamMember', ['groupBy', 'findMany']),
     tournament: model('tournament', ['findMany', 'findFirst', 'count', 'create']),
-    medPatient: model('medPatient', ['findMany', 'findFirst']),
-    householdConfig: model('householdConfig', ['findMany', 'findUnique', 'create']),
-    householdIncomeCategory: model('householdIncomeCategory', ['findMany', 'findFirst', 'deleteMany', 'create', 'update']),
-    householdExpenseCategory: model('householdExpenseCategory', ['findMany', 'findFirst', 'deleteMany', 'create', 'update']),
-    householdIncome: model('householdIncome', ['findMany', 'findFirst', 'deleteMany', 'create', 'createMany']),
-    householdExpense: model('householdExpense', ['findMany', 'findFirst', 'deleteMany', 'create']),
-    householdDebt: model('householdDebt', ['findMany', 'findFirst', 'deleteMany', 'create', 'update']),
-    householdChatMessage: model('householdChatMessage', ['findMany', 'createMany', 'deleteMany']),
-    householdPermission: model('householdPermission', ['create', 'deleteMany']),
     appUser: model('appUser', ['findMany']),
   };
 }
@@ -138,126 +126,11 @@ test('TournamentCrudService.create đóng dấu người tạo, không nhận ow
   assert.equal(created.ownerAdminId, 20n, 'chủ sở hữu lấy từ phiên đăng nhập, không lấy từ body');
 });
 
-// ─── Hồ sơ y tế: nhạy cảm nhất, admin gốc CŨNG không được xem hết ───
-
-test('MedicalService.getPatient lọc theo quyền ngay trong câu truy vấn', async () => {
-  const prisma = spyPrisma({ medPatient: { findFirst: async () => null } });
-  await new MedicalService(prisma).getPatient(9n, BOB);
-  const where = prisma.lastWhere();
-  assert.equal(where.id, 9n);
-  assert.ok(scopesToAdmin(where, 20n), 'id hồ sơ đi kèm bộ lọc quyền, không tra id trần');
-});
-
-test('MedicalService: admin gốc KHÔNG mặc nhiên xem được bệnh án nhà người khác', async () => {
-  const prisma = spyPrisma({ medPatient: { findMany: async () => [] } });
-  await new MedicalService(prisma).listPatients(ROOT);
-  assert.ok(scopesToAdmin(prisma.lastWhere(), 1n), 'admin gốc vẫn phải được cấp quyền tường minh');
-});
-
-// ─── Sổ chi tiêu: bộ lọc theo sổ trong MỌI truy vấn ───
-
-test('HouseholdService: mọi truy vấn đọc đều kèm householdId', async () => {
-  const empty = { findMany: async () => [] };
-  const prisma = spyPrisma({
-    householdConfig: { findUnique: async () => ({ id: 1, anchorDate: new Date() }) },
-    householdIncomeCategory: empty,
-    householdExpenseCategory: empty,
-    householdIncome: empty,
-    householdExpense: empty,
-    householdDebt: empty,
-  });
-  await new HouseholdService(prisma).book(1, '2026-06');
-  const reads = prisma.calls.filter((c) => c.model !== 'householdConfig');
-  assert.ok(reads.length >= 5, 'phải đọc đủ 5 bảng con của sổ');
-  for (const call of reads) {
-    assert.equal(call.where?.householdId, 1, `${call.model}.${call.method} thiếu bộ lọc householdId`);
-  }
-});
-
-test('HouseholdService.deleteExpense không xoá được khoản chi của sổ khác', async () => {
-  const prisma = spyPrisma({
-    householdExpense: {
-      findFirst: async ({ where }) => (where.householdId === 1 ? { id: 55n, month: '2026-06' } : null),
-      deleteMany: async ({ where }) => ({ count: where.householdId === 1 ? 1 : 0 }),
-    },
-  });
-  const service = new HouseholdService(prisma);
-
-  assert.equal(await service.deleteExpense(1, 55n), '2026-06', 'xoá được khoản chi của chính sổ mình');
-  assert.equal(prisma.lastWhere().householdId, 1, 'điều kiện xoá phải kèm id sổ');
-  // Sổ khác: `findFirst` không thấy dòng nào nên không có lệnh xoá nào được phát ra.
-  const before = prisma.calls.length;
-  await service.deleteExpense(2, 55n);
-  assert.ok(
-    prisma.calls.slice(before).every((c) => c.where?.householdId === 2),
-    'gửi id sổ khác thì mọi truy vấn vẫn bị khoá vào đúng sổ đó',
-  );
-});
-
-test('HouseholdService.addExpense từ chối loại và khoản nợ không thuộc sổ này', async () => {
-  let created = null;
-  const prisma = spyPrisma({
-    householdExpenseCategory: {
-      findFirst: async ({ where }) => (where.householdId === 1 && where.id === 11n ? { id: 11n, kind: 'normal' } : null),
-    },
-    householdDebt: { findFirst: async ({ where }) => (where.householdId === 1 && where.id === 9n ? { id: 9n } : null) },
-    householdExpense: {
-      create: async ({ data }) => {
-        created = data;
-        return data;
-      },
-    },
-  });
-  const service = new HouseholdService(prisma);
-
-  const ok = await service.addExpense(1, { categoryId: '11', amount: '500000', occurredAt: '2026-06-18' });
-  assert.equal(ok.err, undefined);
-  assert.equal(created.categoryId, 11n);
-  assert.equal(prisma.calls[0].where.householdId, 1, 'tra loại phải kèm id sổ');
-
-  created = null;
-  const foreign = await service.addExpense(2, { categoryId: '11', amount: '500000', occurredAt: '2026-06-18' });
-  assert.match(foreign.err, /Chưa chọn loại/, 'loại của sổ khác thì từ chối ghi');
-  assert.equal(created, null, 'và tuyệt đối không tạo dòng nào');
-});
-
-test('HouseholdAccessService: admin thường chỉ thấy sổ của mình, chỉ chủ sổ được phân quyền', async () => {
-  const books = [
-    { id: 1, ownerAdminId: 10n, permissions: [] },
-    { id: 2, ownerAdminId: 20n, permissions: [] },
-  ];
-  const prisma = spyPrisma({ householdConfig: { findMany: async ({ where }) => (Object.keys(where).length ? [books[1]] : books) } });
-  const access = new HouseholdAccessService(prisma);
-
-  await access.listBooks(BOB);
-  assert.ok(scopesToAdmin(prisma.lastWhere(), 20n), 'admin thường bị lọc theo quyền');
-
-  assert.equal(access.isOwner(BOB, books[1]), true);
-  assert.equal(access.isOwner(BOB, books[0]), false, 'Bob không phải chủ sổ của Alice');
-  assert.equal(access.isOwner(ROOT, books[0]), true, 'admin gốc vẫn phân quyền được');
-});
-
-test('HouseholdAccessService.resolveBook bỏ qua id sổ mà admin không được vào', async () => {
-  const mine = { id: 2, ownerAdminId: 20n, permissions: [] };
-  const prisma = spyPrisma({ householdConfig: { findMany: async () => [mine] } });
-  const access = new HouseholdAccessService(prisma);
-
-  // Bob cố mở sổ số 1 của Alice bằng ?book=1.
-  const { current } = await access.resolveBook(BOB, '1');
-  assert.equal(current.id, 2, 'id lạ bị bỏ qua, rơi về sổ hợp lệ của chính Bob');
-});
-
-test('HouseholdAccessService.removePermission ràng buộc theo đúng sổ', async () => {
-  const prisma = spyPrisma({ householdPermission: { deleteMany: async () => ({ count: 0 }) } });
-  await new HouseholdAccessService(prisma).removePermission(2, 77n);
-  assert.deepEqual(prisma.lastWhere(), { id: 77n, householdId: 2 }, 'không gỡ được quyền của sổ khác');
-});
-
 // ─── Bộ khoá tính năng ───
 
 test('AuthService.can: CLIENT không bao giờ chạm được module quản trị', () => {
   const auth = new AuthService({});
-  for (const feature of ['MEDICAL', 'HOUSEHOLD', 'PERMISSIONS']) {
+  for (const feature of ['PERMISSIONS']) {
     assert.equal(auth.can(CLIENT, feature, new Set([feature])), false, `CLIENT không được ${feature}`);
   }
   assert.equal(auth.can(CLIENT, 'TOURNAMENTS'), true);
@@ -266,14 +139,14 @@ test('AuthService.can: CLIENT không bao giờ chạm được module quản tr�
 test('AuthService.can: admin thường chỉ có đúng feature được cấp', () => {
   const auth = new AuthService({});
   assert.equal(auth.can(ALICE, 'TEAMS', new Set(['TEAMS'])), true);
-  assert.equal(auth.can(ALICE, 'MEDICAL', new Set(['TEAMS'])), false);
+  assert.equal(auth.can(ALICE, 'TOURNAMENTS', new Set(['TEAMS'])), false);
   assert.equal(auth.can(ALICE, 'TEAMS', undefined), false, 'không có bộ quyền thì mặc định CHẶN');
   assert.equal(auth.can(undefined, 'TEAMS', new Set(['TEAMS'])), false);
 });
 
 test('AuthService.can: admin gốc đi qua mọi feature', () => {
   const auth = new AuthService({});
-  assert.equal(auth.can(ROOT, 'HOUSEHOLD'), true);
+  assert.equal(auth.can(ROOT, 'TEAMS'), true);
   assert.equal(auth.can(ROOT, 'PERMISSIONS'), true);
 });
 
@@ -339,14 +212,14 @@ test('FeatureGuard chặn admin thiếu feature, trả 403 chứ không im lặn
   denials.length = 0;
   const { res, context, reflector } = guardContext({
     user: ALICE,
-    classMeta: { featureAccess: 'MEDICAL' },
+    classMeta: { featureAccess: 'TOURNAMENTS' },
   });
   const allowed = new FeatureGuard(auth, reflector, fakeLogs).canActivate(context);
 
   assert.equal(allowed, false);
   assert.equal(res.statusCode, 403);
   assert.equal(res.rendered.view, 'error');
-  assert.match(denials[0].reason, /MEDICAL/);
+  assert.match(denials[0].reason, /TOURNAMENTS/);
 });
 
 test('FeatureGuard cho qua khi admin có đúng feature', () => {
@@ -396,7 +269,7 @@ test('FeatureGuard trả JSON 401 cho lời gọi fetch, không redirect câm', 
 
 test('requireFeature chặn khi thiếu quyền và khi chưa đăng nhập', () => {
   const denied = { statusCode: 0, locals: { featureSet: new Set(['TEAMS']) }, status(c) { this.statusCode = c; return this; }, render() {}, redirect() {} };
-  assert.equal(requireFeature({ session: { user: ALICE } }, denied, auth, 'MEDICAL'), undefined);
+  assert.equal(requireFeature({ session: { user: ALICE } }, denied, auth, 'TOURNAMENTS'), undefined);
   assert.equal(denied.statusCode, 403);
 
   let redirected = null;

@@ -64,7 +64,7 @@ test('CSRF: Origin "null" của PWA iOS KHÔNG bị coi là site lạ', () => {
   assert.equal(checkSameOrigin(req('POST', iphone)).ok, true, 'Origin null nghĩa là không khai, không phải đến từ site lạ');
 
   // Vẫn kiểm được khi có Referer đi kèm.
-  assert.equal(checkSameOrigin(req('POST', { ...iphone, referer: 'https://duhy.onrender.com/household' })).ok, true);
+  assert.equal(checkSameOrigin(req('POST', { ...iphone, referer: 'https://duhy.onrender.com/teams' })).ok, true);
   assert.equal(checkSameOrigin(req('POST', { ...iphone, referer: 'https://evil.example/x' })).ok, false);
 
   // Và Sec-Fetch-Site vẫn thắng nếu có.

@@ -13,18 +13,6 @@ import { GamesController } from './games/games.controller';
 import { KnightController } from './games/knight.controller';
 import { KnightService } from './games/knight.service';
 import { KnightAiService } from './games/knight-ai.service';
-import { MedicalController } from './medical/medical.controller';
-import { MedicalCabinetController } from './medical/medical-cabinet.controller';
-import { MedicalPrescriptionController } from './medical/medical-prescription.controller';
-import { MedicalScheduleController } from './medical/medical-schedule.controller';
-import { MedicalScopeService } from './medical/medical-scope.service';
-import { MedicalService } from './medical/medical.service';
-import { MedicalAiService } from './medical/medical-ai.service';
-import { CabinetService } from './medical/cabinet.service';
-import { HouseholdController } from './household/household.controller';
-import { HouseholdService } from './household/household.service';
-import { HouseholdAccessService } from './household/household-access.service';
-import { HouseholdAiService } from './household/household-ai.service';
 import { PlayersController } from './players/players.controller';
 import { PlayersService } from './players/players.service';
 import { TournamentService } from './tournaments/tournament.service';
@@ -50,11 +38,6 @@ import { TeamFundService } from './teams/team-fund.service';
 import { TeamMemberController } from './teams/team-member.controller';
 import { TeamMemberService } from './teams/team-member.service';
 import { TeamController } from './teams/team.controller';
-import { TravelController } from './travel/travel.controller';
-import { TravelFinanceController } from './travel/travel-finance.controller';
-import { TravelFinanceService } from './travel/travel-finance.service';
-import { TravelService } from './travel/travel.service';
-import { TravelAiService } from './travel/travel-ai.service';
 import { AiService } from './common/ai.service';
 import { LocalsMiddleware } from './common/locals.middleware';
 import { RateLimitService } from './common/rate-limit.service';
@@ -62,7 +45,7 @@ import { FeatureGuard } from './common/feature.guard';
 import { CsrfMiddleware } from './common/csrf';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, TravelController, TravelFinanceController, MedicalController, MedicalCabinetController, MedicalPrescriptionController, MedicalScheduleController, HouseholdController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, AdminController],
   providers: [
     PrismaService,
     AuthService,
@@ -85,16 +68,6 @@ import { CsrfMiddleware } from './common/csrf';
     TeamExpenseService,
     TeamFundService,
     TeamMemberService,
-    TravelService,
-    TravelFinanceService,
-    TravelAiService,
-    MedicalService,
-    MedicalAiService,
-    MedicalScopeService,
-    CabinetService,
-    HouseholdService,
-    HouseholdAccessService,
-    HouseholdAiService,
     AiService,
     MatchGateway,
     LocalsMiddleware,

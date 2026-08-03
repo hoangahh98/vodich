@@ -12,7 +12,7 @@ const prisma = new PrismaClient();
 /**
  * AppLog là log vận hành, không phải dữ liệu nghiệp vụ: chiếm ~80% dung lượng backup và
  * phình thêm mỗi ngày. Backup tự động chạy hằng ngày mà kèm nó thì repo backup tăng vài GB
- * một năm. Mất log cũ không phải thảm hoạ — mất giải đấu/đội bóng/sổ chi tiêu mới là.
+ * một năm. Mất log cũ không phải thảm hoạ — mất giải đấu/đội bóng mới là.
  * Cần cả log thì chạy: BACKUP_INCLUDE_LOGS=true npm run backup
  */
 const OPERATIONAL_MODELS = new Set(['AppLog']);

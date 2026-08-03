@@ -82,8 +82,8 @@ export class AuthService implements OnModuleInit {
 
   async featureSet(user?: CurrentUser): Promise<Set<AppFeature>> {
     if (!user) return new Set();
-    if (user.role === 'CLIENT') return new Set(['TOURNAMENTS', 'TEAMS', 'TRAVEL']);
-    if (this.isRoot(user)) return new Set(['TOURNAMENTS', 'TEAMS', 'TRAVEL', 'MEDICAL', 'HOUSEHOLD', 'PERMISSIONS']);
+    if (user.role === 'CLIENT') return new Set(['TOURNAMENTS', 'TEAMS']);
+    if (this.isRoot(user)) return new Set(['TOURNAMENTS', 'TEAMS', 'PERMISSIONS']);
     const permissions = await this.prisma.adminFeaturePermission.findMany({ where: { adminId: BigInt(user.id) } });
     return new Set(permissions.map((permission) => permission.feature as AppFeature));
   }
@@ -95,7 +95,7 @@ export class AuthService implements OnModuleInit {
   can(user: CurrentUser | undefined, feature: AppFeature, featureSet?: Set<string>): boolean {
     if (!user) return false;
     if (this.isRoot(user)) return true;
-    if (user.role === 'CLIENT') return ['TOURNAMENTS', 'TEAMS', 'TRAVEL'].includes(feature);
+    if (user.role === 'CLIENT') return ['TOURNAMENTS', 'TEAMS'].includes(feature);
     return featureSet ? featureSet.has(feature) : false;
   }
 }

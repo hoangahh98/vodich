@@ -26,10 +26,12 @@ test('ORDER không có bảng trùng lặp', () => {
 
 /**
  * Khoá ngoại chỉ trỏ về bảng đã chèn trước đó, nếu không Postgres từ chối ngay.
- * Ngoại lệ đã biết: TravelTrip.treasurerMemberId trỏ tới TravelTripMember (khoá vòng),
- * script xử lý bằng cách chèn trip với treasurer = null rồi vá lại sau.
+ *
+ * Hiện KHÔNG còn khoá vòng nào (cái duy nhất là TravelTrip.treasurerMemberId, đã đi cùng
+ * module du lịch ngày 3/8/2026). Giữ lại tập rỗng chứ không xoá hẳn: thêm khoá vòng mới thì
+ * khai vào đây, kèm cách script phá vòng — chứ đừng nới lỏng phép kiểm.
  */
-const KNOWN_CYCLES = new Set(['TravelTrip.treasurerMemberId']);
+const KNOWN_CYCLES = new Set([]);
 
 test('ORDER xếp cha trước con theo đúng khoá ngoại', () => {
   const position = new Map(ORDER.map((name, index) => [name, index]));

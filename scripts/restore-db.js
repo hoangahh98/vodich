@@ -13,23 +13,13 @@ const { PrismaClient, Prisma } = require('@prisma/client');
 
 const prisma = new PrismaClient();
 
-// Thứ tự chèn: cha trước con. TravelTrip có khóa vòng (treasurerMemberId -> TravelTripMember)
-// nên chèn trip với treasurer=null trước, chèn member, rồi vá lại treasurer.
+// Thứ tự chèn: cha trước con.
 const ORDER = [
   'AppUser', 'Player', 'AdminFeaturePermission',
   'Tournament', 'TournamentPermission', 'TournamentRegistration', 'MatchGame',
   'TeamClub', 'TeamClubPermission', 'TeamMember', 'TeamMonthFund', 'TeamMemberPayment', 'TeamExpense',
   'AppLog',
-  'TravelDestination', 'TravelSuggestion', 'TravelPerson',
-  'TravelTrip', 'TravelTripMember', 'TravelTripPermission', 'TravelTripCollection',
-  'TravelTripExpense', 'TravelTripExpenseSplit',
   'KnightCharacter', 'KnightProgress',
-  'MedPatient', 'MedPatientPermission', 'MedPrescription', 'MedPrescriptionItem', 'MedCabinetItem',
-  // Sổ chi tiêu: config là gốc, rồi tới các loại thu/chi và sổ nợ, cuối cùng mới tới
-  // các khoản thu/chi trỏ vào chúng.
-  'HouseholdConfig', 'HouseholdPermission',
-  'HouseholdIncomeCategory', 'HouseholdExpenseCategory', 'HouseholdDebt',
-  'HouseholdIncome', 'HouseholdExpense', 'HouseholdChatMessage',
 ];
 
 /**
@@ -110,13 +100,27 @@ async function main() {
   const payload = JSON.parse(fs.readFileSync(file, 'utf8'));
   const data = payload.data || {};
 
-  // Backup chứa bảng mà script không biết chèn ⇒ dừng, đừng khôi phục nửa vời.
-  const unhandled = Object.keys(data).filter((name) => !ORDER.includes(name) && (data[name] || []).length);
+  // Backup có bảng mà ORDER không biết chèn. Hai ca KHÁC HẲN nhau:
+  //
+  //  a) Bảng vẫn còn trong schema  -> LỖI THẬT (quên khai vào ORDER). Dừng ngay, vì chạy tiếp
+  //     là khôi phục nửa vời rồi báo "thành công" — đúng cái bẫy im lặng ORDER sinh ra để chặn.
+  //  b) Bảng KHÔNG còn trong schema -> module đã bị gỡ bỏ có chủ ý (y tế, chi tiêu, du lịch —
+  //     gỡ ngày 3/8/2026). File backup cũ hơn ngày đó vẫn chứa chúng. Bỏ qua, nhưng phải NÓI TO
+  //     kèm số dòng: chặn hẳn thì một backup cũ mất luôn khả năng khôi phục 16 bảng còn lại,
+  //     mà im lặng bỏ qua thì người ta tưởng đã khôi phục đủ.
+  const known = new Set(Prisma.dmmf.datamodel.models.map((model) => model.name));
+  const withRows = Object.keys(data).filter((name) => !ORDER.includes(name) && (data[name] || []).length);
+  const unhandled = withRows.filter((name) => known.has(name));
   if (unhandled.length) {
     throw new Error(`File backup có bảng chưa được khai trong ORDER: ${unhandled.join(', ')}`);
   }
+  const retired = withRows.filter((name) => !known.has(name));
+  if (retired.length) {
+    console.log('\n!!! BỎ QUA — các bảng này thuộc module đã gỡ khỏi app, không còn chỗ để khôi phục:');
+    for (const name of retired) console.log(`      ${name}: ${data[name].length} dòng KHÔNG được nạp`);
+    console.log('    Cần lại dữ liệu đó thì phải checkout commit TRƯỚC lúc gỡ module rồi chạy restore ở đó.\n');
+  }
 
-  const treasurerPatches = [];
   let total = 0;
 
   for (const modelName of ORDER) {
@@ -126,26 +130,14 @@ async function main() {
     if (!delegate?.createMany) continue;
 
     const prepared = rows.map((row) => coerce(modelName, row));
-    if (modelName === 'TravelTrip') {
-      prepared.forEach((trip) => {
-        if (trip.treasurerMemberId !== null && trip.treasurerMemberId !== undefined) {
-          treasurerPatches.push({ id: trip.id, treasurerMemberId: trip.treasurerMemberId });
-          trip.treasurerMemberId = null;
-        }
-      });
-    }
     const result = await delegate.createMany({ data: prepared, skipDuplicates: true });
     total += result.count;
     console.log(`  ${modelName}: +${result.count}/${rows.length}`);
   }
 
-  for (const patch of treasurerPatches) {
-    await prisma.travelTrip.update({ where: { id: patch.id }, data: { treasurerMemberId: patch.treasurerMemberId } }).catch(() => undefined);
-  }
-
   const resequenced = await resetSequences();
 
-  console.log(`\nĐã phục hồi ${total} bản ghi từ ${path.basename(file)}. Vá ${treasurerPatches.length} thủ quỹ.`);
+  console.log(`\nĐã phục hồi ${total} bản ghi từ ${path.basename(file)}.`);
   console.log(`Đã đặt lại ${resequenced} bộ đếm id.`);
 }
 

@@ -60,13 +60,16 @@ Hai luật bắt buộc:
 2. **Xoá/sửa dùng `deleteMany`/`updateMany` kèm id chủ sở hữu**, để gửi lên id của người khác
    thì tác động 0 dòng thay vì thành công.
 
-Module đã áp dụng: giải đấu, đội bóng, du lịch, hồ sơ y tế, **sổ chi tiêu** (từ migration
-`20260728120000_household_owner_scope`).
+Module đã áp dụng: giải đấu, đội bóng.
+
+> Du lịch, hồ sơ y tế và sổ chi tiêu cũng dùng đúng khuôn này cho tới khi ba module bị gỡ
+> hẳn ngày 3/8/2026 (migration `20260803180000_drop_medical_household_travel`). Khuôn vẫn là
+> khuôn bắt buộc cho mọi module có chủ sở hữu thêm sau này.
 
 ### Ngoại lệ có chủ ý
 
-- **Hồ sơ y tế**: admin gốc **KHÔNG** mặc nhiên xem được. Bệnh án gia đình người khác phải
-  được cấp quyền tường minh. Các module còn lại thì admin gốc thấy hết.
+- Hiện **không còn** ngoại lệ nào theo module: admin gốc thấy hết. Ngoại lệ duy nhất từng có là
+  hồ sơ y tế (admin gốc không mặc nhiên xem được bệnh án nhà người khác), đã đi cùng module đó.
 - **Vai CLIENT**: chỉ đọc, và chỉ thấy giải/đội mà chính họ tham gia. Mật khẩu CLIENT là
   `123456789` dùng chung — **cố ý**, vì mọi thao tác ghi đều đòi vai ADMIN.
 
