@@ -41,6 +41,21 @@
     return current && current.direction === direction && !list.includes(current) ? [...list, current] : list;
   };
   const overRows = report.expenseByCategory.filter((row) => row.over > 0);
+  // Ô "tiền đi đâu / lấy từ đâu" của nút ghi nhanh trên sổ nợ. Người ta trả về thì tiền có thể
+  // cất vào két hoặc đem trả tiếp một khoản mình đang nợ; mình đi trả thì chỉ có hai nguồn —
+  // ví, hoặc rút két ra (nên chỉ liệt kê mục còn tiền, rút quá số dư là sai sổ).
+  const moveChoices = (direction) => {
+    const inbound = direction === 'lend';
+    const pools = report.savingPools.filter((pool) => (inbound ? pool.active : pool.balance > 0));
+    return [
+      { value: '', label: inbound ? '💰 Để ở ví' : '💰 Trả bằng tiền mặt' },
+      ...pools.map((pool) => ({
+        value: `pool-${pool.id}`,
+        label: `🐷 ${inbound ? 'Cất vào' : 'Rút từ'} ${pool.name} · đang có ${money(pool.balance)}`,
+      })),
+      ...(inbound ? oweDebts.map((d) => ({ value: `debt-${d.id}`, label: `🏦 Trả nợ ${debtLabel(d)}` })) : []),
+    ];
+  };
   // Ô "rút từ mục nào": mục còn tiền, cộng thêm mục mà dòng đang sửa đã trỏ tới (dù đã cạn) —
   // cùng lý do với ô chọn khoản nợ, thiếu nó thì sửa dòng cũ là tiền nhảy sang mục khác.
   const poolChoices = (currentId) => {
@@ -594,6 +609,36 @@
                 <% } %>
                 <% if (d.note) { %><br><%= d.note %><% } %>
               </div>
+              <%# Lối tắt của đúng dòng mà chủ sổ vẫn phải tự gõ ở mục Thu nhập / Chi phí — cộng
+                  thêm một câu hỏi mà khai tay không hỏi: rồi tiền đó đi đâu. Chọn một mục tiết
+                  kiệm (hoặc một khoản nợ khác) là sinh THÊM một dòng thật, không phải cái nhãn. %>
+              <details class="hh-entry hh-settle">
+                <summary>
+                  <span class="hh-entry-main">
+                    <strong>✅ Ghi một lần <%= group[0] === 'owe' ? 'trả' : 'thu' %></strong>
+                    <span class="muted">Trừ gốc khoản này, rồi nói luôn tiền <%= group[0] === 'owe' ? 'lấy từ đâu' : 'đi đâu' %></span>
+                  </span>
+                </summary>
+                <div class="hh-entry-body">
+                  <form class="household-form" method="post" action="/household/debts/<%= d.id %>/settle"><input type="hidden" name="book" value="<%= currentBook.id %>">
+                    <input type="hidden" name="month" value="<%= report.month %>">
+                    <div><label>Ngày</label><input type="date" name="occurredAt" value="<%= today %>" required></div>
+                    <%# Điền sẵn TOÀN BỘ phần còn lại: ca hay gặp nhất là trả/thu nốt một lần cho xong.
+                        Trả một phần thì sửa lại con số, không phải gõ từ đầu. %>
+                    <div><label>Gốc</label><input class="money-input" name="principal" value="<%= formatMoney(Math.max(0, d.remaining)) %>"></div>
+                    <div><label>Lãi</label><input class="money-input" name="interest"></div>
+                    <div><label>Tiền <%= group[0] === 'owe' ? 'lấy từ' : 'vào' %></label>
+                      <select name="transfer">
+                        <% moveChoices(group[0]).forEach((choice) => { %><option value="<%= choice.value %>"><%= choice.label %></option><% }) %>
+                      </select>
+                    </div>
+                    <div class="household-form-wide"><label>Ghi chú</label><input name="note" placeholder="<%= d.name %>"></div>
+                    <div class="household-form-action">
+                      <button class="btn btn-success" data-loading-text="Đang ghi...">✅ Đã <%= group[0] === 'owe' ? 'trả' : 'thu' %></button>
+                    </div>
+                  </form>
+                </div>
+              </details>
             </div>
           <% }) %>
           <% if (!rows.length) { %><p class="muted text-center">Chưa khai khoản nào.</p><% } %>

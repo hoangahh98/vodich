@@ -83,6 +83,37 @@ nào**. Số tiền của khoản đó = gốc + lãi (không gõ tay). Chọn n
 "trả nợ", hoặc gửi lên id khoản nợ của sổ khác — thì **bị từ chối ghi**, chứ không âm thầm bỏ liên
 kết: nếu bỏ im lặng, người dùng tưởng đã trừ nợ xong mà thực ra không trừ gì cả.
 
+### Nút ✅ ghi nhanh ngay trên dòng sổ nợ
+
+Mỗi khoản chưa xong có một khối gập **✅ Ghi một lần trả / thu** — lối tắt của đúng dòng mà chủ sổ
+vẫn phải tự gõ ở mục Thu nhập / Chi phí, điền sẵn **toàn bộ phần còn lại** (ca hay gặp nhất là trả
+nốt cho xong; trả một phần thì sửa lại con số). Nó đi qua **đúng bộ kiểm** của đường khai tay —
+`debtRemaining` là trần dùng chung, nên hai đường không thể lệch nhau.
+
+Điểm khác duy nhất: nó hỏi thêm một câu mà khai tay không hỏi — **rồi tiền đó đi đâu**.
+
+| Chiều | Ô hỏi | Chọn gì | Sinh thêm dòng gì |
+|---|---|---|---|
+| `lend` | Tiền **vào** | 💰 để ở ví | không gì cả |
+| | | 🐷 mục tiết kiệm | khoản **chi** kiểu `saving` vào mục đó |
+| | | 🏦 khoản mình đang nợ | khoản **chi** kiểu `debt` trả vào khoản đó |
+| `owe` | Tiền **lấy từ** | 💰 tiền mặt | không gì cả |
+| | | 🐷 mục tiết kiệm | khoản **thu** kiểu `saving`, `sourceCategoryId` = mục đó |
+
+**Là dòng thật, không phải cái nhãn.** Tiền đổi túi thì cả hai túi phải nhúc nhích cùng lúc: cất
+5tr vào quỹ thì ví +0 chứ không phải +5tr. Ghi thành dòng thì công thức tiền mặt sẵn có tự lo cả
+hai vế, và mọi dòng đều sửa/xoá/tra lại được y như dòng khai tay — đúng cách "rút tiết kiệm bù chi
+vượt" đang làm. Hai dòng ghi trong **một transaction**: ghi nửa vời thì nợ đã giảm mà tiền không
+tới nơi nào.
+
+Ba chỗ chặn: không rút quá số dư của mục tiết kiệm; id mục/khoản nợ không thuộc sổ hay sai chiều
+thì **từ chối** chứ không lặng lẽ rơi về "để ở ví"; trả sang một khoản nợ nhỏ hơn số vừa thu về
+thì **kẹp ở đúng phần còn nợ** và nói thẳng phần thừa còn lại bao nhiêu ở ví (từ chối hẳn thì chủ
+sổ phải tự bấm máy tính rồi khai tay — đúng việc cái nút này sinh ra để khỏi phải làm).
+
+Sổ chưa khai loại "Thu nợ" / "Trả nợ" / "Rút tiết kiệm" thì tạo hộ một loại dùng chung, không bắt
+chủ sổ bỏ dở việc để đi khai loại rồi quay lại.
+
 ## Trợ lý AI (mục 🤖 Trợ lý)
 
 Hai việc, đều chạy qua Groq (cần `GROQ_API_KEY`, xem `src/common/ai.service.ts`):
@@ -112,7 +143,7 @@ giống module giải đấu và đội bóng.
 | 📊 Tổng quan | `/household` | Ba ô Tiết kiệm / Chi phí / Thu nhập, còn lại luỹ kế, tóm tắt sổ nợ, chi–thu theo loại |
 | 💵 Thu nhập | `/household/thu` | Khai khoản thu; chép các khoản thu của tháng trước |
 | 💸 Chi phí | `/household/chi` | Khai khoản chi (loại kiểu trả nợ thì có ô gốc/lãi/khoản nợ); chép khoản **cố định** của tháng trước |
-| 🏦 Sổ nợ | `/household/so-no` | Khai khoản nợ mới (phần riêng, mở sẵn) · tiến độ trả từng khoản · sửa khoản cũ (gập) · ✅ Đã xong (gập) |
+| 🏦 Sổ nợ | `/household/so-no` | Khai khoản nợ mới (phần riêng, mở sẵn) · tiến độ + nút ✅ ghi nhanh từng khoản · sửa khoản cũ (gập) · ✅ Đã xong (gập) |
 | 🤖 Trợ lý | `/household/tro-ly` | Hỏi đáp về sổ, ghi nhanh bằng câu nói |
 | 🏷️ Loại thu nhập | `/household/loai-thu` | Khai/sửa/ẩn loại thu nhập |
 | 🏷️ Loại chi phí | `/household/loai-chi` | Khai/sửa/ẩn loại chi phí |

@@ -212,6 +212,16 @@ export class HouseholdController {
     return this.backTo(res, id, 'so-no', await this.household.addDebt(id, body));
   }
 
+  /** Ghi nhanh một lần trả/thu ngay trên dòng sổ nợ, kèm nơi tiền đi/đến. */
+  @Post('/household/debts/:id/settle')
+  async settleDebt(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
+    const id = await this.book(req, res);
+    if (id === null) return;
+    const debtId = parseBigId(rawId);
+    if (!debtId) return notFound(res);
+    return this.backTo(res, id, 'so-no', await this.household.settleDebt(id, { ...body, debtId: String(debtId) }));
+  }
+
   @Post('/household/debts/:id')
   async updateDebt(@Req() req: Request, @Res() res: Response, @Param('id') rawId: string, @Body() body: Record<string, string>) {
     const id = await this.book(req, res);

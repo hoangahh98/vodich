@@ -584,6 +584,14 @@ test('household view: sổ nợ tách rõ hai chiều và hiện tiến độ tr
   assert.match(html, /40000000/, 'còn phải thu của khoản cho vay');
 });
 
+/** Đoạn `needle` nằm sâu mấy tầng <details>? 0 = không bị gập vào khối nào cả. */
+function detailsDepthAt(html, needle) {
+  const at = html.indexOf(needle);
+  assert.notEqual(at, -1, `không tìm thấy "${needle}" trong trang`);
+  const before = html.slice(0, at);
+  return (before.match(/<details/g) || []).length - (before.match(/<\/details>/g) || []).length;
+}
+
 test('household view: sổ nợ tách KHAI mới và SỬA khoản cũ thành hai phần riêng', async () => {
   const html = await renderSection('so-no');
 
@@ -591,10 +599,10 @@ test('household view: sổ nợ tách KHAI mới và SỬA khoản cũ thành ha
   assert.match(html, /⚙️ Sửa khoản nợ đã khai/);
   assert.doesNotMatch(html, /Khai &amp; sửa khoản nợ/, 'không còn gộp chung một khối');
 
-  // Phần KHAI phải nằm ngoài <details>, không thì lại bị gập vào như cũ.
-  const collapsed = html.slice(html.indexOf('<details'));
-  assert.doesNotMatch(collapsed, /Khai khoản nợ mới/, 'form khai mới không được nằm trong khối gập');
-  assert.match(collapsed, /action="\/household\/debts\/101"/, 'form sửa thì nằm trong khối gập');
+  // Phần KHAI phải nằm ngoài <details>, không thì lại bị gập vào như cũ. Đếm độ sâu thay vì
+  // cắt từ <details> đầu tiên: mỗi dòng sổ nợ giờ cũng có một khối gập (nút ghi nhanh).
+  assert.equal(detailsDepthAt(html, '➕ Khai khoản nợ mới'), 0, 'form khai mới không được nằm trong khối gập');
+  assert.ok(detailsDepthAt(html, 'action="/household/debts/101"') > 0, 'form sửa thì nằm trong khối gập');
 
   // Đúng một form thêm mới (action không kèm id) — trước đây dễ nhân đôi khi tách khối.
   const addForms = [...html.matchAll(/action="\/household\/debts"/g)];
@@ -1476,6 +1484,229 @@ test('household view: thiếu tiền mặt thì cảnh báo có ô chọn mục 
   assert.match(body, /name="from" value="chi"/, 'ghi xong phải quay về đúng mục đang đứng');
   assert.match(body, /name="sourceCategoryId"/);
   assert.match(body, /value="4000000"/, 'điền sẵn đúng số đang thiếu');
+});
+
+// ─── Nút ghi nhanh trên dòng sổ nợ: trừ gốc + nói luôn tiền đi đâu ───
+
+/**
+ * Prisma giả cho nút ghi nhanh. Sổ có sẵn:
+ *   #101 mình nợ ngân hàng `owe` (đã trả `owePaid` gốc)
+ *   #102 anh Nam nợ mình  `lend` (đã thu `lendPaid` gốc)
+ *   loại chi #13 "Quỹ mua nhà" kiểu saving (đã cất `pool`, đã rút `taken`), #15 kiểu debt
+ *   loại thu #3 kiểu saving, #4 kiểu debt
+ */
+function settlePrisma({ owe = 10000000n, lend = 5000000n, owePaid = 0n, lendPaid = 0n, pool = 8000000n, taken = 0n } = {}) {
+  const incomes = [];
+  const expenses = [];
+  const madeCategories = [];
+  const debts = [
+    { id: 101n, direction: 'owe', name: 'Vay ngân hàng', initialAmount: owe },
+    { id: 102n, direction: 'lend', name: 'Anh Nam mượn', initialAmount: lend },
+  ];
+  const cats = (rows) => ({
+    findFirst: async ({ where }) => {
+      assert.equal(where.householdId, BOOK_ID, 'tra loại phải lọc theo id sổ');
+      return rows.find((c) => (where.id === undefined || c.id === where.id) && (where.kind === undefined || c.kind === where.kind)) ?? null;
+    },
+    create: async ({ data }) => {
+      madeCategories.push(data);
+      return { id: 55n, ...data };
+    },
+  });
+  // `principalPaid` hỏi theo debtId, `savingPoolBalance` hỏi theo categoryId / sourceCategoryId.
+  const entries = (bucket, principalOf) => ({
+    create: ({ data }) => {
+      bucket.push(data);
+      return data;
+    },
+    findMany: async ({ where }) => {
+      assert.equal(where.householdId, BOOK_ID, 'mọi truy vấn phải lọc theo id sổ');
+      if (where.debtId !== undefined) return [{ principal: principalOf(where.debtId) }];
+      if (where.categoryId !== undefined) return where.categoryId === 13n ? [{ amount: pool }] : [];
+      if (where.sourceCategoryId !== undefined) return where.sourceCategoryId === 13n ? [{ amount: taken }] : [];
+      return [];
+    },
+  });
+  return {
+    incomes,
+    expenses,
+    madeCategories,
+    prisma: {
+      householdDebt: {
+        findFirst: async ({ where }) => {
+          assert.equal(where.householdId, BOOK_ID, 'tra khoản nợ phải lọc theo id sổ');
+          return debts.find((d) => d.id === where.id && (where.direction === undefined || d.direction === where.direction)) ?? null;
+        },
+      },
+      householdIncomeCategory: cats([{ id: 3n, kind: 'saving', name: 'Rút tiết kiệm' }, { id: 4n, kind: 'debt', name: 'Thu nợ' }]),
+      householdExpenseCategory: cats([{ id: 13n, kind: 'saving', name: 'Quỹ mua nhà' }, { id: 15n, kind: 'debt', name: 'Trả nợ' }]),
+      householdIncome: entries(incomes, (id) => (id === 102n ? lendPaid : 0n)),
+      householdExpense: entries(expenses, (id) => (id === 101n ? owePaid : 0n)),
+      $transaction: async (ops) => ops,
+    },
+  };
+}
+
+/**
+ * Ca chính: anh Nam trả nợ và tiền đó được cất thẳng vào quỹ. Phải ra HAI dòng thật — thu về
+ * rồi cất đi — chứ không phải một dòng thu kèm cái nhãn "đã chuyển vào quỹ": ví phải đứng yên
+ * đúng lúc két tăng, và cả hai dòng đều sửa/xoá được như dòng khai tay.
+ */
+test('HouseholdService.settleDebt: người ta trả nợ, tiền cất vào mục tiết kiệm → hai dòng thật', async () => {
+  const { incomes, expenses, prisma } = settlePrisma();
+  const service = new HouseholdService(prisma);
+
+  const result = await service.settleDebt(BOOK_ID, {
+    debtId: '102',
+    principal: '5,000,000',
+    interest: '200,000',
+    transfer: 'pool-13',
+    occurredAt: '2026-06-20',
+  });
+
+  assert.equal(result.err, undefined);
+  assert.equal(result.month, '2026-06', 'tháng theo NGÀY xảy ra, không theo tháng đang xem');
+  assert.match(result.msg, /Quỹ mua nhà/, 'phải nói rõ tiền vừa đi đâu');
+  assert.match(result.msg, /thu xong khoản này/, 'thu nốt phần còn lại thì báo là đã xong');
+
+  assert.equal(incomes.length, 1, 'một khoản THU: người ta trả về');
+  assert.equal(incomes[0].amount, 5200000n, 'gốc + lãi');
+  assert.equal(incomes[0].principal, 5000000n);
+  assert.equal(incomes[0].interest, 200000n);
+  assert.equal(incomes[0].debtId, 102n, 'phải gắn khoản nợ, không thì sổ nợ chẳng giảm đồng nào');
+  assert.equal(incomes[0].categoryId, 4n, 'dùng lại loại thu kiểu debt sẵn có');
+
+  assert.equal(expenses.length, 1, 'một khoản CHI: cất tiền vào quỹ');
+  assert.equal(expenses[0].categoryId, 13n);
+  assert.equal(expenses[0].amount, 5200000n, 'cất đi trọn cả gốc lẫn lãi vừa nhận');
+  assert.equal(expenses[0].debtId, null, 'dòng cất tiền không được dính vào khoản nợ nào');
+});
+
+test('HouseholdService.settleDebt: để ở ví thì chỉ sinh đúng một dòng', async () => {
+  const { incomes, expenses, prisma } = settlePrisma();
+  const service = new HouseholdService(prisma);
+
+  await service.settleDebt(BOOK_ID, { debtId: '102', principal: '1000000', transfer: '', occurredAt: '2026-06-20' });
+
+  assert.equal(incomes.length, 1);
+  assert.equal(expenses.length, 0, 'không chọn chuyển đi đâu thì không được tự ghi thêm gì');
+});
+
+/**
+ * Thu về nhiều hơn số còn nợ ở khoản định trả sang: kẹp lại đúng phần còn nợ, phần thừa nằm
+ * lại ví — và NÓI RA. Từ chối hẳn thì chủ sổ phải tự bấm máy tính rồi khai tay, đúng việc mà
+ * cái nút này sinh ra để khỏi phải làm.
+ */
+test('HouseholdService.settleDebt: đem trả sang khoản nợ khác thì kẹp ở đúng phần còn nợ', async () => {
+  const { incomes, expenses, prisma } = settlePrisma({ owe: 10000000n, owePaid: 7000000n, lend: 5000000n });
+  const service = new HouseholdService(prisma);
+
+  const result = await service.settleDebt(BOOK_ID, { debtId: '102', principal: '5000000', transfer: 'debt-101', occurredAt: '2026-06-20' });
+
+  assert.equal(result.err, undefined);
+  assert.equal(incomes[0].amount, 5000000n);
+  assert.equal(expenses.length, 1);
+  assert.equal(expenses[0].principal, 3000000n, 'khoản 101 chỉ còn nợ 3tr, không trả quá được');
+  assert.equal(expenses[0].amount, 3000000n);
+  assert.equal(expenses[0].debtId, 101n);
+  assert.match(result.msg, /2,000,000đ còn ở ví/, 'phần thừa phải được nói ra, không lặng lẽ bốc hơi');
+});
+
+test('HouseholdService.settleDebt: mình đi trả mà rút két thì ghi ra dòng RÚT TIẾT KIỆM thật', async () => {
+  const { incomes, expenses, prisma } = settlePrisma({ owe: 10000000n, pool: 8000000n });
+  const service = new HouseholdService(prisma);
+
+  const result = await service.settleDebt(BOOK_ID, { debtId: '101', principal: '6000000', transfer: 'pool-13', occurredAt: '2026-06-20' });
+
+  assert.equal(result.err, undefined);
+  assert.equal(expenses.length, 1, 'khoản CHI trả nợ');
+  assert.equal(expenses[0].debtId, 101n);
+  assert.equal(expenses[0].principal, 6000000n);
+  assert.equal(incomes.length, 1, 'và khoản THU rút két bù lại — ví không tự nhiên hụt 6tr');
+  assert.equal(incomes[0].sourceCategoryId, 13n, 'rút của mục nào phải ghi rõ, không thì mục đó không biết mình còn bao nhiêu');
+  assert.equal(incomes[0].amount, 6000000n);
+  assert.equal(incomes[0].debtId, null);
+});
+
+test('HouseholdService.settleDebt: không rút quá số dư của mục tiết kiệm', async () => {
+  const { incomes, expenses, prisma } = settlePrisma({ owe: 10000000n, pool: 8000000n, taken: 6000000n });
+  const service = new HouseholdService(prisma);
+
+  const result = await service.settleDebt(BOOK_ID, { debtId: '101', principal: '5000000', transfer: 'pool-13', occurredAt: '2026-06-20' });
+
+  assert.match(result.err, /chỉ còn 2,000,000đ/);
+  assert.equal(incomes.length + expenses.length, 0, 'từ chối thì KHÔNG được ghi nửa vời dòng nào');
+});
+
+test('HouseholdService.settleDebt: dùng chung trần với đường khai tay, không ghi gốc quá số còn nợ', async () => {
+  const { incomes, expenses, prisma } = settlePrisma({ lend: 5000000n, lendPaid: 4000000n });
+  const service = new HouseholdService(prisma);
+
+  const tooMuch = await service.settleDebt(BOOK_ID, { debtId: '102', principal: '2000000', occurredAt: '2026-06-20' });
+  assert.match(tooMuch.err, /chỉ còn 1,000,000đ/);
+  assert.equal(incomes.length + expenses.length, 0);
+
+  const interestOnly = await service.settleDebt(BOOK_ID, { debtId: '102', principal: '0', interest: '300000', occurredAt: '2026-06-20' });
+  assert.equal(interestOnly.err, undefined, 'lãi không làm giảm nợ nên vẫn ghi được');
+});
+
+/**
+ * Gửi lên id không thuộc sổ / sai chiều thì TỪ CHỐI, không lặng lẽ rơi về "để ở ví". Bỏ im
+ * lặng thì chủ sổ bấm xong tưởng tiền đã vào quỹ mà thực ra nó nằm nguyên trong ví.
+ */
+test('HouseholdService.settleDebt: ô "tiền đi đâu" sai thì từ chối, không âm thầm bỏ qua', async () => {
+  const { incomes, expenses, prisma } = settlePrisma();
+  const service = new HouseholdService(prisma);
+  const base = { debtId: '102', principal: '1000000', occurredAt: '2026-06-20' };
+
+  const notAPool = await service.settleDebt(BOOK_ID, { ...base, transfer: 'pool-15' });
+  assert.match(notAPool.err, /mục tiết kiệm/, 'loại kiểu debt không phải mục tiết kiệm');
+
+  const notMine = await service.settleDebt(BOOK_ID, { ...base, transfer: 'pool-999' });
+  assert.match(notMine.err, /mục tiết kiệm/);
+
+  const junk = await service.settleDebt(BOOK_ID, { ...base, transfer: 'linh-tinh' });
+  assert.match(junk.err, /Không đọc được/);
+
+  // Đang ĐI TRẢ mà lại chọn "đem trả sang khoản nợ khác" thì vô nghĩa — tiền đang ra, không vào.
+  const backwards = await service.settleDebt(BOOK_ID, { debtId: '101', principal: '1000000', transfer: 'debt-101', occurredAt: '2026-06-20' });
+  assert.match(backwards.err, /người ta trả về/);
+
+  const otherBook = await service.settleDebt(BOOK_ID, { ...base, debtId: '999' });
+  assert.match(otherBook.err, /Không tìm thấy khoản nợ/);
+
+  const empty = await service.settleDebt(BOOK_ID, { debtId: '102', principal: '0', interest: '0', occurredAt: '2026-06-20' });
+  assert.match(empty.err, /đều đang để trống/);
+
+  assert.equal(incomes.length + expenses.length, 0, 'không ca nào được ghi ra dòng nào');
+});
+
+test('HouseholdService.settleDebt: sổ chưa có loại "thu nợ" thì tạo hộ, không bắt bỏ dở việc', async () => {
+  const { incomes, madeCategories, prisma } = settlePrisma();
+  prisma.householdIncomeCategory.findFirst = async () => null;
+  const service = new HouseholdService(prisma);
+
+  await service.settleDebt(BOOK_ID, { debtId: '102', principal: '1000000', occurredAt: '2026-06-20' });
+
+  assert.equal(madeCategories[0].kind, 'debt');
+  assert.equal(incomes[0].categoryId, 55n);
+});
+
+test('household view: mỗi dòng sổ nợ có nút ghi nhanh, điền sẵn phần còn lại và hỏi tiền đi đâu', async () => {
+  const html = await renderSection('so-no');
+
+  const form = html.slice(html.indexOf('action="/household/debts/102/settle"'));
+  const body = form.slice(0, form.indexOf('</form>'));
+  assert.match(body, /name="book" value="1"/);
+  assert.match(body, /name="principal" value="40000000"/, 'điền sẵn đúng phần còn phải thu');
+  assert.match(body, /<option value="pool-13">/, 'chọn cất vào mục tiết kiệm');
+  assert.match(body, /<option value="debt-101">/, 'hoặc đem trả sang khoản mình đang nợ');
+
+  // Chiều ngược lại chỉ có hai nguồn: ví, hoặc rút két. "Trả sang khoản nợ khác" thì vô nghĩa.
+  const owe = html.slice(html.indexOf('action="/household/debts/101/settle"'));
+  const oweBody = owe.slice(0, owe.indexOf('</form>'));
+  assert.match(oweBody, /<option value="pool-13">/);
+  assert.doesNotMatch(oweBody, /value="debt-/, 'đang đi trả thì không có gì để trả sang');
 });
 
 // ─── Rút tiết kiệm thường (không phải để bù vượt chi) ───

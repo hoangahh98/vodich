@@ -222,11 +222,7 @@ export class HouseholdService {
 
     // Rút tiết kiệm là khoản THU kiểu `saving`. Sổ nào chưa khai loại đó thì tạo một loại
     // dùng chung, chứ không bắt chủ sổ bỏ dở việc để đi khai loại rồi quay lại.
-    const category =
-      (await this.prisma.householdIncomeCategory.findFirst({ where: { householdId, kind: 'saving' }, orderBy: CATEGORY_ORDER })) ??
-      (await this.prisma.householdIncomeCategory.create({
-        data: { householdId, name: 'Rút tiết kiệm', kind: 'saving', note: 'Tự tạo khi rút bù phần chi vượt' },
-      }));
+    const category = await this.ensureCategory('income', householdId, 'saving', 'Rút tiết kiệm', 'Tự tạo khi rút bù phần chi vượt');
 
     await this.prisma.householdIncome.create({
       data: {
@@ -298,6 +294,202 @@ export class HouseholdService {
       },
     });
     return { month, msg: 'Đã lưu khoản nợ' };
+  }
+
+  /**
+   * Ghi nhanh MỘT LẦN trả/thu ngay trên dòng sổ nợ, kèm câu trả lời cho "rồi tiền đó đi đâu".
+   *
+   * Không có phép trừ ngầm nào ở đây: nó chỉ là lối tắt của đúng những dòng mà chủ sổ vẫn phải
+   * tự gõ ở mục 💵 Thu nhập / 💸 Chi phí, và lấy trần từ đúng chỗ ấy (`debtRemaining`). Chiều `lend`
+   * sinh một khoản THU, chiều `owe` sinh một khoản CHI — y như khai tay.
+   *
+   * Ô "tiền đi đâu / lấy từ đâu" sinh thêm MỘT DÒNG THẬT nữa, không phải một cái nhãn:
+   *
+   *   lend → 🐷 mục tiết kiệm    : thêm khoản CHI kiểu `saving` vào mục đó (ví +0, két tăng)
+   *   lend → 🏦 khoản mình đang nợ: thêm khoản CHI kiểu `debt` trả vào khoản đó
+   *   owe  → 🐷 mục tiết kiệm    : thêm khoản THU kiểu `saving` rút từ mục đó (két giảm, ví bù lại)
+   *   cả hai → 💰 tiền mặt        : không sinh gì thêm
+   *
+   * Vì sao phải là dòng thật: tiền đổi túi thì cả hai túi phải nhúc nhích cùng lúc, và mọi dòng
+   * đều sửa/xoá/tra lại được như dòng khai tay. Đây đúng là cách "rút tiết kiệm bù chi vượt"
+   * (`coverOverspend`) đang làm. Hai dòng ghi trong MỘT transaction: ghi được nửa vời thì nợ đã
+   * giảm mà tiền không tới nơi nào cả.
+   */
+  async settleDebt(householdId: number, body: Record<string, string>): Promise<WriteResult> {
+    const fallbackMonth = normalizeMonth(body.month) ?? currentMonth();
+    const debt = await this.prisma.householdDebt.findFirst({
+      where: { id: parseOptionalBigInt(body.debtId) ?? -1n, householdId },
+      select: { id: true, direction: true, name: true, initialAmount: true },
+    });
+    if (!debt) return { month: fallbackMonth, err: 'Không tìm thấy khoản nợ trong sổ này' };
+
+    const collecting = debt.direction === 'lend';
+    const side = collecting ? 'income' : 'expense';
+    const principal = parseVnd(body.principal);
+    const interest = parseVnd(body.interest);
+    const total = principal + interest;
+    if (total <= 0) return { month: fallbackMonth, err: 'Gốc và lãi đều đang để trống' };
+
+    const remaining = await this.debtRemaining(side, householdId, debt);
+    if (principal > remaining) return { month: fallbackMonth, err: overPaidMessage(side, remaining) };
+
+    const move = await this.debtMove(householdId, body.transfer, collecting, total);
+    if ('err' in move) return { month: fallbackMonth, err: move.err };
+
+    const occurredAt = parseDateOnly(body.occurredAt) ?? today();
+    const month = monthOf(occurredAt);
+    const note = text(body.note, 500) || debt.name;
+    const base = { householdId, month, occurredAt, debtId: null as bigint | null, principal: 0n, interest: 0n };
+
+    const debtCategory = await this.ensureCategory(side, householdId, 'debt', collecting ? 'Thu nợ' : 'Trả nợ', AUTO_DEBT_CATEGORY);
+    const entry = {
+      ...base,
+      categoryId: debtCategory.id,
+      amount: BigInt(total),
+      principal: BigInt(principal),
+      interest: BigInt(interest),
+      debtId: debt.id,
+      note,
+    };
+
+    // Mảng thô: hai bảng thu/chi trả về hai kiểu PrismaPromise khác nhau, mà `$transaction`
+    // chỉ cần chúng chạy cùng một lượt.
+    const ops: unknown[] = [
+      collecting ? this.prisma.householdIncome.create({ data: entry }) : this.prisma.householdExpense.create({ data: entry }),
+    ];
+
+    if (move.kind === 'pool-in') {
+      ops.push(
+        this.prisma.householdExpense.create({
+          data: { ...base, categoryId: move.poolId, amount: BigInt(move.amount), note: `Từ ${debt.name} chuyển vào` },
+        }),
+      );
+    } else if (move.kind === 'pool-out') {
+      const pot = await this.ensureCategory('income', householdId, 'saving', 'Rút tiết kiệm', 'Tự tạo khi rút tiết kiệm ra trả nợ');
+      ops.push(
+        this.prisma.householdIncome.create({
+          data: {
+            ...base,
+            categoryId: pot.id,
+            amount: BigInt(move.amount),
+            sourceCategoryId: move.poolId,
+            note: `Rút ra trả ${debt.name}`,
+          },
+        }),
+      );
+    } else if (move.kind === 'debt-pay') {
+      ops.push(
+        this.prisma.householdExpense.create({
+          data: {
+            ...base,
+            categoryId: (await this.ensureCategory('expense', householdId, 'debt', 'Trả nợ', AUTO_DEBT_CATEGORY)).id,
+            amount: BigInt(move.amount),
+            principal: BigInt(move.amount),
+            debtId: move.debtId,
+            note: `Tiền ${debt.name} trả về`,
+          },
+        }),
+      );
+    }
+
+    await this.prisma.$transaction(ops as never);
+
+    const done = Number(debt.initialAmount) > 0 && remaining - principal <= 0;
+    const what = collecting ? 'thu' : 'trả';
+    return {
+      month,
+      msg: [`Đã ${what} ${vnd(total)} · ${debt.name}`, done ? `${what} xong khoản này` : '', move.msg].filter(Boolean).join(' · '),
+    };
+  }
+
+  /**
+   * Đọc ô "tiền đi đâu / lấy từ đâu" của nút ghi nhanh. Giá trị rỗng = để ở ví; `pool-<id>` là
+   * một mục tiết kiệm; `debt-<id>` là một khoản MÌNH ĐANG NỢ (chỉ có nghĩa khi đang THU tiền về).
+   *
+   * Gửi lên id không thuộc sổ này, sai kiểu, hay sai chiều thì TỪ CHỐI chứ không lặng lẽ rơi về
+   * "để ở ví" — cùng lý do với ô chọn khoản nợ: bỏ im lặng thì người dùng tưởng tiền đã vào quỹ.
+   */
+  private async debtMove(
+    householdId: number,
+    raw: unknown,
+    collecting: boolean,
+    total: number,
+  ): Promise<{ err: string } | DebtMove> {
+    const value = String(raw ?? '').trim();
+    if (!value || value === 'cash') return { kind: 'cash', msg: '' };
+
+    const id = parseOptionalBigInt(value.slice(value.indexOf('-') + 1));
+    if (id === null) return { err: 'Không đọc được ô chọn nơi tiền đi/đến' };
+
+    if (value.startsWith('pool-')) {
+      const pool = await this.prisma.householdExpenseCategory.findFirst({
+        where: { id, householdId, kind: 'saving' },
+        select: { id: true, name: true },
+      });
+      if (!pool) return { err: 'Không tìm thấy mục tiết kiệm đó trong sổ này' };
+      if (collecting) return { kind: 'pool-in', poolId: pool.id, amount: total, msg: `chuyển vào ${pool.name}` };
+
+      // Rút ra trả nợ thì không rút quá số dư của chính mục đó — cùng lý do với trần trả nợ:
+      // số âm rồi bị kẹp về 0 ở ô tổng thì tiền biến mất không dấu vết.
+      const balance = await this.savingPoolBalance(householdId, pool.id);
+      if (total > balance) {
+        return { err: `Mục ${pool.name} ${balance > 0 ? `chỉ còn ${vnd(balance)}` : 'không còn đồng nào'} — rút nhiều hơn thế là sai sổ` };
+      }
+      return { kind: 'pool-out', poolId: pool.id, amount: total, msg: `rút từ ${pool.name}` };
+    }
+
+    if (!value.startsWith('debt-')) return { err: 'Không đọc được ô chọn nơi tiền đi/đến' };
+    if (!collecting) return { err: 'Chỉ khoản người ta trả về mới đem đi trả nợ khác được' };
+
+    const target = await this.prisma.householdDebt.findFirst({
+      where: { id, householdId, direction: 'owe' },
+      select: { id: true, name: true, initialAmount: true },
+    });
+    if (!target) return { err: 'Không tìm thấy khoản nợ để trả sang trong sổ này' };
+
+    // Trả sang một khoản nợ NHỎ HƠN số vừa thu về thì kẹp lại đúng phần còn nợ, phần thừa nằm
+    // lại ví — và nói thẳng ra trong lời báo. Từ chối hẳn thì chủ sổ phải tự bấm máy tính rồi
+    // khai tay, mà đó chính là việc cái nút này sinh ra để khỏi phải làm.
+    const capacity = await this.debtRemaining('expense', householdId, target);
+    if (capacity <= 0) return { err: `Khoản ${target.name} đã tất toán, không trả thêm gốc vào đó được` };
+
+    const pay = Math.min(total, capacity);
+    const leftover = total - pay;
+    return {
+      kind: 'debt-pay',
+      debtId: target.id,
+      amount: pay,
+      msg: `trả ${vnd(pay)} vào ${target.name}${leftover > 0 ? ` · ${vnd(leftover)} còn ở ví` : ''}`,
+    };
+  }
+
+  /**
+   * Còn phải trả/thu bao nhiêu GỐC ở một khoản nợ. Cả đường khai tay (`entryFields`) lẫn nút
+   * ghi nhanh trên sổ nợ (`settleDebt`) đều lấy trần từ đây, nên hai đường không thể lệch nhau.
+   */
+  private async debtRemaining(
+    side: 'income' | 'expense',
+    householdId: number,
+    debt: { id: bigint; initialAmount: bigint },
+    excludeId?: bigint,
+  ): Promise<number> {
+    return Number(debt.initialAmount) - (await this.principalPaid(side, householdId, debt.id, excludeId));
+  }
+
+  /**
+   * Loại đầu tiên của sổ có đúng `kind`; sổ chưa khai loại nào như thế thì tạo luôn một loại
+   * dùng chung, chứ không bắt chủ sổ bỏ dở việc để đi khai loại rồi quay lại.
+   */
+  private async ensureCategory(
+    side: 'income' | 'expense',
+    householdId: number,
+    kind: string,
+    name: string,
+    note: string,
+  ): Promise<{ id: bigint }> {
+    const model = side === 'income' ? 'householdIncomeCategory' : 'householdExpenseCategory';
+    const found = await this.categories(model).findFirst({ where: { householdId, kind }, orderBy: CATEGORY_ORDER });
+    return found ?? this.categories(model).create({ data: { householdId, name, kind, note } });
   }
 
   /**
@@ -493,15 +685,8 @@ export class HouseholdService {
       // Không trả được QUÁ số còn nợ. Trả dư thì "còn lại" của khoản đó âm, mà mọi ô tổng đều
       // kẹp về 0 (household-calc) — tiền thừa biến mất im lặng, đúng kiểu sai số khó truy nhất.
       // Lúc SỬA một dòng thì bỏ chính nó ra khỏi phần đã trả, không thì tự đụng trần của mình.
-      const remaining = Number(debt.initialAmount) - (await this.principalPaid(side, householdId, debt.id, excludeId));
-      if (Number(principal) > remaining) {
-        const left = remaining > 0 ? `chỉ còn ${vnd(remaining)}` : 'đã tất toán';
-        return {
-          err: isIncome
-            ? `Khoản cho vay này ${left} chưa thu về — ghi gốc nhiều hơn thế là sai sổ`
-            : `Khoản nợ này ${left} — không trả gốc nhiều hơn số còn nợ được`,
-        };
-      }
+      const remaining = await this.debtRemaining(side, householdId, debt, excludeId);
+      if (Number(principal) > remaining) return { err: overPaidMessage(side, remaining) };
     }
 
     // Loại cố định chỉ cần có MỨC DỰ KIẾN: đã chi 0đ là hợp lệ (chưa tiêu đồng nào tháng này).
@@ -613,8 +798,28 @@ export class HouseholdService {
 interface CategoryModel {
   findFirst(args: unknown): Promise<{ id: bigint; name: string; kind: string; active: boolean; sortOrder: number } | null>;
   findMany(args: unknown): Promise<Array<{ id: bigint }>>;
-  create(args: unknown): Promise<unknown>;
+  create(args: unknown): Promise<{ id: bigint }>;
   update(args: unknown): Promise<unknown>;
+}
+
+/**
+ * Ô "tiền đi đâu / lấy từ đâu" của nút ghi nhanh trên sổ nợ, đã đọc và kiểm xong.
+ * `msg` là mẩu chữ ghép vào lời báo cho chủ sổ, để họ thấy đúng thứ vừa được ghi thêm.
+ */
+type DebtMove =
+  | { kind: 'cash'; msg: string }
+  | { kind: 'pool-in'; poolId: bigint; amount: number; msg: string }
+  | { kind: 'pool-out'; poolId: bigint; amount: number; msg: string }
+  | { kind: 'debt-pay'; debtId: bigint; amount: number; msg: string };
+
+const AUTO_DEBT_CATEGORY = 'Tự tạo khi ghi nhanh một lần trả nợ từ sổ nợ';
+
+/** Lời từ chối khi ghi gốc quá số còn nợ — nói rõ trần còn bao nhiêu để sửa được luôn. */
+function overPaidMessage(side: 'income' | 'expense', remaining: number): string {
+  const left = remaining > 0 ? `chỉ còn ${vnd(remaining)}` : 'đã tất toán';
+  return side === 'income'
+    ? `Khoản cho vay này ${left} chưa thu về — ghi gốc nhiều hơn thế là sai sổ`
+    : `Khoản nợ này ${left} — không trả gốc nhiều hơn số còn nợ được`;
 }
 
 /** Các trường chung của một khoản thu/chi khi ghi xuống DB. */
