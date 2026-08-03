@@ -174,8 +174,20 @@ export class HouseholdAiService {
       con_tu_do_thang: report.freeThisMonth, // đã trừ ngân sách chưa tiêu
       con_lai_luy_ke: report.leftoverTotal,
       con_tu_do_luy_ke: report.freeTotal,
+      // Vượt chi: gửi kèm để trợ lý nói cùng một con số với cảnh báo đỏ trên màn hình.
+      vuot_muc_du_kien_thang: report.overspend,
+      chi_hon_thu_thang: report.deficit,
+      da_bu_tu_quy_du_lich: report.coverFromTravel,
+      da_bu_tu_tiet_kiem: report.coverFromSaving,
+      con_thieu_chua_bu_duoc: report.uncovered,
       thu_theo_loai: report.incomeByCategory.map((row) => ({ loai: row.name, tien: row.amount, so_khoan: row.count })),
-      chi_theo_loai: report.expenseByCategory.map((row) => ({ loai: row.name, tien: row.amount, so_khoan: row.count, ty_trong_phan_tram: row.share })),
+      chi_theo_loai: report.expenseByCategory.map((row) => ({
+        loai: row.name,
+        tien: row.amount,
+        so_khoan: row.count,
+        ty_trong_phan_tram: row.share,
+        vuot_muc_du_kien: row.over,
+      })),
       tiet_kiem_theo_loai: report.savingByCategory.map((row) => ({ loai: row.name, tien: row.amount })),
       sau_thang_gan_nhat: report.trend.map((row) => ({
         thang: row.month,

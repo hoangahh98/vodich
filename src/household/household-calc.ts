@@ -38,7 +38,28 @@
  *       cất vào két thì rời khỏi ví, lấy ra tiêu thì quay lại ví.)
  *
  *   5. SỔ NỢ hai chiều. Còn lại của một khoản nợ = số ban đầu − Σ tiền GỐC đã trả cho đúng
- *      khoản đó. Lãi là tiền ra khỏi nhà nhưng KHÔNG làm giảm nợ.
+ *      khoản đó. Lãi là tiền ra khỏi nhà nhưng KHÔNG làm giảm nợ. Không trả được QUÁ số còn
+ *      nợ: chặn ngay lúc ghi (xem HouseholdService.entryFields), vì trả dư thì "còn lại" âm
+ *      mà mọi ô tổng đều kẹp về 0 — tiền thừa biến mất không dấu vết.
+ *
+ *   6. VƯỢT CHI và lấy tiền để dành ra bù. Hai kiểu vượt, khác hẳn nhau:
+ *
+ *        a) VƯỢT MỨC DỰ KIẾN — một khoản cố định chi nhiều hơn mức đã khai.
+ *           Tiền vẫn còn trong ví (nó chỉ phá vỡ KẾ HOẠCH), nhưng phần dư của các khoản cố
+ *           định chính là thứ dồn nên 🏖️ quỹ du lịch — nên phần vượt ăn thẳng vào quỹ đó.
+ *
+ *        b) HỤT TIỀN MẶT — tiêu nhiều hơn kiếm được, tiền mặt luỹ kế âm.
+ *           Đây là thiếu tiền THẬT, chỉ có một chỗ để lấy: 🐷 tiết kiệm. Phần lấy ra được
+ *           coi như một lần RÚT TIẾT KIỆM suy ra: két giảm bao nhiêu thì ví tăng lại bấy
+ *           nhiêu, nếu không tổng tài sản bị trừ hai lần (ví đã âm rồi lại trừ tiếp két).
+ *
+ *      Thứ tự lấy vẫn là quỹ du lịch trước, tiết kiệm sau — nhưng tiết kiệm CHỈ vào cuộc khi
+ *      ví thật sự âm. Ví còn tiền mà vẫn trừ két là bịa ra một lần rút tiền không có thật.
+ *      Cạn cả hai mà vẫn thiếu thì `uncovered` > 0 — cảnh báo nặng nhất của module.
+ *
+ *      Cảnh báo đỏ trên màn hình thì rộng hơn phần bù: bật khi (a) có loại vượt mức dự kiến
+ *      của THÁNG ĐANG XEM, hoặc (b) tổng chi tháng đó lớn hơn tổng thu — kể cả khi các tháng
+ *      trước còn dư nhiều nên chưa phải móc tới đồng tiết kiệm nào.
  *
  * Vì tiết kiệm và tiền còn lại đều là số luỹ kế, mọi thứ được tính lại từ tháng đầu tiên có
  * dữ liệu cho tới tháng đang xem — sổ một gia đình chỉ vài trăm dòng nên rẻ, và sửa một con
@@ -132,6 +153,12 @@ export interface CategoryTotal {
   planned: number;
   /** Đã tiêu bao nhiêu phần trăm mức dự kiến. 0 nếu loại không đặt mức. */
   usedPercent: number;
+  /**
+   * Chi VƯỢT mức dự kiến bao nhiêu tiền. 0 nếu chưa vượt hoặc loại không đặt mức.
+   * Tính theo TỪNG KHOẢN rồi cộng lại, không phải `amount − planned` của cả loại: hai khoản
+   * cùng loại, một khoản dư một khoản vượt thì phần dư không được che lấp phần vượt.
+   */
+  over: number;
 }
 
 export interface DebtView {
@@ -180,6 +207,20 @@ export interface MonthReport extends MonthTotals {
   freeThisMonth: number;
   /** Còn tự do luỹ kế: tiền mặt trừ quỹ du lịch đã chốt và ngân sách tháng này chưa tiêu. */
   freeTotal: number;
+  /** Tháng đang xem chi vượt mức dự kiến bao nhiêu (cộng phần vượt của từng khoản cố định). */
+  overspend: number;
+  /** Như trên nhưng luỹ kế từ đầu sổ tới hết tháng đang xem — đây mới là số quỹ du lịch gánh. */
+  overspendTotal: number;
+  /** Tháng đang xem chi nhiều hơn thu bao nhiêu. 0 = tháng đó vẫn dư. */
+  deficit: number;
+  /** Tiền mặt luỹ kế đang âm bao nhiêu — số tiền THẬT phải móc từ tiết kiệm ra. */
+  cashShort: number;
+  /** Phần vượt mức dự kiến mà 🏖️ quỹ du lịch gánh được. */
+  coverFromTravel: number;
+  /** Phần hụt tiền mặt mà 🐷 tiết kiệm gánh được. Đã trừ vào `savingBalance`, cộng lại vào ví. */
+  coverFromSaving: number;
+  /** Cạn cả quỹ du lịch lẫn tiết kiệm mà vẫn còn thiếu bấy nhiêu — cảnh báo nặng nhất. */
+  uncovered: number;
   savingNet: number; // gửi − rút trong tháng đang xem
   /** ← số của ô 🐷: tiền đã CẤT ĐI, dồn qua các tháng. Quỹ du lịch tính riêng, xem TRAVEL_SAVING. */
   savingBalance: number;
@@ -240,6 +281,13 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
   );
   const isTravelRow = (row: EntryLike) => travelSpendIds.has(String(row.categoryId));
   const spare = (row: EntryLike) => (isTravelRow(row) ? 0 : Math.max(0, Number(row.plannedAmount ?? 0n) - amount(row)));
+  // Không đặt mức dự kiến (planned = 0) thì không có gì để vượt — khoản phát sinh mà đem so
+  // với 0 thì đồng nào cũng thành "vượt". Khoản tiêu vào quỹ du lịch cũng bỏ qua, đối xứng với
+  // `spare`: nó đã bị trừ thẳng khỏi quỹ ở `travelBalance`, tính là vượt nữa là trừ hai lần.
+  const over = (row: EntryLike) => {
+    const planned = Number(row.plannedAmount ?? 0n);
+    return !isTravelRow(row) && planned > 0 ? Math.max(0, amount(row) - planned) : 0;
+  };
   const closed = (row: EntryLike) => row.month < openMonth;
   const travelBalance = (from?: string) => {
     const rows = from ? expenses.filter((row) => row.month >= from) : expenses;
@@ -253,6 +301,11 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
   const budgetLeft = sum(expenseRows, spare);
   const budgetOpen = sum(expenses, (row) => (closed(row) ? 0 : spare(row)));
 
+  // Phần VƯỢT mức dự kiến. Ngược với `spare`, nó tính cả tháng ĐANG SỐNG: tiêu lố là chuyện
+  // đã rồi, không phải chờ hết tháng mới biết như phần dư.
+  const overspend = sum(expenseRows, over);
+  const overspendTotal = sum(expenses, over);
+
   // GỬI / RÚT tiết kiệm của tháng, tính CẢ quỹ du lịch. Hai số này phải trọn vẹn vì phép tính
   // tiền mặt ở dưới dựa vào chúng: "còn lại = thu + rút − chi − gửi" chỉ đúng khi không sót
   // đồng nào. Ô 🐷 trên màn hình dùng bộ `...Other` (không gồm du lịch) ở ngay dưới.
@@ -261,7 +314,7 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
 
   // Ô 🐷 "Tiết kiệm đang có": tiền đã CẤT ĐI thật, luỹ kế qua các tháng. Không dính gì tới quỹ
   // du lịch — quỹ đó là số suy ra từ phần dư của khoản cố định, tiền vẫn nằm trong "còn lại".
-  const savingBalance =
+  const savingRaw =
     sum(expenses, (row) => (expenseKind(row) === 'saving' ? amount(row) : 0)) -
     sum(incomes, (row) => (incomeKind(row) === 'saving' ? amount(row) : 0));
   const income = sum(incomeRows, (row) => (incomeKind(row) === 'saving' ? 0 : amount(row)));
@@ -277,8 +330,27 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
   for (const row of incomes) bump(row.month, amount(row));
   for (const row of expenses) bump(row.month, -amount(row));
 
-  const leftover = leftoverByMonth.get(month) ?? 0;
-  const leftoverTotal = [...leftoverByMonth.values()].reduce((total, value) => total + value, 0);
+  const leftoverRaw = leftoverByMonth.get(month) ?? 0;
+  const leftoverRawTotal = [...leftoverByMonth.values()].reduce((total, value) => total + value, 0);
+
+  // ─── Vượt chi thì lấy tiền để dành ra bù (rule 6 đầu file) ───
+  //
+  // Quỹ du lịch gánh phần VƯỢT MỨC DỰ KIẾN (nó vốn dồn từ phần dư của chính các khoản cố định
+  // đó). Tiết kiệm gánh phần HỤT TIỀN MẶT, và chỉ khi ví thật sự âm — ví còn tiền mà trừ két
+  // là bịa ra một lần rút không có thật.
+  const travelRaw = travelBalance();
+  const deficit = Math.max(0, expense - income);
+  const cashShort = Math.max(0, -leftoverRawTotal);
+  const coverFromTravel = Math.min(Math.max(0, travelRaw), overspendTotal);
+  const coverFromSaving = Math.min(Math.max(0, savingRaw), cashShort);
+  const uncovered = cashShort - coverFromSaving;
+
+  // Phần móc từ két là một lần RÚT TIẾT KIỆM suy ra: két giảm thì ví phải tăng lại đúng bấy
+  // nhiêu, nếu không tổng tài sản bị trừ hai lần.
+  const savingBalance = savingRaw - coverFromSaving;
+  const leftover = leftoverRaw + coverFromSaving;
+  const leftoverTotal = leftoverRawTotal + coverFromSaving;
+  const travelAllTime = travelRaw - coverFromTravel;
 
   const debts = buildDebtViews(input.debts, incomes, expenses, month);
 
@@ -294,18 +366,27 @@ export function buildMonthReport(input: LedgerInput): MonthReport {
     savingNet: savingIn - savingOut,
     savingBalance,
     travelYear: Number(month.slice(0, 4)),
-    travelThisYear: travelBalance(yearStart),
-    travelAllTime: travelBalance(),
+    // Phần bù trừ vào cả số của năm: quỹ chỉ có một, nhìn số năm nay mà chưa trừ thì tưởng
+    // vẫn còn tiền đi chơi.
+    travelThisYear: Math.max(0, travelBalance(yearStart) - coverFromTravel),
+    travelAllTime,
     plannedTotal,
     budgetLeft,
+    overspend,
+    overspendTotal,
+    deficit,
+    cashShort,
+    coverFromTravel,
+    coverFromSaving,
+    uncovered,
     freeThisMonth: leftover - budgetLeft,
-    freeTotal: leftoverTotal - travelBalance() - budgetOpen,
+    freeTotal: leftoverTotal - travelAllTime - budgetOpen,
     leftover,
     leftoverPrevious: leftoverTotal - leftover,
     leftoverTotal,
-    incomeByCategory: groupByCategory(incomeRows, input.incomeCategories, (kind) => kind !== 'saving'),
-    expenseByCategory: groupByCategory(expenseRows, input.expenseCategories, (kind) => kind !== 'saving'),
-    savingByCategory: groupByCategory(expenseRows, input.expenseCategories, (kind) => kind === 'saving'),
+    incomeByCategory: groupByCategory(incomeRows, input.incomeCategories, (kind) => kind !== 'saving', over),
+    expenseByCategory: groupByCategory(expenseRows, input.expenseCategories, (kind) => kind !== 'saving', over),
+    savingByCategory: groupByCategory(expenseRows, input.expenseCategories, (kind) => kind === 'saving', over),
     debtPrincipalPaid: sum(expenseRows, (row) => (row.debtId === null ? 0 : Number(row.principal))),
     debtInterestPaid: sum(expenseRows, (row) => (row.debtId === null ? 0 : Number(row.interest))),
     debtPrincipalCollected: sum(incomeRows, (row) => (row.debtId === null ? 0 : Number(row.principal))),
@@ -353,7 +434,12 @@ function buildDebtViews(debts: DebtLike[], incomes: EntryLike[], expenses: Entry
 }
 
 /** Gộp các khoản của tháng theo loại, nhiều tiền nhất trước. Loại đã xoá gom vào một dòng. */
-function groupByCategory(rows: EntryLike[], categories: CategoryLike[], keep: (kind: string) => boolean): CategoryTotal[] {
+function groupByCategory(
+  rows: EntryLike[],
+  categories: CategoryLike[],
+  keep: (kind: string) => boolean,
+  over: (row: EntryLike) => number,
+): CategoryTotal[] {
   const byId = new Map(categories.map((category) => [String(category.id), category]));
   const kindOf = (row: EntryLike) => byId.get(String(row.categoryId ?? ''))?.kind ?? 'normal';
   const totals = new Map<string, CategoryTotal>();
@@ -372,9 +458,11 @@ function groupByCategory(rows: EntryLike[], categories: CategoryLike[], keep: (k
       share: 0,
       planned: 0,
       usedPercent: 0,
+      over: 0,
     };
     bucket.amount += amount(row);
     bucket.planned += Number(row.plannedAmount ?? 0n);
+    bucket.over += over(row);
     bucket.count += 1;
     totals.set(id, bucket);
   }

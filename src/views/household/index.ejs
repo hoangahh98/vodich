@@ -28,6 +28,19 @@
   const liveIncomeCats = book.incomeCategories.filter((c) => c.active);
   const liveExpenseCats = book.expenseCategories.filter((c) => c.active);
   const catName = (map, id) => (map.get(String(id)) || {}).name || '(loại đã xoá)';
+
+  // Ô chọn khoản nợ phải ghi rõ CÒN BAO NHIÊU — không thì khai tiền trả mà chẳng biết trần ở đâu.
+  const debtView = new Map(report.debts.map((d) => [String(d.id), d]));
+  const debtLabel = (d) =>
+    `${d.name}${d.counterparty ? ` — ${d.counterparty}` : ''} · còn ${money(Math.max(0, d.remaining))}`;
+  // Danh sách cho ô chọn: các khoản CHƯA xong, cộng thêm chính khoản mà dòng đang sửa trỏ tới —
+  // kể cả khoản đã tất toán. Thiếu nó thì mở dòng cũ ra sửa là tiền lặng lẽ nhảy sang khoản khác.
+  const debtChoices = (direction, currentId) => {
+    const list = openDebts(direction);
+    const current = debtView.get(String(currentId));
+    return current && current.direction === direction && !list.includes(current) ? [...list, current] : list;
+  };
+  const overRows = report.expenseByCategory.filter((row) => row.over > 0);
 %>
 <main class="app-shell">
   <section class="feature-hero p mb">
@@ -61,6 +74,31 @@
       <div><span>Ngân sách còn</span><strong><%= money(report.budgetLeft) %></strong></div>
       <div class="hh-strip-total"><span>Còn tự do</span><strong class="<%= report.freeThisMonth < 0 ? 'hh-neg' : 'hh-pos' %>"><%= money(report.freeThisMonth) %></strong></div>
     </div>
+
+    <%# Cảnh báo vượt chi. Hai kiểu vượt tách riêng vì chúng khác hẳn nhau: vượt mức dự kiến là
+        vỡ KẾ HOẠCH (tiền có thể vẫn còn), chi hơn thu là hụt TIỀN THẬT. Rồi nói thẳng số tiền
+        đó đang được lấy từ đâu ra. %>
+    <% if (report.overspend > 0 || report.deficit > 0) { %>
+      <div class="alert alert-danger mb hh-over">
+        <div class="hh-over-head">⚠️ Tháng <%= monthLabel(report.month) %> đang vượt chi</div>
+        <% if (report.overspend > 0) { %>
+          <div>· Vượt mức dự kiến <strong><%= money(report.overspend) %></strong><% if (overRows.length) { %>
+            — <%= overRows.map((row) => `${row.name} vượt ${money(row.over)}`).join(' · ') %><% } %></div>
+        <% } %>
+        <% if (report.deficit > 0) { %>
+          <div>· Chi nhiều hơn thu <strong><%= money(report.deficit) %></strong> (thu <%= money(report.income) %> · đã chi <%= money(report.expense) %>)</div>
+        <% } %>
+        <div>· Lấy bù:
+          <% if (report.coverFromTravel > 0) { %>🏖️ quỹ du lịch <strong><%= money(report.coverFromTravel) %></strong><% } %>
+          <% if (report.coverFromTravel > 0 && report.coverFromSaving > 0) { %> · <% } %>
+          <% if (report.coverFromSaving > 0) { %>🐷 tiết kiệm <strong><%= money(report.coverFromSaving) %></strong><% } %>
+          <% if (report.coverFromTravel <= 0 && report.coverFromSaving <= 0) { %>chưa phải móc đồng nào — tiền mặt vẫn còn, phần vượt ăn vào tiền tự do<% } %>
+        </div>
+        <% if (report.uncovered > 0) { %>
+          <div>· Hết cả tiết kiệm mà vẫn thiếu <strong><%= money(report.uncovered) %></strong></div>
+        <% } %>
+      </div>
+    <% } %>
   <% } %>
 
   <!-- ═══ TỔNG QUAN ═══ -->
@@ -75,6 +113,9 @@
           <div><span>Gửi thêm tháng này</span><strong><%= signed(report.savingIn) %></strong></div>
           <div><span>Rút ra tháng này</span><strong><%= signed(-report.savingOut) %></strong></div>
           <div><span>= Tăng/giảm tháng này</span><strong><%= signed(report.savingNet) %></strong></div>
+          <% if (report.coverFromSaving > 0) { %>
+            <div><span>Đã lấy bù phần chi vượt</span><strong class="hh-neg"><%= signed(-report.coverFromSaving) %></strong></div>
+          <% } %>
           <% report.savingByCategory.forEach((row) => { %>
             <div><span><%= row.name %></span><strong><%= money(row.amount) %></strong></div>
           <% }) %>
@@ -82,7 +123,7 @@
       </details>
       <div class="metric-card red">
         <span>💸 Đã chi tháng <%= monthLabel(report.month) %></span><strong><%= money(report.expense) %></strong>
-        <small>Dự kiến <%= money(report.plannedTotal) %> · chưa tiêu <%= money(report.budgetLeft) %></small>
+        <small>Dự kiến <%= money(report.plannedTotal) %> · chưa tiêu <%= money(report.budgetLeft) %><% if (report.overspend > 0) { %> · vượt <%= money(report.overspend) %><% } %></small>
       </div>
       <div class="metric-card green">
         <span>💵 Thu nhập tháng <%= monthLabel(report.month) %></span><strong><%= money(report.income) %></strong>
@@ -123,6 +164,9 @@
         </summary>
         <div class="metric-drop-body">
           <div><span>Dồn từ đầu sổ tới nay</span><strong><%= money(report.travelAllTime) %></strong></div>
+          <% if (report.coverFromTravel > 0) { %>
+            <div><span>Đã bù phần chi vượt mức dự kiến</span><strong class="hh-neg"><%= signed(-report.coverFromTravel) %></strong></div>
+          <% } %>
           <div><span>Tháng <%= monthLabel(report.month) %> chưa tiêu (chưa chốt)</span><strong><%= money(report.budgetLeft) %></strong></div>
         </div>
       </details>
@@ -145,8 +189,9 @@
                 </td>
                 <td>
                   <% if (row.planned > 0) { %>
-                    <div class="hh-bar"><span class="hh-bar-fill <%= row.usedPercent > 100 ? 'red' : 'green' %>" style="width: <%= Math.min(100, row.usedPercent) %>%"></span></div>
+                    <div class="hh-bar"><span class="hh-bar-fill <%= row.over > 0 ? 'red' : 'green' %>" style="width: <%= Math.min(100, row.usedPercent) %>%"></span></div>
                     <span class="muted"><%= row.usedPercent %>% của <%= money(row.planned) %><%= row.planned > row.amount ? ` · dư ${money(row.planned - row.amount)}` : '' %></span>
+                    <% if (row.over > 0) { %><strong class="hh-neg">⚠️ vượt <%= money(row.over) %></strong><% } %>
                   <% } else { %>
                     <span class="muted">không đặt mức</span>
                   <% } %>
@@ -201,9 +246,10 @@
             <div data-entry-plain><label>Số tiền</label><input class="money-input" name="amount"></div>
             <div data-entry-debt><label>Khoản cho vay</label>
               <select name="debtId">
-                <% lendDebts.forEach((d) => { %><option value="<%= d.id %>"><%= d.name %><%= d.counterparty ? ` — ${d.counterparty}` : '' %></option><% }) %>
+                <% lendDebts.forEach((d) => { %><option value="<%= d.id %>"><%= debtLabel(d) %></option><% }) %>
                 <% if (!lendDebts.length) { %><option value="">Chưa có khoản cho vay nào</option><% } %>
               </select>
+              <% if (!lendDebts.length) { %><small class="muted">Vào mục 🏦 Sổ nợ khai khoản cho vay trước đã.</small><% } %>
             </div>
             <div data-entry-debt><label>Gốc thu về</label><input class="money-input" name="principal"></div>
             <div data-entry-debt><label>Lãi thu về</label><input class="money-input" name="interest"></div>
@@ -235,10 +281,11 @@
                   </select>
                 </div>
                 <div data-entry-plain><label>Số tiền</label><input class="money-input" name="amount" value="<%= formatMoney(i.amount) %>"></div>
+                <% const lendChoices = debtChoices('lend', i.debtId); %>
                 <div data-entry-debt><label>Khoản cho vay</label>
                   <select name="debtId">
-                    <% lendDebts.forEach((d) => { %><option value="<%= d.id %>" <%= String(d.id) === String(i.debtId) ? 'selected' : '' %>><%= d.name %></option><% }) %>
-                    <% if (!lendDebts.length) { %><option value="">Chưa có khoản cho vay nào</option><% } %>
+                    <% lendChoices.forEach((d) => { %><option value="<%= d.id %>" <%= String(d.id) === String(i.debtId) ? 'selected' : '' %>><%= debtLabel(d) %></option><% }) %>
+                    <% if (!lendChoices.length) { %><option value="">Chưa có khoản cho vay nào</option><% } %>
                   </select>
                 </div>
                 <div data-entry-debt><label>Gốc thu về</label><input class="money-input" name="principal" value="<%= formatMoney(i.principal) %>"></div>
@@ -283,9 +330,10 @@
             <div data-entry-actual><label>Đã chi thực tế</label><input class="money-input" name="actualAmount"></div>
             <div data-entry-debt><label>Trả cho khoản nợ</label>
               <select name="debtId">
-                <% oweDebts.forEach((d) => { %><option value="<%= d.id %>"><%= d.name %><%= d.counterparty ? ` — ${d.counterparty}` : '' %></option><% }) %>
+                <% oweDebts.forEach((d) => { %><option value="<%= d.id %>"><%= debtLabel(d) %></option><% }) %>
                 <% if (!oweDebts.length) { %><option value="">Chưa có khoản nợ nào</option><% } %>
               </select>
+              <% if (!oweDebts.length) { %><small class="muted">Vào mục 🏦 Sổ nợ khai khoản nợ trước đã.</small><% } %>
             </div>
             <div data-entry-debt><label>Trả gốc</label><input class="money-input" name="principal"></div>
             <div data-entry-debt><label>Trả lãi</label><input class="money-input" name="interest"></div>
@@ -324,10 +372,11 @@
                 </div>
                 <div data-entry-plain><label data-amount-label>Số tiền</label><input class="money-input" name="amount" value="<%= formatMoney(planned > 0 ? planned : spent) %>"></div>
                 <div data-entry-actual><label>Đã chi thực tế</label><input class="money-input" name="actualAmount" value="<%= formatMoney(spent) %>"></div>
+                <% const oweChoices = debtChoices('owe', e.debtId); %>
                 <div data-entry-debt><label>Trả cho khoản nợ</label>
                   <select name="debtId">
-                    <% oweDebts.forEach((d) => { %><option value="<%= d.id %>" <%= String(d.id) === String(e.debtId) ? 'selected' : '' %>><%= d.name %></option><% }) %>
-                    <% if (!oweDebts.length) { %><option value="">Chưa có khoản nợ nào</option><% } %>
+                    <% oweChoices.forEach((d) => { %><option value="<%= d.id %>" <%= String(d.id) === String(e.debtId) ? 'selected' : '' %>><%= debtLabel(d) %></option><% }) %>
+                    <% if (!oweChoices.length) { %><option value="">Chưa có khoản nợ nào</option><% } %>
                   </select>
                 </div>
                 <div data-entry-debt><label>Trả gốc</label><input class="money-input" name="principal" value="<%= formatMoney(e.principal) %>"></div>

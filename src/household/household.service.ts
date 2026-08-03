@@ -359,7 +359,7 @@ export class HouseholdService {
     });
     if (!existing) return { month: currentMonth(), err: `Không tìm thấy khoản ${isIncome ? 'thu' : 'chi'} trong sổ này` };
 
-    const fields = await this.entryFields(side, householdId, body);
+    const fields = await this.entryFields(side, householdId, body, id);
     if ('err' in fields) return { month: existing.month, ...fields };
 
     const data = isIncome ? fields.data : { ...fields.data, plannedAmount: BigInt(fields.planned) };
@@ -386,6 +386,7 @@ export class HouseholdService {
     side: 'income' | 'expense',
     householdId: number,
     body: Record<string, string>,
+    excludeId?: bigint,
   ): Promise<{ err: string } | { data: EntryData; planned: number }> {
     const occurredAt = parseDateOnly(body.occurredAt) ?? today();
     const month = monthOf(occurredAt);
@@ -412,7 +413,7 @@ export class HouseholdService {
       const wanted: (typeof DEBT_DIRECTIONS)[number] = isIncome ? 'lend' : 'owe';
       const debt = await this.prisma.householdDebt.findFirst({
         where: { id: parseOptionalBigInt(body.debtId) ?? -1n, householdId, direction: wanted },
-        select: { id: true },
+        select: { id: true, initialAmount: true },
       });
       if (!debt) {
         return { err: isIncome ? 'Chưa chọn khoản cho vay để ghi tiền người ta trả về' : 'Chưa chọn khoản nợ để trừ tiền gốc' };
@@ -422,6 +423,19 @@ export class HouseholdService {
       interest = BigInt(parseVnd(body.interest));
       amount = Number(principal + interest);
       if (amount <= 0) return { err: 'Gốc và lãi đều đang để trống' };
+
+      // Không trả được QUÁ số còn nợ. Trả dư thì "còn lại" của khoản đó âm, mà mọi ô tổng đều
+      // kẹp về 0 (household-calc) — tiền thừa biến mất im lặng, đúng kiểu sai số khó truy nhất.
+      // Lúc SỬA một dòng thì bỏ chính nó ra khỏi phần đã trả, không thì tự đụng trần của mình.
+      const remaining = Number(debt.initialAmount) - (await this.principalPaid(side, householdId, debt.id, excludeId));
+      if (Number(principal) > remaining) {
+        const left = remaining > 0 ? `chỉ còn ${vnd(remaining)}` : 'đã tất toán';
+        return {
+          err: isIncome
+            ? `Khoản cho vay này ${left} chưa thu về — ghi gốc nhiều hơn thế là sai sổ`
+            : `Khoản nợ này ${left} — không trả gốc nhiều hơn số còn nợ được`,
+        };
+      }
     }
 
     // Loại cố định chỉ cần có MỨC DỰ KIẾN: đã chi 0đ là hợp lệ (chưa tiêu đồng nào tháng này).
@@ -470,6 +484,20 @@ export class HouseholdService {
     return { month, msg: spare > 0 ? `Đã ghi khoản chi · dư ${vnd(spare)} vào quỹ du lịch` : 'Đã ghi khoản chi' };
   }
 
+  /**
+   * Tổng tiền GỐC đã ghi cho một khoản nợ, bỏ qua dòng `excludeId` (dòng đang được sửa).
+   * Bên chi trừ khoản MÌNH NỢ, bên thu trừ khoản MÌNH CHO VAY — đúng như household-calc tính,
+   * nên số "còn nợ" mà màn hình bày ra và số mà bộ kiểm dùng luôn là một.
+   */
+  private async principalPaid(side: 'income' | 'expense', householdId: number, debtId: bigint, excludeId?: bigint): Promise<number> {
+    const table = (side === 'income' ? this.prisma.householdIncome : this.prisma.householdExpense) as unknown as EntryModel;
+    const rows = await table.findMany({
+      where: { householdId, debtId, ...(excludeId === undefined ? {} : { id: { not: excludeId } }) },
+      select: { principal: true },
+    });
+    return rows.reduce((total, row) => total + Number(row.principal ?? 0n), 0);
+  }
+
   /** Một loại của ĐÚNG sổ này — gửi lên id loại của sổ khác thì trả null. */
   private ownedCategory(
     model: 'householdIncomeCategory' | 'householdExpenseCategory',
@@ -516,7 +544,7 @@ interface EntryData {
 
 /** Phần giao nhau của hai bảng khoản thu / khoản chi. */
 interface EntryModel {
-  findMany(args: unknown): Promise<Array<{ categoryId: bigint | null; amount: bigint; note: string }>>;
+  findMany(args: unknown): Promise<Array<{ categoryId: bigint | null; amount: bigint; note: string; principal?: bigint }>>;
 }
 
 const CATEGORY_ORDER = [{ sortOrder: 'asc' as const }, { id: 'asc' as const }];
