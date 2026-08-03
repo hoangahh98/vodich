@@ -173,6 +173,7 @@
       const debtFields = [...form.querySelectorAll('[data-entry-debt]')];
       const plainFields = [...form.querySelectorAll('[data-entry-plain]')];
       const actualFields = [...form.querySelectorAll('[data-entry-actual]')];
+      const savingFields = [...form.querySelectorAll('[data-entry-saving]')];
       const amountLabel = form.querySelector('[data-amount-label]');
       const sync = () => {
         const kind = select.selectedOptions[0]?.dataset.kind;
@@ -181,6 +182,7 @@
         debtFields.forEach((field) => field.classList.toggle('hidden', !isDebt));
         plainFields.forEach((field) => field.classList.toggle('hidden', isDebt));
         actualFields.forEach((field) => field.classList.toggle('hidden', !isFixed));
+        savingFields.forEach((field) => field.classList.toggle('hidden', kind !== 'saving'));
         if (amountLabel) amountLabel.textContent = isFixed ? 'Số tiền dự kiến' : 'Số tiền';
       };
       select.addEventListener('change', sync);

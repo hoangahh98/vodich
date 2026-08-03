@@ -1477,3 +1477,93 @@ test('household view: thiếu tiền mặt thì cảnh báo có ô chọn mục 
   assert.match(body, /name="sourceCategoryId"/);
   assert.match(body, /value="4000000"/, 'điền sẵn đúng số đang thiếu');
 });
+
+// ─── Rút tiết kiệm thường (không phải để bù vượt chi) ───
+
+/** Prisma giả cho việc khai một khoản RÚT tiết kiệm: mục #13 còn `saved − taken`. */
+function withdrawPrisma({ saved = 10000000n, taken = 0n, pools = [{ id: 13n, name: 'Tiết kiệm 2 vợ chồng' }] } = {}) {
+  const created = [];
+  const seen = [];
+  return {
+    created,
+    seen,
+    prisma: {
+      householdIncomeCategory: { findFirst: async ({ where }) => ({ id: where.id, kind: 'saving' }) },
+      householdExpenseCategory: { findMany: async ({ where }) => (where.kind === 'saving' ? pools : []) },
+      householdExpense: { findMany: async ({ where }) => (where.categoryId === 13n ? [{ amount: saved }] : []) },
+      householdIncome: {
+        findMany: async ({ where }) => {
+          seen.push(where);
+          if (where.sourceCategoryId !== 13n) return [];
+          // Dòng đã rút mang id 42n — đúng dòng mà test sửa lại, để thử phép loại trừ.
+          return [{ id: 42n, amount: taken }].filter((row) => !where.id || row.id !== where.id.not);
+        },
+        create: async ({ data }) => created.push(data),
+        findFirst: async ({ where }) => ({ id: where.id, month: '2026-06' }),
+        updateMany: async () => ({ count: 1 }),
+      },
+    },
+  };
+}
+
+test('HouseholdService.addIncome: rút tiết kiệm phải nói rõ rút từ MỤC nào', async () => {
+  const { created, prisma } = withdrawPrisma();
+  const service = new HouseholdService(prisma);
+
+  const noPool = await service.addIncome(BOOK_ID, { categoryId: '3', amount: '2000000', occurredAt: '2026-06-05' });
+  assert.match(noPool.err, /Chưa chọn rút từ mục tiết kiệm nào/);
+  assert.equal(created.length, 0);
+
+  const ok = await service.addIncome(BOOK_ID, { categoryId: '3', sourceCategoryId: '13', amount: '2000000', occurredAt: '2026-06-05' });
+  assert.equal(ok.err, undefined);
+  assert.equal(created[0].sourceCategoryId, 13n, 'không có nó thì không mục nào biết mình còn bao nhiêu');
+  assert.equal(created[0].amount, 2000000n);
+});
+
+test('HouseholdService.addIncome: không rút quá số dư của chính mục đó', async () => {
+  const { created, prisma } = withdrawPrisma({ saved: 10000000n, taken: 8000000n });
+  const service = new HouseholdService(prisma);
+
+  const tooMuch = await service.addIncome(BOOK_ID, { categoryId: '3', sourceCategoryId: '13', amount: '5000000', occurredAt: '2026-06-05' });
+  assert.match(tooMuch.err, /chỉ còn 2,000,000đ/);
+  assert.equal(created.length, 0);
+});
+
+test('HouseholdService.updateIncome: sửa dòng rút thì không tự tính chính nó vào phần đã rút', async () => {
+  const { seen, prisma } = withdrawPrisma({ saved: 10000000n, taken: 8000000n });
+  const service = new HouseholdService(prisma);
+
+  const result = await service.updateIncome(BOOK_ID, 42n, {
+    categoryId: '3',
+    sourceCategoryId: '13',
+    amount: '9000000',
+    occurredAt: '2026-06-05',
+  });
+
+  assert.equal(result.err, undefined, '9tr vẫn dưới 10tr khi đã bỏ chính dòng cũ ra');
+  assert.deepEqual(seen[0].id, { not: 42n });
+});
+
+test('HouseholdService.addIncome: sổ chưa khai mục tiết kiệm nào thì vẫn ghi được, để trống mục', async () => {
+  const { created, prisma } = withdrawPrisma({ pools: [] });
+  const service = new HouseholdService(prisma);
+
+  const result = await service.addIncome(BOOK_ID, { categoryId: '3', amount: '2000000', occurredAt: '2026-06-05' });
+  assert.equal(result.err, undefined, 'không có gì để chọn thì chặn lại là bắt bí');
+  assert.equal(created[0].sourceCategoryId, null);
+});
+
+test('household view: form khai thu có ô "rút từ mục", chỉ hiện với loại rút tiết kiệm', async () => {
+  const book = shortBook();
+  const report = buildMonthReport(book);
+  const base = viewLocals('thu');
+  const html = await ejs.renderFile(path.join(root, 'src/views/household/index.ejs'), {
+    ...base,
+    report,
+    book: { ...base.book, report },
+  });
+
+  assert.match(html, /data-entry-saving/, 'phải có mốc để JS chỉ hiện ô này với loại rút tiết kiệm');
+  assert.match(html, /name="sourceCategoryId"/);
+  assert.match(html, /Tiết kiệm 2 vợ chồng · còn 10000000đ/, 'ô chọn phải bày số dư từng mục');
+});

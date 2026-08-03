@@ -41,6 +41,12 @@
     return current && current.direction === direction && !list.includes(current) ? [...list, current] : list;
   };
   const overRows = report.expenseByCategory.filter((row) => row.over > 0);
+  // Ô "rút từ mục nào": mục còn tiền, cộng thêm mục mà dòng đang sửa đã trỏ tới (dù đã cạn) —
+  // cùng lý do với ô chọn khoản nợ, thiếu nó thì sửa dòng cũ là tiền nhảy sang mục khác.
+  const poolChoices = (currentId) => {
+    const list = report.savingPools.filter((pool) => pool.balance > 0 || String(pool.id) === String(currentId));
+    return list.length ? list : report.savingPools.filter((pool) => pool.active);
+  };
 %>
 <main class="app-shell">
   <section class="feature-hero p mb">
@@ -266,6 +272,14 @@
               </select>
             </div>
             <div data-entry-plain><label>Số tiền</label><input class="money-input" name="amount"></div>
+            <%# Rút tiết kiệm phải nói rõ rút của MỤC nào, không thì không mục nào biết mình còn
+                bao nhiêu. JS chỉ hiện ô này khi loại thu là 🐷 Rút tiết kiệm. %>
+            <div data-entry-saving><label>Rút từ mục</label>
+              <select name="sourceCategoryId">
+                <% poolChoices(null).forEach((pool) => { %><option value="<%= pool.id %>"><%= pool.name %> · còn <%= money(pool.balance) %></option><% }) %>
+                <% if (!poolChoices(null).length) { %><option value="">Chưa có mục tiết kiệm nào</option><% } %>
+              </select>
+            </div>
             <div data-entry-debt><label>Khoản cho vay</label>
               <select name="debtId">
                 <% lendDebts.forEach((d) => { %><option value="<%= d.id %>"><%= debtLabel(d) %></option><% }) %>
@@ -303,6 +317,13 @@
                   </select>
                 </div>
                 <div data-entry-plain><label>Số tiền</label><input class="money-input" name="amount" value="<%= formatMoney(i.amount) %>"></div>
+                <% const pools = poolChoices(i.sourceCategoryId); %>
+                <div data-entry-saving><label>Rút từ mục</label>
+                  <select name="sourceCategoryId">
+                    <% pools.forEach((pool) => { %><option value="<%= pool.id %>" <%= String(pool.id) === String(i.sourceCategoryId) ? 'selected' : '' %>><%= pool.name %> · còn <%= money(pool.balance) %></option><% }) %>
+                    <% if (!pools.length) { %><option value="">Chưa có mục tiết kiệm nào</option><% } %>
+                  </select>
+                </div>
                 <% const lendChoices = debtChoices('lend', i.debtId); %>
                 <div data-entry-debt><label>Khoản cho vay</label>
                   <select name="debtId">

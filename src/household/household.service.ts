@@ -38,6 +38,8 @@ export interface EntryRow {
   principal: bigint;
   interest: bigint;
   debtId: bigint | null;
+  /** Chỉ khoản THU kiểu `saving`: rút ra từ mục tiết kiệm nào. */
+  sourceCategoryId?: bigint | null;
   note: string;
 }
 
@@ -240,11 +242,17 @@ export class HouseholdService {
     return { month, msg: `Đã rút ${vnd(amount)} từ ${pool.name} để bù phần chi vượt` };
   }
 
-  /** Số dư còn lại của một mục tiết kiệm: đã cất vào bao nhiêu, đã rút đích danh mục đó bao nhiêu. */
-  private async savingPoolBalance(householdId: number, poolId: bigint): Promise<number> {
+  /**
+   * Số dư còn lại của một mục tiết kiệm: đã cất vào bao nhiêu, đã rút đích danh mục đó bao nhiêu.
+   * `excludeId` là dòng RÚT đang được sửa — bỏ nó ra, không thì nó tự đụng trần của chính mình.
+   */
+  private async savingPoolBalance(householdId: number, poolId: bigint, excludeId?: bigint): Promise<number> {
     const [saved, taken] = await Promise.all([
       this.prisma.householdExpense.findMany({ where: { householdId, categoryId: poolId }, select: { amount: true } }),
-      this.prisma.householdIncome.findMany({ where: { householdId, sourceCategoryId: poolId }, select: { amount: true } }),
+      this.prisma.householdIncome.findMany({
+        where: { householdId, sourceCategoryId: poolId, ...(excludeId === undefined ? {} : { id: { not: excludeId } }) },
+        select: { amount: true },
+      }),
     ]);
     const total = (rows: Array<{ amount: bigint }>) => rows.reduce((sum, row) => sum + Number(row.amount), 0);
     return total(saved) - total(taken);
@@ -418,7 +426,9 @@ export class HouseholdService {
     const fields = await this.entryFields(side, householdId, body, id);
     if ('err' in fields) return { month: existing.month, ...fields };
 
-    const data = isIncome ? fields.data : { ...fields.data, plannedAmount: BigInt(fields.planned) };
+    const data = isIncome
+      ? { ...fields.data, sourceCategoryId: fields.sourceCategoryId }
+      : { ...fields.data, plannedAmount: BigInt(fields.planned) };
     if (isIncome) await this.prisma.householdIncome.updateMany({ where: { id, householdId }, data });
     else await this.prisma.householdExpense.updateMany({ where: { id, householdId }, data });
 
@@ -443,7 +453,7 @@ export class HouseholdService {
     householdId: number,
     body: Record<string, string>,
     excludeId?: bigint,
-  ): Promise<{ err: string } | { data: EntryData; planned: number }> {
+  ): Promise<{ err: string } | { data: EntryData; planned: number; sourceCategoryId: bigint | null }> {
     const occurredAt = parseDateOnly(body.occurredAt) ?? today();
     const month = monthOf(occurredAt);
     const isIncome = side === 'income';
@@ -499,8 +509,30 @@ export class HouseholdService {
       return { err: category.kind === 'fixed' ? 'Số tiền dự kiến phải lớn hơn 0' : 'Số tiền phải lớn hơn 0' };
     }
 
+    // RÚT tiết kiệm thì phải nói rõ rút từ MỤC nào, cùng lý do với trả nợ: rút chung chung
+    // thì tổng vẫn đúng nhưng không mục nào biết mình còn bao nhiêu, và ô chọn lần sau bịa số.
+    // Sổ chưa khai mục tiết kiệm nào thì bỏ qua — không có gì để chọn, chặn lại là bắt bí.
+    let sourceCategoryId: bigint | null = null;
+    if (isIncome && category.kind === 'saving') {
+      const pools = await this.prisma.householdExpenseCategory.findMany({
+        where: { householdId, kind: 'saving' },
+        select: { id: true, name: true },
+      });
+      if (pools.length) {
+        const wanted = parseOptionalBigInt(body.sourceCategoryId);
+        const pool = pools.find((row) => row.id === wanted);
+        if (!pool) return { err: 'Chưa chọn rút từ mục tiết kiệm nào' };
+        const balance = await this.savingPoolBalance(householdId, pool.id, excludeId);
+        if (amount > balance) {
+          return { err: `Mục ${pool.name} ${balance > 0 ? `chỉ còn ${vnd(balance)}` : 'không còn đồng nào'} — rút nhiều hơn thế là sai sổ` };
+        }
+        sourceCategoryId = pool.id;
+      }
+    }
+
     return {
       planned,
+      sourceCategoryId,
       data: {
         householdId,
         categoryId: category.id,
@@ -527,7 +559,7 @@ export class HouseholdService {
     const { data, planned } = fields;
     const month = data.month;
     if (side === 'income') {
-      await this.prisma.householdIncome.create({ data });
+      await this.prisma.householdIncome.create({ data: { ...data, sourceCategoryId: fields.sourceCategoryId } });
       return { month, msg: 'Đã ghi khoản thu' };
     }
 
