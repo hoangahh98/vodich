@@ -182,6 +182,15 @@ test('vòng quay chia trận có mặt và mang theo danh sách vận động vi
   assert.match(html, /\/js\/spin-pairing\.js/, 'phải nạp phần rule trước phần giao diện');
   assert.match(html, /\/js\/spin-draw\.js/);
 
+  // Bánh xe thật (múi + kim), không còn là cột tên chạy dọc như bản đầu.
+  assert.match(html, /data-spin-wheel/, 'thiếu chỗ cắm bánh xe');
+  assert.match(html, /wheel-pointer/, 'bánh xe không có kim thì không biết dừng ở đâu');
+  assert.match(html, /data-spin-pool/, 'thiếu nhãn cho biết đang bốc trong nhóm nào');
+  assert.match(html, /data-spin-picked/, 'thiếu chỗ hiện cặp đang ghép');
+  assert.doesNotMatch(html, /spin-reel/, 'ô quay kiểu cột tên cũ phải gỡ hẳn');
+  // wheel.js phải nạp TRƯỚC spin-draw.js, nếu không spin-draw thoát sớm và nút quay im lìm.
+  assert.ok(html.indexOf('/js/wheel.js') < html.indexOf('/js/spin-draw.js'), 'sai thứ tự nạp script');
+
   // Dữ liệu đi qua data-* chứ không phải <script> nhúng, vì CSP chặn script inline.
   const players = html.match(/data-players="([^"]*)"/);
   assert.ok(players, 'vòng quay phải nhận danh sách VĐV qua data-players');
@@ -577,3 +586,27 @@ class FakeClassList {
     return this.values.has(value);
   }
 }
+
+/**
+ * Vòng quay đứng riêng ở /vong-quay — công cụ vui cạnh "Đọc điểm", KHÔNG thuộc module nào.
+ * Nó không được đòi tournament/team hay featureSet nào cả, chỉ cần locals chung.
+ */
+test('trang vòng quay đứng riêng dựng được và không dính module nào', async () => {
+  const html = await renderView('wheel.ejs', commonLocals('/vong-quay'));
+
+  assert.match(html, /data-wheel-rotor/, 'thiếu chỗ cắm bánh xe');
+  assert.match(html, /wheel-pointer/, 'thiếu kim chỉ');
+  assert.match(html, /data-wheel-input/, 'thiếu ô nhập danh sách tên');
+  assert.match(html, /data-wheel-spin/, 'thiếu nút quay');
+  assert.ok(html.indexOf('/js/wheel.js') < html.indexOf('/js/wheel-of-names.js'), 'sai thứ tự nạp script');
+  assert.doesNotMatch(html, /\/tournaments|\/teams|\/permissions/, 'trang vòng quay không được kéo module khác vào');
+});
+
+test('vòng quay có lối vào từ trang chủ và menu dưới', async () => {
+  const home = await renderView('home.ejs', commonLocals('/'));
+  assert.match(home, /href="\/vong-quay"/, 'trang chủ phải có ô Vòng quay');
+
+  const menu = await renderView('partials/bottom-menu.ejs', commonLocals('/vong-quay'));
+  assert.match(menu, /class="active" href="\/vong-quay"/, 'đang ở trang vòng quay thì menu phải sáng mục đó');
+  assert.match(menu, /href="\/"/, 'menu trang con luôn phải có lối về trang chủ');
+});

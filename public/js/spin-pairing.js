@@ -10,7 +10,8 @@
  *   - Ghép chéo hai đầu: mức mạnh nhất với mức yếu nhất, rồi tiến dần vào trong.
  *     4 mức B/C/D/? -> B với ?, C với D. 3 mức A/C/D -> A với D, C với chính nó. 1 mức -> ghép
  *     trong mức đó. Chữ cái cụ thể không quan trọng, chỉ thứ hạng mới quan trọng.
- *   - Ai dư ra do hai mức lệch số lượng thì dồn lại ghép với nhau ở cuối.
+ *   - Ai dư ra do hai mức lệch số lượng thì GẤP LẠI TỪ ĐẦU theo đúng quy tắc trên, chứ không
+ *     đổ chung một rổ bốc bừa — nếu không thì mấy người mạnh dư ra tự ghép với nhau.
  *   - Lẻ đúng một người cả giải thì để trống chỗ bạn đánh cặp.
  *
  * Rule 'RANDOM' bỏ qua toàn bộ phần trên: một rổ duy nhất, bốc lần lượt từng cặp.
@@ -29,10 +30,8 @@
 
   const levelLabel = (level) => (level === UNKNOWN_LEVEL ? 'Chưa rõ trình' : 'Trình ' + level);
 
-  function buildSteps(players, rule) {
-    const pool = players.map((player) => ({ name: player.name, level: normalizeSkill(player.skill) }));
-    if (rule === 'RANDOM') return [{ kind: 'within', players: pool, label: 'Tất cả' }];
-
+  /** Một lượt "gấp": sinh các bước bốc từ một rổ người, khớp `foldByLevel` ở server. */
+  function buildSteps(pool) {
     const byLevel = new Map();
     for (const player of pool) {
       const bucket = byLevel.get(player.level);
@@ -64,28 +63,40 @@
    * Tạo một lượt bốc. `pickIndex` cho phép test bơm bộ chọn tất định thay cho ngẫu nhiên.
    */
   function createDraw(players, rule, pickIndex) {
-    const steps = buildSteps(players || [], rule === 'RANDOM' ? 'RANDOM' : 'BY_SKILL');
-    const leftovers = [];
-    const choose = typeof pickIndex === 'function' ? pickIndex : (size) => Math.floor(Math.random() * size);
+    const bySkill = rule !== 'RANDOM';
+    const pool = (players || []).map((player) => ({ name: player.name, level: normalizeSkill(player.skill) }));
+    let steps = bySkill ? buildSteps(pool) : [{ kind: 'within', players: pool, label: 'Tất cả' }];
     let stepIndex = 0;
+    let leftovers = [];
+    const choose = typeof pickIndex === 'function' ? pickIndex : (size) => Math.floor(Math.random() * size);
 
     const take = (list) => list.splice(choose(list.length), 1)[0];
+    const drainStep = (step) => (step.kind === 'across' ? [...step.left.splice(0), ...step.right.splice(0)] : step.players.splice(0));
 
-    /** Bước còn bốc được; bước nào cạn thì đẩy phần dư sang rổ "còn lại" rồi đi tiếp. */
+    /**
+     * Bước còn bốc được. Bước nào cạn thì đẩy phần dư sang rổ "còn lại"; hết sạch bước thì GẤP
+     * LẠI rổ ấy đúng như vòng lặp trong `buildBalancedDoublesTeams` ở server.
+     */
     function currentStep() {
-      while (stepIndex < steps.length) {
-        const step = steps[stepIndex];
-        if (step.kind === 'across') {
-          if (step.left.length && step.right.length) return step;
-          leftovers.push(...step.left.splice(0), ...step.right.splice(0));
-        } else {
-          if (step.players.length >= 2) return step;
-          leftovers.push(...step.players.splice(0));
+      for (;;) {
+        while (stepIndex < steps.length) {
+          const step = steps[stepIndex];
+          if (step.kind === 'across' ? step.left.length && step.right.length : step.players.length >= 2) return step;
+          leftovers.push(...drainStep(step));
+          stepIndex++;
         }
-        stepIndex++;
+        if (!bySkill || leftovers.length < 2) return null;
+        const folded = leftovers;
+        leftovers = [];
+        steps = buildSteps(folded);
+        stepIndex = 0;
+        // Rổ từ 2 người trở lên luôn sinh ít nhất một bước bốc được nên vòng lặp có tiến triển;
+        // nhánh này chỉ là chốt chặn để đổi quy tắc sau này không treo trình duyệt.
+        if (!steps.length) {
+          leftovers = folded;
+          return null;
+        }
       }
-      if (leftovers.length >= 2) return { kind: 'within', players: leftovers, label: 'Còn lại' };
-      return null;
     }
 
     return {
@@ -95,20 +106,35 @@
         if (!step) return null;
         const acrossStep = step.kind === 'across';
         const labels = acrossStep ? [step.leftLabel, step.rightLabel] : [step.label, step.label];
-        const sources = acrossStep
-          ? [step.left.map((player) => player.name), step.right.map((player) => player.name)]
-          : [step.players.map((player) => player.name), step.players.map((player) => player.name)];
-        const first = acrossStep ? take(step.left) : take(step.players);
-        const second = acrossStep ? take(step.right) : take(step.players);
-        return { labels, sources, team: [first.name, second ? second.name : ''] };
+        const firstPool = acrossStep ? step.left : step.players;
+        const secondPool = acrossStep ? step.right : step.players;
+        // Chụp danh sách nguồn NGAY TRƯỚC mỗi lần bốc: ô quay thứ hai của bước "cùng một mức"
+        // không được còn tên người vừa trúng ô thứ nhất.
+        const firstNames = firstPool.map((player) => player.name);
+        const first = take(firstPool);
+        const secondNames = secondPool.map((player) => player.name);
+        const second = take(secondPool);
+        return { labels, sources: [firstNames, secondNames], team: [first.name, second ? second.name : ''] };
+      },
+
+      /**
+       * Nguồn của lượt bốc SẮP tới mà chưa bốc ai — để vẽ sẵn vòng quay đúng nhóm người ngay
+       * khi mở khung, thay vì vẽ đại danh sách rồi nhảy sang nhóm khác lúc bấm quay.
+       */
+      preview() {
+        const step = currentStep();
+        if (!step) return null;
+        const acrossStep = step.kind === 'across';
+        const names = (list) => list.map((player) => player.name);
+        return {
+          labels: acrossStep ? [step.leftLabel, step.rightLabel] : [step.label, step.label],
+          sources: acrossStep ? [names(step.left), names(step.right)] : [names(step.players), names(step.players)],
+        };
       },
 
       /** Người lẻ cuối cùng của cả giải, nếu có. Gọi sau khi `next()` đã trả null. */
       leftoverName() {
-        for (const step of steps) {
-          if (step.kind === 'across') leftovers.push(...step.left.splice(0), ...step.right.splice(0));
-          else leftovers.push(...step.players.splice(0));
-        }
+        for (const step of steps) leftovers.push(...drainStep(step));
         return leftovers.length === 1 ? leftovers.splice(0, 1)[0].name : '';
       },
 

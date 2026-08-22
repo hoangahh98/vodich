@@ -1,0 +1,63 @@
+<%#
+  Vòng quay tên đứng riêng (/vong-quay) — không dính gì tới giải đấu, đội bóng hay phân quyền.
+
+  Danh sách tên chỉ nằm trong trình duyệt, không gửi lên server và không lưu DB: đây là công cụ
+  vui, đặt cạnh "Đọc điểm" chứ không phải một module có dữ liệu.
+
+  Bánh xe dùng chung public/js/wheel.js với vòng quay chia trận trong giải; luật bốc ở đây đơn
+  giản (bốc đều một trong các tên còn lại) nên nằm luôn trong public/js/wheel-of-names.js.
+%>
+<%- include('partials/head', { title: 'Vòng quay' }) %>
+<%- include('partials/topbar') %>
+<main class="app-shell" data-wheel-page>
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <h1>🎡 Vòng quay</h1>
+        <div class="muted strong-muted">Nhập danh sách, bấm quay để bốc ngẫu nhiên. Tên chỉ nằm trên máy bạn.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="card-lite p">
+    <div class="wheel-page">
+      <div class="wheel-stage">
+        <div class="wheel-pool" data-wheel-count></div>
+        <div class="wheel-box">
+          <div class="wheel-pointer" aria-hidden="true"></div>
+          <div class="wheel-rotor" data-wheel-rotor></div>
+          <button type="button" class="wheel-hub" data-wheel-spin aria-label="Quay">QUAY</button>
+        </div>
+        <div class="wheel-winner" data-wheel-winner></div>
+        <div class="spin-actions">
+          <button type="button" class="btn btn-primary" data-wheel-spin>🎡 Quay</button>
+          <button type="button" class="btn btn-light" data-wheel-reset>Làm lại</button>
+        </div>
+      </div>
+
+      <div class="wheel-page-names">
+        <div>
+          <label for="wheelNames">Danh sách — mỗi dòng một tên</label>
+          <textarea id="wheelNames" data-wheel-input rows="10" placeholder="An&#10;Bình&#10;Cường&#10;Dũng"></textarea>
+        </div>
+        <label class="option-card"><input type="checkbox" data-wheel-remove> Bốc xong thì bỏ tên đó khỏi vòng quay</label>
+        <div class="spin-results-box">
+          <h4 class="spin-results-title">Đã bốc <span class="badge bg-primary rounded-pill" data-wheel-total>0</span></h4>
+          <ol class="wheel-history" data-wheel-history></ol>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<nav class="bottom-menu">
+  <button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu">☰</button>
+  <div class="bottom-menu-inner">
+    <a class="" href="/">🏠 Trang chủ</a>
+    <a class="active" href="/vong-quay">🎡 Vòng quay</a>
+  </div>
+</nav>
+<script src="/js/menu.js"></script>
+<script src="/js/wheel.js"></script>
+<script src="/js/wheel-of-names.js"></script>
+</body>
+</html>

@@ -285,3 +285,22 @@ test('secret không bị nhúng thẳng vào mã nguồn hay lọt ra view', () 
     }
   }
 });
+
+/**
+ * Vòng quay đứng riêng là trang mới ở lớp ngoài cùng (HomeController), nơi FeatureGuard chỉ
+ * đòi đăng nhập chứ không có `@FeatureAccess`. Kiểm thẳng: chưa đăng nhập thì đá về /login,
+ * không được render trang.
+ */
+const { HomeController } = require('../dist/home.controller');
+
+test('trang vòng quay và trang đọc điểm đều đòi đăng nhập', () => {
+  const home = new HomeController();
+  for (const route of ['wheel', 'scoreReader']) {
+    let rendered = null;
+    let redirected = null;
+    const res = { locals: {}, render: (view) => (rendered = view), redirect: (url) => (redirected = url) };
+    home[route]({ session: {} }, res);
+    assert.equal(rendered, null, `${route}: chưa đăng nhập mà vẫn render trang`);
+    assert.equal(redirected, '/login', `${route}: phải đá về trang đăng nhập`);
+  }
+});

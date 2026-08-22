@@ -30,10 +30,18 @@
         </div>
       </div>
       <div class="score-modal-body">
-        <div class="spin-reels" data-spin-reels></div>
+        <div class="wheel-stage">
+          <div class="wheel-pool" data-spin-pool></div>
+          <div class="wheel-box">
+            <div class="wheel-pointer" aria-hidden="true"></div>
+            <div class="wheel-rotor" data-spin-wheel></div>
+            <button type="button" class="wheel-hub" data-spin-once aria-label="Quay">QUAY</button>
+          </div>
+          <div class="spin-picked" data-spin-picked></div>
+        </div>
         <div class="spin-actions">
-          <button type="button" class="btn btn-primary" data-spin-once>Quay</button>
-          <button type="button" class="btn btn-success" data-spin-all>Quay hết</button>
+          <button type="button" class="btn btn-primary" data-spin-once>🎡 Quay lượt này</button>
+          <button type="button" class="btn btn-success" data-spin-all>Bốc nhanh phần còn lại</button>
         </div>
         <div class="spin-results-box">
           <h4 class="spin-results-title">Đội đã bốc <span class="badge bg-primary rounded-pill" data-spin-total>0</span></h4>

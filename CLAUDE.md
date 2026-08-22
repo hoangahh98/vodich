@@ -83,6 +83,15 @@ Socket.IO cho tỉ số trực tiếp, deploy trên Render.
   tròn thường. Bỏ giới hạn là 10 người ra 22 trận, đánh cả ngày không hết.
 - `pairingRule` (`BY_SKILL` | `RANDOM`) quyết định ghép đôi theo trình hay xáo thuần. Mặc định
   `BY_SKILL` vì đó là hành vi của mọi giải tạo trước khi cột này ra đời.
+- Với Americano, `pairingRule` áp ở **chỗ xếp người vào ghế** của vòng quay
+  (`americanoSeating`), vì vòng quay cố định theo chỉ số ghế nên hoán vị người vào ghế là thứ
+  duy nhất quyết định ai đánh chung đội với ai. `BY_SKILL` bốc thử 200 cách xếp rồi giữ cách có
+  phương sai tổng trình mỗi cặp nhỏ nhất. Đừng bỏ bước xáo mà dùng thẳng thứ tự đăng ký: làm
+  thế thì "phân trình" không tác dụng gì lên việc ghép cặp, và bấm "Chia trận" mười lần ra y
+  hệt nhau mười lần (người dùng tưởng nút hỏng — đã xảy ra).
+- Ở thể thức đôi thường, người dư ra khi hai mức trình lệch số lượng phải **gấp lại từ đầu**
+  theo cùng quy tắc (`foldByLevel` gọi lặp), không đổ chung một rổ bốc bừa — rổ chung khiến mấy
+  người mạnh dư ra tự ghép với nhau thành một đội vượt trội.
 - Tên đội đôi lưu thành một chuỗi `"An / Bình"`. Nối và tách **chỉ** qua
   `src/tournaments/team-name.ts` (`formatTeamName` / `splitTeamName`).
 - Trận thuộc vòng nào là "vòng trong" thì hỏi `isKnockoutStage()`, đừng tự viết
@@ -91,13 +100,29 @@ Socket.IO cho tỉ số trực tiếp, deploy trên Render.
 
 ### Vòng quay chia trận
 
-`public/js/spin-pairing.js` là **bản sao quy tắc ghép trình của server** chạy ở trình duyệt, và
-`public/js/spin-draw.js` chỉ lo giao diện. Sửa `buildBalancedDoublesTeams` mà quên sửa
-`spin-pairing.js` là vòng quay bốc một đằng, nút "Chia trận" chia một nẻo —
-`test/spin-pairing.test.js` so thẳng kết quả hai bên trên 9 cấu hình mức trình nên sẽ đỏ ngay.
+Ba lớp tách rời, đừng gộp:
+
+| File | Việc |
+|---|---|
+| `public/js/spin-pairing.js` | **Bản sao quy tắc ghép trình của server** chạy ở trình duyệt |
+| `public/js/wheel.js` | Bánh xe: vẽ múi + tính góc dừng. Dùng chung với trang `/vong-quay` |
+| `public/js/spin-draw.js` | Nối hai thứ trên vào khung modal của trang lịch thi đấu |
+
+- Sửa `buildBalancedDoublesTeams` mà quên sửa `spin-pairing.js` là vòng quay bốc một đằng, nút
+  "Chia trận" chia một nẻo — `test/spin-pairing.test.js` so thẳng kết quả hai bên trên 12 cấu
+  hình mức trình nên sẽ đỏ ngay.
+- Người trúng do `spin-pairing` quyết định TRƯỚC, `wheel.spinTo(i)` chỉ tính góc sao cho múi `i`
+  dừng dưới kim (kim ở 12 giờ = 0°, góc dương là chiều kim đồng hồ). Đừng đảo thành "quay bừa
+  rồi đọc xem trúng ai": sai dấu góc thì bánh xe vẫn quay đẹp, vẫn dừng gọn trong một múi, chỉ
+  là múi của người khác — `test/wheel.test.js` kiểm bằng số học nên bắt được.
+- Chữ trên múi ở nửa TRÁI bánh xe phải lật 180° và neo từ đầu kia, nếu không tên hiện ngược đầu.
 
 Kết quả quay gửi về `POST /tournaments/:id/manual-schedule` (luồng ghép cặp thủ công có sẵn),
 không có route riêng. Dữ liệu VĐV truyền qua `data-*` vì CSP chặn `<script>` inline.
+
+Ngoài ra có **vòng quay bốc tên đứng riêng** ở `/vong-quay` (`src/views/wheel.ejs` +
+`public/js/wheel-of-names.js`), đặt cạnh `/score-reader`: chỉ cần đăng nhập, không thuộc module
+nào, không gọi API và không lưu DB — danh sách tên nằm trong `localStorage` của máy người dùng.
 
 ### Phân quyền — đọc `docs/bao-mat.md` trước khi đụng vào
 

@@ -381,19 +381,29 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; max-width: 100%; }
 .score-reader-order .btn { flex: 1 1 140px; min-width: 140px; min-height: 64px; font-size: 20px; font-weight: 900; }
 .score-reader-command { align-items: center; }
 .score-reader-command .btn { min-width: 112px; min-height: 46px; }
-/* ─── Vòng quay chia trận (public/js/spin-draw.js) ─────────────────────────────────────────
-   Ô quay là cột tên chạy dọc chứ không phải bánh xe tròn: tên tiếng Việt dài, chia múi trên
-   vòng tròn thì chữ xoay ngang dọc và trên điện thoại đọc không ra. */
+/* ─── Bánh xe quay tên (public/js/wheel.js) ────────────────────────────────────────────────
+   Dùng chung cho vòng quay chia trận trong giải và trang /vong-quay đứng riêng.
+   Chữ trên múi vẽ bằng SVG nên cỡ chữ đã co theo số múi ở JS, ở đây chỉ lo khung và kim. */
+.wheel-stage { display: grid; justify-items: center; gap: 10px; margin-bottom: 14px; }
+.wheel-pool { font-weight: 800; font-size: 14px; color: #0d6efd; text-align: center; min-height: 20px; }
+.wheel-box { position: relative; width: min(320px, 78vw); aspect-ratio: 1; }
+.wheel-rotor { width: 100%; height: 100%; will-change: transform; filter: drop-shadow(0 6px 14px rgba(15, 23, 42, .22)); }
+.wheel-svg { display: block; width: 100%; height: 100%; }
+.wheel-svg text { fill: #fff; font-weight: 800; paint-order: stroke; stroke: rgba(15, 23, 42, .35); stroke-width: .35; }
+.wheel-rim { fill: none; stroke: #ffffff; stroke-width: 2.4; }
+/* Kim cắm ở 12 giờ — đúng mốc 0° mà wheel.js tính góc dừng. */
+.wheel-pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; z-index: 2; border-left: 11px solid transparent; border-right: 11px solid transparent; border-top: 22px solid #111827; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .3)); }
+.wheel-hub { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 25%; height: 25%; border-radius: 50%; border: 3px solid #fff; background: #111827; color: #fff; font-weight: 900; font-size: 13px; letter-spacing: .5px; cursor: pointer; z-index: 2; }
+/* Nút giữa lúc đang quay/bốc xong: làm mờ bằng màu chứ không bằng opacity — trong suốt thì
+   nhìn xuyên thấy múi bánh xe phía dưới, trông như nút bị vỡ. */
+.wheel-hub:disabled { background: #475569; color: #e2e8f0; cursor: default; }
+.spin-picked { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; min-height: 34px; }
+.spin-slot { border: 1px dashed var(--line); border-radius: 999px; padding: 4px 14px; font-weight: 800; color: var(--muted); background: #f8fbff; overflow-wrap: anywhere; }
+.spin-slot.filled { border-style: solid; border-color: #19875455; background: #d1f2dc; color: #0f5132; animation: spin-pop .28s ease-out; }
+.spin-plus { font-weight: 900; color: var(--muted); }
+@keyframes spin-pop { from { transform: scale(.82); opacity: .5; } to { transform: scale(1); opacity: 1; } }
 .schedule-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .schedule-actions form { margin: 0; }
-.spin-reels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
-.spin-reels:empty { display: none; }
-.spin-reel { border: 1px solid var(--line); border-radius: 10px; background: #f8fbff; overflow: hidden; }
-.spin-reel-label { background: #0d6efd; color: #fff; font-weight: 800; font-size: 13px; text-align: center; padding: 6px 8px; }
-.spin-reel-window { display: grid; place-items: center; min-height: 74px; padding: 8px 10px; }
-.spin-reel-name { font-size: 20px; font-weight: 900; color: #111827; text-align: center; overflow-wrap: anywhere; }
-.spin-reel-name.landed { color: #0f5132; animation: spin-pop .28s ease-out; }
-@keyframes spin-pop { from { transform: scale(.82); opacity: .5; } to { transform: scale(1); opacity: 1; } }
 .spin-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
 .spin-actions .btn { flex: 1 1 130px; min-height: 46px; }
 .spin-results-box { border-top: 1px solid var(--line); padding-top: 12px; }
@@ -403,8 +413,17 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; max-width: 100%; }
 .spin-vs { color: var(--muted); font-weight: 800; }
 .spin-apply { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
 .spin-apply-btn { width: 100%; min-height: 48px; }
-@media (max-width: 720px) {
-  .spin-reels { grid-template-columns: 1fr; }
+
+/* ─── Trang vòng quay đứng riêng (/vong-quay) ──────────────────────────────────────────── */
+.wheel-page { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); align-items: start; }
+.wheel-page-names { display: grid; gap: 10px; }
+.wheel-page-names textarea { min-height: 220px; resize: vertical; font-weight: 600; }
+.wheel-winner { text-align: center; font-size: 22px; font-weight: 900; color: #0f5132; min-height: 32px; overflow-wrap: anywhere; }
+.wheel-winner:empty::before { content: "Bấm QUAY để bốc"; color: var(--muted); font-size: 15px; font-weight: 600; }
+.wheel-history { margin: 0; padding-left: 22px; display: grid; gap: 6px; max-height: 220px; overflow-y: auto; }
+.wheel-history li { font-weight: 700; overflow-wrap: anywhere; }
+@media (max-width: 860px) {
+  .wheel-page { grid-template-columns: minmax(0, 1fr); }
 }
 
 .group-board { border: 1px solid #19875455; border-radius: 8px; overflow: hidden; background: #fff; }
@@ -812,6 +831,7 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; max-width: 100%; }
 .ht-member { background: linear-gradient(135deg,#8e2de2,#4a00e0); }
 .ht-games { background: linear-gradient(135deg,#f7971e,#ffd200); color: #4a3200 !important; }
 .ht-games h3, .ht-games .muted { color: #5a3d00; }
+.ht-wheel { background: linear-gradient(135deg,#8e2de2,#4a00e0); }
 .ht-perm { background: linear-gradient(135deg,#485563,#29323c); }
 .ht-log { background: linear-gradient(135deg,#3a6073,#16222a); }
 

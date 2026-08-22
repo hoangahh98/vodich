@@ -11,7 +11,10 @@
  * - Điều hướng (HTML): luôn đi mạng, KHÔNG cache. Trang có dữ liệu theo phiên đăng
  *   nhập, cache lại sẽ hiện nhầm dữ liệu người khác. Mạng chết thì trả trang báo lỗi.
  */
-const CACHE = 'vodich-static-v1';
+// Bump số bản khi HTML đổi theo kiểu bản JS cũ không chạy nổi nữa: cache là
+// stale-while-revalidate nên lần mở đầu sau khi deploy vẫn dùng JS cũ, mà khung vòng quay mới
+// (data-spin-wheel) thì bản spin-draw.js cũ không hiểu. Đổi tên cache là `activate` quét sạch.
+const CACHE = 'vodich-static-v2';
 
 // Nạp sẵn ngay khi cài để lần mở đầu tiên từ màn hình chính đã có giao diện.
 const PRECACHE = [

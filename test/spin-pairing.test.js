@@ -78,6 +78,10 @@ const SKILL_CASES = [
   { name: '1 mức duy nhất', spec: { C: 6 } },
   { name: 'lẻ một người', spec: { C: 2, D: 3 } },
   { name: 'lệch nhiều, dồn người dư', spec: { A: 1, B: 5, D: 2 } },
+  // Ba ca phần dư phải GẤP LẠI: người mạnh dư ra kéo sang ghép với mức khác, không tự ghép nhau.
+  { name: 'dư người mạnh, còn mức khác để ghép', spec: { A: 5, B: 3, D: 1 } },
+  { name: 'dư người mạnh, gấp lại hai lượt', spec: { A: 3, B: 4, D: 1 } },
+  { name: 'dư cả hai đầu', spec: { A: 4, B: 1, C: 1, D: 2 } },
 ];
 
 for (const { name, spec } of SKILL_CASES) {
@@ -143,4 +147,38 @@ test('vòng quay: không phân trình chỉ dùng một ô nguồn chung', () =>
 test('vòng quay: danh sách rỗng hoặc một người không làm nổ', () => {
   assert.deepEqual(plain(pairing.createDraw([], 'BY_SKILL').drawAll()), []);
   assert.deepEqual(plain(pairing.createDraw(spinPlayers({ C: 1 }), 'BY_SKILL').drawAll()), [['C0', '']]);
+});
+
+test('vòng quay: preview() chỉ NHÌN lượt tới, không bốc mất ai', () => {
+  const draw = pairing.createDraw(spinPlayers({ B: 2, D: 2 }), 'BY_SKILL');
+  const first = plain(draw.preview());
+  const second = plain(draw.preview());
+  assert.deepEqual(second, first, 'gọi preview hai lần phải ra y hệt nhau');
+  assert.deepEqual(first.labels, ['Trình B', 'Trình D']);
+  assert.equal(first.sources[0].length, 2);
+
+  // Nhìn xong rồi bốc: vẫn phải đủ 4 người trong 2 đội, không ai bị preview nuốt mất.
+  const teams = plain(draw.drawAll());
+  assert.equal(teams.length, 2);
+  assert.equal(new Set(teams.flat()).size, 4);
+});
+
+test('vòng quay: preview() trả null khi hết người để bốc', () => {
+  const draw = pairing.createDraw(spinPlayers({ C: 2 }), 'BY_SKILL');
+  assert.ok(draw.preview(), 'còn 2 người thì vẫn còn lượt để quay');
+  draw.drawAll();
+  assert.equal(draw.preview(), null);
+});
+
+/**
+ * Ô quay thứ hai của một bước "cùng một mức trình" không được còn tên người vừa trúng ô thứ
+ * nhất — nếu không thì bánh xe bày ra một cái tên không thể trúng, quay xong nhìn rất vô lý.
+ */
+test('vòng quay: ô thứ hai đã bỏ người vừa trúng ô thứ nhất ra', () => {
+  const draw = pairing.createDraw(spinPlayers({ C: 4 }), 'BY_SKILL');
+  const step = plain(draw.next());
+  assert.equal(step.sources[0].length, 4);
+  assert.equal(step.sources[1].length, 3);
+  assert.ok(!step.sources[1].includes(step.team[0]), 'người đã trúng ô 1 vẫn còn trên ô 2');
+  assert.ok(step.sources[1].includes(step.team[1]), 'người trúng ô 2 phải nằm trong danh sách ô 2');
 });

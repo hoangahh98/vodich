@@ -273,3 +273,81 @@ test('Americano: chỗ trống "Chờ thành viên" không được thành một
   ]);
   assert.deepEqual(rows.map((row) => row.playerName).sort(), ['An', 'Bình', 'Cường']);
 });
+
+// ───────── Bấm "Chia trận" phải ra lịch KHÁC, và "phân trình" phải có tác dụng thật ─────────
+
+/** Khoá một lịch thành chuỗi so sánh được, để đếm xem chia mấy lần ra mấy kiểu. */
+const scheduleKey = (matches) => matches.map((m) => `${m.roundNumber}|${pairKey(m.teamA)}|${pairKey(m.teamB)}`).join('\n');
+
+/**
+ * Trước đây Americano xếp người vào vòng quay theo ĐÚNG thứ tự đăng ký và không xáo gì cả, nên
+ * bấm "Chia trận" mười lần ra y hệt nhau mười lần — người dùng tưởng nút bị hỏng.
+ */
+test('Americano: chia lại phải ra lịch khác, không đứng im như trước', () => {
+  for (const rule of ['BY_SKILL', 'RANDOM']) {
+    for (const count of [8, 10, 12]) {
+      const keys = new Set(Array.from({ length: 8 }, () => scheduleKey(americano(count, rule))));
+      assert.ok(keys.size > 1, `${count} người / ${rule}: chia 8 lần ra đúng 1 kiểu lịch`);
+    }
+  }
+});
+
+test('Americano: chia lại vẫn giữ nguyên số trận, không lần nhiều lần ít', () => {
+  for (const rule of ['BY_SKILL', 'RANDOM']) {
+    for (const [count, expected] of [[8, 6], [10, 10], [12, 15]]) {
+      for (let run = 0; run < 20; run++) assert.equal(americano(count, rule).length, expected);
+    }
+  }
+});
+
+/** Tổng trình của một đội đôi; tên VĐV là `P<index>` nên tra ngược được trình từ tên. */
+const teamStrength = (teamName) => splitTeamName(teamName).reduce((sum, name) => sum + (Number(name.slice(1)) % 4), 0);
+
+/** Phương sai tổng trình của mọi đội trong lịch — càng nhỏ thì các cặp càng cân sức. */
+function pairImbalance(matches) {
+  const totals = matches.flatMap((match) => [teamStrength(match.teamA), teamStrength(match.teamB)]);
+  const mean = totals.reduce((sum, value) => sum + value, 0) / totals.length;
+  return totals.reduce((sum, value) => sum + (value - mean) ** 2, 0) / totals.length;
+}
+
+const averageImbalance = (count, rule) =>
+  Array.from({ length: 20 }, () => pairImbalance(americano(count, rule))).reduce((sum, value) => sum + value, 0) / 20;
+
+/**
+ * `pairingRule` phải ĐỔI ĐƯỢC cách ghép cặp, chứ không chỉ đổi cách xếp hai cặp gặp nhau.
+ * Trước đây cả hai rule đều dùng nguyên thứ tự đăng ký nên "phân trình" ngang hệt "không phân
+ * trình" — chọn gì cũng như nhau.
+ */
+test('Americano: phân trình ghép cặp cân hơn hẳn không phân trình', () => {
+  for (const count of [8, 10, 12, 16]) {
+    const balanced = averageImbalance(count, 'BY_SKILL');
+    const random = averageImbalance(count, 'RANDOM');
+    assert.ok(balanced < random * 0.75, `${count} người: phân trình ${balanced.toFixed(2)} không hơn được random ${random.toFixed(2)}`);
+  }
+});
+
+/**
+ * Người dư ra ở một mức trình phải được GẤP LẠI theo đúng quy tắc, không đổ chung một rổ bốc
+ * bừa: 5A + 3B + 1D mà bốc bừa thì có lần ra đội A/A trong khi bên B vẫn còn người để ghép.
+ */
+test('phân trình: người mạnh dư ra không tự ghép với nhau khi còn mức khác để ghép', () => {
+  for (let run = 0; run < 80; run++) {
+    const shape = buildBalancedDoublesTeams(regs({ A: 5, B: 3, D: 1 })).map(teamLevelsWithBlank).sort().join(' ');
+    assert.equal(shape, 'AA AB AD A_ BB', `ca 5A+3B+1D ra hình dạng lạ: ${shape}`);
+  }
+  for (let run = 0; run < 80; run++) {
+    // 3A + 4B + 1D: A dư 2 người sau khi ghép với D, phải kéo sang ghép với B chứ không phải
+    // để hai người B lẻ đứng riêng.
+    const shape = buildBalancedDoublesTeams(regs({ A: 3, B: 4, D: 1 })).map(teamLevelsWithBlank).sort().join(' ');
+    assert.equal(shape, 'AA AD BB BB', `ca 3A+4B+1D ra hình dạng lạ: ${shape}`);
+  }
+});
+
+/** Như `teamLevels` nhưng giữ chỗ trống thành "_" để đọc được cả đội có "Chờ thành viên". */
+function teamLevelsWithBlank(team) {
+  return team
+    .split(' / ')
+    .map((name) => (name === 'Chờ thành viên' ? '_' : name.trim()[0]))
+    .sort()
+    .join('');
+}
