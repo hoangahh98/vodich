@@ -93,6 +93,15 @@ cả route tương lai.
 | `HealthController` | Render gọi `/healthz`, `/readyz` khi chưa có session; chỉ trả cờ boolean |
 | `ExternalRegistrationController` | Người ngoài tự đăng ký giải qua link chia sẻ; đã có rate-limit theo IP + email |
 
+Riêng `ExternalRegistrationController` là bề mặt công khai DUY NHẤT chạm vào dữ liệu thật, nên
+nó chỉ được thấy giải **đang mở đăng ký ngoài** — lọc ngay trong truy vấn
+(`findFirst({ where: { id, externalRegistrationEnabled: true } })`), áp cho cả GET lẫn POST.
+
+Trước đây chỉ POST kiểm cờ đó, còn GET cứ tìm thấy id là render. Người lạ dò
+`/external-register/1`, `/2`, `/3`… là lấy được **tên của mọi giải** trong hệ thống, kể cả giải
+chưa hề mở đăng ký. Giải không tồn tại và giải chưa mở phải trả lời **giống hệt nhau**: phân
+biệt hai câu đó chính là xác nhận id nào đang dùng. `test/security.test.js` khoá cả ba điểm này.
+
 Danh sách này được **khoá bằng test** (`test/security.test.js`). Thêm `@Public()` ở chỗ khác
 là test đỏ ngay, buộc người sửa phải cân nhắc.
 

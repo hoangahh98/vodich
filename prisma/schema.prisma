@@ -59,6 +59,7 @@ model Tournament {
   expectedPlayers             Int       @default(10) @map("expected_players")
   playType                    String    @default("SINGLES") @map("play_type") @db.VarChar(20)
   format                      String    @default("ROUND_ROBIN") @db.VarChar(20)
+  pairingRule                 String    @default("BY_SKILL") @map("pairing_rule") @db.VarChar(20)
   knockoutQualifierCount      Int       @default(4) @map("knockout_qualifier_count")
   touchScore                  Int       @default(11) @map("touch_score")
   maxScore                    Int       @default(15) @map("max_score")

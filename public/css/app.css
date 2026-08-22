@@ -134,6 +134,8 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
 .prize-config-col { min-width: 0; }
 .prize-config-col input { min-width: 160px; font-size: 16px; }
 .segmented { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+/* Ba lựa chọn thì chia ba cột; màn hẹp đã có @media đưa .segmented về một cột nên không cần lặp lại. */
+.segmented.segmented-3 { grid-template-columns: repeat(3, 1fr); }
 .segmented label, .option-card { border: 1px solid #9ec5fe; border-radius: 8px; padding: 14px; background: #fff; color: #17202a; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(13,110,253,.04); min-height: 58px; display: flex; align-items: center; gap: 8px; }
 .segmented input, .option-card input { width: auto; min-height: auto; margin-right: 6px; }
 .segmented label:has(input:checked), .option-card:has(input:checked) { background: #e7f1ff; border-color: #0d6efd; color: #084298; box-shadow: inset 0 0 0 1px #0d6efd; }
@@ -268,7 +270,13 @@ th { background: #0d6efd; color: #fff; font-size: 13px; }
    - `overflow-x: hidden` ở CẢ html lẫn body — đây mới là thứ chặn "kéo lê cả trang sang
      ngang". Trước đây nó nằm trong một media query nên màn to vẫn kéo được. Nội dung rộng
      (bảng) tự cuộn trong .table-wrap của nó, không đẩy cả trang ra nữa.
-   - `overscroll-behavior: none` — chặn kiểu kéo quá đà làm cả trang nhún nhảy.
+   - `overscroll-behavior: none` — chặn kiểu kéo quá đà làm cả trang nhún nhảy. CHỈ đặt ở
+     `html`, TUYỆT ĐỐI KHÔNG đặt ở `body`: `overflow-x: hidden` khiến `overflow-y` của body
+     bị tính lại thành `auto` (quy định của spec), tức body TRỞ THÀNH vùng cuộn — nhưng nó
+     cao đúng bằng nội dung nên chẳng có gì để cuộn. Con lăn chuột đi vào body trước, phải
+     "chain" lên html mới cuộn được trang; `overscroll-behavior: none` ở body chặn đúng cái
+     chain đó, thành ra LĂN CHUỘT KHÔNG CUỘN ĐƯỢC TRANG NÀO CẢ (chỉ kéo tay thanh cuộn bên
+     phải mới ăn, vì đó là scrollbar của html). Khoá lại bằng test/ui-smoke.test.js.
    Phần chặn cử chỉ chụm ngón nằm ở public/js/no-zoom.js vì iOS bỏ qua thẻ meta viewport. */
 html {
   touch-action: pan-x pan-y;
@@ -277,7 +285,7 @@ html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
-body { touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none; max-width: 100%; }
+body { touch-action: pan-x pan-y; overflow-x: hidden; max-width: 100%; }
 
 .card-hdr { color: #fff; font-weight: 700; padding: 10px 16px; border-radius: 9px 9px 0 0; display: flex; align-items: center; justify-content: space-between; }
 .card-hdr.blue { background: #0d6efd; }
@@ -373,6 +381,32 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; overscroll-behavior: none;
 .score-reader-order .btn { flex: 1 1 140px; min-width: 140px; min-height: 64px; font-size: 20px; font-weight: 900; }
 .score-reader-command { align-items: center; }
 .score-reader-command .btn { min-width: 112px; min-height: 46px; }
+/* ─── Vòng quay chia trận (public/js/spin-draw.js) ─────────────────────────────────────────
+   Ô quay là cột tên chạy dọc chứ không phải bánh xe tròn: tên tiếng Việt dài, chia múi trên
+   vòng tròn thì chữ xoay ngang dọc và trên điện thoại đọc không ra. */
+.schedule-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.schedule-actions form { margin: 0; }
+.spin-reels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+.spin-reels:empty { display: none; }
+.spin-reel { border: 1px solid var(--line); border-radius: 10px; background: #f8fbff; overflow: hidden; }
+.spin-reel-label { background: #0d6efd; color: #fff; font-weight: 800; font-size: 13px; text-align: center; padding: 6px 8px; }
+.spin-reel-window { display: grid; place-items: center; min-height: 74px; padding: 8px 10px; }
+.spin-reel-name { font-size: 20px; font-weight: 900; color: #111827; text-align: center; overflow-wrap: anywhere; }
+.spin-reel-name.landed { color: #0f5132; animation: spin-pop .28s ease-out; }
+@keyframes spin-pop { from { transform: scale(.82); opacity: .5; } to { transform: scale(1); opacity: 1; } }
+.spin-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+.spin-actions .btn { flex: 1 1 130px; min-height: 46px; }
+.spin-results-box { border-top: 1px solid var(--line); padding-top: 12px; }
+.spin-results-title { margin: 0 0 8px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+.spin-results { margin: 0; padding-left: 22px; display: grid; gap: 6px; max-height: 240px; overflow-y: auto; }
+.spin-results li { font-weight: 700; overflow-wrap: anywhere; }
+.spin-vs { color: var(--muted); font-weight: 800; }
+.spin-apply { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 12px; }
+.spin-apply-btn { width: 100%; min-height: 48px; }
+@media (max-width: 720px) {
+  .spin-reels { grid-template-columns: 1fr; }
+}
+
 .group-board { border: 1px solid #19875455; border-radius: 8px; overflow: hidden; background: #fff; }
 .group-board-title { background: #d1f2dc; color: #0f5132; font-weight: 800; text-align: center; padding: 6px 8px; border-bottom: 1px solid #19875455; }
 .group-team-row { padding: 6px 10px; border-bottom: 1px solid #e9ecef; font-size: .86rem; font-weight: 600; }

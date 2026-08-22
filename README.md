@@ -201,6 +201,34 @@ Kiểm tra nhanh hai Render service:
 npm run check:render -- https://service-a.onrender.com https://service-b.onrender.com
 ```
 
+## Thể thức thi đấu
+
+- **Vòng tròn** — đội cố định, đấu vòng tròn một lượt.
+- **Đánh bảng + vòng trong** — chia bảng rồi vào tứ kết/bán kết/chung kết.
+- **Đôi xoay vòng (Americano)** — mỗi VĐV lần lượt đánh chung đội với những người khác nhau,
+  xếp hạng theo **từng cá nhân** (ưu tiên tổng điểm ghi được) chứ không theo cặp. Luôn là đánh
+  đôi. Mỗi người chỉ ghép cặp với tối đa `(n-2)/2` người để giải dài đúng bằng một giải vòng
+  tròn thường — 10 người thì mỗi người ghép 4 người, ra 10 trận, y như 5 đội cố định đấu vòng
+  tròn. Ghép hết mọi cặp sẽ ra 22 trận, đánh cả ngày không hết.
+
+Kèm theo là **quy tắc ghép cặp** cho đánh đôi:
+
+- **Phân trình** (mặc định) — gom theo trình rồi ghép mức mạnh nhất với mức yếu nhất, tiến dần
+  vào giữa. Không phải "A ghép D": giải chỉ có B, C, D thì B ghép D còn C ghép C.
+- **Không phân trình** — bỏ qua trình độ, xáo ngẫu nhiên.
+
+### Vòng quay chia trận
+
+Ở tab **Thi đấu** của giải đánh đôi (vòng tròn hoặc đánh bảng), cạnh nút *Chia trận* có nút
+**🎡 Vòng quay**: bốc từng cặp một cách trực quan trước mặt cả nhóm thay vì để máy chia lặng lẽ.
+
+- Giải **phân trình** quay hai ô cùng lúc, mỗi ô một mức trình đang được ghép với nhau.
+- Giải **không phân trình** quay hai ô từ cùng một rổ chung.
+- Bốc xong bấm *Chốt danh sách này & chia trận* — nó dùng lại đúng luồng ghép cặp thủ công.
+
+Quy tắc bốc nằm ở `public/js/spin-pairing.js` và **phải khớp với server**; `test/spin-pairing.test.js`
+so thẳng kết quả hai bên trên 9 cấu hình mức trình khác nhau.
+
 ## Ghi chú kiến trúc
 
 - Controller giữ vai trò routing/render/redirect, nghiệp vụ chính nằm trong service theo domain.

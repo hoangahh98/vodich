@@ -174,6 +174,31 @@ test('tournament schedule view keeps score modal and registration copy contract'
   assert.match(html, /https:\/\/render\.example\/external-register\/1/);
 });
 
+test('vòng quay chia trận có mặt và mang theo danh sách vận động viên', async () => {
+  const html = await renderView('tournaments/detail.ejs', tournamentLocals('schedule'));
+
+  assert.match(html, /data-spin-open/, 'thiếu nút mở vòng quay cạnh nút Chia trận');
+  assert.match(html, /data-spin-modal/, 'thiếu khung vòng quay');
+  assert.match(html, /\/js\/spin-pairing\.js/, 'phải nạp phần rule trước phần giao diện');
+  assert.match(html, /\/js\/spin-draw\.js/);
+
+  // Dữ liệu đi qua data-* chứ không phải <script> nhúng, vì CSP chặn script inline.
+  const players = html.match(/data-players="([^"]*)"/);
+  assert.ok(players, 'vòng quay phải nhận danh sách VĐV qua data-players');
+  const parsed = JSON.parse(players[1].replace(/&#34;/g, '"').replace(/&amp;/g, '&'));
+  assert.deepEqual(parsed, [{ name: 'An', skill: 'A' }]);
+  assert.doesNotMatch(html, /<script>[^<]*data-players/, 'không được nhúng dữ liệu bằng script inline');
+});
+
+test('vòng quay không hiện ở thể thức đôi xoay vòng (đội tự đổi mỗi vòng)', async () => {
+  const locals = tournamentLocals('schedule');
+  locals.tournament = { ...locals.tournament, format: 'AMERICANO' };
+  const html = await renderView('tournaments/detail.ejs', locals);
+
+  assert.doesNotMatch(html, /data-spin-open/);
+  assert.doesNotMatch(html, /data-spin-modal/);
+});
+
 test('tournament create and edit forms render prize settings', async () => {
   const common = commonLocals('/tournaments/new');
   const createHtml = await renderView('tournaments/form.ejs', {
@@ -321,6 +346,34 @@ test('trang không kéo lê sang ngang được: overflow-x khoá ở quy tắc 
 
   // Bảng rộng vẫn phải cuộn được trong khung của nó, nếu không là mất dữ liệu trên màn hẹp.
   assert.match(css, /\.table-wrap\s*\{[^}]*overflow-x:\s*auto/, '.table-wrap phải tự cuộn ngang');
+});
+
+/**
+ * CA THẬT: con lăn chuột không cuộn được trang NÀO, chỉ kéo tay thanh cuộn bên phải mới ăn.
+ *
+ * Thủ phạm là hai thuộc tính vô hại khi đứng riêng nhưng chết người khi đứng chung trên
+ * `body`: `overflow-x: hidden` khiến `overflow-y` của body bị spec tính lại thành `auto`, tức
+ * body trở thành vùng cuộn — nhưng nó cao đúng bằng nội dung nên không có gì để cuộn. Con lăn
+ * đi vào body trước, phải chain lên `html` mới cuộn được trang, và `overscroll-behavior: none`
+ * ở body chặn đúng cái chain đó.
+ *
+ * Đo được bằng Playwright: giữ nguyên -> scrollY = 0 sau khi lăn 500px; bỏ overscroll-behavior
+ * ở body -> scrollY = 500. Vì thế `overscroll-behavior` CHỈ được đặt ở `html`.
+ */
+test('lăn chuột cuộn được trang: body không được chặn scroll chaining', () => {
+  const css = fs.readFileSync(path.join(root, 'public/css/app.css'), 'utf8');
+  const base = css.replace(/@media[^{]*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}/g, '');
+
+  for (const rule of base.match(/(^|\n)body\s*\{[^}]*\}/g) || []) {
+    assert.doesNotMatch(
+      rule,
+      /overscroll-behavior/,
+      'body có overflow-x:hidden nên là vùng cuộn; thêm overscroll-behavior ở đây là khoá luôn con lăn chuột của cả trang',
+    );
+  }
+
+  const htmlRule = base.match(/(^|\n)html\s*\{[^}]*\}/);
+  assert.match(htmlRule[0], /overscroll-behavior:\s*none/, 'chặn kéo quá đà vẫn phải còn, nhưng đặt ở html');
 });
 
 /** Mọi trang hoàn chỉnh đều phải đi qua partials/head — nếu không là lọt lưới khoá zoom. */

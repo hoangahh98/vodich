@@ -12,11 +12,11 @@ import { PrismaService } from './prisma.service';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
-  // Tự cấu hình body parser. Mức 12mb dựng cho ảnh đơn thuốc base64 của module y tế (đã gỡ
-  // 3/8/2026); giữ nguyên vì hạ trần là đổi hành vi của mọi form còn lại, không phải việc
-  // của lần gỡ này. Hạ xuống khi có dịp rà riêng.
-  app.use(json({ limit: '12mb' }));
-  app.use(urlencoded({ extended: true, limit: '12mb' }));
+  // Trần body 1mb: app chỉ còn nhận form text (form to nhất là bảng phí cả giải, cỡ vài chục KB).
+  // Mức cũ 12mb dựng cho ảnh đơn thuốc base64 của module y tế — module đó đã gỡ 3/8/2026 nên
+  // giữ trần cao chỉ còn là chỗ để người lạ nhồi request nặng.
+  app.use(json({ limit: '1mb' }));
+  app.use(urlencoded({ extended: true, limit: '1mb' }));
   // Render/Supabase chạy sau reverse proxy: cần trust proxy để cookie `secure`
   // hoạt động và để req.ip lấy đúng IP client (không tin header thô).
   app.set('trust proxy', 1);

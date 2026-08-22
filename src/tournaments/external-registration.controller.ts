@@ -22,18 +22,14 @@ export class ExternalRegistrationController {
 
   @Get('/external-register/:id')
   async externalRegister(@Res() res: Response, @Param('id') id: string) {
-    const tournamentId = parseBigId(id);
-    if (!tournamentId) return notFound(res, 'Không tìm thấy giải đấu');
-    const tournament = await this.prisma.tournament.findUnique({ where: { id: tournamentId } });
+    const tournament = await this.openTournament(id);
     if (!tournament) return notFound(res, 'Không tìm thấy giải đấu');
     return render(res, 'external-register', { tournament });
   }
 
   @Post('/external-register/:id')
   async externalRegisterSubmit(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string>) {
-    const tournamentId = parseBigId(id);
-    if (!tournamentId) return notFound(res, 'Không tìm thấy giải đấu');
-    const tournament = await this.prisma.tournament.findUnique({ where: { id: tournamentId } });
+    const tournament = await this.openTournament(id);
     if (!tournament) return notFound(res, 'Không tìm thấy giải đấu');
     const limit = this.rateLimit.consume(`external-register:${clientIp(req)}:${id}:${String(body.email || '').trim().toLowerCase()}`, { max: 5 });
     if (!limit.allowed) {
@@ -41,7 +37,7 @@ export class ExternalRegistrationController {
     }
 
     try {
-      const registration = await this.tournaments.registerExternal(tournamentId, body.displayName, body.email, body.skillLevel);
+      const registration = await this.tournaments.registerExternal(tournament.id, body.displayName, body.email, body.skillLevel);
       this.matchGateway.emitTournamentUpdated(id, 'registrations');
       return render(res, 'external-success', { registration: { ...registration, tournamentId: id } });
     } catch (error) {
@@ -51,6 +47,23 @@ export class ExternalRegistrationController {
         form: body,
       });
     }
+  }
+  /**
+   * Giải mà người ngoài ĐƯỢC PHÉP nhìn thấy qua link chia sẻ: phải tồn tại VÀ đang mở đăng ký
+   * ngoài. Trả `null` cho mọi trường hợp còn lại để nơi gọi báo "không tìm thấy".
+   *
+   * Trước đây chỉ POST kiểm `externalRegistrationEnabled`, còn GET thì cứ tìm thấy là render.
+   * Hệ quả: ai cũng dò được `/external-register/1,2,3...` để lấy TÊN của mọi giải trong hệ
+   * thống, kể cả giải chưa hề mở đăng ký ngoài — endpoint này là public nên không cần tài
+   * khoản. Kèm theo đó là người lạ điền hết form rồi mới bị POST từ chối.
+   *
+   * Cố tình trả "không tìm thấy" thay vì "giải chưa mở đăng ký": phân biệt hai câu đó chính là
+   * xác nhận giải có tồn tại, tức là vẫn dò ra được danh sách id đang dùng.
+   */
+  private async openTournament(id: string) {
+    const tournamentId = parseBigId(id);
+    if (!tournamentId) return null;
+    return this.prisma.tournament.findFirst({ where: { id: tournamentId, externalRegistrationEnabled: true } });
   }
 }
 

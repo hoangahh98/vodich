@@ -7,6 +7,7 @@ import { getSessionMiddleware } from '../common/session';
 import { PrismaService } from '../prisma.service';
 import { SOCKET_EVENTS, ScorePayload, teamRoom, tournamentRoom } from '../realtime/socket-events';
 import { CurrentUser } from '../types';
+import { isKnockoutStage } from './tournament-schedule';
 import { TournamentService } from './tournament.service';
 
 @WebSocketGateway({ cors: false })
@@ -70,7 +71,7 @@ export class MatchGateway implements OnGatewayInit {
     const tournamentId = match.tournamentId;
     let scoreA = Math.max(0, Number(body.scoreA) || 0);
     let scoreB = Math.max(0, Number(body.scoreB) || 0);
-    const isKnockout = match.stage !== 'Vòng bảng' && match.stage !== 'Vòng tròn';
+    const isKnockout = isKnockoutStage(match.stage);
     const touchScore = Math.max(1, isKnockout ? match.tournament.knockoutTouchScore || 15 : match.tournament.touchScore || 11);
     const maxScore = Math.max(1, isKnockout ? match.tournament.knockoutMaxScore || 19 : match.tournament.maxScore || 15);
     const maxAllowed = (opponentScore: number) => {

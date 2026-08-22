@@ -1,5 +1,7 @@
 import { MatchGame, Tournament, TournamentRegistration } from '@prisma/client';
+import { PairingRule, normalizePairingRule } from '../common/enums';
 import { RankingGroup, compareRankingRows } from './tournament-ranking';
+import { WAITING_PARTNER, formatTeamName } from './team-name';
 
 export type MatchCreate = {
   tournamentId: bigint;
@@ -13,13 +15,34 @@ export type MatchCreate = {
 
 type RegisteredPlayer = TournamentRegistration & { player: { displayName: string } | null };
 
+/** Tên vòng của thể thức Đôi xoay vòng (Americano). */
+export const AMERICANO_STAGE = 'Xoay vòng';
+
+/** Mọi vòng đấu tính vào bảng xếp hạng (khác với các vòng loại trực tiếp phía sau). */
+export const RANKED_STAGES = ['Vòng bảng', 'Vòng tròn', AMERICANO_STAGE];
+
+/**
+ * Trận này có thuộc vòng loại trực tiếp không (tứ kết/bán kết/chung kết)?
+ *
+ * Suy ra từ `RANKED_STAGES` chứ không liệt kê tay từng tên vòng: trước đây ba chỗ (gateway ghi
+ * điểm và hai view lịch) đều tự viết `stage !== 'Vòng bảng' && stage !== 'Vòng tròn'`, nên
+ * thêm một thể thức mới là cả ba lặng lẽ coi nó là vòng trong rồi chấm điểm sai luật.
+ */
+export function isKnockoutStage(stage: string): boolean {
+  return !RANKED_STAGES.includes(stage);
+}
+
 export class TournamentScheduleBuilder {
   fromRegistrations(tournament: Tournament, registrations: RegisteredPlayer[]): MatchCreate[] {
-    // Đơn: mỗi người một "đội", chỉ cần xáo thứ tự. Đôi: GHÉP CÂN BẰNG theo trình (xem
-    // buildBalancedDoublesTeams) rồi mới xáo thứ tự đội để rải sân/vòng.
+    const rule = normalizePairingRule(tournament.pairingRule);
+    // Americano tự lo toàn bộ lịch: đội đổi sau mỗi vòng nên không đi qua đường "dựng đội một
+    // lần rồi đấu vòng tròn" như hai thể thức kia.
+    if (tournament.format === 'AMERICANO') return buildAmericanoMatches(tournament, registrations, rule);
+    // Đơn: mỗi người một "đội", chỉ cần xáo thứ tự. Đôi: ghép theo `rule` rồi mới xáo thứ tự
+    // đội để rải sân/vòng.
     const teams =
       tournament.playType === 'DOUBLES'
-        ? shuffle(buildBalancedDoublesTeams(registrations))
+        ? shuffle(buildDoublesTeams(registrations, rule))
         : shuffle(registrations.map(displayRegistrationName));
     return this.fromTeams(tournament, teams);
   }
@@ -74,6 +97,22 @@ function displayRegistrationName(reg: RegisteredPlayer) {
 }
 
 /**
+ * Ghép đội đôi theo quy tắc của giải. Một cửa vào duy nhất để nơi gọi không phải tự nhớ
+ * `rule` nào ứng với hàm nào.
+ */
+export function buildDoublesTeams(registrations: RegisteredPlayer[], rule: PairingRule): string[] {
+  return rule === 'RANDOM' ? buildRandomDoublesTeams(registrations) : buildBalancedDoublesTeams(registrations);
+}
+
+/** Ghép đội đôi KHÔNG phân trình: xáo thuần rồi bắt cặp liền kề. */
+export function buildRandomDoublesTeams(registrations: RegisteredPlayer[]): string[] {
+  const teams: string[] = [];
+  const leftover = pairWithin(registrations, teams);
+  if (leftover.length) teams.push(formatTeamName(displayRegistrationName(leftover[0]), WAITING_PARTNER));
+  return teams;
+}
+
+/**
  * Ghép đội đôi CÂN BẰNG theo trình. Gom người theo trình, sắp các mức trình mạnh→yếu rồi
  * "gấp đôi" hai đầu vào nhau: mức mạnh nhất đấu chung đội với mức yếu nhất, cứ thế vào giữa.
  *
@@ -109,7 +148,7 @@ export function buildBalancedDoublesTeams(registrations: RegisteredPlayer[]): st
   if (lo === hi) leftovers.push(...pairWithin(byLevel.get(levels[lo]) || [], teams));
   // Dồn hết người lẻ (do lệch số lượng giữa các mức) ghép nốt với nhau.
   const last = pairWithin(leftovers, teams);
-  if (last.length) teams.push(`${displayRegistrationName(last[0])} / Chờ thành viên`);
+  if (last.length) teams.push(formatTeamName(displayRegistrationName(last[0]), WAITING_PARTNER));
   return teams;
 }
 
@@ -118,14 +157,14 @@ function pairAcross(strong: RegisteredPlayer[], weak: RegisteredPlayer[], teams:
   const s = shuffle(strong);
   const w = shuffle(weak);
   const paired = Math.min(s.length, w.length);
-  for (let i = 0; i < paired; i++) teams.push(`${displayRegistrationName(s[i])} / ${displayRegistrationName(w[i])}`);
+  for (let i = 0; i < paired; i++) teams.push(formatTeamName(displayRegistrationName(s[i]), displayRegistrationName(w[i])));
   return [...s.slice(paired), ...w.slice(paired)];
 }
 
 /** Ghép random trong cùng một nhóm (mức trình giữa, hoặc gom người lẻ). Trả người lẻ cuối. */
 function pairWithin(list: RegisteredPlayer[], teams: string[]): RegisteredPlayer[] {
   const s = shuffle(list);
-  for (let i = 0; i + 1 < s.length; i += 2) teams.push(`${displayRegistrationName(s[i])} / ${displayRegistrationName(s[i + 1])}`);
+  for (let i = 0; i + 1 < s.length; i += 2) teams.push(formatTeamName(displayRegistrationName(s[i]), displayRegistrationName(s[i + 1])));
   return s.length % 2 ? [s[s.length - 1]] : [];
 }
 
@@ -147,6 +186,162 @@ function shuffle<T>(items: T[]): T[] {
     [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
   }
   return result;
+}
+
+type AmericanoPlayer = { index: number; name: string; skill: number };
+type AmericanoPair = { first: AmericanoPlayer; second: AmericanoPlayer; strength: number };
+
+/**
+ * Số trận của một giải ĐÔI đánh vòng tròn thường: n người ghép thành `n/2` đội cố định, mỗi
+ * đội gặp nhau một lần. Đây là mốc để giải Americano dài bằng đúng một buổi như mọi khi.
+ */
+export function roundRobinDoublesMatchCount(playerCount: number): number {
+  const teams = Math.floor(playerCount / 2);
+  return teams < 2 ? 0 : (teams * (teams - 1)) / 2;
+}
+
+/**
+ * Số người tối đa mà MỘT VĐV được đánh chung đội trong giải Americano.
+ *
+ * Không để mọi người ghép với tất cả: 10 người mà ghép hết thì ra 45 cặp ≈ 22 trận, đánh cả
+ * ngày không hết. Chặn ở `(n-2)/2` để tổng số trận bằng đúng giải vòng tròn thường — 10 người
+ * thì mỗi người ghép tối đa 4 người, ra 10 trận, y như 5 đội cố định đấu vòng tròn.
+ *
+ * Suy ra từ đâu: mỗi người ghép k người → tổng `n*k/2` cặp → `n*k/4` trận. Cho bằng số trận
+ * vòng tròn `n(n-2)/8` thì k = (n-2)/2.
+ */
+export function americanoPartnerLimit(playerCount: number): number {
+  return Math.max(1, Math.floor((playerCount - 2) / 2));
+}
+
+/**
+ * Thể thức "Đôi xoay vòng (Americano)": mỗi VĐV lần lượt đánh CHUNG ĐỘI với những người khác
+ * nhau, thay vì cố định đội từ đầu giải.
+ *
+ * Cách làm: dùng vòng quay của `roundRobinRounds` để mỗi vòng ai cũng có đúng một người đánh
+ * chung, rồi ghép hai cặp thành một trận. Chỉ lấy `americanoPartnerLimit()` vòng đầu, và cắt
+ * tổng số trận về đúng bằng một giải vòng tròn thường (xem hai hàm ngay trên).
+ *
+ * Phần dư: số cặp trong một vòng có thể là số lẻ (10 người -> 5 cặp), cặp lẻ ấy được dồn sang
+ * các vòng phụ cuối giải chứ không mất.
+ */
+export function buildAmericanoMatches(tournament: Tournament, registrations: RegisteredPlayer[], rule: PairingRule): MatchCreate[] {
+  const players: AmericanoPlayer[] = registrations.map((reg, index) => ({
+    index,
+    name: displayRegistrationName(reg),
+    skill: skillRank(normalizeSkill(reg.skillLevel)),
+  }));
+  // Dưới 4 người thì không có nổi một trận đôi nào, trả lịch rỗng thay vì dựng trận nửa vời.
+  if (players.length < 4) return [];
+
+  const matches: MatchCreate[] = [];
+  const targetMatchCount = roundRobinDoublesMatchCount(players.length);
+  let court = 1;
+  americanoRounds(players, rule).forEach((round, roundIndex) => {
+    for (const [teamA, teamB] of round) {
+      if (matches.length >= targetMatchCount) return;
+      matches.push({
+        tournamentId: tournament.id,
+        teamA: pairName(teamA),
+        teamB: pairName(teamB),
+        courtNumber: court,
+        roundNumber: roundIndex + 1,
+        stage: AMERICANO_STAGE,
+        groupName: null,
+      });
+      court = court >= tournament.courtCount ? 1 : court + 1;
+    }
+  });
+  return matches;
+}
+
+/**
+ * Chia toàn bộ cặp có thể thành từng vòng, mỗi vòng là danh sách trận (hai cặp một trận).
+ *
+ * Dùng ĐÚNG thuật toán vòng tròn của `roundRobinRounds`, chỉ khác cách đọc kết quả: ở giải
+ * thường mỗi kết quả `[x, y]` là "x ĐẤU VỚI y", ở đây là "x ĐÁNH CHUNG ĐỘI với y". Nhờ vậy mỗi
+ * vòng chắc chắn dùng hết mọi người đúng một lần và sau n-1 vòng thì mọi cặp đều đã xuất hiện.
+ *
+ * KHÔNG dùng cách tham lam "bốc dần từ rổ mọi cặp": nó không đảm bảo mỗi vòng phủ hết người,
+ * nên có lần 8 người chỉ ra 13 trận thay vì 14 — đã bị test bắt tại chỗ.
+ *
+ * Ghép trên CHỈ SỐ chứ không trên tên: hai VĐV trùng tên hiển thị vẫn phải là hai người.
+ */
+function americanoRounds(players: AmericanoPlayer[], rule: PairingRule): [AmericanoPair, AmericanoPair][][] {
+  const rounds: [AmericanoPair, AmericanoPair][][] = [];
+  // Cặp bị lẻ ra ở mỗi vòng (số cặp trong vòng là số lẻ) — dồn lại đấu ở các vòng phụ cuối giải.
+  const spillover: AmericanoPair[] = [];
+  // Mỗi vòng cho mỗi người thêm ĐÚNG một người đánh chung, nên số vòng chính là số người tối đa
+  // được ghép cặp. Cắt ở đây thay vì cắt trận ở cuối để không ai bị ghép quá hạn mức.
+  const partnerRounds = roundRobinRounds(players.map((_, index) => String(index))).slice(0, americanoPartnerLimit(players.length));
+
+  for (const [roundIndex, roundPairs] of partnerRounds.entries()) {
+    const pairs = roundPairs.map(([first, second]) => makePair(players[Number(first)], players[Number(second)]));
+    // Lẻ một cặp thì phải hoãn một cặp sang vòng phụ. CHỌN cặp không dùng chung người với những
+    // cặp đã hoãn trước đó: các cặp hoãn mà rời nhau thì vòng phụ ghép được thành trận, còn dồn
+    // toàn cặp chung người thì chúng kẹt lại và giải bị hụt trận.
+    if (pairs.length % 2) {
+      const held = new Set(spillover.flatMap((pair) => [pair.first.index, pair.second.index]));
+      const free = pairs.findIndex((pair) => !held.has(pair.first.index) && !held.has(pair.second.index));
+      spillover.push(...pairs.splice(free >= 0 ? free : roundIndex % pairs.length, 1));
+    }
+    const round = toMatches(pairs, rule);
+    if (round.length) rounds.push(round);
+  }
+
+  rounds.push(...spilloverRounds(spillover, rule));
+  return rounds;
+}
+
+/**
+ * Xếp nốt các cặp bị hoãn: mỗi vòng phụ bốc ra những cặp không dùng chung người rồi ghép thành
+ * trận. Dừng khi không còn bốc nổi hai cặp rời nhau — phần dư cuối cùng là giới hạn số học của
+ * thể thức (xem ghi chú ở buildAmericanoMatches), không phải lỗi.
+ */
+function spilloverRounds(pairs: AmericanoPair[], rule: PairingRule): [AmericanoPair, AmericanoPair][][] {
+  const rounds: [AmericanoPair, AmericanoPair][][] = [];
+  let pool = pairs;
+
+  while (pool.length > 1) {
+    const used = new Set<number>();
+    const picked: AmericanoPair[] = [];
+    const rest: AmericanoPair[] = [];
+    for (const pair of pool) {
+      if (used.has(pair.first.index) || used.has(pair.second.index)) {
+        rest.push(pair);
+        continue;
+      }
+      used.add(pair.first.index);
+      used.add(pair.second.index);
+      picked.push(pair);
+    }
+    if (picked.length < 2) break;
+    if (picked.length % 2) rest.push(picked.pop() as AmericanoPair);
+    rounds.push(toMatches(picked, rule));
+    pool = rest;
+  }
+
+  return rounds;
+}
+
+/**
+ * Ghép các cặp của một vòng thành trận. `BY_SKILL` sắp theo tổng trình rồi ghép hai cặp liền
+ * kề, tức là hai cặp cân sức nhất gặp nhau; `RANDOM` bốc ngẫu nhiên.
+ */
+function toMatches(pairs: AmericanoPair[], rule: PairingRule): [AmericanoPair, AmericanoPair][] {
+  const ordered = rule === 'BY_SKILL' ? [...pairs].sort((a, b) => a.strength - b.strength) : shuffle(pairs);
+  const matches: [AmericanoPair, AmericanoPair][] = [];
+  for (let index = 0; index + 1 < ordered.length; index += 2) matches.push([ordered[index], ordered[index + 1]]);
+  return matches;
+}
+
+/** `strength` = tổng trình của hai người, dùng để cho hai cặp cân sức gặp nhau. */
+function makePair(first: AmericanoPlayer, second: AmericanoPlayer): AmericanoPair {
+  return { first, second, strength: first.skill + second.skill };
+}
+
+function pairName(pair: AmericanoPair): string {
+  return formatTeamName(pair.first.name, pair.second.name);
 }
 
 function buildGroupMatches(tournament: Tournament, teams: string[]): MatchCreate[] {

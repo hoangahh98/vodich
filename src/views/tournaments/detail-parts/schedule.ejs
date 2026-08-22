@@ -11,7 +11,7 @@
           roundMap.set(match.roundNumber, list);
         });
         const roundTitle = (round, list) => {
-          const stage = list.find((item) => item.stage !== 'Vòng bảng' && item.stage !== 'Vòng tròn')?.stage;
+          const stage = list.find((item) => isKnockoutStage(item.stage))?.stage;
           if (stage) return `🏆 ${stage.toUpperCase()}`;
           if (round === 100) return '🏆 TỨ KẾT';
           if (round === 101) return '🏆 BÁN KẾT';
@@ -25,4 +25,5 @@
     </div>
   </section>
   <%- include('schedule-parts/score-modal') %>
+  <%- include('schedule-parts/spin-draw') %>
 <% } %>

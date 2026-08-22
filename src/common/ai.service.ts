@@ -2,18 +2,14 @@ import { Injectable } from '@nestjs/common';
 
 /**
  * Client gọi AI qua Groq (chuẩn OpenAI, không cần thẻ). Cần env GROQ_API_KEY.
- * - Model text mặc định: llama-3.3-70b-versatile (đổi qua GROQ_MODEL).
- * - Model đọc ảnh mặc định: qwen/qwen3.6-27b (đổi qua GROQ_VISION_MODEL) — dùng cho đơn thuốc.
- *   Lưu ý: llama-4-scout đã bị Groq gỡ (lỗi 404 model_not_found), đừng dùng lại.
+ * Model mặc định: llama-3.3-70b-versatile (đổi qua GROQ_MODEL).
+ * Lưu ý: llama-4-scout đã bị Groq gỡ (lỗi 404 model_not_found), đừng dùng lại.
+ *
+ * Chỉ gửi TEXT. Phần đọc ảnh (vision model) đã đi cùng module y tế khi module đó bị gỡ
+ * 3/8/2026 — nơi duy nhất từng dùng là chụp đơn thuốc.
  */
-export interface AiImage {
-  mimeType: string;
-  data: string; // base64 (không có tiền tố data:)
-}
-
 export interface AiOptions {
   json?: boolean;
-  images?: AiImage[];
   model?: string;
   temperature?: number;
   maxTokens?: number;
@@ -28,7 +24,7 @@ const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 20000;
 // think rồi không kịp sinh JSON -> Groq trả 400 json_validate_failed với nội dung rỗng.
 // (qwen chỉ nhận 'none' hoặc 'default', không có 'low'/'high'.)
 const REASONING_MODELS = /qwen|deepseek|gpt-oss/i;
-// Giới hạn token đầu ra. Cần đặt tường minh vì đơn thuốc nhiều loại sinh JSON khá dài.
+// Giới hạn token đầu ra, đặt tường minh để câu trả lời dài không bị cắt giữa chừng.
 const DEFAULT_MAX_TOKENS = 4096;
 
 @Injectable()
@@ -41,27 +37,14 @@ export class AiService {
     return process.env.GROQ_MODEL || 'llama-3.3-70b-versatile';
   }
 
-  private visionModel() {
-    return process.env.GROQ_VISION_MODEL || 'qwen/qwen3.6-27b';
-  }
-
   async generate(prompt: string, options: AiOptions = {}): Promise<string> {
     const key = (process.env.GROQ_API_KEY || '').trim();
     if (!key) throw new Error('Chưa cấu hình GROQ_API_KEY. Hãy đặt biến môi trường này để dùng tính năng AI.');
 
-    const hasImages = Boolean(options.images && options.images.length);
-    const model = options.model || (hasImages ? this.visionModel() : this.textModel());
-
-    const content: unknown = hasImages
-      ? [
-          { type: 'text', text: prompt },
-          ...options.images!.map((image) => ({ type: 'image_url', image_url: { url: `data:${image.mimeType};base64,${image.data}` } })),
-        ]
-      : prompt;
-
+    const model = options.model || this.textModel();
     const body: Record<string, unknown> = {
       model,
-      messages: [{ role: 'user', content }],
+      messages: [{ role: 'user', content: prompt }],
       temperature: options.temperature ?? 0.7,
       max_tokens: options.maxTokens ?? DEFAULT_MAX_TOKENS,
       ...(options.json ? { response_format: { type: 'json_object' } } : {}),

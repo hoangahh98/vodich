@@ -1,4 +1,12 @@
 <div class="section-heading mb">
   <div><span class="feature-icon">🗓️</span><h2 class="section-title">Thi đấu</h2><p class="muted"><% if (tournament.format === 'GROUP_KNOCKOUT') { %>Vào vòng trong: <%= tournament.knockoutQualifierCount %> đội<% } else { %>Bấm vào thẻ trận để mở màn ghi điểm.<% } %></p></div>
-  <% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">Chia trận</button></form><% } %>
+  <% if (currentUser.role === 'ADMIN') { %>
+    <div class="schedule-actions">
+      <form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">Chia trận</button></form>
+      <%# Vòng quay chỉ có nghĩa với thể thức dựng đội cố định. Americano tự đổi cặp mỗi vòng nên không có gì để quay. %>
+      <% if (tournament.playType === 'DOUBLES' && tournament.format !== 'AMERICANO') { %>
+        <button type="button" class="btn btn-warning" data-spin-open>🎡 Vòng quay</button>
+      <% } %>
+    </div>
+  <% } %>
 </div>

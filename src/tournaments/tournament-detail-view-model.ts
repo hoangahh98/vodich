@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Tournament } from '@prisma/client';
 import { CurrentUser } from '../types';
+import { isKnockoutStage } from './tournament-schedule';
 
 type RegistrationLike = {
   player?: { displayName?: string | null; email?: string | null } | null;
@@ -46,6 +47,7 @@ export class TournamentDetailViewModelBuilder {
     return {
       currentEmail,
       externalLink,
+      isKnockoutStage,
       isMine: (name: string) => [...myNames].some((myName) => String(name || '').includes(myName)),
       manualPrize,
       missingFee: unpaidCount * minimumFee,

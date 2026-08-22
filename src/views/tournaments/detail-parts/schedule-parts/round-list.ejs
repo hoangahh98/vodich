@@ -18,7 +18,7 @@
         <div class="court-column">
           <div class="border rounded p-2 h-100" style="border-color:#0d6efd44!important;">
             <div class="text-center fw-bold small text-primary mb-2">🏟️ SÂN <%= court %></div>
-            <% courtMatches.forEach((m) => { const knockout = m.stage !== 'Vòng bảng' && m.stage !== 'Vòng tròn'; const done = m.status === 'FINISHED'; %>
+            <% courtMatches.forEach((m) => { const knockout = isKnockoutStage(m.stage); const done = m.status === 'FINISHED'; %>
               <div class="tran-card rounded p-2 mb-2 <%= done ? 'da-xong' : '' %> <%= knockout ? 'knockout' : '' %> <%= isMine(m.teamA) || isMine(m.teamB) ? 'mine-card' : '' %>" tabindex="0" data-match-id="<%= m.id %>" data-team-a="<%= m.teamA %>" data-team-b="<%= m.teamB %>" data-score-a="<%= m.scoreA %>" data-score-b="<%= m.scoreB %>" data-score-order="<%= m.scoreOrder || 2 %>" data-serving-team="<%= m.servingTeam || 'A' %>" data-knockout="<%= knockout ? 'true' : 'false' %>">
                 <div class="match-meta">
                   <% if (m.stage === 'Vòng bảng') { %>

@@ -123,8 +123,8 @@ test('log: trường nhạy cảm nằm trong object lồng nhau cũng bị che'
   assert.match(line, /label:chính/, 'phần không nhạy cảm vẫn giữ để đọc log còn hiểu');
 });
 
-test('log: ảnh base64 của đơn thuốc bị cắt, không phình log', () => {
-  const line = safeParams({ imageBase64: 'A'.repeat(500000) });
+test('log: giá trị khổng lồ bị cắt, không phình log', () => {
+  const line = safeParams({ note: 'A'.repeat(500000) });
   assert.ok(line.length < 1000, `log phải ngắn, đang là ${line.length} ký tự`);
 });
 
@@ -178,6 +178,75 @@ test('chỉ đúng những controller đã được duyệt mới là @Public', 
     [...EXPECTED_PUBLIC].sort(),
     'Có controller được mở công khai ngoài danh sách duyệt. Nếu là chủ ý, thêm vào EXPECTED_PUBLIC kèm lý do.',
   );
+});
+
+/**
+ * Bề mặt công khai duy nhất có dữ liệu thật là trang đăng ký ngoài, nên nó phải kín.
+ *
+ * CA THẬT: `GET /external-register/:id` chỉ `findUnique` theo id rồi render, trong khi POST mới
+ * kiểm `externalRegistrationEnabled`. Endpoint là @Public nên người lạ dò `/1`, `/2`, `/3`... là
+ * lấy được TÊN của mọi giải trong hệ thống, kể cả giải chưa hề mở đăng ký ngoài.
+ */
+const { ExternalRegistrationController } = require('../dist/tournaments/external-registration.controller');
+
+function captureRes() {
+  const captured = { status: 200, view: null, data: null };
+  const res = {
+    locals: {},
+    status(code) {
+      captured.status = code;
+      return res;
+    },
+    render(view, data) {
+      captured.view = view;
+      captured.data = data;
+      return res;
+    },
+  };
+  return { res, captured };
+}
+
+function externalController(findFirst) {
+  return new ExternalRegistrationController({ tournament: { findFirst } }, {}, {}, {});
+}
+
+test('đăng ký ngoài: chỉ tìm giải ĐANG MỞ đăng ký, không tra theo mỗi id', async () => {
+  const seen = [];
+  const controller = externalController(async (args) => {
+    seen.push(args.where);
+    return null;
+  });
+  const { res, captured } = captureRes();
+
+  await controller.externalRegister(res, '7');
+
+  assert.deepEqual(seen[0], { id: 7n, externalRegistrationEnabled: true }, 'phải lọc ngay trong truy vấn');
+  assert.equal(captured.view, 'error', 'giải chưa mở đăng ký thì không được render trang đăng ký');
+  assert.equal(captured.status, 404);
+});
+
+test('đăng ký ngoài: giải không mở và giải không tồn tại phải trả lời GIỐNG HỆT nhau', async () => {
+  // Phân biệt hai câu trả lời chính là xác nhận id nào đang tồn tại — vẫn dò ra danh sách giải.
+  const controller = externalController(async () => null);
+  const missing = captureRes();
+  const closed = captureRes();
+
+  await controller.externalRegister(missing.res, '999999');
+  await controller.externalRegister(closed.res, '1');
+
+  assert.equal(missing.captured.status, closed.captured.status);
+  assert.deepEqual(missing.captured.data, closed.captured.data);
+});
+
+test('đăng ký ngoài: giải đang mở thì vẫn vào được trang đăng ký', async () => {
+  const tournament = { id: 3n, name: 'Test Cup', externalRegistrationEnabled: true };
+  const controller = externalController(async () => tournament);
+  const { res, captured } = captureRes();
+
+  await controller.externalRegister(res, '3');
+
+  assert.equal(captured.view, 'external-register');
+  assert.equal(captured.data.tournament, tournament);
 });
 
 test('FeatureGuard được đăng ký toàn cục qua APP_GUARD', () => {

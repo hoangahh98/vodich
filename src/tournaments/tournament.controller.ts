@@ -2,11 +2,17 @@ import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
 import { forbidden, notFound, parseBigId, requireFeature, safeTournamentSection } from '../common/controller-utils';
+import { FeatureAccess } from '../common/feature.decorator';
 import { render } from '../common/view';
 import { TournamentDetailViewModelBuilder } from './tournament-detail-view-model';
 import { MatchGateway } from './match.gateway';
 import { TournamentService } from './tournament.service';
 
+// Feature khai ở CLASS để FeatureGuard chặn ngay từ tầng đầu, đúng như docs/bao-mat.md mô tả.
+// Các `requireFeature(...)` trong từng method vẫn giữ vì chúng còn làm thêm việc khác (chặn vai
+// CLIENT ở route ghi, trả về `user` cho phần thân), nhưng route mới thêm mà quên gọi thì bây
+// giờ vẫn bị khoá thay vì chỉ cần đăng nhập là vào được.
+@FeatureAccess('TOURNAMENTS')
 @Controller()
 export class TournamentController {
   constructor(

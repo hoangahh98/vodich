@@ -46,6 +46,8 @@
     const quarterBox = document.getElementById('knockoutQuarter');
     const expectedPlayersInput = document.querySelector('input[name="expectedPlayers"]');
     const playTypeSelect = document.querySelector('select[name="playType"]');
+    const pairingRuleField = document.getElementById('pairingRuleField');
+    const americanoNote = document.getElementById('americanoNote');
     if ((!formatSelect && !formatRadios.length) || !qualifierField) return;
 
     const currentFormat = () => formatSelect?.value || formatRadios.find((radio) => radio.checked)?.value;
@@ -82,7 +84,19 @@
       qualifierInput.value = '2';
     };
     const sync = () => {
-      qualifierField.classList.toggle('hidden', currentFormat() !== 'GROUP_KNOCKOUT');
+      const format = currentFormat();
+      const americano = format === 'AMERICANO';
+      qualifierField.classList.toggle('hidden', format !== 'GROUP_KNOCKOUT');
+      americanoNote?.classList.toggle('hidden', !americano);
+      // Đôi xoay vòng luôn là đánh đôi: khoá ô "Loại đấu" lại thay vì để người dùng chọn ra
+      // một cấu hình mà server sẽ âm thầm sửa lại. Server vẫn ép, đây chỉ là nói trước.
+      if (playTypeSelect) {
+        if (americano) playTypeSelect.value = 'DOUBLES';
+        playTypeSelect.disabled = americano;
+        playTypeSelect.title = americano ? 'Đôi xoay vòng luôn là đánh đôi' : '';
+      }
+      // Ghép cặp chỉ có nghĩa khi đánh đôi.
+      pairingRuleField?.classList.toggle('hidden', !americano && playTypeSelect?.value !== 'DOUBLES');
       syncKnockout();
     };
     formatSelect?.addEventListener('change', sync);

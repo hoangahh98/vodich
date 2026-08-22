@@ -1,0 +1,51 @@
+<%#
+  Vòng quay chia trận cho thể thức đội cố định (vòng tròn / đánh bảng).
+
+  Dữ liệu VĐV đi qua thuộc tính data-* chứ không phải thẻ <script> nhúng: CSP đặt
+  script-src 'self' nên mọi script inline đều bị chặn (xem src/main.ts).
+
+  Kết quả quay gửi về đúng endpoint ghép cặp thủ công đã có sẵn
+  (POST /tournaments/:id/manual-schedule), không cần route riêng.
+%>
+<% if (currentUser.role === 'ADMIN' && tournament.playType === 'DOUBLES' && tournament.format !== 'AMERICANO') { %>
+  <%
+    const spinPlayers = registrations.map((reg) => ({
+      name: reg.player ? reg.player.displayName : (reg.externalName || reg.externalEmail || 'Chưa đặt tên'),
+      skill: reg.skillLevel || '',
+    }));
+  %>
+  <div class="score-modal hidden" id="spinDrawModal" data-spin-modal
+       data-players="<%= JSON.stringify(spinPlayers) %>"
+       data-rule="<%= tournament.pairingRule || 'BY_SKILL' %>">
+    <div class="score-modal-backdrop" data-spin-close></div>
+    <div class="score-modal-panel">
+      <div class="score-modal-head">
+        <div>
+          <h3>🎡 Vòng quay chia trận</h3>
+          <small data-spin-hint></small>
+        </div>
+        <div class="score-modal-head-actions">
+          <button type="button" class="btn btn-light btn-sm" data-spin-reset>Làm lại</button>
+          <button type="button" class="btn btn-light btn-sm" data-spin-close>Đóng</button>
+        </div>
+      </div>
+      <div class="score-modal-body">
+        <div class="spin-reels" data-spin-reels></div>
+        <div class="spin-actions">
+          <button type="button" class="btn btn-primary" data-spin-once>Quay</button>
+          <button type="button" class="btn btn-success" data-spin-all>Quay hết</button>
+        </div>
+        <div class="spin-results-box">
+          <h4 class="spin-results-title">Đội đã bốc <span class="badge bg-primary rounded-pill" data-spin-total>0</span></h4>
+          <ol class="spin-results" data-spin-results></ol>
+        </div>
+        <form method="post" action="/tournaments/<%= tournament.id %>/manual-schedule" class="spin-apply hidden" data-spin-form>
+          <input type="hidden" name="pairCount" value="0" data-spin-count>
+          <div data-spin-inputs></div>
+          <button class="btn btn-success spin-apply-btn" data-loading-text="Đang chia...">Chốt danh sách này & chia trận</button>
+          <p class="muted">Bấm nút này sẽ xoá lịch thi đấu cũ và chia lại theo các đội vừa bốc.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+<% } %>

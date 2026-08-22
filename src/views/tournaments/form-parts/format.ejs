@@ -1,9 +1,11 @@
 <section class="form-section">
   <h2 class="section-title mb">🧩 Thể thức thi đấu</h2>
-  <div class="segmented">
-    <label><input type="radio" name="format" value="ROUND_ROBIN" <%= tournament?.format !== 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Vòng tròn</label>
+  <div class="segmented segmented-3">
+    <label><input type="radio" name="format" value="ROUND_ROBIN" <%= (tournament?.format || 'ROUND_ROBIN') === 'ROUND_ROBIN' ? 'checked' : '' %>> Vòng tròn</label>
     <label><input type="radio" name="format" value="GROUP_KNOCKOUT" <%= tournament?.format === 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Đánh bảng + vòng trong</label>
+    <label><input type="radio" name="format" value="AMERICANO" <%= tournament?.format === 'AMERICANO' ? 'checked' : '' %>> Đôi xoay vòng <small>(Americano)</small></label>
   </div>
+  <p class="muted" id="americanoNote">Đôi xoay vòng: mỗi người lần lượt đánh chung đội với từng người còn lại, xếp hạng theo từng cá nhân. Luôn là đánh đôi.</p>
   <div id="knockoutQualifierField" class="mt">
     <input type="hidden" name="knockoutQualifierCount" id="knockoutQualifierCount" value="<%= tournament?.knockoutQualifierCount || 2 %>">
     <div class="knockout-option-grid">
@@ -22,5 +24,14 @@
       <div class="col-6"><label>Chạm điểm vòng trong</label><input type="number" name="knockoutTouchScore" value="<%= tournament?.knockoutTouchScore || 15 %>" min="1"></div>
       <div class="col-6"><label>Max điểm vòng trong</label><input type="number" name="knockoutMaxScore" value="<%= tournament?.knockoutMaxScore || 19 %>" min="1"></div>
     </div>
+  </div>
+
+  <div id="pairingRuleField" class="mt">
+    <h3 class="section-title mb">⚖️ Quy tắc ghép cặp</h3>
+    <div class="segmented">
+      <label><input type="radio" name="pairingRule" value="BY_SKILL" <%= (tournament?.pairingRule || 'BY_SKILL') !== 'RANDOM' ? 'checked' : '' %>> Phân trình <small>Mạnh ghép yếu cho cân</small></label>
+      <label><input type="radio" name="pairingRule" value="RANDOM" <%= tournament?.pairingRule === 'RANDOM' ? 'checked' : '' %>> Không phân trình <small>Bốc ngẫu nhiên</small></label>
+    </div>
+    <p class="muted">Chỉ áp dụng cho đánh đôi. <strong>Phân trình</strong>: gom theo trình rồi ghép mạnh với yếu để các đội cân sức. <strong>Không phân trình</strong>: bỏ qua trình độ, xáo ngẫu nhiên.</p>
   </div>
 </section>

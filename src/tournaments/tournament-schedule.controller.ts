@@ -2,9 +2,14 @@ import { Body, Controller, Param, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
 import { requireFeature } from '../common/controller-utils';
+import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
 import { MatchGateway } from './match.gateway';
+import { formatTeamName } from './team-name';
 import { TournamentService } from './tournament.service';
 
+// Mọi route ở đây đều là thao tác ghi của admin, nên khai thẳng ở class (xem docs/bao-mat.md).
+@FeatureAccess('TOURNAMENTS')
+@AdminOnly()
 @Controller()
 export class TournamentScheduleController {
   constructor(
@@ -47,7 +52,7 @@ function normalizeManualTeams(body: Record<string, string>) {
     if ((a && usedNames.has(a)) || (b && usedNames.has(b)) || (a && b && a === b)) continue;
     if (a) usedNames.add(a);
     if (b) usedNames.add(b);
-    if (a && b) teams.push(`${a} / ${b}`);
+    if (a && b) teams.push(formatTeamName(a, b));
     else if (a) teams.push(a);
     else if (b) teams.push(b);
   }

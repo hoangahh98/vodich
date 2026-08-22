@@ -88,7 +88,7 @@ const MAX_VALUE_LENGTH = 300;
 
 /**
  * Chuỗi hoá body để ghi log, che mọi trường nhạy cảm — kể cả nằm trong object/mảng lồng nhau.
- * Ảnh base64 (đơn thuốc) cũng bị cắt còn 300 ký tự nên log không phình.
+ * Mọi giá trị dài cũng bị cắt còn 300 ký tự nên log không phình.
  */
 export function safeParams(body: unknown): string {
   if (!body || typeof body !== 'object') return '';

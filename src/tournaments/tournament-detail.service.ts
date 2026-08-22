@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere } from '../common/admin-scope';
-import { GroupBoard, RankingGroup, TournamentRankingCalculator } from './tournament-ranking';
+import { GroupBoard, PlayerRankingRow, RankingGroup, TournamentRankingCalculator } from './tournament-ranking';
+import { RANKED_STAGES } from './tournament-schedule';
 
 @Injectable()
 export class TournamentDetailService {
@@ -36,7 +37,13 @@ export class TournamentDetailService {
       this.groupBoards(tournamentId),
       this.availableAdmins(tournamentId, tournament.ownerAdminId),
     ]);
-    return { tournament, registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, groupBoards, admins };
+    // Xếp hạng cá nhân tính lại từ `matches` đã lấy ở trên, không tốn thêm truy vấn nào.
+    // Chỉ thể thức xoay vòng mới cần: các thể thức khác đội cố định nên bảng theo đội mới đúng.
+    const playerRankings: PlayerRankingRow[] =
+      tournament.format === 'AMERICANO'
+        ? this.rankingCalculator.playerRankings(matches.filter((match) => RANKED_STAGES.includes(match.stage)))
+        : [];
+    return { tournament, registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, playerRankings, groupBoards, admins };
   }
 
   async groupBoards(tournamentId: bigint): Promise<GroupBoard[]> {
@@ -49,7 +56,7 @@ export class TournamentDetailService {
 
   async rankings(tournamentId: bigint): Promise<RankingGroup[]> {
     const matches = await this.prisma.matchGame.findMany({
-      where: { tournamentId, stage: { in: ['Vòng bảng', 'Vòng tròn'] } },
+      where: { tournamentId, stage: { in: RANKED_STAGES } },
       orderBy: [{ groupName: 'asc' }, { roundNumber: 'asc' }, { courtNumber: 'asc' }],
     });
     return this.rankingCalculator.rankings(matches);

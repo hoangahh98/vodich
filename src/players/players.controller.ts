@@ -2,9 +2,13 @@ import { Body, Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
 import { requireFeature } from '../common/controller-utils';
+import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
 import { render } from '../common/view';
 import { PlayersService } from './players.service';
 
+// Danh sách vận động viên chỉ admin có quyền giải đấu mới được đụng (xem docs/bao-mat.md).
+@FeatureAccess('TOURNAMENTS')
+@AdminOnly()
 @Controller()
 export class PlayersController {
   constructor(
