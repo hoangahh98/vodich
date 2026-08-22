@@ -15,7 +15,12 @@
           </div>
         <% } %>
       </div>
-      <div class="mt"><button class="btn btn-primary" data-loading-text="Đang tạo...">Tạo trận từ đội đã ghép</button></div>
+      <div class="mt">
+        <button class="btn btn-primary" data-loading-text="Đang tạo...">Tạo trận từ đội đã ghép</button>
+        <p class="muted mt">Chỉ cần chốt những đội muốn cố định — ai chưa được xếp sẽ được ghép nốt theo quy tắc của giải
+          (<strong><%= tournament.pairingRule === 'RANDOM' ? 'không phân trình' : 'phân trình' %></strong>).
+          Đội mới chọn một người coi như chưa ghép, người đó vào chung rổ ghép tự động.</p>
+      </div>
     </form>
   </details>
 <% } %>

@@ -56,11 +56,34 @@ test('tên người là dữ liệu, không phải HTML', () => {
   assert.match(svg, /&lt;script/);
 });
 
-test('tên dài bị cắt cho vừa múi, tên ngắn giữ nguyên', () => {
-  assert.equal(wheelKit.fitName('An', 6), 'An');
-  const long = wheelKit.fitName('Nguyễn Khắc Hoàng Anh Rất Dài', 6);
-  assert.ok(long.length < 'Nguyễn Khắc Hoàng Anh Rất Dài'.length, 'tên dài phải bị cắt');
-  assert.ok(long.endsWith('…'), 'cắt rồi phải có dấu … cho biết là còn nữa');
+/**
+ * Tên dài phải CO CHỮ chứ không được cắt bớt. Trước đây "Nguyễn Khắc Hoàng Anh" hiện thành
+ * "Nguyễn Khắc H…" — bốc trúng mà không biết là ai thì quay để làm gì.
+ */
+test('tên dài không bị cắt, chỉ co chữ lại cho vừa', () => {
+  const long = 'Nguyễn Khắc Hoàng Anh Rất Dài';
+  const svg = wheelKit.wheelSvg(['An', long, 'Bình', 'Cường']);
+  assert.doesNotMatch(svg, /…/, 'không được cắt tên rồi chấm lửng');
+  assert.ok(svg.includes(long), 'tên dài phải hiện đủ');
+
+  // Và chữ của tên dài phải nhỏ hơn chữ của tên ngắn, nếu không nó tràn khỏi vành.
+  const sizes = [...svg.matchAll(/font-size="([\d.]+)"/g)].map((match) => Number(match[1]));
+  assert.ok(Math.min(...sizes) < Math.max(...sizes), 'tên dài phải được co chữ');
+});
+
+test('co chữ theo độ dài tên, nhưng có sàn để không tàng hình', () => {
+  const base = 6;
+  assert.equal(wheelKit.labelFontSize('An', base), base, 'tên ngắn giữ nguyên cỡ chữ');
+  assert.ok(wheelKit.labelFontSize('Nguyễn Khắc Hoàng Anh', base) < base, 'tên dài phải nhỏ đi');
+  assert.equal(wheelKit.labelFontSize('x'.repeat(500), base), wheelKit.MIN_FONT, 'dài vô lý thì dừng ở sàn');
+});
+
+test('chữ trên múi nằm gọn trong bán kính dành cho nó', () => {
+  const svg = wheelKit.wheelSvg(['Trần Thị Bích Ngọc', 'An', 'Lê Văn Cường']);
+  for (const [, size, name] of svg.matchAll(/font-size="([\d.]+)"[^>]*>([^<]+)</g)) {
+    const width = name.length * Number(size) * 0.55;
+    assert.ok(width <= wheelKit.TEXT_ROOM + 0.01 || Number(size) === wheelKit.MIN_FONT, `"${name}" rộng ${width.toFixed(1)} vượt ${wheelKit.TEXT_ROOM}`);
+  }
 });
 
 test('đông người thì chữ nhỏ lại, ít người thì chữ to hơn', () => {

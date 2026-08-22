@@ -264,7 +264,6 @@ test('vòng quay chia trận quay thật rồi chốt được danh sách đội
           <div class="wheel-box">
             <div class="wheel-pointer"></div>
             <div class="wheel-rotor" data-spin-wheel></div>
-            <button type="button" class="wheel-hub" data-spin-once>QUAY</button>
           </div>
           <div class="spin-picked" data-spin-picked></div>
         </div>
@@ -295,7 +294,7 @@ test('vòng quay chia trận quay thật rồi chốt được danh sách đội
   await expect(page.locator('.wheel-svg path')).toHaveCount(2);
 
   const rotor = page.locator('[data-spin-wheel]');
-  await page.locator('.wheel-hub').click();
+  await page.locator('[data-spin-once]').click();
   // Đội đầu tiên bốc xong sau hai lượt quay (một cho mỗi mức trình).
   await expect(page.locator('[data-spin-results] li')).toHaveCount(1, { timeout: 20000 });
   await expect(page.locator('[data-spin-total]')).toHaveText('1');
@@ -330,9 +329,9 @@ test('vòng quay tên đứng riêng bốc được và bỏ được tên đã 
       <div class="wheel-box">
         <div class="wheel-pointer"></div>
         <div class="wheel-rotor" data-wheel-rotor></div>
-        <button type="button" class="wheel-hub" data-wheel-spin>QUAY</button>
       </div>
       <div class="wheel-winner" data-wheel-winner></div>
+      <button type="button" data-wheel-spin>Quay</button>
       <button type="button" data-wheel-reset>Làm lại</button>
       <textarea data-wheel-input></textarea>
       <label><input type="checkbox" data-wheel-remove> Bỏ tên đã trúng</label>
@@ -349,7 +348,7 @@ test('vòng quay tên đứng riêng bốc được và bỏ được tên đã 
   await expect(page.locator('[data-wheel-count]')).toContainText('3');
 
   await page.locator('[data-wheel-remove]').check();
-  await page.locator('.wheel-hub').click();
+  await page.locator('[data-wheel-spin]').click();
   await expect(page.locator('[data-wheel-winner]')).not.toBeEmpty({ timeout: 20000 });
   const winner = (await page.locator('[data-wheel-winner]').innerText()).replace('🎉', '').trim();
   expect(['An', 'Bình', 'Cường']).toContain(winner);
@@ -365,4 +364,93 @@ test('vòng quay tên đứng riêng bốc được và bỏ được tên đã 
   await page.locator('[data-wheel-reset]').click();
   await expect(page.locator('[data-wheel-history] li')).toHaveCount(0);
   await expect(page.locator('[data-wheel-winner]')).toBeEmpty();
+});
+
+/**
+ * Bấm nhầm nút Đóng giữa chừng thì không được mất công quay lại từ đầu.
+ *
+ * Bản nháp lưu HẠT GIỐNG + số đội đã bốc, mở lại là quay lại đúng chừng ấy lượt — nên các đội
+ * đã bốc phải y hệt, không phải "bốc lại cho có".
+ */
+test('vòng quay chia trận giữ được bản nháp khi lỡ đóng khung', async ({ page }) => {
+  const players = [
+    { name: 'An', skill: 'A' },
+    { name: 'Bao', skill: 'A' },
+    { name: 'Cuong', skill: 'A' },
+    { name: 'Dung', skill: 'D' },
+    { name: 'Em', skill: 'D' },
+    { name: 'Giang', skill: 'D' },
+  ];
+  // localStorage chỉ dùng được trên origin thật; about:blank của setContent thì bị chặn.
+  await page.goto('/healthz');
+  await page.setContent(`
+    <button type="button" data-spin-open>Vòng quay</button>
+    <div class="score-modal hidden" data-spin-modal data-players='${JSON.stringify(players)}' data-tournament-id="77" data-rule="BY_SKILL">
+      <small data-spin-hint></small>
+      <div class="wheel-pool" data-spin-pool></div>
+      <!-- Phải có .wheel-box: SVG không khai width/height thì mặc định rộng bằng cả trang. -->
+      <div class="wheel-box"><div class="wheel-rotor" data-spin-wheel></div></div>
+      <div data-spin-picked></div>
+      <button type="button" data-spin-once>Quay</button>
+      <button type="button" data-spin-all>Bốc nhanh</button>
+      <button type="button" data-spin-reset>Làm lại</button>
+      <button type="button" data-spin-close>Đóng</button>
+      <ol data-spin-results></ol><span data-spin-total>0</span>
+      <form action="/tournaments/77/manual-schedule" class="hidden" data-spin-form>
+        <input type="hidden" name="pairCount" value="0" data-spin-count><div data-spin-inputs></div>
+      </form>
+    </div>
+  `);
+  // Trang thật có CSP `script-src 'self'` nên phải nạp CSS/JS QUA URL, không nhúng nội dung.
+  await page.addStyleTag({ url: '/css/app.css' });
+  for (const src of ['/js/spin-pairing.js', '/js/wheel.js', '/js/spin-draw.js']) await page.addScriptTag({ url: src });
+
+  await page.locator('[data-spin-open]').click();
+  await page.locator('[data-spin-once]').click();
+  await expect(page.locator('[data-spin-results] li')).toHaveCount(1, { timeout: 20000 });
+  const drafted = await page.locator('[data-spin-results] li').first().innerText();
+
+  // Lỡ bấm Đóng rồi mở lại: phải tiếp chứ không mất.
+  await page.locator('[data-spin-close]').click();
+  await page.locator('[data-spin-open]').click();
+  await expect(page.locator('[data-spin-results] li')).toHaveCount(1);
+  expect(await page.locator('[data-spin-results] li').first().innerText()).toBe(drafted);
+  await expect(page.locator('[data-spin-hint]')).toContainText('bản nháp');
+
+  // Bốc nốt: đội đầu vẫn phải là đội đã bốc trước khi đóng.
+  await page.locator('[data-spin-all]').click();
+  await expect(page.locator('[data-spin-results] li')).toHaveCount(3);
+  expect(await page.locator('[data-spin-results] li').first().innerText()).toBe(drafted);
+
+  // "Làm lại" mới là xoá sạch bản nháp.
+  await page.locator('[data-spin-reset]').click();
+  await expect(page.locator('[data-spin-results] li')).toHaveCount(0);
+  await page.locator('[data-spin-close]').click();
+  await page.locator('[data-spin-open]').click();
+  await expect(page.locator('[data-spin-results] li')).toHaveCount(0);
+});
+
+/** Tên dài phải hiện ĐỦ và nằm gọn trong bánh xe — trước đây bị cắt thành "Nguyễn Văn A…". */
+test('bánh xe hiện đủ tên dài, không cắt và không tràn ra ngoài', async ({ page }) => {
+  await page.setContent('<div class="wheel-box"><div class="wheel-rotor" data-wheel-rotor></div></div>');
+  await page.addStyleTag({ path: path.join(root, 'public/css/app.css') });
+  await page.addScriptTag({ path: path.join(root, 'public/js/wheel.js') });
+
+  const names = ['An', 'Nguyễn Khắc Hoàng Anh', 'Trần Thị Bích Ngọc', 'Lê Cường'];
+  const measured = await page.evaluate((list) => {
+    const wheel = window.VodichWheel.attach(document.querySelector('[data-wheel-rotor]'), { spinMs: 1 });
+    wheel.render(list);
+    return [...document.querySelectorAll('.wheel-svg text')].map((label) => ({
+      text: label.textContent,
+      width: label.getComputedTextLength(),
+      room: window.VodichWheel.TEXT_ROOM,
+    }));
+  }, names);
+
+  expect(measured.map((item) => item.text)).toEqual(names);
+  for (const item of measured) {
+    expect(item.text).not.toContain('…');
+    // Đo bề rộng THẬT sau khi fitLabels đã co chữ: phải nằm trong bán kính dành cho chữ.
+    expect(item.width).toBeLessThanOrEqual(item.room + 0.5);
+  }
 });

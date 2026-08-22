@@ -49,12 +49,69 @@
   let draw = null;
   let teams = [];
   let spinning = false;
+  let seed = 0;
 
   function escapeHtml(value) {
     return String(value == null ? '' : value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
   }
 
   const wait = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+  // ───────────────────────────── Lưu tạm bản nháp đang quay ─────────────────────────────
+  //
+  // Bấm nhầm nút Đóng, lỡ bấm back, hay rớt mạng giữa chừng thì không phải quay lại từ đầu.
+  //
+  // KHÔNG lưu danh sách đội đã bốc, mà lưu HẠT GIỐNG ngẫu nhiên + số đội đã bốc, rồi quay lại
+  // đúng chừng ấy lượt để dựng lại y nguyên trạng thái. Lưu danh sách đội thì phần chưa bốc
+  // vẫn phải bốc mới, và luật "gấp phần dư" sẽ tính lại trên rổ còn lại — ra kết quả khác với
+  // nếu quay một mạch, tức là đóng ra mở vào lại đổi kèo.
+
+  const STORAGE_KEY = `vodich.spin.${modal.dataset.tournamentId || '0'}`;
+  /** Danh sách VĐV/rule đổi (thêm người, rút người) thì bản nháp cũ không còn đúng nữa. */
+  const fingerprint = `${rule}|${players.map((player) => `${player.name}:${player.skill}`).join(',')}`;
+
+  /**
+   * Bộ bốc ngẫu nhiên CÓ HẠT GIỐNG (mulberry32) tiêm vào `createDraw` thay cho `Math.random`.
+   * Cùng hạt giống thì cùng dãy số, nên quay lại N lượt là về đúng trạng thái cũ.
+   */
+  function seededPick(value) {
+    let state = value >>> 0;
+    return (size) => {
+      state = (state + 0x6d2b79f5) >>> 0;
+      let t = state;
+      t = Math.imul(t ^ (t >>> 15), t | 1);
+      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+      return Math.floor(((((t ^ (t >>> 14)) >>> 0) / 4294967296) * size));
+    };
+  }
+
+  /** localStorage có thể bị chặn (chế độ riêng tư, iOS khoá) — hỏng chỗ này không được phá vòng quay. */
+  function saveState() {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fingerprint, seed, drawn: teams.length }));
+    } catch (_) {
+      /* không lưu được thì thôi */
+    }
+  }
+
+  function clearState() {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY);
+    } catch (_) {
+      /* không xoá được thì thôi */
+    }
+  }
+
+  function loadState() {
+    try {
+      const state = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null');
+      if (!state || state.fingerprint !== fingerprint) return null;
+      if (!Number.isFinite(state.seed) || !Number.isFinite(state.drawn) || state.drawn < 1) return null;
+      return state;
+    } catch (_) {
+      return null;
+    }
+  }
 
   function renderPicked(picked) {
     pickedBox.innerHTML = [0, 1]
@@ -104,6 +161,7 @@
 
     teams.push(result.team);
     renderResults();
+    saveState();
     spinning = false;
     if (!showNextWheel()) {
       finish();
@@ -127,6 +185,7 @@
     const remaining = draw.leftoverName();
     if (remaining) teams.push([remaining, '']);
     renderResults();
+    saveState();
     poolBox.textContent = teams.length ? 'Đã bốc xong' : 'Chưa có vận động viên';
     pickedBox.innerHTML = '';
     setBusy(true);
@@ -136,8 +195,10 @@
       return;
     }
 
-    // Bánh xe cuối cùng bày luôn các đội vừa bốc, thay vì để trơ một hình tròn trống.
-    wheel.render(teams.map(([first, second]) => `${first} + ${second || pairing.WAITING_PARTNER}`));
+    // Bánh xe cuối chỉ ghi SỐ đội, khớp với số thứ tự trong danh sách ngay bên dưới. Ghi cả
+    // hai tên thì "Nguyễn Khắc Hoàng Anh + Lê Văn Cường Thịnh" bị co nhỏ tới mức không đọc nổi,
+    // trong khi danh sách bên dưới đã ghi rõ ai với ai rồi.
+    wheel.render(teams.map((_, index) => `Đội ${index + 1}`));
     countInput.value = String(teams.length);
     inputsBox.innerHTML = teams
       .map(([first, second], index) => `<input type="hidden" name="teamA_${index + 1}" value="${escapeHtml(first)}"><input type="hidden" name="teamB_${index + 1}" value="${escapeHtml(second)}">`)
@@ -150,30 +211,58 @@
     modal.classList.toggle('spinning', busy);
   }
 
-  function reset() {
-    draw = pairing.createDraw(players, rule);
+  /** Dựng lượt bốc từ một hạt giống, quay lại `replay` lượt đầu để về đúng trạng thái cũ. */
+  function start(nextSeed, replay) {
+    seed = nextSeed >>> 0;
+    draw = pairing.createDraw(players, rule, seededPick(seed));
     teams = [];
     spinning = false;
+    for (let index = 0; index < replay; index++) {
+      const result = draw.next();
+      if (!result) break;
+      teams.push(result.team);
+    }
+  }
+
+  /** Vẽ lại toàn bộ khung theo trạng thái hiện tại của `draw`/`teams`. */
+  function paint(hint) {
     wheel.reset();
-    resultsBox.innerHTML = '';
-    totalBox.textContent = '0';
     inputsBox.innerHTML = '';
     countInput.value = '0';
     form.classList.add('hidden');
     renderPicked(['', '']);
-    hintBox.textContent =
-      rule === 'RANDOM'
-        ? 'Không phân trình: cả hai lượt quay đều bốc trong cùng một danh sách.'
-        : 'Phân trình: mỗi đội quay hai lần, mỗi lần một mức trình được ghép với nhau.';
+    renderResults();
+    hintBox.textContent = hint;
     if (showNextWheel()) setBusy(false);
     else finish();
+  }
+
+  const ruleHint = () =>
+    rule === 'RANDOM'
+      ? 'Không phân trình: cả hai lượt quay đều bốc trong cùng một danh sách.'
+      : 'Phân trình: mỗi đội quay hai lần, mỗi lần một mức trình được ghép với nhau.';
+
+  function reset() {
+    clearState();
+    start(Math.floor(Math.random() * 0xffffffff), 0);
+    paint(ruleHint());
+  }
+
+  /** Mở lại bản nháp đang dở, nếu có. Trả false khi không có gì để tiếp. */
+  function restore() {
+    const state = loadState();
+    if (!state) return false;
+    start(state.seed, state.drawn);
+    if (!teams.length) return false;
+    paint(`Đang tiếp bản nháp đã lưu (${teams.length} đội). Bấm "Làm lại" nếu muốn bốc lại từ đầu.`);
+    return true;
   }
 
   document.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) return;
     if (target.closest('[data-spin-open]')) {
-      reset();
+      if (!restore()) reset();
       modal.classList.remove('hidden');
       return;
     }
@@ -187,5 +276,8 @@
     else if (target.closest('[data-spin-all]')) drawRest();
   });
 
-  reset();
+  // Chốt danh sách xong là bản nháp hết việc; để lại thì lần sau mở ra tưởng còn dở.
+  form.addEventListener('submit', clearState);
+
+  if (!restore()) reset();
 })();

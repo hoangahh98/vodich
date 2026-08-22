@@ -116,9 +116,23 @@ Ba lớp tách rời, đừng gộp:
   rồi đọc xem trúng ai": sai dấu góc thì bánh xe vẫn quay đẹp, vẫn dừng gọn trong một múi, chỉ
   là múi của người khác — `test/wheel.test.js` kiểm bằng số học nên bắt được.
 - Chữ trên múi ở nửa TRÁI bánh xe phải lật 180° và neo từ đầu kia, nếu không tên hiện ngược đầu.
+- Tên dài thì **co chữ**, không cắt bớt: `labelFontSize` ước lượng theo số ký tự, rồi `fitLabels`
+  đo `getComputedTextLength()` thật trong trình duyệt và chỉnh lại. Cắt thành "Nguyễn Văn A…" là
+  bốc trúng mà không biết ai.
+- Vòng quay **lưu tạm bản nháp** vào `localStorage` (`vodich.spin.<id giải>`) để lỡ đóng khung
+  hay rớt mạng không phải quay lại từ đầu. Lưu HẠT GIỐNG ngẫu nhiên + số đội đã bốc rồi quay
+  lại đúng chừng ấy lượt, **không** lưu danh sách đội: lưu danh sách thì phần chưa bốc phải bốc
+  mới và luật "gấp phần dư" tính lại trên rổ còn lại — đóng ra mở vào là đổi kèo.
 
 Kết quả quay gửi về `POST /tournaments/:id/manual-schedule` (luồng ghép cặp thủ công có sẵn),
 không có route riêng. Dữ liệu VĐV truyền qua `data-*` vì CSP chặn `<script>` inline.
+
+### Ghép đội thủ công
+
+`completeManualTeams` (`tournament-schedule.ts`): chỉ đội chọn **đủ hai người** mới là đội cố
+định, ai chưa được xếp thì máy ghép nốt theo `pairingRule` của giải. Ô mới chọn một người coi
+như chưa ghép — trước đây nó thành "đội" một người đi đánh đôi, còn người không được chọn thì
+biến mất hẳn khỏi lịch.
 
 Ngoài ra có **vòng quay bốc tên đứng riêng** ở `/vong-quay` (`src/views/wheel.ejs` +
 `public/js/wheel-of-names.js`), đặt cạnh `/score-reader`: chỉ cần đăng nhập, không thuộc module

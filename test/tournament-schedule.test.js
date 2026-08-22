@@ -351,3 +351,67 @@ function teamLevelsWithBlank(team) {
     .sort()
     .join('');
 }
+
+// ───────── Ghép thủ công: chốt cứng vài đội, phần còn lại máy ghép nốt theo rule ─────────
+
+const { completeManualTeams } = require('../dist/tournaments/tournament-schedule');
+
+test('ghép thủ công: giữ nguyên đội đã chốt, ghép nốt người còn lại theo trình', () => {
+  const registrations = regs({ A: 3, D: 3 });
+  for (let run = 0; run < 40; run++) {
+    // Chốt cứng một đội "trái luật" (hai người cùng trình A) — máy không được đụng vào.
+    const teams = completeManualTeams(['A0 / A1'], registrations, 'BY_SKILL');
+    assert.equal(teams.length, 3, 'phải đủ 3 đội cho 6 người');
+    assert.equal(teams[0], 'A0 / A1', 'đội đã chốt phải giữ nguyên, kể cả khi lệch trình');
+    // Còn lại A2 + 3 D: ghép chéo được 1 đội A/D, 2 D thừa ghép với nhau.
+    const rest = teams.slice(1).map(teamLevelsWithBlank).sort().join(' ');
+    assert.equal(rest, 'AD DD', `phần tự ghép sai: ${rest}`);
+  }
+});
+
+test('ghép thủ công: không ai bị bỏ rơi, không ai bị xếp hai lần', () => {
+  const registrations = regs({ A: 4, B: 2, D: 4 });
+  for (const fixed of [[], ['A0 / D0'], ['A0 / D0', 'B0 / B1'], ['A0 / A1', 'A2 / A3']]) {
+    for (let run = 0; run < 30; run++) {
+      const names = completeManualTeams(fixed, registrations, 'BY_SKILL')
+        .flatMap((team) => team.split(' / '))
+        .filter((name) => name !== 'Chờ thành viên');
+      assert.equal(new Set(names).size, names.length, `chốt ${fixed.length} đội: có người bị xếp hai lần`);
+      assert.equal(names.length, registrations.length, `chốt ${fixed.length} đội: có người bị bỏ rơi`);
+    }
+  }
+});
+
+/**
+ * Ô mới chọn một người coi như CHƯA ghép: trước đây nó thành "đội" một người đi đánh đôi, mà
+ * người chưa được chọn thì biến mất khỏi lịch luôn.
+ */
+test('ghép thủ công: ô mới chọn một người thì người đó vào rổ ghép tự động', () => {
+  for (let run = 0; run < 40; run++) {
+    const teams = completeManualTeams(['A0'], regs({ A: 2, D: 2 }), 'BY_SKILL');
+    assert.equal(teams.length, 2, 'A0 đứng lẻ không được thành một đội riêng');
+    for (const team of teams) assert.deepEqual(teamLevels(team), ['A', 'D']);
+  }
+});
+
+test('ghép thủ công: lẻ người thì chỗ trống là "Chờ thành viên", không phải đội một người', () => {
+  const teams = completeManualTeams(['A0 / D0'], regs({ A: 2, D: 2, C: 1 }), 'BY_SKILL');
+  assert.equal(teams.length, 3);
+  assert.equal(teams.filter((team) => team.includes('Chờ thành viên')).length, 1);
+});
+
+test('ghép thủ công: rule RANDOM thì phần tự ghép không bị ép cao ghép thấp', () => {
+  let sameLevelSeen = false;
+  for (let run = 0; run < 80 && !sameLevelSeen; run++) {
+    sameLevelSeen = completeManualTeams([], regs({ A: 4, D: 4 }), 'RANDOM').some((team) => {
+      const [x, y] = teamLevels(team);
+      return x === y;
+    });
+  }
+  assert.ok(sameLevelSeen, 'phần tự ghép đang bỏ qua rule RANDOM');
+});
+
+test('ghép thủ công: chốt hết mọi đội thì không phát sinh thêm đội nào', () => {
+  const teams = completeManualTeams(['A0 / D0', 'A1 / D1'], regs({ A: 2, D: 2 }), 'BY_SKILL');
+  assert.deepEqual(teams, ['A0 / D0', 'A1 / D1']);
+});

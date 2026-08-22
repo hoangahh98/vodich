@@ -188,6 +188,8 @@ test('vòng quay chia trận có mặt và mang theo danh sách vận động vi
   assert.match(html, /data-spin-pool/, 'thiếu nhãn cho biết đang bốc trong nhóm nào');
   assert.match(html, /data-spin-picked/, 'thiếu chỗ hiện cặp đang ghép');
   assert.doesNotMatch(html, /spin-reel/, 'ô quay kiểu cột tên cũ phải gỡ hẳn');
+  assert.doesNotMatch(html, /wheel-hub"/, 'nút quay trong lòng bánh xe đã bỏ, chỉ còn nút ngoài');
+  assert.match(html, /data-tournament-id/, 'thiếu id giải để lưu bản nháp riêng cho từng giải');
   // wheel.js phải nạp TRƯỚC spin-draw.js, nếu không spin-draw thoát sớm và nút quay im lìm.
   assert.ok(html.indexOf('/js/wheel.js') < html.indexOf('/js/spin-draw.js'), 'sai thứ tự nạp script');
 
@@ -602,9 +604,12 @@ test('trang vòng quay đứng riêng dựng được và không dính module n�
   assert.doesNotMatch(html, /\/tournaments|\/teams|\/permissions/, 'trang vòng quay không được kéo module khác vào');
 });
 
-test('vòng quay có lối vào từ trang chủ và menu dưới', async () => {
+/** Vòng quay chỉ nằm trong menu ☰ giống "Đọc điểm", KHÔNG chiếm một ô ngoài trang chủ. */
+test('vòng quay chỉ có lối vào từ menu ba gạch, không có ô ngoài trang chủ', async () => {
   const home = await renderView('home.ejs', commonLocals('/'));
-  assert.match(home, /href="\/vong-quay"/, 'trang chủ phải có ô Vòng quay');
+  assert.doesNotMatch(home, /module-card[^"]*ht-wheel/, 'không được bày ô Vòng quay ở lưới module');
+  // Vẫn phải với tới được: link nằm trong menu dưới mà trang chủ có include.
+  assert.match(home, /href="\/vong-quay"/, 'menu trang chủ phải có mục Vòng quay');
 
   const menu = await renderView('partials/bottom-menu.ejs', commonLocals('/vong-quay'));
   assert.match(menu, /class="active" href="\/vong-quay"/, 'đang ở trang vòng quay thì menu phải sáng mục đó');

@@ -393,10 +393,8 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; max-width: 100%; }
 .wheel-rim { fill: none; stroke: #ffffff; stroke-width: 2.4; }
 /* Kim cắm ở 12 giờ — đúng mốc 0° mà wheel.js tính góc dừng. */
 .wheel-pointer { position: absolute; top: -6px; left: 50%; transform: translateX(-50%); width: 0; height: 0; z-index: 2; border-left: 11px solid transparent; border-right: 11px solid transparent; border-top: 22px solid #111827; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .3)); }
-.wheel-hub { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 25%; height: 25%; border-radius: 50%; border: 3px solid #fff; background: #111827; color: #fff; font-weight: 900; font-size: 13px; letter-spacing: .5px; cursor: pointer; z-index: 2; }
-/* Nút giữa lúc đang quay/bốc xong: làm mờ bằng màu chứ không bằng opacity — trong suốt thì
-   nhìn xuyên thấy múi bánh xe phía dưới, trông như nút bị vỡ. */
-.wheel-hub:disabled { background: #475569; color: #e2e8f0; cursor: default; }
+/* Chấm giữa chỉ để trang trí và chừa chỗ cho chữ khỏi chụm vào tâm — không bấm được. */
+.wheel-hub-dot { fill: #ffffff; stroke: rgba(15, 23, 42, .15); stroke-width: 1; }
 .spin-picked { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; min-height: 34px; }
 .spin-slot { border: 1px dashed var(--line); border-radius: 999px; padding: 4px 14px; font-weight: 800; color: var(--muted); background: #f8fbff; overflow-wrap: anywhere; }
 .spin-slot.filled { border-style: solid; border-color: #19875455; background: #d1f2dc; color: #0f5132; animation: spin-pop .28s ease-out; }
@@ -418,8 +416,10 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; max-width: 100%; }
 .wheel-page { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) minmax(0, 320px); align-items: start; }
 .wheel-page-names { display: grid; gap: 10px; }
 .wheel-page-names textarea { min-height: 220px; resize: vertical; font-weight: 600; }
+/* Trang riêng có cả màn hình nên để bánh xe to hơn trong modal: tên dài đọc mới ra. */
+.wheel-page .wheel-box { width: min(400px, 84vw); }
 .wheel-winner { text-align: center; font-size: 22px; font-weight: 900; color: #0f5132; min-height: 32px; overflow-wrap: anywhere; }
-.wheel-winner:empty::before { content: "Bấm QUAY để bốc"; color: var(--muted); font-size: 15px; font-weight: 600; }
+.wheel-winner:empty::before { content: "Bấm nút Quay để bốc"; color: var(--muted); font-size: 15px; font-weight: 600; }
 .wheel-history { margin: 0; padding-left: 22px; display: grid; gap: 6px; max-height: 220px; overflow-y: auto; }
 .wheel-history li { font-weight: 700; overflow-wrap: anywhere; }
 @media (max-width: 860px) {
@@ -831,7 +831,6 @@ body { touch-action: pan-x pan-y; overflow-x: hidden; max-width: 100%; }
 .ht-member { background: linear-gradient(135deg,#8e2de2,#4a00e0); }
 .ht-games { background: linear-gradient(135deg,#f7971e,#ffd200); color: #4a3200 !important; }
 .ht-games h3, .ht-games .muted { color: #5a3d00; }
-.ht-wheel { background: linear-gradient(135deg,#8e2de2,#4a00e0); }
 .ht-perm { background: linear-gradient(135deg,#485563,#29323c); }
 .ht-log { background: linear-gradient(135deg,#3a6073,#16222a); }
 

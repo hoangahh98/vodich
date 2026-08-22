@@ -1,7 +1,7 @@
 import { MatchGame, Tournament, TournamentRegistration } from '@prisma/client';
 import { PairingRule, normalizePairingRule } from '../common/enums';
 import { RankingGroup, compareRankingRows } from './tournament-ranking';
-import { WAITING_PARTNER, formatTeamName } from './team-name';
+import { WAITING_PARTNER, formatTeamName, splitTeamName } from './team-name';
 
 export type MatchCreate = {
   tournamentId: bigint;
@@ -94,6 +94,26 @@ export function finishedStageWinners(matches: MatchGame[], stage: string): strin
 
 function displayRegistrationName(reg: RegisteredPlayer) {
   return reg.player?.displayName || reg.externalName || reg.externalEmail || 'Chưa đặt tên';
+}
+
+/**
+ * Ghép đội THỦ CÔNG cố định mấy đội, còn lại để máy ghép nốt theo `pairingRule` của giải.
+ *
+ * Ban tổ chức thường chỉ muốn chốt cứng vài cặp (hai vợ chồng, hai người đi cùng xe...) rồi
+ * để phần còn lại chia theo trình. Trước đây ai không được chọn thì bị BỎ HẲN khỏi lịch, còn
+ * ô nào chỉ chọn một người thì thành "đội" một người đi đánh đôi — cả hai đều là lỗi.
+ *
+ * Quy ước: chỉ đội chọn ĐỦ HAI người mới là đội cố định. Ô lẻ (mới chọn một người) coi như
+ * chưa ghép, người đó rơi vào rổ ghép tự động — cần cố định thì chọn nốt người thứ hai.
+ *
+ * Đối chiếu theo TÊN HIỂN THỊ vì màn ghép thủ công gửi lên tên chứ không gửi id.
+ */
+export function completeManualTeams(manualTeams: string[], registrations: RegisteredPlayer[], rule: PairingRule): string[] {
+  const fixed = manualTeams.filter((team) => splitTeamName(team).length >= 2);
+  const taken = new Set(fixed.flatMap((team) => splitTeamName(team)));
+  // Người bị bỏ ra khỏi mọi đội cố định — kể cả người đứng lẻ trong một ô ghép dở.
+  const loose = registrations.filter((reg) => !taken.has(displayRegistrationName(reg)));
+  return [...fixed, ...buildDoublesTeams(loose, rule)];
 }
 
 /**
