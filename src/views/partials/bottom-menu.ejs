@@ -26,7 +26,6 @@
         <% if (isAdmin) { %><a class="" href="/players"><%- include('icon', { name: 'users' }) %><span>Thành viên</span></a><a class="" href="/groups"><%- include('icon', { name: 'list' }) %><span>Nhóm</span></a><% } %>
       <% } else if (currentPath.startsWith('/teams') && featureSet.has('TEAMS')) { %>
         <a class="active" href="/teams"><%- include('icon', { name: 'ball' }) %><span>Đội bóng</span></a>
-        <% if (isAdmin) { %><a class="" href="/groups"><%- include('icon', { name: 'list' }) %><span>Nhóm</span></a><% } %>
       <% } else if (currentPath.startsWith('/permissions') && featureSet.has('PERMISSIONS')) { %>
         <a class="active" href="/permissions"><%- include('icon', { name: 'lock' }) %><span>Phân quyền</span></a>
         <% if (isRoot) { %><a class="" href="/logs"><%- include('icon', { name: 'log' }) %><span>Log</span></a><% } %>
