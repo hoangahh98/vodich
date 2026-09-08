@@ -307,7 +307,7 @@ small { font-size: 13px; }
 .courts-grid { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
 .kv-grid { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .kv { padding: 12px 14px; border-radius: var(--radius-sm); background: var(--paper); }
-.kv span { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+.kv > span { display: block; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
 .kv strong { font-size: 15px; line-height: 1.35; display: block; }
 
 /* Thẻ module / thẻ danh sách: trắng, nghiêng theo con trỏ (motion.js đặt --rx/--ry). */

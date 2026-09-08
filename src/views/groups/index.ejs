@@ -36,10 +36,10 @@
         <% } %>
         <div class="group-members mb">
           <% group.members.forEach((member) => { %>
-            <form class="group-member" method="post" action="/groups/<%= group.id %>/members/<%= member.playerId %>/delete" data-confirm="Đưa <%= member.player.displayName %> ra khỏi nhóm? Người này sẽ rời các đội đang dùng nhóm từ tháng này (trừ khi còn ở nhóm khác của đội đó); tháng cũ giữ nguyên.">
+            <div class="group-member">
               <span><strong><%= member.player.displayName %></strong><small class="muted"><%= member.player.skillLevel ? ' · ' + member.player.skillLevel : '' %></small></span>
-              <button class="group-member-remove" title="Bỏ khỏi nhóm (rời luôn các đội dùng nhóm này)" aria-label="Bỏ khỏi nhóm" data-loading-text="…"><%- include('../partials/icon', { name: 'x' }) %></button>
-            </form>
+              <a class="group-member-remove" href="/groups/<%= group.id %>/members/<%= member.playerId %>/remove" title="Kiểm tra rồi đưa ra khỏi nhóm" aria-label="Đưa ra khỏi nhóm" data-loading-text="…"><%- include('../partials/icon', { name: 'x' }) %></a>
+            </div>
           <% }) %>
           <% if (!group.members.length) { %><span class="muted">Nhóm trống — thêm người bên dưới.</span><% } %>
         </div>

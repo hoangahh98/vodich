@@ -3,7 +3,25 @@ import { Prisma } from '@prisma/client';
 import { isRootAdmin } from '../common/admin-scope';
 import { PrismaService } from '../prisma.service';
 import { TeamMemberService } from '../teams/team-member.service';
+import { monthDate } from '../teams/team-utils';
 import { CurrentUser } from '../types';
+
+export interface RemovalPreview {
+  group: { id: bigint; name: string };
+  player: { id: bigint; displayName: string; email: string };
+  month: string;
+  teams: Array<{
+    team: { id: bigint; name: string };
+    isMember: boolean;
+    willLeave: boolean;
+    coveredBy: string[];
+    current: { paid: number; expected: number; shortfall: number };
+    debts: Array<{ month: string; shortfall: number }>;
+    totalPaid: number;
+  }>;
+  unpaidTournaments: Array<{ tournamentId: bigint; name: string; amount: number }>;
+  hasWarnings: boolean;
+}
 
 /**
  * Nhóm thành viên: một tập vận động viên đặt tên sẵn (ví dụ "Hội tối thứ 3") để khi tạo đội bóng
@@ -86,6 +104,60 @@ export class GroupService {
       }
     }
     return result.count;
+  }
+
+  /**
+   * Soi trước khi đưa một người ra khỏi nhóm: rời đội nào, tháng này đã thu bao nhiêu, còn nợ tháng
+   * nào, giải nào chưa đóng — để admin biết còn phải thu gì trước khi bấm. Không ghi gì.
+   */
+  async removalPreview(user: CurrentUser, groupId: bigint, playerId: bigint, month?: string): Promise<RemovalPreview | null> {
+    const monthKey = month || new Date().toISOString().slice(0, 7);
+    const fundMonth = monthDate(monthKey);
+    const [group, player] = await Promise.all([
+      this.prisma.playerGroup.findFirst({ where: { id: groupId, ...this.scope(user) }, select: { id: true, name: true } }),
+      this.prisma.player.findUnique({ where: { id: playerId }, select: { id: true, displayName: true, email: true } }),
+    ]);
+    if (!group || !player) return null;
+    const links = await this.prisma.teamClubGroup.findMany({ where: { groupId }, include: { team: { select: { id: true, name: true } } } });
+    const teams: RemovalPreview['teams'] = [];
+    for (const link of links) {
+      const teamId = link.teamId;
+      const [member, otherGroups, funds] = await Promise.all([
+        this.prisma.teamMember.findFirst({ where: { teamId, playerId, active: true }, include: { payments: { orderBy: { fundMonth: 'asc' } } } }),
+        this.prisma.playerGroupMember.findMany({ where: { playerId, groupId: { not: groupId }, group: { teams: { some: { teamId } } } }, include: { group: { select: { name: true } } } }),
+        this.prisma.teamMonthFund.findMany({ where: { teamId }, select: { fundMonth: true, monthlyFee: true } }),
+      ]);
+      const feeByMonth = new Map(funds.map((fund) => [fund.fundMonth.toISOString().slice(0, 7), Number(fund.monthlyFee)]));
+      const rows = member?.payments || [];
+      const rowOf = (key: string) => rows.find((row) => row.fundMonth.toISOString().slice(0, 7) === key);
+      const currentRow = rowOf(monthKey);
+      const currentExpected = currentRow?.memberType === 'GUEST' ? 0 : feeByMonth.get(monthKey) || 0;
+      const currentPaid = Number(currentRow?.paidAmount || 0);
+      const debts = rows
+        .filter((row) => row.fundMonth < fundMonth && (row.memberType || member?.memberType) === 'FIXED')
+        .map((row) => {
+          const key = row.fundMonth.toISOString().slice(0, 7);
+          return { month: key, shortfall: Math.max(0, (feeByMonth.get(key) || 0) - Number(row.paidAmount || 0)) };
+        })
+        .filter((debt) => debt.shortfall > 0);
+      teams.push({
+        team: link.team,
+        isMember: Boolean(member),
+        willLeave: Boolean(member) && otherGroups.length === 0,
+        coveredBy: otherGroups.map((row) => row.group.name),
+        current: { paid: currentPaid, expected: currentExpected, shortfall: Math.max(0, currentExpected - currentPaid) },
+        debts,
+        totalPaid: rows.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0),
+      });
+    }
+    const registrations = await this.prisma.tournamentRegistration.findMany({
+      where: { playerId, status: { in: ['ACTIVE', 'RESERVE'] }, paymentStatus: { not: 'PAID' } },
+      include: { tournament: { select: { id: true, name: true } } },
+      orderBy: { id: 'desc' },
+    });
+    const unpaidTournaments = registrations.map((registration) => ({ tournamentId: registration.tournamentId, name: registration.tournament.name, amount: Number(registration.paidAmount || 0) }));
+    const hasWarnings = unpaidTournaments.length > 0 || teams.some((item) => item.current.shortfall > 0 || item.debts.length > 0);
+    return { group, player, month: monthKey, teams, unpaidTournaments, hasWarnings };
   }
 
   async removeMember(user: CurrentUser, groupId: bigint, playerId: bigint, month?: string) {

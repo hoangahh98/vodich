@@ -1,0 +1,56 @@
+<%- include('../partials/head', { title: `Đưa ${preview.player.displayName} ra khỏi nhóm` }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell narrow-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <div class="hero-eyebrow">Kiểm tra trước khi đưa ra khỏi nhóm</div>
+        <h1><%= preview.player.displayName %></h1>
+        <div class="hero-meta">
+          <span><%- include('../partials/icon', { name: 'users' }) %>Nhóm <%= preview.group.name %></span>
+          <span><%- include('../partials/icon', { name: 'calendar' }) %>Tháng <%= preview.month %></span>
+        </div>
+      </div>
+      <div class="feature-hero-art"><div class="ball3d" aria-hidden="true"></div></div>
+    </div>
+  </section>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'ball' }) %></span><h2 class="section-title">Đội bóng bị ảnh hưởng</h2><p class="muted">Rời đội từ tháng <%= preview.month %>, các tháng trước giữ nguyên. Tiền đã thu vẫn nằm trong quỹ.</p></div></div>
+    <% if (!preview.teams.length) { %><p class="muted">Nhóm này chưa gắn với đội bóng nào — chỉ bỏ tên khỏi nhóm.</p><% } %>
+    <% preview.teams.forEach((item) => { %>
+      <div class="registration-panel mb">
+        <div class="bulk-toolbar mb">
+          <strong><a href="/teams/<%= item.team.id %>/income?month=<%= preview.month %>"><%= item.team.name %></a></strong>
+          <% if (!item.isMember) { %><span class="badge">Không có trong đội</span>
+          <% } else if (item.willLeave) { %><span class="badge badge-danger">Sẽ rời đội</span>
+          <% } else { %><span class="badge badge-teal">Vẫn ở lại — còn thuộc nhóm <%= item.coveredBy.join(', ') %></span><% } %>
+        </div>
+        <% if (item.isMember) { %>
+          <div class="grid kv-grid">
+            <div class="kv"><span>Tháng <%= preview.month %> đã thu / mức phí</span><strong><%= formatMoney(item.current.paid) %> / <%= formatMoney(item.current.expected) %>đ<% if (item.current.shortfall > 0) { %> <span class="badge badge-danger">thiếu <%= formatMoney(item.current.shortfall) %>đ</span><% } else if (item.current.expected > 0) { %> <span class="badge bg-success">đủ</span><% } %></strong></div>
+            <div class="kv"><span>Các tháng trước còn thiếu</span><strong><% if (!item.debts.length) { %>Không<% } else { %><%= item.debts.map((debt) => `${debt.month}: ${formatMoney(debt.shortfall)}đ`).join(' · ') %><% } %></strong></div>
+            <div class="kv"><span>Tổng đã đóng cho đội</span><strong><%= formatMoney(item.totalPaid) %>đ</strong></div>
+          </div>
+        <% } %>
+      </div>
+    <% }) %>
+  </section>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'trophy' }) %></span><h2 class="section-title">Giải đấu chưa đóng phí</h2><p class="muted">Không bị ảnh hưởng khi rời nhóm, liệt kê để bạn biết còn phải thu.</p></div></div>
+    <% if (!preview.unpaidTournaments.length) { %><p class="muted">Không còn giải nào chưa đóng.</p><% } %>
+    <% preview.unpaidTournaments.forEach((item) => { %>
+      <div class="prize-row"><span><a href="/tournaments/<%= item.tournamentId %>/fees"><%= item.name %></a></span><strong><span class="badge badge-danger">chưa đóng <%= formatMoney(item.amount) %>đ</span></strong></div>
+    <% }) %>
+  </section>
+
+  <section class="card-lite p">
+    <% if (preview.hasWarnings) { %><div class="alert-lite warn mb"><span>Người này còn khoản chưa thu ở trên. Bạn vẫn đưa ra khỏi nhóm được, số nợ vẫn hiện trong tháng tương ứng để thu sau.</span></div><% } else { %><div class="alert-lite info mb"><span>Không có khoản nào còn thiếu.</span></div><% } %>
+    <form method="post" action="/groups/<%= preview.group.id %>/members/<%= preview.player.id %>/delete" class="flex gap">
+      <button class="btn btn-danger btn-lg" data-loading-text="Đang đưa ra..."><%- include('../partials/icon', { name: 'x' }) %> Đưa ra khỏi nhóm</button>
+      <a class="btn btn-lg" href="/groups#group-<%= preview.group.id %>">Quay lại</a>
+    </form>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

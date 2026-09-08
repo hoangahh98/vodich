@@ -44,6 +44,19 @@ export class GroupController {
     return res.redirect(`/groups#group-${id}`);
   }
 
+  /** Trang soi trước: đưa ra khỏi nhóm thì rời đội nào, còn nợ gì. Nút xác nhận mới POST xoá thật. */
+  @Get('/groups/:groupId/members/:playerId/remove')
+  async removePreview(@Req() req: Request, @Res() res: Response, @Param('groupId') groupId: string, @Param('playerId') playerId: string) {
+    const user = requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS']);
+    if (!user) return;
+    const gid = parseBigId(groupId);
+    const pid = parseBigId(playerId);
+    if (!gid || !pid) return notFound(res);
+    const preview = await this.groups.removalPreview(user, gid, pid, currentMonth());
+    if (!preview) return notFound(res, 'Không tìm thấy nhóm hoặc thành viên');
+    return render(res, 'groups/remove-member', { preview });
+  }
+
   @Post('/groups/:groupId/members/:playerId/delete')
   async removeMember(@Req() req: Request, @Res() res: Response, @Param('groupId') groupId: string, @Param('playerId') playerId: string) {
     const user = requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS']);
