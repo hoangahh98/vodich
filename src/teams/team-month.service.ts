@@ -60,9 +60,8 @@ export class TeamMonthService {
   }
 
   /**
-   * Tính lại mức phí của tháng (chỉ khi AUTO), cập nhật số tiền mặc định cho dòng cố định CHƯA đóng
-   * (dòng đã đóng giữ nguyên số thật), rồi lan sang tháng kế tiếp đã chốt ở chế độ AUTO vì số dư
-   * mang sang của nó vừa đổi.
+   * Tính lại mức phí của tháng (chỉ khi AUTO) rồi lan sang tháng kế tiếp đã chốt ở chế độ AUTO vì số
+   * dư mang sang của nó vừa đổi. Ô "đã thu" của từng người là tiền thật, không đụng tới.
    */
   async recompute(teamId: bigint, fundMonth: Date): Promise<number | null> {
     const fund = await this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth } } });
@@ -75,10 +74,6 @@ export class TeamMonthService {
         await this.prisma.teamMonthFund.update({ where: { id: fund.id }, data: { monthlyFee: fee } });
       }
     }
-    await this.prisma.teamMemberPayment.updateMany({
-      where: { fundMonth, memberType: 'FIXED', paymentStatus: { not: 'PAID' }, member: { teamId } },
-      data: { paidAmount: fee },
-    });
     const next = await this.prisma.teamMonthFund.findFirst({ where: { teamId, fundMonth: { gt: fundMonth } }, orderBy: { fundMonth: 'asc' } });
     if (next && next.feeMode === 'AUTO') {
       const previousBalance = await this.detail.previousMonthBalance(teamId, next.fundMonth);

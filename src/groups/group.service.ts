@@ -9,9 +9,10 @@ import { CurrentUser } from '../types';
  * Nhóm thành viên: một tập vận động viên đặt tên sẵn (ví dụ "Hội tối thứ 3") để khi tạo đội bóng
  * hay thêm người vào giải chỉ cần chọn nhóm thay vì tích từng người.
  *
- * - Đội bóng LIÊN KẾT với nhóm (`team_club_group`): thêm người vào nhóm là người đó tự vào mọi đội
- *   đang liên kết (thành viên cố định). Bỏ khỏi nhóm KHÔNG tự gỡ khỏi đội — gỡ khỏi đội là quyết
- *   định riêng vì còn lịch sử đóng phí.
+ * - Đội bóng LIÊN KẾT với nhóm (`team_club_group`): thành viên đội ĐI THEO NHÓM. Thêm người vào nhóm
+ *   là người đó vào mọi đội đang liên kết (cố định); đưa ra khỏi nhóm (hay gỡ nhóm khỏi đội, xoá nhóm)
+ *   là người đó rời đội từ tháng hiện tại — trừ khi họ còn ở một nhóm khác cũng liên kết với đội đó.
+ *   Tháng cũ giữ nguyên (xem team-month.service.ts).
  * - Giải đấu chỉ LẤY danh sách người của nhóm lúc thêm (gộp, bỏ trùng với người chọn lẻ), không
  *   liên kết lâu dài.
  *
@@ -87,7 +88,41 @@ export class GroupService {
     return result.count;
   }
 
-  async removeMember(user: CurrentUser, groupId: bigint, playerId: bigint) {
-    return this.prisma.playerGroupMember.deleteMany({ where: { groupId, playerId, group: this.scope(user) } });
+  async removeMember(user: CurrentUser, groupId: bigint, playerId: bigint, month?: string) {
+    const result = await this.prisma.playerGroupMember.deleteMany({ where: { groupId, playerId, group: this.scope(user) } });
+    if (result.count) await this.detachFromLinkedTeams(groupId, [playerId], month);
+    return result;
+  }
+
+  /** Xoá nhóm: người chỉ thuộc nhóm này rời các đội đang liên kết, rồi mới xoá (liên kết cascade theo). */
+  async deleteWithTeams(user: CurrentUser, groupId: bigint, month?: string) {
+    const group = await this.prisma.playerGroup.findFirst({ where: { id: groupId, ...this.scope(user) }, include: { members: { select: { playerId: true } } } });
+    if (!group) return { count: 0 };
+    await this.detachFromLinkedTeams(groupId, group.members.map((member) => member.playerId), month);
+    return this.prisma.playerGroup.deleteMany({ where: { id: groupId } });
+  }
+
+  /** Gỡ nhóm khỏi MỘT đội: người chỉ thuộc nhóm này rời đội; người còn ở nhóm khác đang liên kết thì ở lại. */
+  async detachTeamFromGroup(teamId: bigint, groupId: bigint, month?: string) {
+    const members = await this.prisma.playerGroupMember.findMany({ where: { groupId }, select: { playerId: true } });
+    await this.detachPlayers(teamId, groupId, members.map((member) => member.playerId), month);
+    await this.prisma.teamClubGroup.deleteMany({ where: { teamId, groupId } });
+  }
+
+  private async detachFromLinkedTeams(groupId: bigint, playerIds: bigint[], month?: string) {
+    const links = await this.prisma.teamClubGroup.findMany({ where: { groupId }, select: { teamId: true } });
+    for (const link of links) await this.detachPlayers(link.teamId, groupId, playerIds, month);
+  }
+
+  private async detachPlayers(teamId: bigint, groupId: bigint, playerIds: bigint[], month?: string) {
+    if (!playerIds.length) return;
+    const stillCovered = await this.prisma.playerGroupMember.findMany({
+      where: { playerId: { in: playerIds }, groupId: { not: groupId }, group: { teams: { some: { teamId } } } },
+      select: { playerId: true },
+    });
+    const keep = new Set(stillCovered.map((row) => row.playerId.toString()));
+    for (const playerId of playerIds) {
+      if (!keep.has(playerId.toString())) await this.teamMembers.removePlayer(teamId, playerId, month);
+    }
   }
 }

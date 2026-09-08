@@ -33,6 +33,11 @@ export class TeamCrudService {
     return this.prisma.teamClub.create({ data: { name: name.trim(), description: cleanText(description), ownerAdminId: BigInt(user.id) } });
   }
 
+  /** Xoá đội kèm toàn bộ quỹ/phí/khoản thu-chi (cascade ở DB). Controller đã kiểm canManage. */
+  delete(id: bigint) {
+    return this.prisma.teamClub.delete({ where: { id } });
+  }
+
   updateTeam(id: bigint, name: string, description?: string) {
     return this.prisma.teamClub.update({
       where: { id },

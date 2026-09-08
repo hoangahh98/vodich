@@ -21,19 +21,20 @@ export class TeamDetailService {
       where: { id },
       include: { ownerAdmin: true, permissions: { include: { admin: true }, orderBy: { id: 'asc' } }, groups: { include: { group: true }, orderBy: { id: 'asc' } } },
     });
-    const [members, players, storedFund, expenses, admins] = await Promise.all([
+    const [members, players, storedFund, expenses, admins, guestReceipts] = await Promise.all([
       this.monthRoster(id, fundMonth),
       this.prisma.player.findMany({ orderBy: { displayName: 'asc' } }),
       this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId: id, fundMonth } } }),
       this.prisma.teamExpense.findMany({ where: { teamId: id, expenseMonth: fundMonth }, orderBy: [{ expenseDate: 'desc' }, { id: 'desc' }] }),
       this.availableAdmins(id, team.ownerAdminId),
+      this.prisma.teamGuestReceipt.findMany({ where: { teamId: id, receiptMonth: fundMonth }, include: { player: true }, orderBy: [{ receiptDate: 'desc' }, { id: 'desc' }] }),
     ]);
     // Tháng chưa chốt: xem trước với tiền sân của tháng gần nhất, phí tự chia đều. Không ghi gì xuống DB —
     // chỉ khi có thao tác (thêm người, lưu cài đặt…) TeamMonthService mới tạo dòng thật.
     const fundPreview = !storedFund;
     const fund = storedFund ?? (await this.previewFund(id, fundMonth, previousMonthBalance, members));
-    const report = this.monthReportBuilder.build({ members, players, fund, expenses, previousMonthBalance });
-    return { team, members: report.members, players: report.players, fund, fundPreview, expenses, admins, selectedMonth: month, finance: report.finance, emailList: report.emailList };
+    const report = this.monthReportBuilder.build({ members, players, fund, expenses, previousMonthBalance, guestReceipts });
+    return { team, members: report.members, players: report.players, allPlayers: players, fund, fundPreview, expenses, guestReceipts, admins, selectedMonth: month, finance: report.finance, emailList: report.emailList };
   }
 
   /**
@@ -65,10 +66,11 @@ export class TeamDetailService {
 
   async previousMonthBalance(teamId: bigint, fundMonth: Date) {
     const previousMonth = addMonths(fundMonth, -1);
-    const [fund, payments, expenses] = await Promise.all([
+    const [fund, payments, expenses, receipts] = await Promise.all([
       this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth: previousMonth } } }),
       this.prisma.teamMemberPayment.findMany({ where: { fundMonth: previousMonth, member: { teamId } }, include: { member: true } }),
       this.prisma.teamExpense.findMany({ where: { teamId, expenseMonth: previousMonth } }),
+      this.prisma.teamGuestReceipt.findMany({ where: { teamId, receiptMonth: previousMonth } }),
     ]);
     if (!fund) return 0;
     // Đi đúng công thức balance của team-month-report.ts: (phải đóng + dư trước + vãng lai)
@@ -79,9 +81,10 @@ export class TeamDetailService {
     const typeOf = (payment: (typeof payments)[number]) => payment.memberType || payment.member.memberType;
     const fixedCount = payments.filter((payment) => typeOf(payment) === 'FIXED').length;
     const totalDue = Number(fund.monthlyFee || 0) * fixedCount;
-    const guestPaid = payments
-      .filter((payment) => typeOf(payment) === 'GUEST' && payment.paymentStatus === 'PAID')
-      .reduce((sum, payment) => sum + Number(payment.paidAmount), 0);
+    const guestPaid =
+      payments
+        .filter((payment) => typeOf(payment) === 'GUEST' && payment.paymentStatus === 'PAID')
+        .reduce((sum, payment) => sum + Number(payment.paidAmount), 0) + receipts.reduce((sum, receipt) => sum + Number(receipt.amount), 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
     return Number(fund.previousBalance || 0) + totalDue + guestPaid - Number(fund.courtCost || 0) - totalExpense;
   }

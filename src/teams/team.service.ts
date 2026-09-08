@@ -28,6 +28,18 @@ export class TeamService {
     return this.crud.updateTeam(id, name, description);
   }
 
+  delete(id: bigint) {
+    return this.crud.delete(id);
+  }
+
+  addGuestReceipt(teamId: bigint, month: string, body: Record<string, string | undefined>) {
+    return this.fund.addGuestReceipt(teamId, month, body);
+  }
+
+  deleteGuestReceipt(teamId: bigint, receiptId: bigint) {
+    return this.fund.deleteGuestReceipt(teamId, receiptId);
+  }
+
   canManage(user: CurrentUser, teamId: bigint) {
     return this.crud.canManage(user, teamId);
   }

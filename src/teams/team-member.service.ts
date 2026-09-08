@@ -66,6 +66,13 @@ export class TeamMemberService {
     return result;
   }
 
+  /** Rời đội theo playerId (dùng khi người đó bị đưa ra khỏi nhóm liên kết). Không có trong đội thì bỏ qua. */
+  async removePlayer(teamId: bigint, playerId: bigint, month?: string) {
+    const member = await this.prisma.teamMember.findFirst({ where: { teamId, playerId, active: true }, select: { id: true } });
+    if (!member) return;
+    await this.removeMember(teamId, member.id, month);
+  }
+
   /**
    * Rời đội TỪ THÁNG `month` trở đi: các tháng trước giữ nguyên (kể cả tiền đã đóng); dòng phí của
    * tháng này và các tháng sau bị bỏ nếu chưa đóng, còn dòng đã đóng thì giữ vì tiền đã thu thật.

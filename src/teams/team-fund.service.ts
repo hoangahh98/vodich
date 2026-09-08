@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { normalizePaymentStatus } from '../common/enums';
 import { parseMoney } from '../common/money';
+import { parseBigId } from '../common/controller-utils';
 import { PrismaService } from '../prisma.service';
 import { TeamDetailService } from './team-detail.service';
 import { TeamMonthService } from './team-month.service';
@@ -51,8 +51,15 @@ export class TeamFundService {
     return this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth } } });
   }
 
+  /**
+   * Lưu số ĐÃ THU của từng thành viên cố định trong tháng. Không có ô tích: trạng thái ghi xuống DB
+   * (để báo cáo/khách xem) suy từ đã thu ≥ mức phí của tháng.
+   */
   async updatePayments(teamId: bigint, month: string, body: Record<string, string>) {
     const fundMonth = monthDate(month);
+    const fund = await this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth } } });
+    const fee = Number(fund?.monthlyFee || 0);
+    const statusFor = (amount: number) => (amount > 0 && amount >= fee ? 'PAID' : 'UNPAID');
     const memberIds = Object.keys(body)
       .filter((key) => key.startsWith('amount_'))
       .map((key) => BigInt(key.replace('amount_', '')));
@@ -74,13 +81,37 @@ export class TeamFundService {
           ...(memberType ? [this.prisma.teamMember.update({ where: { id: memberId }, data: { memberType: normalizeMemberType(memberType) } })] : []),
           this.prisma.teamMemberPayment.upsert({
             where: { memberId_fundMonth: { memberId, fundMonth } },
-            update: { ...snapshot, paidAmount: parseMoney(amount), paymentStatus: normalizePaymentStatus(body[`status_${memberId}`]), notes: cleanText(body[`notes_${memberId}`]) },
-            create: { memberId, fundMonth, ...snapshot, paidAmount: parseMoney(amount), paymentStatus: normalizePaymentStatus(body[`status_${memberId}`]), notes: cleanText(body[`notes_${memberId}`]) },
+            update: { ...snapshot, paidAmount: parseMoney(amount), paymentStatus: statusFor(parseMoney(amount)) },
+            create: { memberId, fundMonth, ...snapshot, paidAmount: parseMoney(amount), paymentStatus: statusFor(parseMoney(amount)) },
           }),
         ];
       });
     const result = await this.prisma.$transaction(updates);
     await this.months.ensureMonth(teamId, month);
     return result;
+  }
+
+  /** Ghi một buổi vãng lai: chọn người trong danh sách chung hoặc gõ tên; ngày chơi; số tiền. */
+  async addGuestReceipt(teamId: bigint, month: string, body: Record<string, string | undefined>) {
+    const receiptMonth = monthDate(month);
+    const amount = parseMoney(body.amount);
+    const playerId = parseBigId(body.playerId);
+    const guestName = cleanText(body.guestName);
+    if (amount <= 0 || (!playerId && !guestName)) throw new Error('Cần chọn người (hoặc gõ tên) và số tiền lớn hơn 0');
+    const parsedDate = body.receiptDate ? new Date(`${body.receiptDate}T00:00:00Z`) : receiptMonth;
+    const receiptDate = Number.isNaN(parsedDate.getTime()) ? receiptMonth : parsedDate;
+    const receipt = await this.prisma.teamGuestReceipt.create({
+      data: { teamId, playerId, guestName: playerId ? null : guestName, receiptMonth, receiptDate, amount },
+    });
+    // Tiền vãng lai đổi số dư mang sang tháng sau → chốt tháng để lan số dư.
+    await this.months.ensureMonth(teamId, month);
+    return receipt;
+  }
+
+  async deleteGuestReceipt(teamId: bigint, receiptId: bigint) {
+    const receipt = await this.prisma.teamGuestReceipt.findFirst({ where: { id: receiptId, teamId } });
+    if (!receipt) return;
+    await this.prisma.teamGuestReceipt.deleteMany({ where: { id: receiptId, teamId } });
+    await this.months.recompute(teamId, receipt.receiptMonth);
   }
 }

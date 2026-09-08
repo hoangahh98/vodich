@@ -34,8 +34,7 @@ test('recompute AUTO: chia đều theo số cố định của ảnh chụp thá
   const fee = await new TeamMonthService(prisma, {}).recompute(1n, M8);
   assert.equal(fee, 200000, '(900k + 100k − 200k) / 4');
   assert.equal(updates[0].data.monthlyFee, 200000, 'mức phí tháng ghi lại');
-  assert.deepEqual(updates[1].where.paymentStatus, { not: 'PAID' }, 'người đã đóng giữ nguyên số đã thu');
-  assert.equal(updates[1].data.paidAmount, 200000);
+  assert.equal(updates.length, 1, 'ô đã thu là tiền thật, recompute không được đụng');
 });
 
 test('recompute MANUAL: không đổi mức phí admin gõ', async () => {
@@ -111,6 +110,7 @@ test('số dư mang sang đếm cố định theo ẢNH CHỤP tháng trước, 
       ],
     },
     teamExpense: { findMany: async () => [{ amount: 20000 }] },
+    teamGuestReceipt: { findMany: async () => [] },
   };
   const balance = await new TeamDetailService(prisma).previousMonthBalance(1n, M8);
   // phải đóng 3 × 100k + vãng lai 30k − sân 250k − chi 20k

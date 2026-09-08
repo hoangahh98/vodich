@@ -1,0 +1,52 @@
+<% if (section === 'income') { %>
+  <% const fixedMembers = members.filter((member) => member.memberType === 'FIXED'); const receipts = typeof guestReceipts !== 'undefined' ? guestReceipts : []; %>
+  <section class="card-lite p mb">
+    <div class="section-heading mb">
+      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'coin' }) %></span><h2 class="section-title">Khoản thu tháng <%= selectedMonth %></h2><p class="muted">Thành viên cố định đóng theo mức phí tháng; người vãng lai ghi từng buổi.<% if (typeof fundPreview !== 'undefined' && fundPreview) { %> Tháng này chưa chốt quỹ, mức phí là tạm tính.<% } %></p></div>
+      <span class="badge badge-dark">Đã thu <%= formatMoney(finance.totalPaid) %>đ</span>
+    </div>
+
+    <div class="card-hdr green mb"><span><%- include('../../partials/icon', { name: 'users' }) %> Thành viên cố định</span><span><%= formatMoney(finance.monthlyFee) %>đ / người</span></div>
+    <% if (currentUser.role === 'ADMIN') { %>
+      <form method="post" action="/teams/<%= team.id %>/payments">
+        <input type="hidden" name="month" value="<%= selectedMonth %>">
+        <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-fee-edit-table"><thead><tr><th class="sticky-col">Thành viên</th><th>Đã thu / mức phí</th></tr></thead><tbody>
+          <% fixedMembers.forEach((member) => { %>
+            <tr class="<%= member.paymentStatus === 'PAID' ? 'sufficient-row' : 'insufficient-row' %>">
+              <td class="sticky-col"><strong><%= member.player.displayName %></strong><% if (!member.active) { %> <span class="badge badge-warn">Đã rời đội</span><% } %></td>
+              <td><div class="paid-of"><input class="money-input" name="amount_<%= member.id %>" value="<%= member.paidAmount ? formatMoney(member.paidAmount) : '' %>" placeholder="0"><span class="paid-of-fee">/ <%= formatMoney(member.expectedAmount) %>đ</span></div></td>
+            </tr>
+          <% }) %>
+          <% if (!fixedMembers.length) { %><tr><td colspan="2" class="muted text-center">Chưa có thành viên cố định.</td></tr><% } %>
+        </tbody></table></div>
+        <% if (fixedMembers.length) { %><div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu thu cố định (<%= fixedMembers.length %> người)</button></div><% } %>
+      </form>
+    <% } else { %>
+      <div class="table-wrap"><table><thead><tr><th>Thành viên</th><th>Đã thu / mức phí</th></tr></thead><tbody>
+        <% fixedMembers.forEach((member) => { %>
+          <tr class="<%= member.paymentStatus === 'PAID' ? 'sufficient-row' : 'insufficient-row' %>"><td><strong><%= member.player.displayName %></strong></td><td><strong><%= formatMoney(member.paidAmount) %></strong><span class="muted">/<%= formatMoney(member.expectedAmount) %>đ</span></td></tr>
+        <% }) %>
+      </tbody></table></div>
+    <% } %>
+  </section>
+
+  <section class="card-lite p">
+    <div class="card-hdr blue mb"><span><%- include('../../partials/icon', { name: 'user' }) %> Vãng lai</span><span><%= formatMoney(finance.guestPaid) %>đ</span></div>
+    <% if (currentUser.role === 'ADMIN') { %>
+      <form class="guest-receipt-form mb" method="post" action="/teams/<%= team.id %>/guest-receipts">
+        <input type="hidden" name="month" value="<%= selectedMonth %>">
+        <div class="receipt-who"><label>Người chơi</label><select name="playerId"><option value="">— Gõ tên bên cạnh —</option><% (typeof allPlayers !== 'undefined' ? allPlayers : players).forEach((p) => { %><option value="<%= p.id %>"><%= p.displayName %></option><% }) %></select></div>
+        <div class="receipt-name"><label>Hoặc tên</label><input name="guestName" placeholder="Khách của An"></div>
+        <div class="receipt-date"><label>Ngày chơi</label><input type="date" name="receiptDate" value="<%= typeof defaultReceiptDate !== 'undefined' ? defaultReceiptDate : '' %>" required></div>
+        <div class="receipt-amount"><label>Thu</label><input class="money-input" name="amount" placeholder="50,000" required></div>
+        <div class="receipt-action"><button class="btn btn-success" data-loading-text="Đang ghi..."><%- include('../../partials/icon', { name: 'plus' }) %> Ghi thu</button></div>
+      </form>
+    <% } %>
+    <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Người chơi</th><th>Thu</th><% if (currentUser.role === 'ADMIN') { %><th></th><% } %></tr></thead><tbody>
+      <% receipts.forEach((receipt) => { %>
+        <tr><td><%= new Date(receipt.receiptDate).toLocaleDateString('vi-VN') %></td><td><strong><%= receipt.player ? receipt.player.displayName : receipt.guestName %></strong></td><td><strong><%= formatMoney(receipt.amount) %>đ</strong></td><% if (currentUser.role === 'ADMIN') { %><td class="text-right"><form method="post" action="/teams/<%= team.id %>/guest-receipts/<%= receipt.id %>/delete" data-confirm="Xoá khoản thu này?"><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá..."><%- include('../../partials/icon', { name: 'trash' }) %></button></form></td><% } %></tr>
+      <% }) %>
+      <% if (!receipts.length) { %><tr><td colspan="<%= currentUser.role === 'ADMIN' ? 4 : 3 %>" class="muted text-center">Chưa ghi khoản thu vãng lai nào trong tháng.</td></tr><% } %>
+    </tbody></table></div>
+  </section>
+<% } %>

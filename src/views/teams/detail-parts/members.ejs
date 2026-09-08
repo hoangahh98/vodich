@@ -3,7 +3,7 @@
   <% const isTeamMemberMine = (member) => String(member.player.email || '').toLowerCase() === memberCurrentEmail; %>
   <section class="card-lite p">
     <div class="section-heading mb">
-      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'users' }) %></span><h2 class="section-title">Thành viên và đóng phí</h2><p class="muted">Danh sách của tháng <%= selectedMonth %>. Đổi loại hay rời đội chỉ áp dụng từ tháng này trở đi, tháng cũ giữ nguyên.<% if (typeof fundPreview !== 'undefined' && fundPreview) { %> Tháng này chưa chốt quỹ, số phí là tạm tính.<% } %></p></div>
+      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'users' }) %></span><h2 class="section-title">Thành viên</h2><p class="muted">Danh sách của tháng <%= selectedMonth %>. Thành viên đi theo nhóm: đưa người vào/ra nhóm là vào/ra đội, áp dụng từ tháng đang chọn trở đi.<% if (typeof fundPreview !== 'undefined' && fundPreview) { %> Tháng này chưa chốt quỹ, số phí là tạm tính.<% } %></p></div>
       <% if (currentUser.role === 'ADMIN' && members.length) { %>
         <div class="hero-action-buttons">
           <button class="btn btn-sm btn-outline" type="button" data-open-modal="teamEmailModal"><%- include('../../partials/icon', { name: 'mail' }) %> Get Email</button>
@@ -14,12 +14,12 @@
     <% if (currentUser.role === 'ADMIN') { %>
       <% const linkedGroups = team.groups || []; const linkedIds = new Set(linkedGroups.map((link) => link.groupId.toString())); const otherGroups = (typeof groups !== 'undefined' ? groups : []).filter((group) => !linkedIds.has(group.id.toString())); %>
       <div class="registration-panel mb">
-        <div class="bulk-toolbar mb"><strong>Nhóm thành viên</strong><span class="muted">Thêm người vào nhóm là tự vào đội</span></div>
+        <div class="bulk-toolbar mb"><strong>Nhóm thành viên</strong><span class="muted">Sửa người trong nhóm ở trang <a href="/groups">Nhóm thành viên</a></span></div>
         <div class="hero-chips" style="margin-top:0">
           <% linkedGroups.forEach((link) => { %>
-            <form class="group-chip" method="post" action="/teams/<%= team.id %>/groups/<%= link.groupId %>/delete" data-confirm="Gỡ liên kết nhóm? Thành viên đã vào đội vẫn giữ nguyên."><input type="hidden" name="month" value="<%= selectedMonth %>"><span class="badge badge-teal"><%- include('../../partials/icon', { name: 'users' }) %> <%= link.group.name %></span><button class="group-member-remove" title="Gỡ liên kết" aria-label="Gỡ liên kết" data-loading-text="…"><%- include('../../partials/icon', { name: 'x' }) %></button></form>
+            <form class="group-chip" method="post" action="/teams/<%= team.id %>/groups/<%= link.groupId %>/delete" data-confirm="Gỡ nhóm '<%= link.group.name %>' khỏi đội? Người chỉ thuộc nhóm này sẽ rời đội từ tháng <%= selectedMonth %>, các tháng trước giữ nguyên."><input type="hidden" name="month" value="<%= selectedMonth %>"><span class="badge badge-teal"><%- include('../../partials/icon', { name: 'users' }) %> <%= link.group.name %></span><button class="group-member-remove" title="Gỡ nhóm khỏi đội" aria-label="Gỡ nhóm khỏi đội" data-loading-text="…"><%- include('../../partials/icon', { name: 'x' }) %></button></form>
           <% }) %>
-          <% if (!linkedGroups.length) { %><span class="muted">Chưa liên kết nhóm nào.</span><% } %>
+          <% if (!linkedGroups.length) { %><span class="muted">Chưa có nhóm nào. Chọn nhóm bên dưới để đưa cả nhóm vào đội.</span><% } %>
         </div>
         <% if (otherGroups.length) { %>
           <form class="mt" method="post" action="/teams/<%= team.id %>/groups" data-require-checked="groupIds">
@@ -29,61 +29,24 @@
             </div>
             <button class="btn btn-teal" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm cả nhóm vào đội</button>
           </form>
+        <% } else if (linkedGroups.length) { %>
+          <p class="muted mt">Mọi nhóm của bạn đã ở trong đội. Tạo thêm nhóm ở trang <a href="/groups">Nhóm thành viên</a>.</p>
         <% } %>
       </div>
-      <form class="registration-panel mb" method="post" action="/teams/<%= team.id %>/members" data-require-checked="playerIds">
-        <input type="hidden" name="month" value="<%= selectedMonth %>">
-        <div class="player-check-list team-member-picker mb" data-team-member-picker>
-          <% players.forEach((p) => { %>
-            <label><input type="checkbox" name="playerIds" value="<%= p.id %>"><span><strong><%= p.displayName %></strong><small><%= p.email %> · <%= p.skillLevel || 'Chưa chọn trình' %></small></span></label>
-          <% }) %>
-          <% if (!players.length) { %><div class="muted p">Không còn thành viên nào để thêm vào đội này.</div><% } %>
-        </div>
-        <div class="flex between center gap team-member-actions">
-          <span class="muted" data-team-member-count>Đã chọn 0 thành viên</span>
-          <div class="flex gap">
-            <select name="memberType" class="team-member-type"><option value="FIXED">Cố định</option><option value="GUEST">Vãng lai</option></select>
-            <input name="notes" placeholder="Ghi chú">
-            <button class="btn btn-primary" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm đã chọn</button>
-          </div>
-        </div>
-      </form>
-
-      <% if (members.length) { %>
-        <details class="team-fee-edit mb">
-          <summary><%- include('../../partials/icon', { name: 'edit' }) %> Cập nhật phí tất cả thành viên</summary>
-          <form method="post" action="/teams/<%= team.id %>/payments">
-            <input type="hidden" name="month" value="<%= selectedMonth %>">
-            <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-fee-edit-table"><thead><tr><th class="sticky-col">Thành viên</th><th>Loại</th><th>Số tiền</th><th>Trạng thái</th><th>Ghi chú phí</th></tr></thead><tbody>
-              <% members.forEach((member) => { %>
-                <tr>
-                  <td class="sticky-col"><strong><%= member.player.displayName %></strong><br><span class="muted"><%= member.typeLabel %></span></td>
-                  <td><select name="memberType_<%= member.id %>"><option value="FIXED" <%= member.memberType === 'FIXED' ? 'selected' : '' %>>Cố định</option><option value="GUEST" <%= member.memberType === 'GUEST' ? 'selected' : '' %>>Vãng lai</option></select></td>
-                  <td><input class="money-input" name="amount_<%= member.id %>" value="<%= formatMoney(member.enteredAmount) %>"></td>
-                  <td><select class="payment-status-select" name="status_<%= member.id %>"><option value="UNPAID" <%= member.paymentStatus !== 'PAID' ? 'selected' : '' %>>✕</option><option value="PAID" <%= member.paymentStatus === 'PAID' ? 'selected' : '' %>>✓</option></select></td>
-                  <td><input name="notes_<%= member.id %>" value="<%= member.feeNotes %>" placeholder="Ghi chú"></td>
-                </tr>
-              <% }) %>
-            </tbody></table></div>
-            <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu tất cả (<%= members.length %> thành viên)</button></div>
-          </form>
-        </details>
-      <% } %>
     <% } %>
 
-    <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-member-fee-list"><thead><tr><th class="sticky-col">Tên</th><th>Loại</th><th>Tiền đóng</th><th>Trạng thái</th><th>Donate/thiếu</th></tr></thead><tbody>
+    <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-member-fee-list"><thead><tr><th class="sticky-col">Tên</th><th>Loại</th><th>Đã thu / mức phí</th><th>Trạng thái</th><th>Donate/thiếu</th></tr></thead><tbody>
       <% members.forEach((member) => { %>
         <tr class="<%= isTeamMemberMine(member) ? 'mine-row' : '' %> <%= member.paymentStatus === 'PAID' ? 'sufficient-row' : 'insufficient-row' %>">
-          <td class="sticky-col"><strong><%= member.player.displayName %></strong><% if (!member.active) { %> <span class="badge badge-warn">Đã rời đội</span><% } %><% if (member.notes && currentUser.role === 'ADMIN') { %><br><span class="muted"><%= member.notes %></span><% } %><% if (currentUser.role === 'ADMIN' && member.active) { %><form class="leave-form" method="post" action="/teams/<%= team.id %>/members/<%= member.id %>/delete" data-confirm="<%= member.player.displayName %> rời đội từ tháng <%= selectedMonth %>? Các tháng trước giữ nguyên, phí tháng này tự chia lại cho người còn lại."><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-ghost text-danger" data-loading-text="Đang gỡ..."><%- include('../../partials/icon', { name: 'logout' }) %> Rời đội</button></form><% } %></td>
+          <td class="sticky-col"><strong><%= member.player.displayName %></strong><% if (!member.active) { %> <span class="badge badge-warn">Đã rời đội</span><% } %></td>
           <td><span class="badge <%= member.memberType === 'GUEST' ? 'bg-info text-dark' : 'bg-success' %>"><%= member.typeLabel %></span></td>
-          <td><strong><%= formatMoney(member.paidAmount) %>đ</strong></td>
+          <td><strong><%= formatMoney(member.paidAmount) %></strong><% if (member.memberType === 'FIXED') { %><span class="muted">/<%= formatMoney(member.expectedAmount) %></span><% } %>đ</td>
           <td><span class="payment-mark <%= member.paymentStatus === 'PAID' ? 'paid' : 'unpaid' %>"><%= member.paymentStatus === 'PAID' ? '✓' : '✕' %></span></td>
           <td>
             <% if (member.memberType === 'GUEST') { %><span class="muted">-</span>
             <% } else if (member.difference > 0) { %><span class="badge bg-success">+<%= formatMoney(member.difference) %>đ donate</span>
             <% } else if (member.difference === 0 && finance.monthlyFee > 0) { %><span class="badge bg-primary">Đủ phí</span>
             <% } else { %><span class="badge bg-danger">Thiếu <%= formatMoney(Math.abs(member.difference)) %>đ</span><% } %>
-            <% if (member.feeNotes && currentUser.role === 'ADMIN') { %><br><span class="muted"><%= member.feeNotes %></span><% } %>
           </td>
         </tr>
       <% }) %>

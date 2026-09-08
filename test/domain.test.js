@@ -76,7 +76,8 @@ test('TeamMonthReportBuilder calculates finance summary and fixed member orderin
     id: 2n,
     playerId: 2n,
     player: { id: 2n, displayName: 'Binh', email: 'binh@example.com' },
-    payments: [{ paidAmount: 100, paymentStatus: 'UNPAID', notes: '' }],
+    // Chưa thu thì đã thu = 0 (không còn ô tích, trạng thái suy từ số tiền).
+    payments: [{ paidAmount: 0, paymentStatus: 'UNPAID', notes: '' }],
   };
   const guest = {
     ...fixedPaid,

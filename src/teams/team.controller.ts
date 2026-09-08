@@ -56,8 +56,21 @@ export class TeamController {
     const gid = parseBigId(groupId);
     if (!id || !gid) return notFound(res);
     if (!(await this.teams.canManage(req.session.user!, id))) return forbidden(res);
-    await this.teams.unlinkGroup(id, gid);
+    // Người chỉ thuộc nhóm này rời đội từ tháng đang chọn; GroupService tự gỡ dòng liên kết.
+    await this.groups.detachTeamFromGroup(id, gid, month || currentMonth());
+    this.matchGateway.emitTeamUpdated(teamId, 'members');
     return res.redirect(`/teams/${teamId}/members?month=${month || currentMonth()}`);
+  }
+
+  @Post('/teams/:id/delete')
+  @AdminOnly()
+  async deleteTeam(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const teamId = parseBigId(id);
+    if (!teamId) return notFound(res);
+    if (!(await this.teams.canManage(req.session.user!, teamId))) return forbidden(res);
+    await this.teams.delete(teamId);
+    this.matchGateway.emitTeamsUpdated('team-deleted');
+    return res.redirect('/teams');
   }
 
   @Get('/teams/:id')

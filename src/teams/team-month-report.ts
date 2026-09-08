@@ -43,6 +43,7 @@ export type TeamFinanceSummary = {
 };
 
 type TeamFundInput = {
+  guestReceiptTotal?: number;
   monthlyFee: number;
   courtCost: number;
   otherCost: number;
@@ -56,6 +57,8 @@ type TeamMonthReportInput = {
   fund: TeamMonthFund | null;
   expenses: TeamExpense[];
   previousMonthBalance: number;
+  /** Khoản thu vãng lai theo buổi (bảng team_guest_receipt). Không có thì coi như 0. */
+  guestReceipts?: Array<{ amount: unknown }>;
 };
 
 export class TeamMonthReportBuilder {
@@ -64,6 +67,7 @@ export class TeamMonthReportBuilder {
     const rows = this.memberRows(input.members, monthlyFee);
     const previousBalance = input.fund ? Number(input.fund.previousBalance || 0) : input.previousMonthBalance;
     const finance = this.finance(rows, input.expenses, {
+      guestReceiptTotal: (input.guestReceipts || []).reduce((sum, receipt) => sum + Number(receipt.amount || 0), 0),
       monthlyFee,
       courtCost: Number(input.fund?.courtCost || 0),
       otherCost: Number(input.fund?.otherCost || 0),
@@ -88,9 +92,11 @@ export class TeamMonthReportBuilder {
       .map((member) => {
         const payment = member.payments[0];
         const expectedAmount = member.memberType === 'FIXED' ? monthlyFee : 0;
-        const paymentStatus = payment?.paymentStatus || 'UNPAID';
-        const enteredAmount = payment ? Number(payment.paidAmount || 0) : expectedAmount;
-        const paidAmount = paymentStatus === 'PAID' ? enteredAmount : 0;
+        // Không còn ô tích "đã thu": số đã thu là con số thật, trạng thái suy ra từ đã thu ≥ mức phí.
+        // Vãng lai (mức phí 0) có tiền là đã thu.
+        const paidAmount = payment ? Number(payment.paidAmount || 0) : 0;
+        const enteredAmount = paidAmount;
+        const paymentStatus = paidAmount > 0 && paidAmount >= expectedAmount ? 'PAID' : 'UNPAID';
         return {
           ...member,
           payment,
@@ -111,9 +117,10 @@ export class TeamMonthReportBuilder {
     // Tiền vãng lai là một số hạng RIÊNG của tổng quỹ, không gộp vào "tiền khác" (tiền khác
     // chỉ là số admin nhập tay ở Cài đặt). Gộp vào thì mỗi lần lưu Cài đặt sẽ ghi đè tiền
     // vãng lai xuống DB rồi tháng sau cộng tiếp thành hai lần.
-    const guestPaid = rows.filter((member) => member.memberType === 'GUEST').reduce((sum, member) => sum + member.paidAmount, 0);
+    // Vãng lai = dòng GUEST cũ còn trong bảng phí (dữ liệu trước 9/2026) + khoản thu theo buổi.
+    const guestPaid = rows.filter((member) => member.memberType === 'GUEST').reduce((sum, member) => sum + member.paidAmount, 0) + (fund.guestReceiptTotal || 0);
     const otherCost = fund.otherCost;
-    const totalPaid = rows.reduce((sum, member) => sum + member.paidAmount, 0);
+    const totalPaid = rows.reduce((sum, member) => sum + member.paidAmount, 0) + (fund.guestReceiptTotal || 0);
     const totalExpense = expenses.reduce((sum, expense) => sum + Number(expense.amount), 0);
     const totalDue = rows.reduce((sum, member) => sum + member.expectedAmount, 0);
     const totalMissing = rows.reduce((sum, member) => sum + Math.max(0, member.expectedAmount - member.paidAmount), 0);

@@ -14,7 +14,7 @@
 
   <% if (currentUser.role === 'ADMIN') { %>
     <section class="card-lite p mb">
-      <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'plus' }) %></span><h2 class="section-title">Tạo đội bóng</h2><p class="muted">Tạo đội rồi vào chi tiết để thêm thành viên và cấu hình quỹ.</p></div></div>
+      <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'plus' }) %></span><h2 class="section-title">Tạo đội bóng</h2><p class="muted">Thành viên đội lấy từ nhóm. Chưa có nhóm thì tạo ở trang <a href="/groups">Nhóm thành viên</a> trước.</p></div></div>
       <form class="team-create-form" method="post" action="/teams">
         <div><label>Tên đội bóng</label><input name="name" placeholder="Ví dụ: Pickleball tối thứ 3" required></div>
         <div><label>Ghi chú</label><input name="description" placeholder="Sân, lịch chơi, ghi chú nội bộ"></div>

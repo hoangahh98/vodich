@@ -39,7 +39,7 @@
             </div>
           </div>
         </section>
-        <div class="form-actions"><button class="btn btn-success btn-lg" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu thay đổi</button><a class="btn btn-lg" href="/teams/<%= team.id %>/overview?month=<%= selectedMonth %>">Hủy</a></div>
+        <div class="form-actions mb-4"><button class="btn btn-success btn-lg" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu thay đổi</button><a class="btn btn-lg" href="/teams/<%= team.id %>/overview?month=<%= selectedMonth %>">Hủy</a></div>
       </form>
       <section class="form-section">
         <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'lock' }) %> Phân quyền admin</h2>
@@ -65,6 +65,9 @@
           <% if (!(team.permissions || []).length) { %><div class="alert-lite info">Chưa cấp quyền cho admin nào.</div><% } %>
         </div>
       </section>
+      <div class="flex gap settings-action-row">
+        <form method="post" action="/teams/<%= team.id %>/delete" data-confirm="Xoá đội '<%= team.name %>' và toàn bộ quỹ, khoản thu, khoản chi của mọi tháng? Không khôi phục được."><button class="btn btn-danger" data-loading-text="Đang xoá..."><%- include('../../partials/icon', { name: 'trash' }) %> Xoá đội bóng</button></form>
+      </div>
     <% } else { %>
       <div class="grid team-summary-grid">
         <div class="cost-card"><%- include('../../partials/icon', { name: 'users' }) %><span>Tên đội</span><strong><%= team.name %></strong></div>

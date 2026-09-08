@@ -51,6 +51,7 @@ model Player {
   tournamentAccess PlayerTournamentAccess[]
   teamAccess       PlayerTeamAccess[]
   groupMembers     PlayerGroupMember[]
+  guestReceipts    TeamGuestReceipt[]
 
   @@map("player")
 }
@@ -209,11 +210,30 @@ model TeamClub {
   members     TeamMember[]
   funds       TeamMonthFund[]
   expenses     TeamExpense[]
-  permissions  TeamClubPermission[]
-  playerAccess PlayerTeamAccess[]
-  groups       TeamClubGroup[]
+  permissions   TeamClubPermission[]
+  playerAccess  PlayerTeamAccess[]
+  groups        TeamClubGroup[]
+  guestReceipts TeamGuestReceipt[]
 
   @@map("team_club")
+}
+
+// Khoản thu vãng lai: người ngoài đến chơi một buổi, ghi ngày + số tiền. Không phải thành viên đội.
+model TeamGuestReceipt {
+  id           BigInt   @id @default(autoincrement())
+  teamId       BigInt   @map("team_id")
+  playerId     BigInt?  @map("player_id")
+  guestName    String?  @map("guest_name") @db.VarChar(255)
+  receiptMonth DateTime @map("receipt_month") @db.Date
+  receiptDate  DateTime @map("receipt_date") @db.Date
+  amount       Decimal  @default(0) @db.Decimal(14, 2)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  team   TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player Player?  @relation(fields: [playerId], references: [id], onDelete: SetNull)
+
+  @@index([teamId, receiptMonth])
+  @@map("team_guest_receipt")
 }
 
 model TeamClubGroup {

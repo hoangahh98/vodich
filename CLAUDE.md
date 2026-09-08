@@ -198,6 +198,11 @@ lấy từ cờ `active`. Mọi thao tác ghi lên tháng đều qua `ensureMont
 Tháng chưa chốt được xem trước (`fundPreview`) chứ không ghi DB. `previousMonthBalance` đếm cố định theo
 ảnh chụp tháng trước — đừng đổi về đếm `active`, đó là lỗi cũ làm hụt quỹ khi có người rời đội.
 
+Thành viên đội **đi theo nhóm** (không còn thêm/rời từng người trên trang đội): `GroupService.removeMember`,
+`deleteWithTeams`, `detachTeamFromGroup` đưa người rời đội từ tháng hiện tại trừ khi còn ở nhóm khác
+cùng liên kết. Vãng lai không phải thành viên: ghi theo buổi ở mục Khoản thu (`team_guest_receipt`,
+`TeamFundService.addGuestReceipt`), cộng vào `guestPaid`.
+
 ### Nhóm thành viên (9/2026)
 
 `src/groups/` — nhóm là tập VĐV đặt tên sẵn. Đội bóng **liên kết** nhóm (`team_club_group`): thêm

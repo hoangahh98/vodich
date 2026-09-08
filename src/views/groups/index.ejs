@@ -6,7 +6,7 @@
       <div>
         <div class="hero-eyebrow">Thành viên</div>
         <h1>Nhóm thành viên</h1>
-        <div class="muted strong-muted">Gom sẵn người hay chơi chung. Tạo đội bóng hay thêm vào giải chỉ cần chọn nhóm; thêm người vào nhóm là người đó tự vào các đội đang dùng nhóm.</div>
+        <div class="muted strong-muted">Gom sẵn người hay chơi chung. Thành viên đội bóng đi theo nhóm: thêm người vào nhóm là vào đội, đưa ra khỏi nhóm là rời đội (từ tháng hiện tại). Giải đấu thì chọn nhóm lúc thêm người.</div>
       </div>
       <div class="feature-hero-art"><div class="ball3d" aria-hidden="true"></div></div>
     </div>
@@ -36,9 +36,9 @@
         <% } %>
         <div class="group-members mb">
           <% group.members.forEach((member) => { %>
-            <form class="group-member" method="post" action="/groups/<%= group.id %>/members/<%= member.playerId %>/delete">
+            <form class="group-member" method="post" action="/groups/<%= group.id %>/members/<%= member.playerId %>/delete" data-confirm="Đưa <%= member.player.displayName %> ra khỏi nhóm? Người này sẽ rời các đội đang dùng nhóm từ tháng này (trừ khi còn ở nhóm khác của đội đó); tháng cũ giữ nguyên.">
               <span><strong><%= member.player.displayName %></strong><small class="muted"><%= member.player.skillLevel ? ' · ' + member.player.skillLevel : '' %></small></span>
-              <button class="group-member-remove" title="Bỏ khỏi nhóm" aria-label="Bỏ khỏi nhóm" data-loading-text="…"><%- include('../partials/icon', { name: 'x' }) %></button>
+              <button class="group-member-remove" title="Bỏ khỏi nhóm (rời luôn các đội dùng nhóm này)" aria-label="Bỏ khỏi nhóm" data-loading-text="…"><%- include('../partials/icon', { name: 'x' }) %></button>
             </form>
           <% }) %>
           <% if (!group.members.length) { %><span class="muted">Nhóm trống — thêm người bên dưới.</span><% } %>
@@ -56,7 +56,7 @@
           </form>
         </details>
         <div class="text-right">
-          <form method="post" action="/groups/<%= group.id %>/delete" data-confirm="Xoá nhóm này? Thành viên trong các đội bóng vẫn giữ nguyên."><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá..."><%- include('../partials/icon', { name: 'trash' }) %> Xoá nhóm</button></form>
+          <form method="post" action="/groups/<%= group.id %>/delete" data-confirm="Xoá nhóm này? Người chỉ thuộc nhóm này sẽ rời các đội đang dùng nhóm từ tháng này; tháng cũ giữ nguyên."><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá..."><%- include('../partials/icon', { name: 'trash' }) %> Xoá nhóm</button></form>
         </div>
       </div>
     </section>

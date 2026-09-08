@@ -89,5 +89,5 @@ export function safeTournamentSection(value: unknown) {
 
 export function safeTeamSection(value: unknown) {
   const section = String(value || 'overview');
-  return ['overview', 'members', 'expenses', 'settings'].includes(section) ? section : 'overview';
+  return ['overview', 'members', 'income', 'expenses', 'settings'].includes(section) ? section : 'overview';
 }

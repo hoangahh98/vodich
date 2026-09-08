@@ -51,7 +51,7 @@ export class GroupController {
     const gid = parseBigId(groupId);
     const pid = parseBigId(playerId);
     if (!gid || !pid) return notFound(res);
-    await this.groups.removeMember(user, gid, pid);
+    await this.groups.removeMember(user, gid, pid, currentMonth());
     return res.redirect(`/groups#group-${groupId}`);
   }
 
@@ -61,7 +61,7 @@ export class GroupController {
     if (!user) return;
     const groupId = parseBigId(id);
     if (!groupId) return notFound(res);
-    await this.groups.delete(user, groupId);
+    await this.groups.deleteWithTeams(user, groupId, currentMonth());
     return res.redirect('/groups');
   }
 }
