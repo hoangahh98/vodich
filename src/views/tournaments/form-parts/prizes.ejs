@@ -17,5 +17,5 @@
     <div class="prize-config-col"><label data-prize-label="2">Giải 2 (%)</label><input class="money-input" name="prizeRate2" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate2) : '30' %>"></div>
     <div class="prize-config-col"><label data-prize-label="3">Giải 3 (%)</label><input class="money-input" name="prizeRate3" data-prize-amount value="<%= tournament ? formatMoney(tournament.prizeRate3) : '20' %>"></div>
   </div>
-  <p class="muted mt">Nếu chọn thủ công, nhập số tiền cụ thể cho từng giải. Nếu chọn tỷ lệ, nhập phần trăm.</p>
+  <p class="muted mt">Nếu chọn thủ công, nhập số tiền cụ thể cho từng giải — nhập được ngay cả khi quỹ hiện có chưa đủ, vì quỹ tăng dần theo đóng phí. Nếu chọn tỷ lệ, nhập phần trăm.</p>
 </section>

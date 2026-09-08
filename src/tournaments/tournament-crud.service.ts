@@ -64,16 +64,15 @@ export class TournamentCrudService {
 
   create(form: Record<string, unknown>, user: CurrentUser) {
     return this.prisma.tournament.create({
-      data: { ...buildTournamentData(form, normalizePrizes(form, 0)), ownerAdminId: BigInt(user.id) },
+      data: { ...buildTournamentData(form, normalizePrizes(form)), ownerAdminId: BigInt(user.id) },
     });
   }
 
   async update(id: bigint, form: Record<string, unknown>) {
-    const prizeFund = await this.prizeFundForForm(id, form);
     return this.prisma.tournament.update({
       where: { id },
       data: {
-        ...buildTournamentData(form, normalizePrizes(form, prizeFund)),
+        ...buildTournamentData(form, normalizePrizes(form)),
         updatedAt: new Date(),
       },
     });

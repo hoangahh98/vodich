@@ -40,14 +40,16 @@ export function normalizeQualifierCount(value: number, expectedPlayers = 16, pla
   return 2;
 }
 
-export function normalizePrizes(form: Record<string, unknown>, availablePrizeFund: number) {
+/**
+ * Tiền thưởng thủ công KHÔNG bị chặn theo quỹ thưởng hiện có. Lúc tạo giải chưa ai đóng phí nên
+ * quỹ luôn là 0đ — chặn ở đây là không thể tạo giải với mức thưởng dự kiến (chủ app nhập 200.000đ
+ * là bị từ chối ngay). Quỹ tăng dần theo đóng phí; màn hình quỹ và form sửa vẫn hiện cảnh báo
+ * "còn lại" âm để ban tổ chức tự cân đối.
+ */
+export function normalizePrizes(form: Record<string, unknown>) {
   const values = [prizeValue(form.prizeRate1, 50), prizeValue(form.prizeRate2, 30), prizeValue(form.prizeRate3, 20)];
   if (String(form.prizeMode || 'percent') === 'manual') {
-    const total = values.reduce((sum, value) => sum + value, 0);
-    if (total > availablePrizeFund) {
-      throw new Error(`Tổng tiền thưởng thủ công không được vượt quá quỹ thưởng hiện có (${availablePrizeFund.toLocaleString('en-US')}đ).`);
-    }
-    return values;
+    return values.map((value) => Math.max(0, value));
   }
   let remaining = 100;
   return values.map((value) => {

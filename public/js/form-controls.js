@@ -25,14 +25,9 @@
         alert('Tổng tỷ lệ giải thưởng không được vượt quá 100%.');
         return false;
       }
-    } else if (prizeMode?.value === 'manual') {
-      const prizeFund = currentPrizeFund(form);
-      const total = manualPrizeTotal(form);
-      if (total > prizeFund) {
-        alert(`Tổng tiền thưởng thủ công không được vượt quá quỹ thưởng hiện có (${formatMoneyValue(prizeFund)}đ).`);
-        return false;
-      }
     }
+    // Thủ công vượt quỹ hiện có thì KHÔNG chặn: lúc tạo giải quỹ luôn là 0đ vì chưa ai đóng phí.
+    // Ô "còn lại" đã đỏ lên để ban tổ chức tự cân đối khi tiền về.
     return true;
   };
 
