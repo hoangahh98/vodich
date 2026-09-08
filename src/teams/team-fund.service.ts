@@ -95,9 +95,16 @@ export class TeamFundService {
   async addGuestReceipt(teamId: bigint, month: string, body: Record<string, string | undefined>) {
     const receiptMonth = monthDate(month);
     const amount = parseMoney(body.amount);
-    const playerId = parseBigId(body.playerId);
-    const guestName = cleanText(body.guestName);
-    if (amount <= 0 || (!playerId && !guestName)) throw new Error('Cần chọn người (hoặc gõ tên) và số tiền lớn hơn 0');
+    // Ô "Người chơi" là ô gõ tìm: trùng đúng tên một thành viên trong danh sách chung thì gắn vào
+    // người đó, không thì lưu làm tên khách. Vẫn nhận playerId nếu form nào gửi thẳng id.
+    const typed = cleanText(body.guest) || cleanText(body.guestName);
+    let playerId = parseBigId(body.playerId);
+    if (!playerId && typed) {
+      const matched = await this.prisma.player.findFirst({ where: { displayName: { equals: typed, mode: 'insensitive' } }, select: { id: true } });
+      playerId = matched?.id ?? null;
+    }
+    const guestName = typed;
+    if (amount <= 0 || (!playerId && !guestName)) throw new Error('Cần gõ tên người chơi và số tiền lớn hơn 0');
     const parsedDate = body.receiptDate ? new Date(`${body.receiptDate}T00:00:00Z`) : receiptMonth;
     const receiptDate = Number.isNaN(parsedDate.getTime()) ? receiptMonth : parsedDate;
     const receipt = await this.prisma.teamGuestReceipt.create({

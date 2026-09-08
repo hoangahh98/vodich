@@ -35,8 +35,7 @@
     <% if (currentUser.role === 'ADMIN') { %>
       <form class="guest-receipt-form mb" method="post" action="/teams/<%= team.id %>/guest-receipts">
         <input type="hidden" name="month" value="<%= selectedMonth %>">
-        <div class="receipt-who"><label>Người chơi</label><select name="playerId"><option value="">— Gõ tên bên cạnh —</option><% (typeof allPlayers !== 'undefined' ? allPlayers : players).forEach((p) => { %><option value="<%= p.id %>"><%= p.displayName %></option><% }) %></select></div>
-        <div class="receipt-name"><label>Hoặc tên</label><input name="guestName" placeholder="Khách của An"></div>
+        <div class="receipt-who"><label>Người chơi</label><input name="guest" list="teamGuestNames" placeholder="Gõ vài chữ để tìm, hoặc gõ tên mới" autocomplete="off" required><datalist id="teamGuestNames"><% (typeof allPlayers !== 'undefined' ? allPlayers : players).forEach((p) => { %><option value="<%= p.displayName %>"><%= p.email %></option><% }) %></datalist><span class="field-hint">Trùng tên trong danh sách thành viên thì tự gắn vào người đó.</span></div>
         <div class="receipt-date"><label>Ngày chơi</label><input type="date" name="receiptDate" value="<%= typeof defaultReceiptDate !== 'undefined' ? defaultReceiptDate : '' %>" required></div>
         <div class="receipt-amount"><label>Thu</label><input class="money-input" name="amount" placeholder="50,000" required></div>
         <div class="receipt-action"><button class="btn btn-success" data-loading-text="Đang ghi..."><%- include('../../partials/icon', { name: 'plus' }) %> Ghi thu</button></div>

@@ -1,9 +1,17 @@
 <% if (section === 'members') { %>
   <% const memberCurrentEmail = String(currentUser?.email || currentUser?.username || '').toLowerCase(); %>
   <% const isTeamMemberMine = (member) => String(member.player.email || '').toLowerCase() === memberCurrentEmail; %>
-  <section class="card-lite p">
+  <% const fixedMembers = members.filter((member) => member.memberType === 'FIXED'); %>
+  <% const legacyGuests = members.filter((member) => member.memberType === 'GUEST'); %>
+  <%# Vãng lai của tháng = gom các khoản thu theo buổi theo từng người (+ thành viên vãng lai cũ còn trong bảng phí). %>
+  <% const receipts = typeof guestReceipts !== 'undefined' ? guestReceipts : []; const guestMap = new Map(); %>
+  <% receipts.forEach((receipt) => { const key = receipt.player ? `p${receipt.player.id}` : `n${receipt.guestName}`; const row = guestMap.get(key) || { name: receipt.player ? receipt.player.displayName : receipt.guestName, email: receipt.player ? receipt.player.email : '', sessions: 0, paid: 0 }; row.sessions += 1; row.paid += Number(receipt.amount || 0); guestMap.set(key, row); }); %>
+  <% legacyGuests.forEach((member) => { const key = `p${member.player.id}`; const row = guestMap.get(key) || { name: member.player.displayName, email: member.player.email, sessions: 0, paid: 0 }; row.paid += member.paidAmount; guestMap.set(key, row); }); %>
+  <% const guests = [...guestMap.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi')); %>
+
+  <section class="card-lite p mb">
     <div class="section-heading mb">
-      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'users' }) %></span><h2 class="section-title">Thành viên</h2><p class="muted">Danh sách của tháng <%= selectedMonth %>. Thành viên đi theo nhóm: đưa người vào/ra nhóm là vào/ra đội, áp dụng từ tháng đang chọn trở đi.<% if (typeof fundPreview !== 'undefined' && fundPreview) { %> Tháng này chưa chốt quỹ, số phí là tạm tính.<% } %></p></div>
+      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'users' }) %></span><h2 class="section-title">Thành viên</h2><p class="muted">Tháng <%= selectedMonth %>. Thành viên đi theo nhóm: đưa người vào/ra nhóm là vào/ra đội, áp dụng từ tháng đang chọn trở đi.<% if (typeof fundPreview !== 'undefined' && fundPreview) { %> Tháng này chưa chốt quỹ, số phí là tạm tính.<% } %></p></div>
       <% if (currentUser.role === 'ADMIN' && members.length) { %>
         <div class="hero-action-buttons">
           <button class="btn btn-sm btn-outline" type="button" data-open-modal="teamEmailModal"><%- include('../../partials/icon', { name: 'mail' }) %> Get Email</button>
@@ -13,7 +21,7 @@
     </div>
     <% if (currentUser.role === 'ADMIN') { %>
       <% const linkedGroups = team.groups || []; const linkedIds = new Set(linkedGroups.map((link) => link.groupId.toString())); const otherGroups = (typeof groups !== 'undefined' ? groups : []).filter((group) => !linkedIds.has(group.id.toString())); %>
-      <div class="registration-panel mb">
+      <div class="registration-panel">
         <div class="bulk-toolbar mb"><strong>Nhóm thành viên</strong><span class="muted">Sửa người trong nhóm ở trang <a href="/groups">Nhóm thành viên</a></span></div>
         <div class="hero-chips" style="margin-top:0">
           <% linkedGroups.forEach((link) => { %>
@@ -34,23 +42,28 @@
         <% } %>
       </div>
     <% } %>
+  </section>
 
-    <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-member-fee-list"><thead><tr><th class="sticky-col">Tên</th><th>Loại</th><th>Đã thu / mức phí</th><th>Trạng thái</th><th>Donate/thiếu</th></tr></thead><tbody>
-      <% members.forEach((member) => { %>
+  <section class="card-lite mb">
+    <div class="card-hdr green"><span><%- include('../../partials/icon', { name: 'users' }) %> Cố định</span><span class="badge badge-dark"><%= fixedMembers.length %> người · <%= formatMoney(finance.monthlyFee) %>đ/người</span></div>
+    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Tên</th><th class="text-right">Đã thu / mức phí</th></tr></thead><tbody>
+      <% fixedMembers.forEach((member) => { %>
         <tr class="<%= isTeamMemberMine(member) ? 'mine-row' : '' %> <%= member.paymentStatus === 'PAID' ? 'sufficient-row' : 'insufficient-row' %>">
-          <td class="sticky-col"><strong><%= member.player.displayName %></strong><% if (!member.active) { %> <span class="badge badge-warn">Đã rời đội</span><% } %></td>
-          <td><span class="badge <%= member.memberType === 'GUEST' ? 'bg-info text-dark' : 'bg-success' %>"><%= member.typeLabel %></span></td>
-          <td><strong><%= formatMoney(member.paidAmount) %></strong><% if (member.memberType === 'FIXED') { %><span class="muted">/<%= formatMoney(member.expectedAmount) %></span><% } %>đ</td>
-          <td><span class="payment-mark <%= member.paymentStatus === 'PAID' ? 'paid' : 'unpaid' %>"><%= member.paymentStatus === 'PAID' ? '✓' : '✕' %></span></td>
-          <td>
-            <% if (member.memberType === 'GUEST') { %><span class="muted">-</span>
-            <% } else if (member.difference > 0) { %><span class="badge bg-success">+<%= formatMoney(member.difference) %>đ donate</span>
-            <% } else if (member.difference === 0 && finance.monthlyFee > 0) { %><span class="badge bg-primary">Đủ phí</span>
-            <% } else { %><span class="badge bg-danger">Thiếu <%= formatMoney(Math.abs(member.difference)) %>đ</span><% } %>
-          </td>
+          <td><strong><%= member.player.displayName %></strong><% if (!member.active) { %> <span class="badge badge-warn">Đã rời đội</span><% } %></td>
+          <td class="text-right paid-cell"><strong><%= formatMoney(member.paidAmount) %></strong><span class="muted"> / <%= formatMoney(member.expectedAmount) %>đ</span><% if (member.difference > 0) { %> <span class="badge bg-success">+<%= formatMoney(member.difference) %>đ</span><% } %></td>
         </tr>
       <% }) %>
-      <% if (!members.length) { %><tr><td colspan="5" class="muted text-center">Chưa có thành viên nào trong đội.</td></tr><% } %>
+      <% if (!fixedMembers.length) { %><tr><td colspan="2" class="muted text-center">Chưa có thành viên cố định — gắn nhóm ở trên.</td></tr><% } %>
+    </tbody></table></div>
+  </section>
+
+  <section class="card-lite">
+    <div class="card-hdr blue"><span><%- include('../../partials/icon', { name: 'user' }) %> Vãng lai</span><span class="badge badge-dark"><%= guests.length %> người · <%= formatMoney(finance.guestPaid) %>đ</span></div>
+    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Tên</th><th class="text-right">Số buổi</th><th class="text-right">Đã thu</th></tr></thead><tbody>
+      <% guests.forEach((guest) => { %>
+        <tr class="<%= String(guest.email || '').toLowerCase() === memberCurrentEmail ? 'mine-row' : '' %>"><td><strong><%= guest.name %></strong></td><td class="text-right"><%= guest.sessions || '-' %></td><td class="text-right"><strong><%= formatMoney(guest.paid) %>đ</strong></td></tr>
+      <% }) %>
+      <% if (!guests.length) { %><tr><td colspan="3" class="muted text-center">Tháng này chưa có người vãng lai.<% if (currentUser.role === 'ADMIN') { %> Ghi ở mục <a href="/teams/<%= team.id %>/income?month=<%= selectedMonth %>">Khoản thu</a>.<% } %></td></tr><% } %>
     </tbody></table></div>
   </section>
 <% } %>

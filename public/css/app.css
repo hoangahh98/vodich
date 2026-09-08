@@ -629,7 +629,18 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .paid-of { display: inline-flex; align-items: center; gap: 8px; }
 .paid-of input { width: 140px; min-width: 0; }
 .paid-of-fee { white-space: nowrap; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
-.guest-receipt-form { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(140px, 1fr) 160px 140px auto; gap: 12px; align-items: end; }
+.guest-receipt-form { display: grid; grid-template-columns: minmax(200px, 1.4fr) 160px 140px auto; gap: 12px; align-items: end; }
+.guest-receipt-form .field-hint { position: absolute; }
+.guest-receipt-form .receipt-who { position: relative; padding-bottom: 18px; }
+.guest-receipt-form .receipt-date, .guest-receipt-form .receipt-amount, .guest-receipt-form .receipt-action { padding-bottom: 18px; }
+/* Bảng thành viên: hai khối gọn, không đầu bảng xanh đậm — nhẹ mắt hơn */
+.member-table { border: 0; border-radius: 0; }
+.member-table th { background: var(--paper); color: var(--muted); font-size: 11.5px; letter-spacing: .12em; white-space: normal; }
+.member-table th:first-child, .member-table td:first-child { padding-left: 20px; }
+.member-table th:last-child, .member-table td:last-child { padding-right: 20px; }
+.member-table tr:last-child td { border-bottom: 0; }
+.paid-cell { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.paid-cell strong { font-family: var(--display); font-size: 17px; font-weight: 600; }
 .guest-receipt-form .receipt-date input { width: 160px; max-width: 100%; }
 .guest-receipt-form .receipt-action .btn { width: 100%; }
 /* ─── Nhóm thành viên ─────────────────────────────────────────────────────────────── */
@@ -985,10 +996,13 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
   .team-member-fee-list .sticky-col, .team-fee-edit-table .sticky-col { position: static; min-width: 0; background: var(--paper); }
   .team-member-fee-list td:not(.sticky-col), .team-fee-edit-table td:not(.sticky-col) { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
   .team-member-fee-list td:not(.sticky-col)::before, .team-fee-edit-table td:not(.sticky-col)::before { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; flex: 0 0 112px; }
-  .team-member-fee-list td:nth-child(2)::before { content: "Loại"; }
-  .team-member-fee-list td:nth-child(3)::before { content: "Đã thu / phí"; }
-  .team-member-fee-list td:nth-child(4)::before { content: "Trạng thái"; }
-  .team-member-fee-list td:nth-child(5)::before { content: "Donate/thiếu"; }
+  .team-member-fee-list td:nth-child(2)::before { content: "Đã thu / phí"; }
+  .member-table th, .member-table td { padding: 10px 12px; }
+  .member-table th:first-child, .member-table td:first-child { padding-left: 14px; }
+  .member-table th:last-child, .member-table td:last-child { padding-right: 14px; }
+  .paid-cell strong { font-size: 15px; }
+  .guest-receipt-form .receipt-who, .guest-receipt-form .receipt-date, .guest-receipt-form .receipt-amount, .guest-receipt-form .receipt-action { padding-bottom: 0; }
+  .guest-receipt-form .field-hint { position: static; }
   .team-fee-edit-table td:nth-child(2)::before { content: "Đã thu"; flex-basis: 64px; }
   .paid-of { flex: 1 1 auto; justify-content: flex-end; }
   .paid-of input { width: 112px; }

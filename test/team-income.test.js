@@ -42,17 +42,27 @@ test('gỡ nhóm khỏi đội: người chỉ thuộc nhóm đó rời đội r
 test('khoản thu vãng lai: cần người hoặc tên và tiền > 0; ghi xong thì chốt tháng để lan số dư', async () => {
   const created = [];
   const ensured = [];
-  const service = new TeamFundService({}, { teamGuestReceipt: { create: async ({ data }) => created.push(data) } }, { ensureMonth: async (teamId, month) => ensured.push(month) });
-  await assert.rejects(() => service.addGuestReceipt(1n, '2026-08', { amount: '0', guestName: 'Khách' }), /lớn hơn 0/);
-  await assert.rejects(() => service.addGuestReceipt(1n, '2026-08', { amount: '50,000' }), /chọn người/);
+  const prisma = {
+    teamGuestReceipt: { create: async ({ data }) => created.push(data) },
+    player: { findFirst: async ({ where }) => (where.displayName.equals.toLowerCase() === 'nguyễn văn an' ? { id: 7n } : null) },
+  };
+  const service = new TeamFundService({}, prisma, { ensureMonth: async (teamId, month) => ensured.push(month) });
+  await assert.rejects(() => service.addGuestReceipt(1n, '2026-08', { amount: '0', guest: 'Khách' }), /lớn hơn 0/);
+  await assert.rejects(() => service.addGuestReceipt(1n, '2026-08', { amount: '50,000' }), /gõ tên/);
 
-  await service.addGuestReceipt(1n, '2026-08', { amount: '50,000', playerId: '7', guestName: 'bị bỏ vì đã chọn người', receiptDate: '2026-08-12' });
+  // Gõ trùng tên thành viên (không phân biệt hoa thường) thì gắn vào người đó.
+  await service.addGuestReceipt(1n, '2026-08', { amount: '50,000', guest: 'nguyễn văn AN', receiptDate: '2026-08-12' });
   assert.equal(created[0].playerId, 7n);
   assert.equal(created[0].guestName, null);
   assert.equal(created[0].amount, 50000);
   assert.equal(created[0].receiptDate.toISOString(), '2026-08-12T00:00:00.000Z');
   assert.deepEqual(created[0].receiptMonth, M8);
   assert.deepEqual(ensured, ['2026-08']);
+
+  // Tên lạ thì lưu làm khách.
+  await service.addGuestReceipt(1n, '2026-08', { amount: '40,000', guest: 'Bạn của An' });
+  assert.equal(created[1].playerId, null);
+  assert.equal(created[1].guestName, 'Bạn của An');
 });
 
 test('báo cáo tháng cộng khoản thu vãng lai vào tiền vãng lai, tổng thu và tổng quỹ', () => {
