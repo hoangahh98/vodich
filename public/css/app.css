@@ -581,7 +581,7 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .text-right, .text-end { text-align: right; }
 .text-center { text-align: center; }
 .metric { display: block; font-size: 26px; margin: 8px 0 2px; }
-.hidden { display: none !important; }
+.hidden, [hidden] { display: none !important; }
 .empty-state { text-align: center; padding: 28px 16px; color: var(--muted); }
 .empty-state .ic { width: 40px; height: 40px; color: var(--muted-2); margin-bottom: 8px; }
 
@@ -648,6 +648,8 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .flash-bar { max-width: 1180px; margin: 16px auto -8px; padding: 0 16px; }
 .is-locked > *:not(.section-title):not([data-prize-lock-note]) { opacity: .45; pointer-events: none; }
 .is-locked input { background: var(--paper); }
+.prize-cost-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.prize-cost-hint .btn { padding: 4px 10px; min-height: 0; font-size: 12px; }
 .card-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 14px 20px 20px; }
 .card-foot .btn { white-space: nowrap; }
 

@@ -1,9 +1,6 @@
 <% if (!matches.length) { %>
   <div class="empty-state">
     <%- include('../../../partials/icon', { name: 'court' }) %>
-    <p class="muted mb">Chưa có trận thi đấu. Bấm bên trên để tự động chia trận.</p>
-    <% if (currentUser.role === 'ADMIN') { %>
-      <form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary btn-lg" data-loading-text="Đang chia..."><%- include('../../../partials/icon', { name: 'bolt' }) %> Tự động chia trận</button></form>
-    <% } %>
+    <p class="muted">Chưa có trận thi đấu.<% if (currentUser.role === 'ADMIN') { %> Bấm "Chia trận" ở trên để chia.<% } %></p>
   </div>
 <% } %>

@@ -122,14 +122,29 @@
         else el.readOnly = locked;
       });
     };
+    // Gợi ý ngân sách giải thưởng = lệ phí × số người dự kiến − sân bãi − ăn uống − khác.
+    const suggestEl = form?.querySelector('[data-prize-cost-suggest]');
+    const fillButton = form?.querySelector('[data-fill-prize-cost]');
+    const prizeCostInput = form?.querySelector('[name="prizeCost"]');
+    const suggestedPrizeCost = () => {
+      const players = Number.parseInt(costFields?.dataset.expectedPlayers || '0', 10) || 0;
+      const spent = ['courtCost', 'foodCost', 'otherCost'].reduce((sum, name) => sum + parseMoneyValue(form?.querySelector(`[name="${name}"]`)?.value), 0);
+      return Math.max(0, parseMoneyValue(feeInput.value) * players - spent);
+    };
     const sync = () => {
       const feeOk = parseMoneyValue(feeInput.value) > 0;
       lock(costFields, !feeOk);
+      if (suggestEl) suggestEl.textContent = `${formatMoneyValue(suggestedPrizeCost())}đ`;
       const complete = feeOk && requiredInputs.every((input) => input.value.trim() !== '');
       lock(prizeSection, !complete);
       if (lockNote) lockNote.hidden = complete;
     };
-    [feeInput, ...requiredInputs].forEach((input) => input.addEventListener('input', sync));
+    [feeInput, ...requiredInputs, form?.querySelector('[name="otherCost"]')].forEach((input) => input?.addEventListener('input', sync));
+    fillButton?.addEventListener('click', () => {
+      if (!prizeCostInput) return;
+      prizeCostInput.value = formatMoneyValue(suggestedPrizeCost());
+      prizeCostInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     sync();
   };
 

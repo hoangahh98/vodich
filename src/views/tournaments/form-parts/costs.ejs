@@ -6,10 +6,10 @@
     <div class="col-6"><label>Max điểm</label><input type="number" name="maxScore" value="<%= tournament?.maxScore || 15 %>" min="1"></div>
     <div class="col-12"><label>Lệ phí / người <span class="text-danger">*</span></label><input class="money-input" name="feePerPlayer" data-fee-input value="<%= moneyOrBlank(tournament?.feePerPlayer) %>" placeholder="Ví dụ: 150,000" required><span class="field-hint">Nhập lệ phí trước rồi mới nhập được các khoản chi bên dưới. Mỗi thành viên chính thức đóng đúng số này.</span></div>
   </div>
-  <div class="row mt" data-cost-fields>
+  <div class="row mt" data-cost-fields data-expected-players="<%= tournament?.expectedPlayers || 10 %>">
     <div class="col-6"><label>Sân bãi <span class="text-danger">*</span></label><input class="money-input" name="courtCost" data-money-required value="<%= moneyOrBlank(tournament?.courtCost) %>" placeholder="0"></div>
     <div class="col-6"><label>Ăn uống <span class="text-danger">*</span></label><input class="money-input" name="foodCost" data-money-required value="<%= moneyOrBlank(tournament?.foodCost) %>" placeholder="0"></div>
-    <div class="col-6"><label>Giải thưởng <span class="text-danger">*</span></label><input class="money-input" name="prizeCost" data-money-required value="<%= moneyOrBlank(tournament?.prizeCost) %>" placeholder="0"></div>
+    <div class="col-6"><label>Giải thưởng <span class="text-danger">*</span></label><input class="money-input" name="prizeCost" data-money-required value="<%= moneyOrBlank(tournament?.prizeCost) %>" placeholder="0"><span class="field-hint prize-cost-hint">Gợi ý <strong data-prize-cost-suggest>0đ</strong> = lệ phí × <span data-prize-cost-players><%= tournament?.expectedPlayers || 10 %></span> người − sân bãi − ăn uống − khác <button class="btn btn-sm" type="button" data-fill-prize-cost>Dùng gợi ý</button></span></div>
     <div class="col-6"><label>Khác</label><input class="money-input" name="otherCost" value="<%= moneyOrBlank(tournament?.otherCost) %>" placeholder="0"></div>
   </div>
   <p class="field-hint">Nhập đủ Sân bãi, Ăn uống, Giải thưởng (Khác không bắt buộc, gõ 0 nếu không có) thì phần Cài đặt giải thưởng bên dưới mới mở.</p>

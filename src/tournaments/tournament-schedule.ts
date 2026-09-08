@@ -229,9 +229,11 @@ function shuffle<T>(items: T[]): T[] {
 type AmericanoPlayer = { index: number; name: string; skill: number };
 type AmericanoPair = { first: AmericanoPlayer; second: AmericanoPlayer; strength: number };
 
-/** Số vòng của giải Đôi xoay vòng = số người mỗi bên (10 người → 5 vòng, 9 người → 5 vòng). */
+/** Số vòng của giải Đôi xoay vòng: n/2, trừ khi số cặp mỗi vòng lẻ thì bớt một (vòng cuối đem chia lẻ ra). */
 export function americanoRoundCount(playerCount: number): number {
-  return Math.ceil(playerCount / 2);
+  const half = Math.ceil(playerCount / 2);
+  const pairsPerRound = playerCount % 2 ? half - 1 : half;
+  return pairsPerRound % 2 ? half - 1 : half;
 }
 
 /**
@@ -243,11 +245,12 @@ export function americanoRoundCount(playerCount: number): number {
  *                 + một yếu, người mạnh thứ i lần lượt đi với người yếu thứ i, i+1, ...
  *  - `RANDOM`   — xáo rồi cắt đôi: mỗi người có n/2 bạn đánh chung ngẫu nhiên.
  *
- * 10 người → 5 vòng, mỗi vòng 5 cặp = 2 trận + 1 cặp chờ (xoay cặp chờ để ai cũng chờ đúng một
- * lần). Các cặp chờ KHÔNG bị bỏ: dồn lại thành vòng phụ cuối giải (5 cặp chờ rời nhau → 2 trận
- * nữa), chỉ tối đa một cặp cuối cùng không ghép được trận vì tổng số cặp là số lẻ. 14 người:
- * 7 vòng × 3 trận + vòng phụ 3 trận = 24 trận, 12 người đánh đủ 7 trận, 2 người 6 trận — chủ
- * app từng hỏi "sao 14 người mỗi người có 6 trận" khi cặp chờ còn bị bỏ.
+ * MỘT VÒNG = tất cả mọi người đều đã ra sân (chủ app chốt). 8/12/16 người: n/2 vòng, mỗi vòng
+ * n/4 trận, ai cũng đánh đúng một trận. 10/14 người: số cặp mỗi vòng lẻ (5, 7) nên vòng cuối
+ * của vòng quay được đem "cho mượn": mỗi vòng còn lại nhận thêm một cặp từ đó để đủ trận, hai
+ * người của cặp mượn đánh hai trận trong vòng ấy (xếp cuối vòng). 14 người → 6 vòng × 4 trận
+ * = 24 trận, 12 người đủ 7 trận, 2 người 6 trận; 10 người → 4 vòng × 3 = 12 trận. Chỉ đúng một
+ * cặp (cặp cuối của vòng cho mượn) không được đánh vì tổng số cặp lẻ.
  * Lẻ người thì bên yếu có một chỗ trống, người mạnh rơi vào chỗ trống ấy nghỉ vòng đó.
  */
 export function buildAmericanoMatches(tournament: Tournament, registrations: RegisteredPlayer[], rule: PairingRule): MatchCreate[] {
@@ -291,76 +294,49 @@ function americanoSides(players: AmericanoPlayer[], rule: PairingRule): [America
 }
 
 /**
- * Vòng r: người mạnh thứ i đi với người yếu thứ (i + r) mod n/2 — sau n/2 vòng mỗi người đã đi
- * với đủ mọi người bên kia đúng một lần. Ghép trên CHỈ SỐ chứ không trên tên: hai VĐV trùng
+ * Vòng quay r: người mạnh thứ i đi với người yếu thứ (i + r) mod n/2 — sau n/2 vòng mỗi người đã
+ * đi với đủ mọi người bên kia đúng một lần. Ghép trên CHỈ SỐ chứ không trên tên: hai VĐV trùng
  * tên hiển thị vẫn phải là hai người.
+ *
+ * Số cặp mỗi vòng lẻ thì không thể ghép hết thành trận trong vòng: lấy vòng quay CUỐI làm "kho
+ * cho mượn", mỗi vòng còn lại mượn một cặp từ đó (`roundMatches`) — nhờ vậy vòng nào cũng đủ
+ * mặt mọi người, đúng nghĩa "một vòng" của chủ app. Đừng quay lại kiểu để cặp lẻ ngồi chờ hay
+ * dồn sang vòng phụ: 14 người từng ra 7 vòng mà vòng nào cũng thiếu 2 người.
  */
 function americanoRounds(players: AmericanoPlayer[], rule: PairingRule): [AmericanoPair, AmericanoPair][][] {
   const [strong, weak] = americanoSides(players, rule);
   const size = strong.length;
-  // Số lần đã chờ của từng người: cặp phải chờ (lẻ cặp) là cặp chờ ít nhất, để ai cũng chờ đều —
-  // và nhờ thế các cặp chờ rời nhau, ghép được thành trận ở vòng phụ.
-  const rests = new Map<number, number>(players.map((player) => [player.index, 0]));
-  const rest = (player: AmericanoPlayer) => rests.set(player.index, (rests.get(player.index) || 0) + 1);
-  const rounds: [AmericanoPair, AmericanoPair][][] = [];
-  const waiting: AmericanoPair[] = [];
-
+  const rotation: AmericanoPair[][] = [];
   for (let roundIndex = 0; roundIndex < size; roundIndex++) {
     const pairs: AmericanoPair[] = [];
     strong.forEach((first, index) => {
       const second = weak[(index + roundIndex) % size];
       if (second) pairs.push(makePair(first, second));
-      else rest(first);
     });
-    if (pairs.length % 2) {
-      let restingIndex = 0;
-      let fewest = Number.POSITIVE_INFINITY;
-      pairs.forEach((pair, index) => {
-        const score = (rests.get(pair.first.index) || 0) + (rests.get(pair.second.index) || 0);
-        if (score < fewest) {
-          fewest = score;
-          restingIndex = index;
-        }
-      });
-      const [resting] = pairs.splice(restingIndex, 1);
-      rest(resting.first);
-      rest(resting.second);
-      waiting.push(resting);
-    }
-    const round = toMatches(pairs, rule);
-    if (round.length) rounds.push(round);
+    rotation.push(pairs);
   }
-  rounds.push(...extraRounds(waiting, rule));
-  return rounds;
+  const oddPairs = rotation.length > 0 && rotation[0].length % 2 === 1;
+  const spare = oddPairs && rotation.length > 1 ? rotation.pop() || [] : [];
+  return rotation.map((pairs, index) => roundMatches(pairs, spare[index], rule)).filter((round) => round.length);
 }
 
 /**
- * Vòng phụ cho các cặp chờ: mỗi vòng bốc ra những cặp không dùng chung người rồi ghép thành trận,
- * lặp tới khi không còn bốc nổi hai cặp rời nhau. Cặp cuối cùng còn dư là giới hạn số học
- * (tổng số cặp lẻ), không phải lỗi.
+ * Trận của một vòng. Cặp mượn (`extra`) phải ghép với một cặp của vòng không dính người với nó
+ * (luôn có, vì vòng ≥ 3 cặp); trận ấy xếp CUỐI vòng để hai người đánh hai trận vào sân sau.
+ * Các cặp còn lại (số chẵn) ghép như thường.
  */
-function extraRounds(pairs: AmericanoPair[], rule: PairingRule): [AmericanoPair, AmericanoPair][][] {
-  const rounds: [AmericanoPair, AmericanoPair][][] = [];
-  let pool = pairs;
-  while (pool.length > 1) {
-    const used = new Set<number>();
-    const picked: AmericanoPair[] = [];
-    const rest: AmericanoPair[] = [];
-    for (const pair of pool) {
-      if (used.has(pair.first.index) || used.has(pair.second.index)) {
-        rest.push(pair);
-        continue;
-      }
-      used.add(pair.first.index);
-      used.add(pair.second.index);
-      picked.push(pair);
-    }
-    if (picked.length < 2) break;
-    if (picked.length % 2) rest.push(picked.pop() as AmericanoPair);
-    rounds.push(toMatches(picked, rule));
-    pool = rest;
-  }
-  return rounds;
+function roundMatches(pairs: AmericanoPair[], extra: AmericanoPair | undefined, rule: PairingRule): [AmericanoPair, AmericanoPair][] {
+  if (!extra) return toMatches(pairs, rule);
+  const disjoint = (pair: AmericanoPair) =>
+    pair.first.index !== extra.first.index && pair.second.index !== extra.second.index && pair.first.index !== extra.second.index && pair.second.index !== extra.first.index;
+  const candidates = pairs.filter(disjoint);
+  if (!candidates.length) return toMatches(pairs, rule);
+  const partner =
+    rule === 'BY_SKILL'
+      ? [...candidates].sort((a, b) => Math.abs(a.strength - extra.strength) - Math.abs(b.strength - extra.strength))[0]
+      : candidates[Math.floor(Math.random() * candidates.length)];
+  const remaining = pairs.filter((pair) => pair !== partner);
+  return [...toMatches(remaining, rule), [partner, extra]];
 }
 
 /**

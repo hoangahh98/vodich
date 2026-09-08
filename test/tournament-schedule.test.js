@@ -149,17 +149,42 @@ test('Americano: không ai đánh chung đội với cùng một người hai l�
   }
 });
 
-test('Americano: trong cùng một vòng không ai bị xếp hai trận', () => {
-  for (const count of [8, 10, 12, 13]) {
-    const byRound = new Map();
-    for (const match of americano(count)) {
-      const names = byRound.get(match.roundNumber) || [];
-      names.push(...splitTeamName(match.teamA), ...splitTeamName(match.teamB));
-      byRound.set(match.roundNumber, names);
+/** Tên người theo từng vòng (mỗi lần ra sân là một lần xuất hiện). */
+function namesByRound(matches) {
+  const byRound = new Map();
+  for (const match of matches) {
+    const names = byRound.get(match.roundNumber) || [];
+    names.push(...splitTeamName(match.teamA), ...splitTeamName(match.teamB));
+    byRound.set(match.roundNumber, names);
+  }
+  return byRound;
+}
+
+test('Americano: một vòng = tất cả mọi người đều ra sân (chẵn người)', () => {
+  // Chủ app chốt: "1 vòng ở đây được hiểu là 14 người tất cả đều đã được đánh".
+  for (const count of [8, 10, 12, 14, 16]) {
+    for (let run = 0; run < 10; run++) {
+      for (const [round, names] of namesByRound(americano(count))) {
+        assert.equal(new Set(names).size, count, `giải ${count} người: vòng ${round} thiếu người`);
+      }
     }
-    for (const [round, names] of byRound) {
-      assert.equal(new Set(names).size, names.length, `giải ${count} người: vòng ${round} có người đánh trùng giờ`);
+  }
+});
+
+test('Americano: trong một vòng ai cũng đánh một trận, riêng vòng lẻ cặp thì đúng hai người đánh hai trận', () => {
+  for (const count of [8, 12, 16]) {
+    for (const [round, names] of namesByRound(americano(count))) {
+      assert.equal(names.length, count, `giải ${count} người: vòng ${round} có người đánh hai trận`);
     }
+  }
+  for (const count of [10, 14]) {
+    for (const [round, names] of namesByRound(americano(count))) {
+      assert.equal(names.length, count + 2, `giải ${count} người: vòng ${round} phải có đúng hai người đánh hai trận`);
+    }
+  }
+  // Lẻ người: mỗi vòng đúng một người nghỉ (người mạnh rơi vào chỗ trống), không ai đánh hai trận thừa.
+  for (const [round, names] of namesByRound(americano(13))) {
+    assert.ok(new Set(names).size >= 12, `13 người: vòng ${round} có hơn một người nghỉ`);
   }
 });
 
@@ -179,18 +204,15 @@ function partnersOf(matches) {
   return partners;
 }
 
-test('Americano: mọi cặp hai bên đều được đánh, chỉ tối đa một cặp dư khi tổng số cặp lẻ', () => {
-  // Chẵn người: (n/2)² cặp → floor((n/2)²/2) trận. 10 người → 12 trận, 14 người → 24 trận
-  // (chủ app từng thấy 14 người mỗi người chỉ 6 trận vì cặp chờ bị bỏ). 8 người → 8, 12 → 18.
-  for (const [count, expected] of [[8, 8], [10, 12], [12, 18], [14, 24], [16, 32]]) {
+test('Americano: số trận và số vòng theo luật một vòng đủ người', () => {
+  // Chẵn người: (n/2)² cặp → floor((n/2)²/2) trận. 8 → 8 trận/4 vòng, 10 → 12/4, 12 → 18/6,
+  // 14 → 24/6 (mỗi vòng 4 trận), 16 → 32/8. Lẻ người: 9 → 10 trận/5 vòng, 11 → 15/5.
+  for (const [count, expectedMatches, expectedRounds] of [[8, 8, 4], [10, 12, 4], [12, 18, 6], [14, 24, 6], [16, 32, 8], [9, 10, 5], [11, 15, 5]]) {
     for (let run = 0; run < 25; run++) {
-      assert.equal(americano(count).length, expected, `${count} người phải ra ${expected} trận`);
+      const matches = americano(count);
+      assert.equal(matches.length, expectedMatches, `${count} người phải ra ${expectedMatches} trận`);
+      assert.equal(Math.max(...matches.map((m) => m.roundNumber)), expectedRounds, `${count} người phải có ${expectedRounds} vòng`);
     }
-  }
-  // Lẻ người: bên mạnh hơn bên yếu một người → (h)(h-1) cặp; 9 người 20 cặp = 10 trận.
-  for (let run = 0; run < 25; run++) {
-    assert.equal(americano(9).length, 10);
-    assert.ok(americano(11).length >= 13 && americano(11).length <= 15, '11 người phải ra 13–15 trận');
   }
 });
 

@@ -80,10 +80,12 @@ Socket.IO cho tỉ số trực tiếp, deploy trên Render.
   mỗi người đi với đủ người bên kia đúng một lần và **không bao giờ** ghép cùng bên. `BY_SKILL` =
   bên mạnh / bên yếu (sắp theo trình rồi cắt đôi), `RANDOM` = xáo rồi cắt đôi. Lẻ cặp trong vòng
   thì một cặp nghỉ, chọn cặp nghỉ ít nhất để ai cũng nghỉ đều. 10 người → 10 trận, 8 → 8, 12 → 18.
-  Cặp chờ (lẻ cặp trong vòng) KHÔNG bị bỏ mà dồn thành vòng phụ cuối giải (`extraRounds`), chỉ
-  tối đa một cặp cuối không ghép được trận: 10 người → 12 trận, 14 → 24 (12 người đủ 7 trận, 2
-  người 6). Đừng quay lại kiểu "vòng quay n-1 vòng + giới hạn (n-2)/2" cũ, cũng đừng bỏ cặp chờ —
-  chủ app từng hỏi "sao 14 người mỗi người có 6 trận".
+  **Một vòng = mọi người đều ra sân** (chủ app chốt). Số cặp mỗi vòng lẻ (10, 14 người) thì vòng
+  quay cuối làm "kho cho mượn": mỗi vòng còn lại mượn một cặp (`roundMatches`), hai người của cặp
+  mượn đánh hai trận trong vòng ấy (trận xếp cuối vòng). 14 người → 6 vòng × 4 trận = 24 trận,
+  10 → 4 × 3 = 12. Đừng quay lại kiểu "vòng quay n-1 vòng + giới hạn (n-2)/2", đừng để cặp lẻ ngồi
+  chờ, đừng dồn cặp chờ sang vòng phụ — chủ app từng hỏi "sao 14 người mỗi người có 6 trận" rồi
+  "1 vòng là 14 người đều đã được đánh".
 - Luôn xáo trước khi sắp theo trình để bấm "Chia trận" lần sau ra kèo khác (người cùng trình đổi
   chỗ) — trước đây xếp thẳng theo thứ tự đăng ký nên bấm mười lần ra một kiểu, người dùng tưởng
   nút hỏng.
