@@ -646,7 +646,8 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .member-table .row-action { width: 1%; white-space: nowrap; }
 .member-table .row-action form { display: inline-block; }
 .btn-icon { padding-left: 10px; padding-right: 10px; }
-.card-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px 20px; }
+.card-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 14px 20px 20px; }
+.card-foot .btn { white-space: nowrap; }
 
 /* ─── Dải tab mục trong trang chi tiết ─────────────────────────────────────────────────────
    Viên thuốc trắng có cạnh 3D, mục đang mở đổi sang navy. Cuộn ngang khi hẹp. */
@@ -1003,6 +1004,8 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
   .guest-receipt-form .receipt-who, .guest-receipt-form .receipt-date, .guest-receipt-form .receipt-amount, .guest-receipt-form .receipt-action { padding-bottom: 0; }
   .guest-receipt-form .field-hint { position: static; }
   .member-table .paid-of input, .member-table input.money-input { width: 104px; }
+  .card-foot { padding: 12px 14px 16px; }
+  .card-foot .btn { flex: 1 1 auto; }
   .guest-receipt-form { grid-template-columns: 1fr; }
   .guest-receipt-form .receipt-date input { width: 100%; }
   .ranking-board { min-width: 0; }

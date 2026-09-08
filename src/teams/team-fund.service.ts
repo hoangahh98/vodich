@@ -57,9 +57,14 @@ export class TeamFundService {
    */
   async updatePayments(teamId: bigint, month: string, body: Record<string, string>) {
     const fundMonth = monthDate(month);
+    // Nút "Tất cả đã đóng": mọi ô gửi lên được nâng lên đủ mức phí tháng (ai đã đóng hơn thì giữ).
+    // Chốt tháng TRƯỚC khi đọc mức phí, vì tháng chưa chốt thì chưa có dòng quỹ để lấy phí.
+    const markAllPaid = body.markAllPaid === '1';
+    if (markAllPaid) await this.months.ensureMonth(teamId, month);
     const fund = await this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth } } });
     const fee = Number(fund?.monthlyFee || 0);
     const statusFor = (amount: number) => (amount > 0 && amount >= fee ? 'PAID' : 'UNPAID');
+    const amountFor = (raw: string) => (markAllPaid ? Math.max(parseMoney(raw), fee) : parseMoney(raw));
     const memberIds = Object.keys(body)
       .filter((key) => key.startsWith('amount_'))
       .map((key) => BigInt(key.replace('amount_', '')));
@@ -81,8 +86,8 @@ export class TeamFundService {
           ...(memberType ? [this.prisma.teamMember.update({ where: { id: memberId }, data: { memberType: normalizeMemberType(memberType) } })] : []),
           this.prisma.teamMemberPayment.upsert({
             where: { memberId_fundMonth: { memberId, fundMonth } },
-            update: { ...snapshot, paidAmount: parseMoney(amount), paymentStatus: statusFor(parseMoney(amount)) },
-            create: { memberId, fundMonth, ...snapshot, paidAmount: parseMoney(amount), paymentStatus: statusFor(parseMoney(amount)) },
+            update: { ...snapshot, paidAmount: amountFor(amount), paymentStatus: statusFor(amountFor(amount)) },
+            create: { memberId, fundMonth, ...snapshot, paidAmount: amountFor(amount), paymentStatus: statusFor(amountFor(amount)) },
           }),
         ];
       });

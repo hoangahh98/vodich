@@ -65,6 +65,32 @@ test('khoản thu vãng lai: cần người hoặc tên và tiền > 0; ghi xong
   assert.equal(created[1].guestName, 'Bạn của An');
 });
 
+test('nút "Tất cả đã đóng": nâng mọi ô lên đủ mức phí, ai đóng hơn thì giữ, chốt tháng trước để có phí', async () => {
+  const writes = [];
+  const ensured = [];
+  const prisma = {
+    teamMonthFund: { findUnique: async () => ({ monthlyFee: 200000 }) },
+    teamMember: { findMany: async () => [{ id: 1n }, { id: 2n }, { id: 3n }] },
+    teamMemberPayment: { upsert: (payload) => payload },
+    $transaction: async (items) => { writes.push(...items); return items; },
+  };
+  const service = new TeamFundService({}, prisma, { ensureMonth: async (teamId, month) => ensured.push(month) });
+  await service.updatePayments(1n, '2026-08', { markAllPaid: '1', amount_1: '', amount_2: '250,000', amount_3: '50,000' });
+  const byId = Object.fromEntries(writes.map((w) => [w.where.memberId_fundMonth.memberId.toString(), w.update]));
+  assert.equal(byId['1'].paidAmount, 200000);
+  assert.equal(byId['1'].paymentStatus, 'PAID');
+  assert.equal(byId['2'].paidAmount, 250000);
+  assert.equal(byId['3'].paidAmount, 200000);
+  // ensureMonth chạy cả trước (lấy phí) lẫn sau (lan số dư).
+  assert.deepEqual(ensured, ['2026-08', '2026-08']);
+
+  // Không bấm nút đó thì ghi đúng số gõ.
+  writes.length = 0;
+  await service.updatePayments(1n, '2026-08', { amount_3: '50,000' });
+  assert.equal(writes[0].update.paidAmount, 50000);
+  assert.equal(writes[0].update.paymentStatus, 'UNPAID');
+});
+
 test('báo cáo tháng cộng khoản thu vãng lai vào tiền vãng lai, tổng thu và tổng quỹ', () => {
   const report = new TeamMonthReportBuilder().build({
     members: [],

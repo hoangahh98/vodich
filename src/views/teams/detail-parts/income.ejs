@@ -21,7 +21,7 @@
           <% }) %>
           <% if (!fixedMembers.length) { %><tr><td colspan="2" class="muted text-center">Chưa có thành viên cố định — gắn nhóm ở mục Thành viên.</td></tr><% } %>
         </tbody></table></div>
-        <% if (fixedMembers.length) { %><div class="card-foot"><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu thu cố định (<%= fixedMembers.length %> người)</button></div><% } %>
+        <% if (fixedMembers.length) { %><div class="card-foot"><button class="btn btn-outline" name="markAllPaid" value="1" data-loading-text="Đang ghi..."><%- include('../../partials/icon', { name: 'check' }) %> Tất cả đã đóng</button><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu thu cố định (<%= fixedMembers.length %> người)</button></div><% } %>
       </form>
     <% } else { %>
       <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Tên</th><th class="text-right">Đã thu / mức phí</th></tr></thead><tbody>
