@@ -23,16 +23,15 @@
     <details class="metric-card blue metric-drop">
       <summary><span>Tổng đã thu</span><strong><%= formatMoney(finance.totalPaid) %>đ</strong><small>Cố định <%= formatMoney(finance.fixedPaid) %>đ (<%= paidFixed.length %>/<%= finance.fixedCount %> người)<% if (finance.guestPaid) { %> + vãng lai <%= formatMoney(finance.guestPaid) %>đ<% } %></small></summary>
       <div class="metric-drop-body">
-        <% paidFixed.forEach((member) => { %>
-          <div><span><%= member.player.displayName %></span><strong><%= formatMoney(member.paidAmount) %>đ<% if (member.paidAmount < member.expectedAmount) { %> <small class="muted">/ <%= formatMoney(member.expectedAmount) %>đ</small><% } %></strong></div>
-        <% }) %>
+        <%# Chỉ liệt kê vãng lai theo ý chủ app; cố định đã có dòng tổng ở trên, xem từng người ở mục Khoản thu. %>
+        <div><span>Cố định (<%= paidFixed.length %>/<%= finance.fixedCount %> người đã đóng)</span><strong><%= formatMoney(finance.fixedPaid) %>đ</strong></div>
         <% legacyGuestRows.forEach((member) => { %>
           <div><span><%= member.player.displayName %> <small class="muted">· vãng lai</small></span><strong><%= formatMoney(member.paidAmount) %>đ</strong></div>
         <% }) %>
         <% overviewReceipts.forEach((receipt) => { %>
-          <div><span><%= new Date(receipt.receiptDate).toLocaleDateString('vi-VN') %> · <%= receipt.player ? receipt.player.displayName : receipt.guestName %> <small class="muted">· vãng lai</small></span><strong><%= formatMoney(receipt.amount) %>đ</strong></div>
+          <div><span><%= new Date(receipt.receiptDate).toLocaleDateString('vi-VN') %> · <%= receipt.player ? receipt.player.displayName : receipt.guestName %></span><strong><%= formatMoney(receipt.amount) %>đ</strong></div>
         <% }) %>
-        <% if (!paidFixed.length && !legacyGuestRows.length && !overviewReceipts.length) { %><p class="metric-drop-note">Tháng này chưa thu được khoản nào.</p><% } %>
+        <% if (!legacyGuestRows.length && !overviewReceipts.length) { %><p class="metric-drop-note">Tháng này chưa có khoản vãng lai nào.</p><% } %>
       </div>
     </details>
     <details class="metric-card orange metric-drop">
