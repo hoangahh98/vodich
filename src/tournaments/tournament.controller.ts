@@ -4,6 +4,7 @@ import { AuthService } from '../auth/auth.service';
 import { forbidden, notFound, parseBigId, requireFeature, safeTournamentSection } from '../common/controller-utils';
 import { FeatureAccess } from '../common/feature.decorator';
 import { render } from '../common/view';
+import { GroupService } from '../groups/group.service';
 import { TournamentDetailViewModelBuilder } from './tournament-detail-view-model';
 import { MatchGateway } from './match.gateway';
 import { TournamentService } from './tournament.service';
@@ -20,6 +21,7 @@ export class TournamentController {
     private readonly detailViewModel: TournamentDetailViewModelBuilder,
     private readonly tournaments: TournamentService,
     private readonly matchGateway: MatchGateway,
+    private readonly groups: GroupService,
   ) {}
 
   @Get('/tournaments')
@@ -133,8 +135,10 @@ export class TournamentController {
     const externalLink = `${req.protocol}://${req.get('host')}/external-register/${id}`;
     const tournamentLink = `${req.protocol}://${req.get('host')}/tournaments/${id}/players`;
     const viewModel = this.detailViewModel.build({ currentUser: user, detail, externalLink, minimumFee, tournamentLink });
+    const groups = user.role === 'ADMIN' && safeSection === 'players' ? await this.groups.list(user) : [];
     return render(res, 'tournaments/detail', {
       section: safeSection,
+      groups,
       ...detail,
       ...viewModel,
       detailContext: viewModel,

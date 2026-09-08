@@ -16,6 +16,8 @@ import { KnightAiService } from './games/knight-ai.service';
 import { PlayersController } from './players/players.controller';
 import { PlayersService } from './players/players.service';
 import { PlayerAccessService } from './players/player-access.service';
+import { GroupController } from './groups/group.controller';
+import { GroupService } from './groups/group.service';
 import { TournamentService } from './tournaments/tournament.service';
 import { TournamentCrudService } from './tournaments/tournament-crud.service';
 import { TournamentDetailService } from './tournaments/tournament-detail.service';
@@ -46,7 +48,7 @@ import { FeatureGuard } from './common/feature.guard';
 import { CsrfMiddleware } from './common/csrf';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, GroupController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, AdminController],
   providers: [
     PrismaService,
     AuthService,
@@ -55,6 +57,7 @@ import { CsrfMiddleware } from './common/csrf';
     KnightAiService,
     PlayersService,
     PlayerAccessService,
+    GroupService,
     AdminService,
     TournamentService,
     TournamentCrudService,

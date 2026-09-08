@@ -19,7 +19,7 @@ export class TeamDetailService {
     const previousMonthBalance = await this.previousMonthBalance(id, fundMonth);
     const team = await this.prisma.teamClub.findUniqueOrThrow({
       where: { id },
-      include: { ownerAdmin: true, permissions: { include: { admin: true }, orderBy: { id: 'asc' } } },
+      include: { ownerAdmin: true, permissions: { include: { admin: true }, orderBy: { id: 'asc' } }, groups: { include: { group: true }, orderBy: { id: 'asc' } } },
     });
     const [members, players, fund, expenses, admins] = await Promise.all([
       this.prisma.teamMember.findMany({

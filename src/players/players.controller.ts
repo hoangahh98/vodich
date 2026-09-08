@@ -2,10 +2,9 @@ import { Body, Controller, Get, Param, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
 import { isRootAdmin } from '../common/admin-scope';
-import { notFound, parseBigId, requireUser } from '../common/controller-utils';
+import { idList, notFound, parseBigId, requireAnyFeature } from '../common/controller-utils';
 import { AdminOnly } from '../common/feature.decorator';
 import { render } from '../common/view';
-import { CurrentUser } from '../types';
 import { PlayerAccessService } from './player-access.service';
 import { PlayersService } from './players.service';
 
@@ -14,7 +13,7 @@ import { PlayersService } from './players.service';
  *
  * Không khai `@FeatureAccess` ở class vì trang này phục vụ CẢ HAI module: admin chỉ có TEAMS
  * vẫn cần vào để cấp quyền xem đội. Điều kiện "có ít nhất một trong hai feature" kiểm ở
- * `requireMembersAccess`; `@AdminOnly` vẫn chặn vai CLIENT ngay từ guard.
+ * `requireAnyFeature`; `@AdminOnly` vẫn chặn vai CLIENT ngay từ guard.
  */
 @AdminOnly()
 @Controller()
@@ -27,7 +26,7 @@ export class PlayersController {
 
   @Get('/players')
   async players(@Req() req: Request, @Res() res: Response) {
-    const user = this.requireMembersAccess(req, res);
+    const user = requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS']);
     if (!user) return;
     const featureSet = this.featureSet(res);
     const players = await this.playersService.listWithAccess(this.access.countFilters(user, featureSet));
@@ -36,21 +35,21 @@ export class PlayersController {
 
   @Post('/players')
   async createPlayer(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
-    if (!this.requireMembersAccess(req, res)) return;
+    if (!requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS'])) return;
     await this.playersService.upsert(body);
     return res.redirect('/players');
   }
 
   @Post('/players/bulk')
   async updatePlayers(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
-    if (!this.requireMembersAccess(req, res)) return;
+    if (!requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS'])) return;
     await this.playersService.bulkUpdate(body);
     return res.redirect('/players');
   }
 
   @Get('/players/:id/access')
   async accessPage(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
-    const user = this.requireMembersAccess(req, res);
+    const user = requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS']);
     if (!user) return;
     const playerId = parseBigId(id);
     const player = playerId ? await this.playersService.find(playerId) : null;
@@ -61,7 +60,7 @@ export class PlayersController {
 
   @Post('/players/:id/access')
   async saveAccess(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string | string[] | undefined>) {
-    const user = this.requireMembersAccess(req, res);
+    const user = requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS']);
     if (!user) return;
     const playerId = parseBigId(id);
     const player = playerId ? await this.playersService.find(playerId) : null;
@@ -74,20 +73,4 @@ export class PlayersController {
     return (res.locals.featureSet as Set<string>) || new Set();
   }
 
-  /** Vào được khi có TOURNAMENTS hoặc TEAMS — admin gốc luôn qua, CLIENT đã bị @AdminOnly chặn. */
-  private requireMembersAccess(req: Request, res: Response): CurrentUser | undefined {
-    const user = requireUser(req, res);
-    if (!user) return undefined;
-    const featureSet = this.featureSet(res);
-    if (user.role !== 'ADMIN' || !(this.auth.can(user, 'TOURNAMENTS', featureSet) || this.auth.can(user, 'TEAMS', featureSet))) {
-      res.status(403).render('error', { message: 'Không có quyền' });
-      return undefined;
-    }
-    return user;
-  }
-}
-
-function idList(value: string | string[] | undefined): bigint[] {
-  const raw = Array.isArray(value) ? value : value ? [value] : [];
-  return raw.map((item) => parseBigId(item)).filter((item): item is bigint => item !== null);
 }

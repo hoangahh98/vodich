@@ -52,6 +52,14 @@ export class TeamService {
     return this.members.addMembers(teamId, playerIds, memberType, notes, month);
   }
 
+  linkGroups(teamId: bigint, groupIds: bigint[], playerIds: bigint[], month?: string) {
+    return this.members.linkGroups(teamId, groupIds, playerIds, month);
+  }
+
+  unlinkGroup(teamId: bigint, groupId: bigint) {
+    return this.members.unlinkGroup(teamId, groupId);
+  }
+
   updateMember(teamId: bigint, memberId: bigint, memberType: string, notes?: string) {
     return this.members.updateMember(teamId, memberId, memberType, notes);
   }

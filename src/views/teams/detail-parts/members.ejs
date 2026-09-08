@@ -12,6 +12,25 @@
       <% } %>
     </div>
     <% if (currentUser.role === 'ADMIN') { %>
+      <% const linkedGroups = team.groups || []; const linkedIds = new Set(linkedGroups.map((link) => link.groupId.toString())); const otherGroups = (typeof groups !== 'undefined' ? groups : []).filter((group) => !linkedIds.has(group.id.toString())); %>
+      <div class="registration-panel mb">
+        <div class="bulk-toolbar mb"><strong>Nhóm thành viên</strong><span class="muted">Thêm người vào nhóm là tự vào đội</span></div>
+        <div class="hero-chips" style="margin-top:0">
+          <% linkedGroups.forEach((link) => { %>
+            <form class="group-chip" method="post" action="/teams/<%= team.id %>/groups/<%= link.groupId %>/delete" data-confirm="Gỡ liên kết nhóm? Thành viên đã vào đội vẫn giữ nguyên."><input type="hidden" name="month" value="<%= selectedMonth %>"><span class="badge badge-teal"><%- include('../../partials/icon', { name: 'users' }) %> <%= link.group.name %></span><button class="group-member-remove" title="Gỡ liên kết" aria-label="Gỡ liên kết" data-loading-text="…"><%- include('../../partials/icon', { name: 'x' }) %></button></form>
+          <% }) %>
+          <% if (!linkedGroups.length) { %><span class="muted">Chưa liên kết nhóm nào.</span><% } %>
+        </div>
+        <% if (otherGroups.length) { %>
+          <form class="mt" method="post" action="/teams/<%= team.id %>/groups" data-require-checked="groupIds">
+            <input type="hidden" name="month" value="<%= selectedMonth %>">
+            <div class="grid module-grid mb">
+              <% otherGroups.forEach((group) => { %><label class="option-card"><input type="checkbox" name="groupIds" value="<%= group.id %>"> <span><%= group.name %> <small class="muted">(<%= group.members.length %> người)</small></span></label><% }) %>
+            </div>
+            <button class="btn btn-teal" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm cả nhóm vào đội</button>
+          </form>
+        <% } %>
+      </div>
       <form class="registration-panel mb" method="post" action="/teams/<%= team.id %>/members" data-require-checked="playerIds">
         <input type="hidden" name="month" value="<%= selectedMonth %>">
         <div class="player-check-list team-member-picker mb" data-team-member-picker>

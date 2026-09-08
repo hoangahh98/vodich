@@ -35,6 +35,22 @@ export class TeamMemberService {
     return uniqueIds.length;
   }
 
+  /**
+   * Liên kết đội với các nhóm rồi đưa toàn bộ người của nhóm vào đội (cố định). Id nhóm và danh
+   * sách người do controller lấy qua GroupService trong phạm vi của admin — ở đây không kiểm lại.
+   */
+  async linkGroups(teamId: bigint, groupIds: bigint[], playerIds: bigint[], month?: string) {
+    if (groupIds.length) {
+      await this.prisma.teamClubGroup.createMany({ data: groupIds.map((groupId) => ({ teamId, groupId })), skipDuplicates: true });
+    }
+    return this.addMembers(teamId, playerIds, 'FIXED', undefined, month);
+  }
+
+  /** Chỉ gỡ liên kết — thành viên đã vào đội vẫn giữ nguyên. */
+  unlinkGroup(teamId: bigint, groupId: bigint) {
+    return this.prisma.teamClubGroup.deleteMany({ where: { teamId, groupId } });
+  }
+
   async updateMember(teamId: bigint, memberId: bigint, memberType: string, notes?: string) {
     const result = await this.prisma.teamMember.updateMany({
       where: { id: memberId, teamId },

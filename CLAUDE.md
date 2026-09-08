@@ -188,6 +188,14 @@ Không còn Bootstrap. Toàn bộ style nằm ở `public/css/app.css` (app) và
 - `.wheel-winner` không được `text-transform`: e2e so `innerText` với tên gốc.
 - Đổi view có chủ ý thì chạy `UPDATE_SNAPSHOTS=1 npm test` rồi soi diff snapshot.
 
+### Nhóm thành viên (9/2026)
+
+`src/groups/` — nhóm là tập VĐV đặt tên sẵn. Đội bóng **liên kết** nhóm (`team_club_group`): thêm
+người vào nhóm là `GroupService.addMembers` tự gọi `TeamMemberService.addMember` cho mọi đội đang
+liên kết; bỏ khỏi nhóm KHÔNG gỡ khỏi đội (còn lịch sử phí). Giải đấu chỉ **lấy** danh sách lúc thêm
+(`mergeDistinct` trong tournament-registration.controller). Admin phụ chỉ thấy nhóm mình tạo; id
+nhóm gửi lên luôn đi qua `GroupService.scopedIds`/`playerIdsOfGroups` trước khi dùng.
+
 ### CSP: không có inline script
 
 `main.ts` đặt `script-src 'self'`. Mọi JS phải nằm trong `public/js/*.js` và nạp bằng thẻ

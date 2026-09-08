@@ -32,6 +32,27 @@ export function requireFeature(req: Express.Request, res: Response, auth: AuthSe
   return user;
 }
 
+/**
+ * Trang phục vụ NHIỀU module (Thành viên, Nhóm): vào được khi có ít nhất một feature trong danh
+ * sách. Chỉ dành cho ADMIN — vai CLIENT bị chặn ở đây dù có feature.
+ */
+export function requireAnyFeature(req: Express.Request, res: Response, auth: AuthService, features: AppFeature[]): CurrentUser | undefined {
+  const user = requireUser(req, res);
+  if (!user) return undefined;
+  const featureSet = res.locals.featureSet as Set<string>;
+  if (user.role !== 'ADMIN' || !features.some((feature) => auth.can(user, feature, featureSet))) {
+    res.status(403).render('error', { message: 'Không có quyền' });
+    return undefined;
+  }
+  return user;
+}
+
+/** Danh sách id từ checkbox (một hay nhiều giá trị), bỏ giá trị không phải số. */
+export function idList(value: string | string[] | undefined): bigint[] {
+  const raw = Array.isArray(value) ? value : value ? [value] : [];
+  return raw.map((item) => parseBigId(item)).filter((item): item is bigint => item !== null);
+}
+
 export function forbidden(res: Response, message = 'Không có quyền') {
   return res.status(403).render('error', { message });
 }

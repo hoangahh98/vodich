@@ -16,6 +16,7 @@ model AppUser {
   createdAt    DateTime @default(now()) @map("created_at")
 
   permissions           AdminFeaturePermission[]
+  ownedGroups             PlayerGroup[]            @relation("PlayerGroupOwner")
   grantedTournamentAccess PlayerTournamentAccess[] @relation("PlayerTournamentAccessGrantedBy")
   grantedTeamAccess       PlayerTeamAccess[]       @relation("PlayerTeamAccessGrantedBy")
   ownedTournaments      Tournament[]             @relation("TournamentOwner")
@@ -49,8 +50,39 @@ model Player {
   teamMembers      TeamMember[]
   tournamentAccess PlayerTournamentAccess[]
   teamAccess       PlayerTeamAccess[]
+  groupMembers     PlayerGroupMember[]
 
   @@map("player")
+}
+
+// Nhóm thành viên: gom sẵn người hay chơi chung. Đội bóng liên kết nhóm (TeamClubGroup) thì thêm
+// người vào nhóm là tự vào đội; giải đấu chỉ lấy danh sách lúc thêm. Xem src/groups/group.service.ts.
+model PlayerGroup {
+  id           BigInt   @id @default(autoincrement())
+  name         String   @db.VarChar(255)
+  ownerAdminId BigInt?  @map("owner_admin_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  ownerAdmin AppUser?            @relation("PlayerGroupOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
+  members    PlayerGroupMember[]
+  teams      TeamClubGroup[]
+
+  @@index([ownerAdminId])
+  @@map("player_group")
+}
+
+model PlayerGroupMember {
+  id        BigInt   @id @default(autoincrement())
+  groupId   BigInt   @map("group_id")
+  playerId  BigInt   @map("player_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  group  PlayerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  player Player      @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, playerId])
+  @@index([playerId])
+  @@map("player_group_member")
 }
 
 model Tournament {
@@ -179,8 +211,23 @@ model TeamClub {
   expenses     TeamExpense[]
   permissions  TeamClubPermission[]
   playerAccess PlayerTeamAccess[]
+  groups       TeamClubGroup[]
 
   @@map("team_club")
+}
+
+model TeamClubGroup {
+  id        BigInt   @id @default(autoincrement())
+  teamId    BigInt   @map("team_id")
+  groupId   BigInt   @map("group_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  team  TeamClub    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  group PlayerGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, groupId])
+  @@index([groupId])
+  @@map("team_club_group")
 }
 
 model PlayerTeamAccess {

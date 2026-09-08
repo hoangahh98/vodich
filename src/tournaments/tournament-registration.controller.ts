@@ -1,8 +1,9 @@
 import { Body, Controller, Param, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { AuthService } from '../auth/auth.service';
-import { forbidden, notFound, parseBigId, requireFeature } from '../common/controller-utils';
+import { forbidden, idList, notFound, parseBigId, requireFeature } from '../common/controller-utils';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
+import { GroupService } from '../groups/group.service';
 import { MatchGateway } from './match.gateway';
 import { TournamentService } from './tournament.service';
 
@@ -15,16 +16,19 @@ export class TournamentRegistrationController {
     private readonly auth: AuthService,
     private readonly tournaments: TournamentService,
     private readonly matchGateway: MatchGateway,
+    private readonly groups: GroupService,
   ) {}
 
   @Post('/tournaments/:id/registrations')
-  async addRegistration(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body('playerId') playerId: string | string[]) {
-    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+  async addRegistration(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, string | string[]>) {
+    const user = requireFeature(req, res, this.auth, 'TOURNAMENTS', true);
+    if (!user) return;
     const tournamentId = parseBigId(id);
     if (!tournamentId) return notFound(res);
-    if (!(await this.tournaments.canManage(req.session.user!, tournamentId))) return forbidden(res);
-    const ids = Array.isArray(playerId) ? playerId : playerId ? [playerId] : [];
-    const playerIds = ids.map((item) => parseBigId(item)).filter((value): value is bigint => value !== null);
+    if (!(await this.tournaments.canManage(user, tournamentId))) return forbidden(res);
+    // Người chọn lẻ + người của các nhóm đã tích, bỏ trùng (một người ở hai nhóm hoặc vừa ở nhóm vừa
+    // được tích lẻ chỉ đăng ký một lần).
+    const playerIds = mergeDistinct(idList(body.playerId), await this.groups.playerIdsOfGroups(user, idList(body.groupIds)));
     await this.tournaments.registerPlayers(tournamentId, playerIds);
     this.matchGateway.emitTournamentUpdated(id, 'registrations');
     return res.redirect(`/tournaments/${id}/players`);
@@ -122,4 +126,8 @@ export class TournamentRegistrationController {
     }
     return { registrationId, tournamentId };
   }
+}
+
+export function mergeDistinct(...lists: bigint[][]): bigint[] {
+  return [...new Set(lists.flat().map(String))].map((id) => BigInt(id));
 }

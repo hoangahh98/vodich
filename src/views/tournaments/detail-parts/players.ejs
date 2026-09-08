@@ -6,6 +6,13 @@
         <form id="addTournamentPlayersForm" class="mb" method="post" action="/tournaments/<%= tournament.id %>/registrations">
           <% const usedPlayerIds = new Set([...registrations, ...(reserveRegistrations || []), ...withdrawnRegistrations].map((r) => r.playerId && r.playerId.toString()).filter(Boolean)); %>
           <div id="playerSlotHint" class="alert-lite <%= slotsLeft > 0 ? 'info' : 'warn' %> mb" data-slots-left="<%= slotsLeft %>"><span>Còn <strong data-slot-count><%= slotsLeft %></strong> suất chính thức. Đã chọn <strong data-selected-count>0</strong> thành viên.</span></div>
+          <% if (typeof groups !== 'undefined' && groups.length) { %>
+            <label>Chọn cả nhóm <span class="muted fw-normal">— người trùng nhau giữa các nhóm hoặc với người tích lẻ chỉ tính một lần</span></label>
+            <div class="grid module-grid mb">
+              <% groups.forEach((group) => { const inTournament = group.members.filter((m) => usedPlayerIds.has(m.playerId.toString())).length; %><label class="option-card"><input type="checkbox" name="groupIds" value="<%= group.id %>"> <span><%= group.name %> <small class="muted">(<%= group.members.length %> người<% if (inTournament) { %>, <%= inTournament %> đã trong giải<% } %>)</small></span></label><% }) %>
+            </div>
+            <label>Hoặc chọn lẻ</label>
+          <% } %>
           <div class="player-check-list mb" data-player-picker>
             <% players.filter((p) => !usedPlayerIds.has(p.id.toString())).forEach((p) => { %>
               <label><input type="checkbox" name="playerId" value="<%= p.id %>"><span><strong><%= p.displayName %></strong><small><%= p.email %> · <%= p.skillLevel || 'Chưa chọn trình' %></small></span></label>

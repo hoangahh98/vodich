@@ -18,6 +18,14 @@
       <form class="team-create-form" method="post" action="/teams">
         <div><label>Tên đội bóng</label><input name="name" placeholder="Ví dụ: Pickleball tối thứ 3" required></div>
         <div><label>Ghi chú</label><input name="description" placeholder="Sân, lịch chơi, ghi chú nội bộ"></div>
+        <% if (typeof groups !== 'undefined' && groups.length) { %>
+          <div style="grid-column: 1 / -1">
+            <label>Lấy thành viên từ nhóm <span class="muted fw-normal">— tích nhóm là cả nhóm vào đội, thêm người vào nhóm sau cũng tự vào</span></label>
+            <div class="grid module-grid">
+              <% groups.forEach((group) => { %><label class="option-card"><input type="checkbox" name="groupIds" value="<%= group.id %>"> <span><%= group.name %> <small class="muted">(<%= group.members.length %> người)</small></span></label><% }) %>
+            </div>
+          </div>
+        <% } %>
         <div class="team-create-action"><button class="btn btn-success" data-loading-text="Đang tạo...">Tạo đội</button></div>
       </form>
     </section>
