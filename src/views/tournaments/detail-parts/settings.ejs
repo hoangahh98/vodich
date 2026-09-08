@@ -1,7 +1,13 @@
   <% if (section === 'settings') { %>
     <% const settingsFormatLabel = tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng + loại trực tiếp' : tournament.format === 'AMERICANO' ? 'Đôi xoay vòng' : 'Vòng tròn'; %>
-    <section class="card-lite p">
-      <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'settings' }) %></span><h2 class="section-title">Cài đặt giải đấu</h2><p class="muted">Thông tin cấu hình, thao tác sửa và xóa giải.</p></div></div>
+    <% const settingsTotalPaid = Number(typeof totalPaid !== 'undefined' ? totalPaid : 0); %>
+    <% const settingsPrizeFund = Math.max(0, settingsTotalPaid - Number(tournament.courtCost || 0) - Number(tournament.foodCost || 0) - Number(tournament.otherCost || 0)); %>
+    <% const isSettingsAdmin = currentUser.role === 'ADMIN'; %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb">
+        <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'note' }) %></span><h2 class="section-title">Thông tin giải</h2><p class="muted">Tên, địa điểm, thời gian, số sân, số thành viên và đăng ký ngoài.</p></div>
+        <% if (isSettingsAdmin) { %><a class="btn btn-sm btn-primary" href="/tournaments/<%= tournament.id %>/edit?returnSection=settings"><%- include('../../partials/icon', { name: 'edit' }) %> Sửa thông tin</a><% } %>
+      </div>
       <div class="grid kv-grid">
         <div class="kv"><span>Tên giải</span><strong><%= tournament.name %></strong></div>
         <div class="kv"><span>Địa điểm</span><strong><%= tournament.venue || 'Chưa có' %></strong></div>
@@ -9,40 +15,65 @@
         <div class="kv"><span>Kết thúc</span><strong><%= tournament.endTime ? new Date(tournament.endTime).toLocaleString('vi-VN') : 'Chưa có' %></strong></div>
         <div class="kv"><span>Số sân</span><strong><%= tournament.courtCount %></strong></div>
         <div class="kv"><span>Số thành viên dự kiến</span><strong><%= tournament.expectedPlayers %></strong></div>
-        <div class="kv"><span>Loại đấu</span><strong><%= tournament.playType === 'DOUBLES' ? 'Thi đôi' : 'Thi đơn' %></strong></div>
-        <div class="kv"><span>Thể thức</span><strong><%= settingsFormatLabel %></strong></div>
-        <div class="kv"><span>Điểm</span><strong>Vòng bảng: chạm <%= tournament.touchScore %>, max <%= tournament.maxScore %><% if (tournament.format === 'GROUP_KNOCKOUT') { %><br>Vòng trong: chạm <%= tournament.knockoutTouchScore || 15 %>, max <%= tournament.knockoutMaxScore || 19 %><% } %></strong></div>
         <div class="kv"><span>Đăng ký ngoài</span><strong><%= tournament.externalRegistrationEnabled ? 'Đang mở' : 'Đang tắt' %></strong></div>
       </div>
-      <% if (currentUser.role === 'ADMIN') { %>
-        <section class="form-section mt settings-permission-section">
-          <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'lock' }) %></span><h2 class="section-title">Phân quyền admin</h2><p class="muted">Admin được cấp quyền sẽ xem và quản lý giải này.</p></div></div>
-          <div class="grid kv-grid mb">
-            <div class="kv"><span>Người tạo</span><strong><%= tournament.ownerAdmin?.displayName || tournament.ownerAdmin?.username || 'Admin gốc / dữ liệu cũ' %></strong></div>
-            <div class="kv"><span>Đang được phân quyền</span><strong><%= tournament.permissions?.length || 0 %> admin</strong></div>
-          </div>
-          <% if (admins && admins.length) { %>
-            <form class="permission-create-form mb" method="post" action="/tournaments/<%= tournament.id %>/permissions">
-              <div><label>Thêm admin</label><select name="adminId" required><% admins.forEach((admin) => { %><option value="<%= admin.id %>"><%= admin.displayName %> (<%= admin.username %>)</option><% }) %></select></div>
-              <div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm quyền</button></div>
-            </form>
-          <% } %>
-          <div class="permission-admin-list">
-            <% (tournament.permissions || []).forEach((permission) => { %>
-              <div class="permission-admin-card">
-                <div class="flex between center gap">
-                  <div><strong><%= permission.admin.displayName %></strong><br><span class="muted"><%= permission.admin.username %></span></div>
-                  <form method="post" action="/tournaments/<%= tournament.id %>/permissions/<%= permission.id %>/delete" data-confirm="Gỡ quyền admin này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang gỡ...">Gỡ quyền</button></form>
-                </div>
-              </div>
-            <% }) %>
-            <% if (!(tournament.permissions || []).length) { %><div class="alert-lite info">Chưa cấp quyền cho admin nào.</div><% } %>
+    </section>
+
+    <% if (isSettingsAdmin) { %>
+      <form class="tournament-form" method="post" action="/tournaments/<%= tournament.id %>/config" data-prize-total-paid="<%= settingsTotalPaid %>">
+        <section class="card-lite p mb">
+          <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'settings' }) %></span><h2 class="section-title">Cấu hình giải</h2><p class="muted">Thể thức, điểm, lệ phí và chi phí, giải thưởng. Lưu xong áp cho lần chia trận tiếp theo.</p></div></div>
+          <%- include('../form-parts/format') %>
+          <%- include('../form-parts/costs') %>
+          <%- include('../form-parts/prizes', { editPrizeFund: settingsPrizeFund }) %>
+          <div class="form-actions">
+            <button class="btn btn-success btn-lg" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu cấu hình</button>
           </div>
         </section>
-      <% } %>
-      <div class="mt flex gap settings-action-row">
-        <a class="btn btn-primary" href="/tournaments/<%= tournament.id %>/edit?returnSection=<%= section %>"><%- include('../../partials/icon', { name: 'edit' }) %> Sửa cấu hình giải</a>
-        <% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/delete" data-confirm="Xóa giải này và toàn bộ dữ liệu liên quan?"><button class="btn btn-danger" data-loading-text="Đang xóa..."><%- include('../../partials/icon', { name: 'trash' }) %> Xóa giải</button></form><% } %>
-      </div>
-    </section>
+      </form>
+    <% } else { %>
+      <section class="card-lite p mb">
+        <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'settings' }) %></span><h2 class="section-title">Cấu hình giải</h2></div></div>
+        <div class="grid kv-grid">
+          <div class="kv"><span>Loại đấu</span><strong><%= tournament.playType === 'DOUBLES' ? 'Thi đôi' : 'Thi đơn' %></strong></div>
+          <div class="kv"><span>Thể thức</span><strong><%= settingsFormatLabel %></strong></div>
+          <div class="kv"><span>Điểm</span><strong>Vòng bảng: chạm <%= tournament.touchScore %>, max <%= tournament.maxScore %><% if (tournament.format === 'GROUP_KNOCKOUT') { %><br>Vòng trong: chạm <%= tournament.knockoutTouchScore || 15 %>, max <%= tournament.knockoutMaxScore || 19 %><% } %></strong></div>
+          <div class="kv"><span>Lệ phí / người</span><strong><%= formatMoney(minimumFee) %>đ</strong></div>
+        </div>
+      </section>
+    <% } %>
+
+    <% if (isSettingsAdmin) { %>
+      <section class="card-lite p mb settings-permission-section">
+        <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'lock' }) %></span><h2 class="section-title">Phân quyền admin</h2><p class="muted">Admin được cấp quyền sẽ xem và quản lý giải này.</p></div></div>
+        <div class="grid kv-grid mb">
+          <div class="kv"><span>Người tạo</span><strong><%= tournament.ownerAdmin?.displayName || tournament.ownerAdmin?.username || 'Admin gốc / dữ liệu cũ' %></strong></div>
+          <div class="kv"><span>Đang được phân quyền</span><strong><%= tournament.permissions?.length || 0 %> admin</strong></div>
+        </div>
+        <% if (typeof admins !== 'undefined' && admins && admins.length) { %>
+          <form class="permission-create-form mb" method="post" action="/tournaments/<%= tournament.id %>/permissions">
+            <div><label>Thêm admin</label><select name="adminId" required><% admins.forEach((admin) => { %><option value="<%= admin.id %>"><%= admin.displayName %> (<%= admin.username %>)</option><% }) %></select></div>
+            <div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm quyền</button></div>
+          </form>
+        <% } %>
+        <div class="permission-admin-list">
+          <% (tournament.permissions || []).forEach((permission) => { %>
+            <div class="permission-admin-card">
+              <div class="flex between center gap">
+                <div><strong><%= permission.admin.displayName %></strong><br><span class="muted"><%= permission.admin.username %></span></div>
+                <form method="post" action="/tournaments/<%= tournament.id %>/permissions/<%= permission.id %>/delete" data-confirm="Gỡ quyền admin này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang gỡ...">Gỡ quyền</button></form>
+              </div>
+            </div>
+          <% }) %>
+          <% if (!(tournament.permissions || []).length) { %><div class="alert-lite info">Chưa cấp quyền cho admin nào.</div><% } %>
+        </div>
+      </section>
+
+      <section class="card-lite p">
+        <div class="flex between center gap">
+          <div><strong>Xoá giải</strong><br><span class="muted">Xoá giải và toàn bộ thành viên, lịch, tỉ số, đóng phí của giải.</span></div>
+          <form method="post" action="/tournaments/<%= tournament.id %>/delete" data-confirm="Xóa giải này và toàn bộ dữ liệu liên quan?"><button class="btn btn-danger" data-loading-text="Đang xóa..."><%- include('../../partials/icon', { name: 'trash' }) %> Xóa giải</button></form>
+        </div>
+      </section>
+    <% } %>
   <% } %>

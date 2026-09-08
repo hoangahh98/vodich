@@ -1,18 +1,12 @@
-<%- include('../partials/head', { title: tournament ? 'Sửa giải' : 'Tạo giải' }) %>
+<%- include('../partials/head', { title: tournament ? 'Sửa thông tin giải' : 'Tạo giải' }) %>
 <%- include('../partials/topbar') %>
-<% const editPrizeTotalPaid = typeof prizeTotalPaid !== 'undefined' ? Number(prizeTotalPaid) : 0; %>
-<% const parsePrizeMoney = (value) => Number(String(value || '0').replace(/[^\d.-]/g, '')) || 0; %>
-<% const editPrizeFund = Math.max(0, editPrizeTotalPaid - parsePrizeMoney(tournament?.courtCost) - parsePrizeMoney(tournament?.foodCost) - parsePrizeMoney(tournament?.otherCost)); %>
 <main class="app-shell narrow-shell">
   <section class="card-lite p tournament-edit-card">
-    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'edit' }) %></span><h1><%= tournament ? 'Sửa giải đấu' : 'Tạo giải mới' %></h1><p class="muted">Cấu hình thông tin, luật điểm, chi phí và giải thưởng.</p></div></div>
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'edit' }) %></span><h1><%= tournament ? 'Sửa thông tin giải' : 'Tạo giải mới' %></h1><p class="muted"><%= tournament ? 'Thể thức, điểm, lệ phí và giải thưởng sửa ở mục Cài đặt của giải.' : 'Chỉ cần điền thông tin giải. Thể thức, điểm, lệ phí và giải thưởng cài ở mục Cài đặt sau khi tạo.' %></p></div></div>
     <% if (typeof error !== 'undefined') { %><div class="alert-lite warn mb"><%= error %></div><% } %>
-    <form class="tournament-form" method="post" action="<%= action %>" data-prize-total-paid="<%= editPrizeTotalPaid %>">
+    <form class="tournament-form" method="post" action="<%= action %>">
       <input type="hidden" name="returnSection" value="<%= typeof returnSection !== 'undefined' ? returnSection : 'settings' %>">
       <%- include('form-parts/basic') %>
-      <%- include('form-parts/format') %>
-      <%- include('form-parts/costs') %>
-      <%- include('form-parts/prizes', { editPrizeFund }) %>
       <%- include('form-parts/actions') %>
     </form>
   </section>

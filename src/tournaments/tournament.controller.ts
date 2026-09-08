@@ -71,7 +71,7 @@ export class TournamentController {
     const tournamentId = BigInt(id);
     if (!(await this.tournaments.canManage(req.session.user!, tournamentId))) return forbidden(res);
     try {
-      await this.tournaments.update(tournamentId, body);
+      await this.tournaments.updateInfo(tournamentId, body);
       this.matchGateway.emitTournamentUpdated(id, 'tournament');
       return res.redirect(`/tournaments/${id}/${safeTournamentSection(body.returnSection)}`);
     } catch (error) {
@@ -85,6 +85,23 @@ export class TournamentController {
         error: error instanceof Error ? error.message : 'Không lưu được giải đấu',
       });
     }
+  }
+
+  /** Cấu hình (thể thức, điểm, lệ phí + chi phí, giải thưởng) sửa ngay trên trang Cài đặt. */
+  @Post('/tournaments/:id/config')
+  async updateTournamentConfig(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    const tournamentId = parseBigId(id);
+    if (!tournamentId) return notFound(res);
+    if (!(await this.tournaments.canManage(req.session.user!, tournamentId))) return forbidden(res);
+    try {
+      await this.tournaments.updateConfig(tournamentId, body);
+      this.matchGateway.emitTournamentUpdated(id, 'tournament');
+      req.session.flash = 'Đã lưu cấu hình giải';
+    } catch (error) {
+      req.session.flash = error instanceof Error ? error.message : 'Không lưu được cấu hình giải';
+    }
+    return res.redirect(`/tournaments/${id}/settings`);
   }
 
   @Post('/tournaments/:id/delete')

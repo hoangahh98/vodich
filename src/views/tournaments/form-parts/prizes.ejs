@@ -1,6 +1,7 @@
-<section class="form-section">
+<section class="form-section" data-prize-section>
   <% const isManualPrize = tournament && (Number(tournament.prizeRate1) > 100 || Number(tournament.prizeRate2) > 100 || Number(tournament.prizeRate3) > 100); %>
   <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'trophy' }) %> Cài đặt giải thưởng</h2>
+  <p class="alert-lite warn mb" data-prize-lock-note hidden><span>Nhập đủ lệ phí, sân bãi, ăn uống và giải thưởng ở mục trên để mở phần này.</span></p>
   <div class="alert-lite info mb" data-prize-fund-box>
     <div>
       Quỹ thưởng hiện có: <strong data-prize-fund><%= formatMoney(editPrizeFund) %>đ</strong>.

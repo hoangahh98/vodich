@@ -645,7 +645,9 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .member-table .nowrap { white-space: nowrap; }
 .member-table .row-action { width: 1%; white-space: nowrap; }
 .member-table .row-action form { display: inline-block; }
-.btn-icon { padding-left: 10px; padding-right: 10px; }
+.flash-bar { max-width: 1180px; margin: 16px auto -8px; padding: 0 16px; }
+.is-locked > *:not(.section-title):not([data-prize-lock-note]) { opacity: .45; pointer-events: none; }
+.is-locked input { background: var(--paper); }
 .card-foot { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; padding: 14px 20px 20px; }
 .card-foot .btn { white-space: nowrap; }
 

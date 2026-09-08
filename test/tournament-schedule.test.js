@@ -179,24 +179,41 @@ function partnersOf(matches) {
   return partners;
 }
 
-test('Americano: giải dài đúng bằng một giải vòng tròn thường', () => {
-  // Ghép hết mọi cặp thì 10 người ra 22 trận, đánh cả ngày không hết. Chặn lại cho bằng số
-  // trận của n/2 đội cố định đấu vòng tròn: 10 người -> 5 đội -> 10 trận.
-  for (const [count, expected] of [[8, 6], [9, 6], [10, 10], [11, 10], [12, 15], [16, 28]]) {
+test('Americano: n/2 vòng, mỗi vòng ghép hết hai bên rồi lẻ cặp thì một cặp nghỉ', () => {
+  // 10 người → 5 vòng × (5 cặp = 2 trận + 1 cặp nghỉ) = 10 trận; 8 người → 4 vòng × 2 = 8 trận.
+  for (const [count, expected] of [[8, 8], [9, 10], [10, 10], [11, 12], [12, 18], [16, 32]]) {
     for (let run = 0; run < 25; run++) {
       assert.equal(americano(count).length, expected, `${count} người phải ra ${expected} trận`);
     }
   }
 });
 
-test('Americano: mỗi người chỉ được ghép tối đa (n-2)/2 người', () => {
-  // Yêu cầu gốc: 10 người thì mỗi người chỉ ghép cặp với tối đa 4 người.
-  for (const [count, limit] of [[8, 3], [10, 4], [12, 5], [16, 7]]) {
+test('Americano: mỗi người chỉ đi với người BÊN KIA, tối đa n/2 người', () => {
+  for (const [count, limit] of [[8, 4], [10, 5], [12, 6], [16, 8]]) {
     for (let run = 0; run < 25; run++) {
       const partners = partnersOf(americano(count));
       assert.equal(partners.size, count, `${count} người: có người không được xếp trận nào`);
       for (const [name, set] of partners) {
         assert.ok(set.size <= limit, `${count} người: ${name} ghép với ${set.size} người, quá hạn ${limit}`);
+        assert.ok(set.size >= limit - 1, `${count} người: ${name} chỉ ghép với ${set.size} người`);
+      }
+    }
+  }
+});
+
+/**
+ * Phân trình = bên mạnh / bên yếu: với trình A,B,C,D chia đều thì A+B là bên mạnh, C+D bên yếu,
+ * nên MỌI cặp phải có đúng một người mạnh và một người yếu — không cặp nào A đi với B.
+ */
+test('Americano phân trình: người mạnh luôn đi với người yếu', () => {
+  const strongSide = (name) => Number(name.slice(1)) % 4 < 2;
+  for (const count of [8, 12, 16]) {
+    for (let run = 0; run < 20; run++) {
+      for (const match of americano(count, 'BY_SKILL')) {
+        for (const team of [match.teamA, match.teamB]) {
+          const [first, second] = splitTeamName(team);
+          assert.notEqual(strongSide(first), strongSide(second), `${count} người: cặp ${team} cùng một bên`);
+        }
       }
     }
   }
@@ -294,7 +311,7 @@ test('Americano: chia lại phải ra lịch khác, không đứng im như trư�
 
 test('Americano: chia lại vẫn giữ nguyên số trận, không lần nhiều lần ít', () => {
   for (const rule of ['BY_SKILL', 'RANDOM']) {
-    for (const [count, expected] of [[8, 6], [10, 10], [12, 15]]) {
+    for (const [count, expected] of [[8, 8], [10, 10], [12, 18]]) {
       for (let run = 0; run < 20; run++) assert.equal(americano(count, rule).length, expected);
     }
   }

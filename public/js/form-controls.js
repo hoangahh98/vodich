@@ -47,7 +47,8 @@
 
     const currentFormat = () => formatSelect?.value || formatRadios.find((radio) => radio.checked)?.value;
     const estimatedTeamCount = () => {
-      const players = Number.parseInt(expectedPlayersInput?.value || '0', 10) || 0;
+      // Ở trang Cài đặt, số người không nằm trong form này mà đọc từ giải đã lưu (data-expected-players).
+      const players = Number.parseInt(expectedPlayersInput?.value || qualifierField.dataset.expectedPlayers || '0', 10) || 0;
       return playTypeSelect?.value === 'DOUBLES' ? Math.floor(players / 2) : players;
     };
     const syncKnockout = () => {
@@ -99,6 +100,36 @@
     [finalBox, semiBox, quarterBox].forEach((box) => box?.addEventListener('change', syncKnockout));
     [expectedPlayersInput, playTypeSelect].forEach((item) => item?.addEventListener('input', sync));
     [expectedPlayersInput, playTypeSelect].forEach((item) => item?.addEventListener('change', sync));
+    sync();
+  };
+
+  // Lệ phí nhập trước rồi mới nhập được chi phí; nhập đủ Sân bãi + Ăn uống + Giải thưởng
+  // (Khác không bắt buộc) thì mới mở Cài đặt giải thưởng. Chỉ khoá ở giao diện (readonly +
+  // is-locked), KHÔNG disable — input disabled không gửi lên, lưu là mất số cũ.
+  const initFeeGate = () => {
+    const feeInput = document.querySelector('[data-fee-input]');
+    if (!feeInput) return;
+    const form = feeInput.closest('form');
+    const costFields = form?.querySelector('[data-cost-fields]');
+    const prizeSection = form?.querySelector('[data-prize-section]');
+    const lockNote = form?.querySelector('[data-prize-lock-note]');
+    const requiredInputs = [...(costFields?.querySelectorAll('[data-money-required]') || [])];
+    const lock = (root, locked) => {
+      if (!root) return;
+      root.classList.toggle('is-locked', locked);
+      root.querySelectorAll('input:not([type="radio"]):not([type="checkbox"]), button').forEach((el) => {
+        if (el.tagName === 'BUTTON') el.disabled = locked;
+        else el.readOnly = locked;
+      });
+    };
+    const sync = () => {
+      const feeOk = parseMoneyValue(feeInput.value) > 0;
+      lock(costFields, !feeOk);
+      const complete = feeOk && requiredInputs.every((input) => input.value.trim() !== '');
+      lock(prizeSection, !complete);
+      if (lockNote) lockNote.hidden = complete;
+    };
+    [feeInput, ...requiredInputs].forEach((input) => input.addEventListener('input', sync));
     sync();
   };
 
@@ -184,5 +215,6 @@
   window.Vodich = { ...(window.Vodich || {}), validateTournamentPrizeForm };
   initKnockoutOptions();
   initPrizeOptions();
+  initFeeGate();
   initTeamFeeSuggestion();
 })();

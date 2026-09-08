@@ -73,22 +73,20 @@ Socket.IO cho tỉ số trực tiếp, deploy trên Render.
 |---|---|---|
 | `ROUND_ROBIN` | Đội cố định, vòng tròn một lượt | Theo đội |
 | `GROUP_KNOCKOUT` | Chia bảng + vòng loại trực tiếp | Theo đội, mỗi bảng một bảng xếp hạng |
-| `AMERICANO` | Đôi xoay vòng: mỗi người đánh chung đội với từng người còn lại đúng một lần | **Theo cá nhân** (`playerRankings`) |
+| `AMERICANO` | Đôi xoay vòng: chia hai bên, mỗi người đánh chung đội với từng người bên kia đúng một lần | **Theo cá nhân** (`playerRankings`) |
 
-- Americano dùng lại đúng `roundRobinRounds()` nhưng đọc kết quả `[x, y]` là "x **đánh chung
-  đội** với y" thay vì "x đấu với y". Đừng thay bằng cách bốc tham lam từ rổ mọi cặp — cách đó
-  không phủ hết người mỗi vòng (8 người từng ra 13 trận thay vì 14).
-- Americano **không** cho mọi người ghép với tất cả: `americanoPartnerLimit()` chặn ở `(n-2)/2`
-  người, và tổng số trận cắt về `roundRobinDoublesMatchCount()` — cùng độ dài với một giải vòng
-  tròn thường. Bỏ giới hạn là 10 người ra 22 trận, đánh cả ngày không hết.
-- `pairingRule` (`BY_SKILL` | `RANDOM`) quyết định ghép đôi theo trình hay xáo thuần. Mặc định
-  `BY_SKILL` vì đó là hành vi của mọi giải tạo trước khi cột này ra đời.
-- Với Americano, `pairingRule` áp ở **chỗ xếp người vào ghế** của vòng quay
-  (`americanoSeating`), vì vòng quay cố định theo chỉ số ghế nên hoán vị người vào ghế là thứ
-  duy nhất quyết định ai đánh chung đội với ai. `BY_SKILL` bốc thử 200 cách xếp rồi giữ cách có
-  phương sai tổng trình mỗi cặp nhỏ nhất. Đừng bỏ bước xáo mà dùng thẳng thứ tự đăng ký: làm
-  thế thì "phân trình" không tác dụng gì lên việc ghép cặp, và bấm "Chia trận" mười lần ra y
-  hệt nhau mười lần (người dùng tưởng nút hỏng — đã xảy ra).
+- Americano (luật chủ app chốt 9/2026, `buildAmericanoMatches`): chia người làm **hai bên**
+  (`americanoSides`), vòng r ghép người bên A thứ i với người bên B thứ (i+r) mod n/2 → n/2 vòng,
+  mỗi người đi với đủ người bên kia đúng một lần và **không bao giờ** ghép cùng bên. `BY_SKILL` =
+  bên mạnh / bên yếu (sắp theo trình rồi cắt đôi), `RANDOM` = xáo rồi cắt đôi. Lẻ cặp trong vòng
+  thì một cặp nghỉ, chọn cặp nghỉ ít nhất để ai cũng nghỉ đều. 10 người → 10 trận, 8 → 8, 12 → 18.
+  Đừng quay lại kiểu "vòng quay n-1 vòng + giới hạn (n-2)/2" cũ: chủ app muốn 10 người thì mỗi
+  người đi với đủ 5 người bên kia.
+- Luôn xáo trước khi sắp theo trình để bấm "Chia trận" lần sau ra kèo khác (người cùng trình đổi
+  chỗ) — trước đây xếp thẳng theo thứ tự đăng ký nên bấm mười lần ra một kiểu, người dùng tưởng
+  nút hỏng.
+- Vòng trong (`normalizeQualifierCount`, `KNOCKOUT_MIN_TEAMS`): bán kết từ **6 đội** (2 bảng 3
+  hoặc 3 + 4), tứ kết từ **12 đội**. `data-min-teams` ở form-parts/format.ejs phải khớp.
 - Ở thể thức đôi thường, người dư ra khi hai mức trình lệch số lượng phải **gấp lại từ đầu**
   theo cùng quy tắc (`foldByLevel` gọi lặp), không đổ chung một rổ bốc bừa — rổ chung khiến mấy
   người mạnh dư ra tự ghép với nhau thành một đội vượt trội.
@@ -126,6 +124,17 @@ Ba lớp tách rời, đừng gộp:
 
 Kết quả quay gửi về `POST /tournaments/:id/manual-schedule` (luồng ghép cặp thủ công có sẵn),
 không có route riêng. Dữ liệu VĐV truyền qua `data-*` vì CSP chặn `<script>` inline.
+
+### Tạo giải, Cài đặt và lệ phí (9/2026)
+
+Form tạo giải (`tournaments/form.ejs`) chỉ có **Thông tin giải** (`buildTournamentInfo`); thể
+thức, điểm, lệ phí + chi phí, giải thưởng nằm ở mục Cài đặt của giải và gửi về
+`POST /tournaments/:id/config` (`buildTournamentConfig`). Lệ phí mỗi người là cột
+`tournament.fee_per_player` nhập tay (`minimumFeeForTournament` ưu tiên nó; 0 = giải cũ, suy từ
+tổng chi phí như trước). Ở form: nhập lệ phí trước rồi mới nhập được chi phí; đủ Sân bãi + Ăn
+uống + Giải thưởng (Khác không bắt buộc) mới mở Cài đặt giải thưởng — khoá bằng `readonly` +
+`.is-locked` trong form-controls.js, **không** `disabled` (input disabled không gửi lên, lưu là
+mất số cũ). `req.session.flash` được LocalsMiddleware đưa ra `flash` và topbar.ejs hiện một lần.
 
 ### Ghép đội thủ công
 

@@ -35,6 +35,27 @@ test('TournamentRankingCalculator builds group boards with all teams in each gro
   ]);
 });
 
+test('Đánh bảng + vòng trong: 6 hoặc 7 đội vẫn chọn được bán kết (2 bảng 3, hoặc 3 + 4)', () => {
+  const { normalizeQualifierCount } = require('../dist/tournaments/tournament-form');
+  assert.equal(normalizeQualifierCount(4, 6, 'SINGLES'), 4);
+  assert.equal(normalizeQualifierCount(4, 7, 'SINGLES'), 4);
+  assert.equal(normalizeQualifierCount(4, 12, 'DOUBLES'), 4);
+  assert.equal(normalizeQualifierCount(4, 5, 'SINGLES'), 2);
+  assert.equal(normalizeQualifierCount(8, 12, 'SINGLES'), 8);
+  assert.equal(normalizeQualifierCount(8, 11, 'SINGLES'), 4);
+
+  const builder = new TournamentScheduleBuilder();
+  const tournament = { id: 1n, format: 'GROUP_KNOCKOUT', playType: 'SINGLES', courtCount: 2, knockoutQualifierCount: 4 };
+  const registrations = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((displayName, index) => ({ id: BigInt(index + 1), externalName: null, externalEmail: null, player: { displayName } }));
+  const matches = builder.fromRegistrations(tournament, registrations);
+  const groups = new Set(matches.filter((match) => match.stage === 'Vòng bảng').map((match) => match.groupName));
+  assert.deepEqual([...groups].sort(), ['A', 'B']);
+  // 7 đội chia 4 + 3: bảng 4 đội có 6 trận, bảng 3 đội có 3 trận.
+  assert.equal(matches.filter((match) => match.stage === 'Vòng bảng').length, 9);
+  assert.equal(matches.filter((match) => match.stage === 'Bán kết').length, 2);
+  assert.equal(matches.filter((match) => match.stage === 'Chung kết').length, 1);
+});
+
 test('TournamentScheduleBuilder creates group and knockout matches for group knockout tournaments', () => {
   const builder = new TournamentScheduleBuilder();
   const tournament = {

@@ -1,38 +1,64 @@
   <% if (section === 'fund') { %>
-    <section class="card-lite p">
-      <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'wallet' }) %></span><h2 class="section-title">Quỹ giải thưởng</h2><p class="muted">Tổng hợp chi phí, tiền đã thu và quỹ thưởng thực tế.</p></div></div>
-      <div class="grid finance-grid mb">
-        <div class="metric-card blue"><span>Tổng thu</span><strong><%= formatMoney(totalPaid) %>đ</strong><small><%= registrations.length %> thành viên chính thức</small></div>
-        <div class="metric-card green"><span>Lệ phí/người</span><strong><%= formatMoney(minimumFee) %>đ</strong><small>Dựa trên <%= formatMoney(totalCost) %>đ chi phí</small></div>
-        <div class="metric-card orange"><span>Còn thiếu</span><strong><%= formatMoney(missingFee) %>đ</strong><small><%= unpaidCount %> người chưa đóng</small></div>
-        <div class="metric-card gold"><span>Quỹ thưởng</span><strong><%= formatMoney(prizeFund) %>đ</strong><small>Đã thu − sân/ăn/khác</small></div>
-      </div>
-      <div class="grid team-admin-grid">
-        <div class="card-lite">
-          <div class="card-hdr warn"><span><%- include('../../partials/icon', { name: 'trophy' }) %> Cơ cấu giải thưởng</span></div>
-          <div class="p">
-            <div class="prize-row"><span><span class="rank-medal r1">1</span> Nhất</span><strong><%= formatMoney(prize1) %>đ</strong></div>
-            <div class="prize-row"><span><span class="rank-medal r2">2</span> Nhì</span><strong><%= formatMoney(prize2) %>đ</strong></div>
-            <div class="prize-row"><span><span class="rank-medal r3">3</span> Ba</span><strong><%= formatMoney(prize3) %>đ</strong></div>
-            <p class="muted mt"><%= manualPrize ? 'Đang đặt thưởng thủ công' : `Tỷ lệ hiện tại: ${formatMoney(tournament.prizeRate1)}% / ${formatMoney(tournament.prizeRate2)}% / ${formatMoney(tournament.prizeRate3)}%` %></p>
-          </div>
-        </div>
-        <div class="card-lite">
-          <div class="card-hdr green"><span><%- include('../../partials/icon', { name: 'crown' }) %> Top đóng góp</span></div>
-          <div class="p">
-            <% if (topDonors.length) { topDonors.forEach((donor, index) => { %>
-              <div class="prize-row"><span><span class="rank-medal r<%= index + 1 %>"><%= index + 1 %></span> <%= donor.name %></span><strong>+<%= formatMoney(donor.amount) %>đ</strong></div>
-            <% }) } else { %>
-              <p class="muted text-center">Chưa có ai đóng vượt mức lệ phí.</p>
-            <% } %>
-          </div>
-        </div>
-      </div>
-      <div class="grid module-grid mt">
-        <div class="cost-card"><%- include('../../partials/icon', { name: 'court' }) %><span>Sân bãi</span><strong><%= formatMoney(tournament.courtCost) %>đ</strong></div>
-        <div class="cost-card"><%- include('../../partials/icon', { name: 'food' }) %><span>Ăn uống</span><strong><%= formatMoney(tournament.foodCost) %>đ</strong></div>
-        <div class="cost-card"><%- include('../../partials/icon', { name: 'gift' }) %><span>Ngân sách thưởng gốc</span><strong><%= formatMoney(tournament.prizeCost) %>đ</strong></div>
-        <div class="cost-card"><%- include('../../partials/icon', { name: 'receipt' }) %><span>Khác</span><strong><%= formatMoney(tournament.otherCost) %>đ</strong></div>
+    <% const paidRegistrations = registrations.filter((r) => r.paymentStatus === 'PAID' && Number(r.paidAmount || 0) > 0); %>
+    <% const prizeTotal = prize1 + prize2 + prize3; const feeSet = Number(tournament.feePerPlayer || 0) > 0; const leftAfterPrize = prizeFund - prizeTotal; %>
+    <section class="card-lite p mb">
+      <div class="section-heading">
+        <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'wallet' }) %></span><h2 class="section-title">Quỹ giải</h2><p class="muted">Lệ phí <%= formatMoney(minimumFee) %>đ/người<% if (!feeSet) { %> (tạm tính từ chi phí — đặt lệ phí ở Cài đặt)<% } %>. Đã thu trừ đã chi là quỹ thưởng.</p></div>
+        <span class="badge badge-dark">Quỹ thưởng <%= formatMoney(prizeFund) %>đ</span>
       </div>
     </section>
+
+    <section class="grid finance-grid mb">
+      <details class="metric-card blue metric-drop">
+        <summary><span>Tổng đã thu</span><strong><%= formatMoney(totalPaid) %>đ</strong><small><%= paidRegistrations.length %>/<%= registrations.length %> người đã đóng<% if (unpaidCount) { %> · còn thiếu <%= formatMoney(missingFee) %>đ<% } %></small></summary>
+        <div class="metric-drop-body">
+          <% paidRegistrations.forEach((r) => { %>
+            <div><span><%= r.player ? r.player.displayName : r.externalName %></span><strong><%= formatMoney(r.paidAmount) %>đ</strong></div>
+          <% }) %>
+          <% if (!paidRegistrations.length) { %><p class="metric-drop-note">Chưa ai đóng phí.</p><% } %>
+        </div>
+      </details>
+      <details class="metric-card orange metric-drop">
+        <summary><span>Tổng đã chi</span><strong><%= formatMoney(operatingCost) %>đ</strong><small>Sân bãi + ăn uống + khác</small></summary>
+        <div class="metric-drop-body">
+          <div><span>Sân bãi</span><strong><%= formatMoney(tournament.courtCost) %>đ</strong></div>
+          <div><span>Ăn uống</span><strong><%= formatMoney(tournament.foodCost) %>đ</strong></div>
+          <div><span>Khác</span><strong><%= formatMoney(tournament.otherCost) %>đ</strong></div>
+        </div>
+      </details>
+    </section>
+    <section class="grid finance-grid mb">
+      <details class="metric-card gold metric-drop">
+        <summary><span>Quỹ thưởng</span><strong><%= formatMoney(prizeFund) %>đ</strong><small>= Đã thu <%= formatMoney(totalPaid) %>đ − Đã chi <%= formatMoney(operatingCost) %>đ · ngân sách dự kiến <%= formatMoney(tournament.prizeCost) %>đ</small></summary>
+        <div class="metric-drop-body">
+          <div><span>Nhất</span><strong><%= formatMoney(prize1) %>đ</strong></div>
+          <div><span>Nhì</span><strong><%= formatMoney(prize2) %>đ</strong></div>
+          <div><span>Ba</span><strong><%= formatMoney(prize3) %>đ</strong></div>
+          <div><span>Còn lại sau thưởng</span><strong><%= formatMoney(leftAfterPrize) %>đ</strong></div>
+        </div>
+      </details>
+      <div class="metric-card <%= unpaidCount ? 'red' : 'green' %>"><span>Còn thiếu</span><strong><%= formatMoney(missingFee) %>đ</strong><small><%= unpaidCount %> người chưa đóng</small></div>
+    </section>
+
+    <div class="grid team-admin-grid">
+      <div class="card-lite">
+        <div class="card-hdr warn"><span><%- include('../../partials/icon', { name: 'trophy' }) %> Cơ cấu giải thưởng</span></div>
+        <div class="p">
+          <div class="prize-row"><span><span class="rank-medal r1">1</span> Nhất</span><strong><%= formatMoney(prize1) %>đ</strong></div>
+          <div class="prize-row"><span><span class="rank-medal r2">2</span> Nhì</span><strong><%= formatMoney(prize2) %>đ</strong></div>
+          <div class="prize-row"><span><span class="rank-medal r3">3</span> Ba</span><strong><%= formatMoney(prize3) %>đ</strong></div>
+          <p class="muted mt"><%= manualPrize ? 'Đang đặt thưởng thủ công' : `Tỷ lệ hiện tại: ${formatMoney(tournament.prizeRate1)}% / ${formatMoney(tournament.prizeRate2)}% / ${formatMoney(tournament.prizeRate3)}%` %><% if (currentUser.role === 'ADMIN') { %> · sửa ở <a href="/tournaments/<%= tournament.id %>/settings">Cài đặt</a><% } %></p>
+        </div>
+      </div>
+      <div class="card-lite">
+        <div class="card-hdr green"><span><%- include('../../partials/icon', { name: 'crown' }) %> Top đóng góp</span></div>
+        <div class="p">
+          <% if (topDonors.length) { topDonors.forEach((donor, index) => { %>
+            <div class="prize-row"><span><span class="rank-medal r<%= index + 1 %>"><%= index + 1 %></span> <%= donor.name %></span><strong>+<%= formatMoney(donor.amount) %>đ</strong></div>
+          <% }) } else { %>
+            <p class="muted text-center">Chưa có ai đóng vượt mức lệ phí.</p>
+          <% } %>
+        </div>
+      </div>
+    </div>
   <% } %>

@@ -229,39 +229,22 @@ function shuffle<T>(items: T[]): T[] {
 type AmericanoPlayer = { index: number; name: string; skill: number };
 type AmericanoPair = { first: AmericanoPlayer; second: AmericanoPlayer; strength: number };
 
-/**
- * Số trận của một giải ĐÔI đánh vòng tròn thường: n người ghép thành `n/2` đội cố định, mỗi
- * đội gặp nhau một lần. Đây là mốc để giải Americano dài bằng đúng một buổi như mọi khi.
- */
-export function roundRobinDoublesMatchCount(playerCount: number): number {
-  const teams = Math.floor(playerCount / 2);
-  return teams < 2 ? 0 : (teams * (teams - 1)) / 2;
+/** Số vòng của giải Đôi xoay vòng = số người mỗi bên (10 người → 5 vòng, 9 người → 5 vòng). */
+export function americanoRoundCount(playerCount: number): number {
+  return Math.ceil(playerCount / 2);
 }
 
 /**
- * Số người tối đa mà MỘT VĐV được đánh chung đội trong giải Americano.
+ * Thể thức "Đôi xoay vòng (Americano)" — luật chủ app chốt 9/2026: chia người làm HAI BÊN,
+ * mỗi người bên này lần lượt đánh CHUNG ĐỘI với từng người bên kia, không bao giờ ghép với
+ * người cùng bên.
  *
- * Không để mọi người ghép với tất cả: 10 người mà ghép hết thì ra 45 cặp ≈ 22 trận, đánh cả
- * ngày không hết. Chặn ở `(n-2)/2` để tổng số trận bằng đúng giải vòng tròn thường — 10 người
- * thì mỗi người ghép tối đa 4 người, ra 10 trận, y như 5 đội cố định đấu vòng tròn.
+ *  - `BY_SKILL` — bên mạnh / bên yếu (sắp theo trình rồi cắt đôi): mỗi cặp luôn là một mạnh
+ *                 + một yếu, người mạnh thứ i lần lượt đi với người yếu thứ i, i+1, ...
+ *  - `RANDOM`   — xáo rồi cắt đôi: mỗi người có n/2 bạn đánh chung ngẫu nhiên.
  *
- * Suy ra từ đâu: mỗi người ghép k người → tổng `n*k/2` cặp → `n*k/4` trận. Cho bằng số trận
- * vòng tròn `n(n-2)/8` thì k = (n-2)/2.
- */
-export function americanoPartnerLimit(playerCount: number): number {
-  return Math.max(1, Math.floor((playerCount - 2) / 2));
-}
-
-/**
- * Thể thức "Đôi xoay vòng (Americano)": mỗi VĐV lần lượt đánh CHUNG ĐỘI với những người khác
- * nhau, thay vì cố định đội từ đầu giải.
- *
- * Cách làm: dùng vòng quay của `roundRobinRounds` để mỗi vòng ai cũng có đúng một người đánh
- * chung, rồi ghép hai cặp thành một trận. Chỉ lấy `americanoPartnerLimit()` vòng đầu, và cắt
- * tổng số trận về đúng bằng một giải vòng tròn thường (xem hai hàm ngay trên).
- *
- * Phần dư: số cặp trong một vòng có thể là số lẻ (10 người -> 5 cặp), cặp lẻ ấy được dồn sang
- * các vòng phụ cuối giải chứ không mất.
+ * 10 người → 5 vòng, mỗi vòng 5 cặp = 2 trận + 1 cặp nghỉ (xoay cặp nghỉ để ai cũng nghỉ đúng
+ * một lần). Lẻ người thì bên yếu có một chỗ trống, người mạnh rơi vào chỗ trống ấy nghỉ vòng đó.
  */
 export function buildAmericanoMatches(tournament: Tournament, registrations: RegisteredPlayer[], rule: PairingRule): MatchCreate[] {
   const players: AmericanoPlayer[] = registrations.map((reg, index) => ({
@@ -273,11 +256,9 @@ export function buildAmericanoMatches(tournament: Tournament, registrations: Reg
   if (players.length < 4) return [];
 
   const matches: MatchCreate[] = [];
-  const targetMatchCount = roundRobinDoublesMatchCount(players.length);
   let court = 1;
   americanoRounds(players, rule).forEach((round, roundIndex) => {
     for (const [teamA, teamB] of round) {
-      if (matches.length >= targetMatchCount) return;
       matches.push({
         tournamentId: tournament.id,
         teamA: pairName(teamA),
@@ -293,125 +274,55 @@ export function buildAmericanoMatches(tournament: Tournament, registrations: Reg
   return matches;
 }
 
-/** Số cách xếp chỗ thử trước khi chọn cách cân nhất. 200 lượt chạy dưới 1ms, đủ để hơn hẳn. */
-const AMERICANO_SEATING_TRIES = 200;
-
 /**
- * Các vòng ghép cặp tính theo CHỈ SỐ GHẾ (chưa biết ai ngồi ghế nào).
- *
- * Tách riêng để chấm điểm một cách xếp chỗ mà không phải dựng lại vòng quay mỗi lần thử.
- * Lẻ người thì `roundRobinRounds` tự chèn chỗ trống và bỏ qua cặp dính chỗ trống đó.
+ * Chia hai bên. Luôn xáo trước để bấm "Chia trận" lần sau ra kèo khác (người cùng trình đổi
+ * chỗ cho nhau); `BY_SKILL` sắp mạnh → yếu (sort ổn định nên thứ tự xáo giữ lại trong cùng trình)
+ * rồi cắt đôi, bên mạnh lấy phần dư khi lẻ người.
  */
-function seatPairRounds(playerCount: number): [number, number][][] {
-  return roundRobinRounds(Array.from({ length: playerCount }, (_, index) => String(index)))
-    .slice(0, americanoPartnerLimit(playerCount))
-    .map((round) => round.map(([first, second]) => [Number(first), Number(second)] as [number, number]));
+function americanoSides(players: AmericanoPlayer[], rule: PairingRule): [AmericanoPlayer[], AmericanoPlayer[]] {
+  const shuffled = shuffle(players);
+  const ordered = rule === 'BY_SKILL' ? [...shuffled].sort((a, b) => a.skill - b.skill) : shuffled;
+  const half = Math.ceil(ordered.length / 2);
+  return [ordered.slice(0, half), ordered.slice(half)];
 }
 
 /**
- * Ai ngồi ghế nào — chính là chỗ `pairingRule` có tác dụng trong thể thức Americano.
- *
- * Vòng quay `seatPairRounds` cố định theo CHỈ SỐ ghế, nên thứ duy nhất còn quyết định "ai đánh
- * chung đội với ai" là hoán vị người vào ghế. Trước đây cả hai rule đều dùng nguyên thứ tự đăng
- * ký, kéo theo hai lỗi cùng lúc: "phân trình" chẳng ảnh hưởng gì tới việc ghép cặp, và bấm
- * "Chia trận" mười lần ra y hệt nhau mười lần (nhìn cứ như nút bị hỏng).
- *
- *  - `RANDOM`   — xáo thuần, mỗi lần chia là một kèo khác.
- *  - `BY_SKILL` — bốc thử `AMERICANO_SEATING_TRIES` cách xếp rồi giữ cách cho các cặp cân sức
- *                 nhất. Vẫn ngẫu nhiên (nhiều cách xếp cùng điểm) nên chia lại vẫn ra kèo khác,
- *                 mà phương sai tổng trình mỗi cặp giảm khoảng một nửa so với xếp theo thứ tự.
- */
-function americanoSeating(players: AmericanoPlayer[], rule: PairingRule, rounds: [number, number][][]): AmericanoPlayer[] {
-  let best = shuffle(players);
-  if (rule !== 'BY_SKILL') return best;
-  let bestScore = seatingImbalance(best, rounds);
-  for (let attempt = 1; attempt < AMERICANO_SEATING_TRIES && bestScore > 0; attempt++) {
-    const candidate = shuffle(players);
-    const score = seatingImbalance(candidate, rounds);
-    if (score < bestScore) {
-      best = candidate;
-      bestScore = score;
-    }
-  }
-  return best;
-}
-
-/** Phương sai tổng trình của mọi cặp mà cách xếp chỗ này sinh ra — càng nhỏ thì kèo càng cân. */
-function seatingImbalance(seats: AmericanoPlayer[], rounds: [number, number][][]): number {
-  const totals: number[] = [];
-  for (const round of rounds) for (const [first, second] of round) totals.push(seats[first].skill + seats[second].skill);
-  if (!totals.length) return 0;
-  const mean = totals.reduce((sum, value) => sum + value, 0) / totals.length;
-  return totals.reduce((sum, value) => sum + (value - mean) ** 2, 0) / totals.length;
-}
-
-/**
- * Chia toàn bộ cặp có thể thành từng vòng, mỗi vòng là danh sách trận (hai cặp một trận).
- *
- * Dùng ĐÚNG thuật toán vòng tròn của `roundRobinRounds`, chỉ khác cách đọc kết quả: ở giải
- * thường mỗi kết quả `[x, y]` là "x ĐẤU VỚI y", ở đây là "x ĐÁNH CHUNG ĐỘI với y". Nhờ vậy mỗi
- * vòng chắc chắn dùng hết mọi người đúng một lần và sau n-1 vòng thì mọi cặp đều đã xuất hiện.
- *
- * KHÔNG dùng cách tham lam "bốc dần từ rổ mọi cặp": nó không đảm bảo mỗi vòng phủ hết người,
- * nên có lần 8 người chỉ ra 13 trận thay vì 14 — đã bị test bắt tại chỗ.
- *
- * Ghép trên CHỈ SỐ chứ không trên tên: hai VĐV trùng tên hiển thị vẫn phải là hai người.
+ * Vòng r: người mạnh thứ i đi với người yếu thứ (i + r) mod n/2 — sau n/2 vòng mỗi người đã đi
+ * với đủ mọi người bên kia đúng một lần. Ghép trên CHỈ SỐ chứ không trên tên: hai VĐV trùng
+ * tên hiển thị vẫn phải là hai người.
  */
 function americanoRounds(players: AmericanoPlayer[], rule: PairingRule): [AmericanoPair, AmericanoPair][][] {
+  const [strong, weak] = americanoSides(players, rule);
+  const size = strong.length;
+  // Số lần đã nghỉ của từng người: cặp phải nghỉ (lẻ cặp) là cặp nghỉ ít nhất, để ai cũng nghỉ đều.
+  const rests = new Map<number, number>(players.map((player) => [player.index, 0]));
+  const rest = (player: AmericanoPlayer) => rests.set(player.index, (rests.get(player.index) || 0) + 1);
   const rounds: [AmericanoPair, AmericanoPair][][] = [];
-  // Cặp bị lẻ ra ở mỗi vòng (số cặp trong vòng là số lẻ) — dồn lại đấu ở các vòng phụ cuối giải.
-  const spillover: AmericanoPair[] = [];
-  // Mỗi vòng cho mỗi người thêm ĐÚNG một người đánh chung, nên số vòng chính là số người tối đa
-  // được ghép cặp. Cắt ở đây thay vì cắt trận ở cuối để không ai bị ghép quá hạn mức.
-  const partnerRounds = seatPairRounds(players.length);
-  const seats = americanoSeating(players, rule, partnerRounds);
 
-  for (const [roundIndex, roundPairs] of partnerRounds.entries()) {
-    const pairs = roundPairs.map(([first, second]) => makePair(seats[first], seats[second]));
-    // Lẻ một cặp thì phải hoãn một cặp sang vòng phụ. CHỌN cặp không dùng chung người với những
-    // cặp đã hoãn trước đó: các cặp hoãn mà rời nhau thì vòng phụ ghép được thành trận, còn dồn
-    // toàn cặp chung người thì chúng kẹt lại và giải bị hụt trận.
+  for (let roundIndex = 0; roundIndex < size; roundIndex++) {
+    const pairs: AmericanoPair[] = [];
+    strong.forEach((first, index) => {
+      const second = weak[(index + roundIndex) % size];
+      if (second) pairs.push(makePair(first, second));
+      else rest(first);
+    });
     if (pairs.length % 2) {
-      const held = new Set(spillover.flatMap((pair) => [pair.first.index, pair.second.index]));
-      const free = pairs.findIndex((pair) => !held.has(pair.first.index) && !held.has(pair.second.index));
-      spillover.push(...pairs.splice(free >= 0 ? free : roundIndex % pairs.length, 1));
+      let restingIndex = 0;
+      let fewest = Number.POSITIVE_INFINITY;
+      pairs.forEach((pair, index) => {
+        const score = (rests.get(pair.first.index) || 0) + (rests.get(pair.second.index) || 0);
+        if (score < fewest) {
+          fewest = score;
+          restingIndex = index;
+        }
+      });
+      const [resting] = pairs.splice(restingIndex, 1);
+      rest(resting.first);
+      rest(resting.second);
     }
     const round = toMatches(pairs, rule);
     if (round.length) rounds.push(round);
   }
-
-  rounds.push(...spilloverRounds(spillover, rule));
-  return rounds;
-}
-
-/**
- * Xếp nốt các cặp bị hoãn: mỗi vòng phụ bốc ra những cặp không dùng chung người rồi ghép thành
- * trận. Dừng khi không còn bốc nổi hai cặp rời nhau — phần dư cuối cùng là giới hạn số học của
- * thể thức (xem ghi chú ở buildAmericanoMatches), không phải lỗi.
- */
-function spilloverRounds(pairs: AmericanoPair[], rule: PairingRule): [AmericanoPair, AmericanoPair][][] {
-  const rounds: [AmericanoPair, AmericanoPair][][] = [];
-  let pool = pairs;
-
-  while (pool.length > 1) {
-    const used = new Set<number>();
-    const picked: AmericanoPair[] = [];
-    const rest: AmericanoPair[] = [];
-    for (const pair of pool) {
-      if (used.has(pair.first.index) || used.has(pair.second.index)) {
-        rest.push(pair);
-        continue;
-      }
-      used.add(pair.first.index);
-      used.add(pair.second.index);
-      picked.push(pair);
-    }
-    if (picked.length < 2) break;
-    if (picked.length % 2) rest.push(picked.pop() as AmericanoPair);
-    rounds.push(toMatches(picked, rule));
-    pool = rest;
-  }
-
   return rounds;
 }
 

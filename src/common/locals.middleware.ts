@@ -14,6 +14,11 @@ export class LocalsMiddleware implements NestMiddleware {
     // wildcard nên Express cắt tiền tố khỏi req.url, làm req.path luôn ra "/" ở mọi trang.
     // Hậu quả là menu theo từng mục ở bottom-menu.ejs không bao giờ khớp.
     res.locals.path = req.originalUrl.split('?')[0];
+    // Thông báo một lần sau redirect (req.session.flash): đọc xong là xoá để lần tải sau không hiện lại.
+    if (req.session?.flash) {
+      res.locals.flash = req.session.flash;
+      delete req.session.flash;
+    }
     next();
   }
 }

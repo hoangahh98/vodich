@@ -210,7 +210,7 @@ test('vòng quay không hiện ở thể thức đôi xoay vòng (đội tự đ
   assert.doesNotMatch(html, /data-spin-modal/);
 });
 
-test('tournament create and edit forms render prize settings', async () => {
+test('tournament create form only asks for info; prize settings live in Cài đặt', async () => {
   const common = commonLocals('/tournaments/new');
   const createHtml = await renderView('tournaments/form.ejs', {
     ...common,
@@ -247,10 +247,20 @@ test('tournament create and edit forms render prize settings', async () => {
     prizeTotalPaid: 500,
   });
 
-  assert.match(createHtml, /data-prize-fund/);
+  assert.doesNotMatch(createHtml, /data-prize-fund/);
+  assert.doesNotMatch(createHtml, /name="courtCost"/);
+  assert.match(createHtml, /name="name"/);
   assert.match(createHtml, /Tạo giải|Táº¡o giáº£i/);
-  assert.match(editHtml, /data-manual-prize-suggestion/);
+  assert.doesNotMatch(editHtml, /name="prizeRate1"/);
   assert.match(editHtml, /\/tournaments\/1\/edit/);
+
+  // Cấu hình (thể thức, lệ phí + chi phí, giải thưởng) nằm ở mục Cài đặt, gửi về /config.
+  const settingsHtml = await renderView('tournaments/detail.ejs', tournamentLocals('settings'));
+  assert.match(settingsHtml, /\/tournaments\/1\/config/);
+  assert.match(settingsHtml, /name="feePerPlayer"[^>]*required/);
+  assert.match(settingsHtml, /data-prize-fund/);
+  assert.match(settingsHtml, /data-manual-prize-suggestion/);
+  assert.match(settingsHtml, /data-min-teams="6"/);
 });
 
 test('external registration flow views render form and success login link', async () => {

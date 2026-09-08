@@ -4,7 +4,7 @@ import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
 import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere, isRootAdmin, ownedOrSharedWhere } from '../common/admin-scope';
 import { clientTournamentWhere } from '../common/player-scope';
-import { buildTournamentData, normalizePrizes, operatingCostFromForm } from './tournament-form';
+import { buildTournamentConfig, buildTournamentData, buildTournamentInfo, normalizePrizes, operatingCostFromForm } from './tournament-form';
 import { minimumFeeForTournament } from './tournament-money';
 
 @Injectable()
@@ -68,13 +68,20 @@ export class TournamentCrudService {
     });
   }
 
-  async update(id: bigint, form: Record<string, unknown>) {
+  /** Form "Sửa thông tin giải": chỉ đụng tên, địa điểm, giờ, sân, số người, đăng ký ngoài. */
+  async updateInfo(id: bigint, form: Record<string, unknown>) {
     return this.prisma.tournament.update({
       where: { id },
-      data: {
-        ...buildTournamentData(form, normalizePrizes(form)),
-        updatedAt: new Date(),
-      },
+      data: { ...buildTournamentInfo(form), updatedAt: new Date() },
+    });
+  }
+
+  /** Form cấu hình ở Cài đặt: thể thức, điểm, lệ phí + chi phí, giải thưởng. Số người lấy từ giải đang lưu. */
+  async updateConfig(id: bigint, form: Record<string, unknown>) {
+    const existing = await this.findTournament(id);
+    return this.prisma.tournament.update({
+      where: { id },
+      data: { ...buildTournamentConfig(form, normalizePrizes(form), existing.expectedPlayers), updatedAt: new Date() },
     });
   }
 

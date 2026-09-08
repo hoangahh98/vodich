@@ -56,8 +56,12 @@ export class TournamentService {
     return this.crud.create(form, user);
   }
 
-  update(id: bigint, form: Record<string, unknown>) {
-    return this.crud.update(id, form);
+  updateInfo(id: bigint, form: Record<string, unknown>) {
+    return this.crud.updateInfo(id, form);
+  }
+
+  updateConfig(id: bigint, form: Record<string, unknown>) {
+    return this.crud.updateConfig(id, form);
   }
 
   registerPlayer(tournamentId: bigint, playerId: bigint) {

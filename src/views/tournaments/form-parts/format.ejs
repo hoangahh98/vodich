@@ -1,25 +1,28 @@
 <section class="form-section">
   <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'puzzle' }) %> Thể thức thi đấu</h2>
+  <div class="row mb">
+    <div class="col-12"><label>Loại đấu</label><select name="playType"><option value="SINGLES" <%= tournament?.playType !== 'DOUBLES' ? 'selected' : '' %>>Thi đơn</option><option value="DOUBLES" <%= tournament?.playType === 'DOUBLES' ? 'selected' : '' %>>Thi đôi</option></select></div>
+  </div>
   <div class="segmented segmented-3">
     <label><input type="radio" name="format" value="ROUND_ROBIN" <%= (tournament?.format || 'ROUND_ROBIN') === 'ROUND_ROBIN' ? 'checked' : '' %>> Vòng tròn</label>
     <label><input type="radio" name="format" value="GROUP_KNOCKOUT" <%= tournament?.format === 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Đánh bảng + vòng trong</label>
     <label><input type="radio" name="format" value="AMERICANO" <%= tournament?.format === 'AMERICANO' ? 'checked' : '' %>> Đôi xoay vòng <small>(Americano)</small></label>
   </div>
-  <p class="muted mt" id="americanoNote">Đôi xoay vòng: mỗi người lần lượt đánh chung đội với từng người còn lại, xếp hạng theo từng cá nhân. Luôn là đánh đôi.</p>
-  <div id="knockoutQualifierField" class="mt">
+  <p class="muted mt" id="americanoNote">Đôi xoay vòng: chia hai bên, mỗi người lần lượt đánh chung đội với từng người bên kia (phân trình: bên mạnh đi với bên yếu; không phân trình: xáo ngẫu nhiên). Xếp hạng theo từng cá nhân. Luôn là đánh đôi.</p>
+  <div id="knockoutQualifierField" class="mt" data-expected-players="<%= tournament?.expectedPlayers || 10 %>">
     <input type="hidden" name="knockoutQualifierCount" id="knockoutQualifierCount" value="<%= tournament?.knockoutQualifierCount || 2 %>">
     <div class="knockout-option-grid">
       <div>
         <label class="option-card"><input type="checkbox" id="knockoutFinal" data-value="2" data-min-teams="4" checked> Chung kết <small>Lấy 2 đội</small></label>
       </div>
       <div>
-        <label class="option-card"><input type="checkbox" id="knockoutSemi" data-value="4" data-min-teams="8" <%= (tournament?.knockoutQualifierCount || 2) >= 4 ? 'checked' : '' %>> Bán kết <small>Lấy 4 đội</small></label>
+        <label class="option-card"><input type="checkbox" id="knockoutSemi" data-value="4" data-min-teams="6" <%= (tournament?.knockoutQualifierCount || 2) >= 4 ? 'checked' : '' %>> Bán kết <small>Lấy 4 đội</small></label>
       </div>
       <div>
-        <label class="option-card"><input type="checkbox" id="knockoutQuarter" data-value="8" data-min-teams="16" <%= (tournament?.knockoutQualifierCount || 2) >= 8 ? 'checked' : '' %>> Tứ kết <small>Lấy 8 đội</small></label>
+        <label class="option-card"><input type="checkbox" id="knockoutQuarter" data-value="8" data-min-teams="12" <%= (tournament?.knockoutQualifierCount || 2) >= 8 ? 'checked' : '' %>> Tứ kết <small>Lấy 8 đội</small></label>
       </div>
     </div>
-    <p class="muted mt">Chỉ hiện cấu hình vòng trong khi chọn đánh bảng. Vòng tròn vẫn giữ bảng xếp hạng bình thường.</p>
+    <p class="muted mt">Bán kết cần từ 6 đội (2 bảng 3, hoặc 3 + 4), tứ kết cần từ 12 đội. Số đội tính theo số thành viên dự kiến ở Thông tin giải.</p>
     <div class="row mt">
       <div class="col-6"><label>Chạm điểm vòng trong</label><input type="number" name="knockoutTouchScore" value="<%= tournament?.knockoutTouchScore || 15 %>" min="1"></div>
       <div class="col-6"><label>Max điểm vòng trong</label><input type="number" name="knockoutMaxScore" value="<%= tournament?.knockoutMaxScore || 19 %>" min="1"></div>
