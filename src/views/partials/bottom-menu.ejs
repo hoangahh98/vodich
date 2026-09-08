@@ -23,7 +23,6 @@
         <% if (featureSet.has('TEAMS')) { %><a class="" href="/teams"><%- include('icon', { name: 'ball' }) %><span>Đội bóng</span></a><% } %>
       <% } else if (currentPath.startsWith('/tournaments') && featureSet.has('TOURNAMENTS')) { %>
         <a class="active" href="/tournaments"><%- include('icon', { name: 'trophy' }) %><span>Giải đấu</span></a>
-        <% if (isAdmin) { %><a class="" href="/players"><%- include('icon', { name: 'users' }) %><span>Thành viên</span></a><a class="" href="/groups"><%- include('icon', { name: 'list' }) %><span>Nhóm</span></a><% } %>
       <% } else if (currentPath.startsWith('/teams') && featureSet.has('TEAMS')) { %>
         <a class="active" href="/teams"><%- include('icon', { name: 'ball' }) %><span>Đội bóng</span></a>
       <% } else if (currentPath.startsWith('/permissions') && featureSet.has('PERMISSIONS')) { %>

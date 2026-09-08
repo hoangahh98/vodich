@@ -1,6 +1,6 @@
-<nav class="bottom-nav" aria-label="Điều hướng giải"><div class="bottom-nav-inner">
-  <a class="" href="/tournaments"><%- include('../../partials/icon', { name: 'home' }) %><span>Các giải</span></a>
-  <% (currentUser.role === 'ADMIN' ? ['players','fund','ranking','schedule','fees','settings'] : ['players','fund','ranking','schedule','fees']).forEach((item) => { const labels = {players:'Thành viên', fund:'Quỹ', ranking:'BXH', schedule:'Thi đấu', fees:'Đóng phí', settings:'Cài đặt'}; const icons = {players:'users', fund:'wallet', ranking:'chart', schedule:'calendar', fees:'card', settings:'settings'}; %><a class="<%= section === item ? 'active' : '' %>" href="/tournaments/<%= tournament.id %>/<%= item %>"><%- include('../../partials/icon', { name: icons[item] }) %><span><%= labels[item] %></span></a><% }) %>
+<nav class="bottom-nav" aria-label="Điều hướng"><div class="bottom-nav-inner">
+  <a class="" href="/"><%- include('../../partials/icon', { name: 'home' }) %><span>Trang chủ</span></a>
+  <a class="active" href="/tournaments"><%- include('../../partials/icon', { name: 'trophy' }) %><span>Giải đấu</span></a>
 </div></nav>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>

@@ -504,6 +504,7 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .ranking-table th:nth-child(6), .ranking-table td:nth-child(6),
 .ranking-table th:nth-child(7), .ranking-table td:nth-child(7) { width: 86px; }
 .ranking-table td { font-variant-numeric: tabular-nums; }
+.ranking-table th { background: var(--paper); color: var(--muted); font-size: 11.5px; letter-spacing: .12em; }
 .ranking-board-list { display: grid; gap: 14px; }
 .ranking-board { border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; background: #fff; }
 .ranking-board .table-wrap { border: 0; border-radius: 0; }
@@ -638,7 +639,9 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .member-table { border: 0; border-radius: 0; }
 .member-table:last-child { border-radius: 0 0 var(--radius) var(--radius); }
 .member-table .paid-of { justify-content: flex-end; }
-.member-table .paid-of input { width: 120px; }
+.member-table .paid-of input, .member-table input.money-input { width: 120px; }
+.member-table .check-col { width: 46px; }
+.member-table select { min-width: 0; }
 .member-table .nowrap { white-space: nowrap; }
 .member-table .row-action { width: 1%; white-space: nowrap; }
 .member-table .row-action form { display: inline-block; }
@@ -713,9 +716,9 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .bottom-nav a:active { transform: translateY(2px); }
 
 /* ─── Lịch thi đấu ────────────────────────────────────────────────────────────────── */
-.vong-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px !important; border-radius: var(--radius-xs); background: var(--court-grad); color: #fff !important; font-family: var(--display); font-weight: 500 !important; text-transform: uppercase; letter-spacing: .08em; font-size: 14px; }
-.vong-header small { color: rgba(255, 255, 255, .65) !important; font-family: var(--font); text-transform: none; letter-spacing: 0; font-size: 12.5px; }
-.vong-header .ic { color: var(--lime); }
+.vong-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px !important; border-radius: var(--radius-xs); background: var(--paper); border: 1px solid var(--line); color: var(--ink) !important; font-family: var(--display); font-weight: 600 !important; text-transform: uppercase; letter-spacing: .08em; font-size: 14px; }
+.vong-header small { color: var(--muted) !important; font-family: var(--font); text-transform: none; letter-spacing: 0; font-size: 12.5px; }
+.vong-header .ic { color: var(--court); }
 .court-column .border { position: relative; background: #fff; border-color: var(--line) !important; border-radius: var(--radius-sm); padding: 12px !important; }
 .court-title { display: flex; align-items: center; justify-content: center; gap: 6px; font-family: var(--display); font-weight: 500; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); font-size: 12px; margin-bottom: 10px; }
 .court-title .ic { color: var(--ink); }
@@ -739,7 +742,7 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .match-status { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
 .score-section small { font-size: 11.5px; }
 .group-board { border: 1px solid var(--line); border-radius: var(--radius-sm); overflow: hidden; background: #fff; }
-.group-board-title { background: var(--court-grad); color: #fff; font-family: var(--display); font-weight: 500; text-transform: uppercase; letter-spacing: .1em; text-align: center; padding: 8px; font-size: 13px; }
+.group-board-title { background: var(--paper); color: var(--ink); border-bottom: 1px solid var(--line); font-family: var(--display); font-weight: 500; text-transform: uppercase; letter-spacing: .1em; text-align: center; padding: 8px; font-size: 13px; }
 .group-team-row { padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: .88rem; font-weight: 600; }
 .group-team-row:last-child { border-bottom: 0; }
 .schedule-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
@@ -999,7 +1002,7 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
   .paid-cell strong { font-size: 15px; }
   .guest-receipt-form .receipt-who, .guest-receipt-form .receipt-date, .guest-receipt-form .receipt-amount, .guest-receipt-form .receipt-action { padding-bottom: 0; }
   .guest-receipt-form .field-hint { position: static; }
-  .member-table .paid-of input { width: 104px; }
+  .member-table .paid-of input, .member-table input.money-input { width: 104px; }
   .guest-receipt-form { grid-template-columns: 1fr; }
   .guest-receipt-form .receipt-date input { width: 100%; }
   .ranking-board { min-width: 0; }

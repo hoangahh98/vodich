@@ -2,6 +2,10 @@
 <%- include('../partials/topbar') %>
 <main class="app-shell" data-tournament-id="<%= tournament.id %>">
   <%- include('detail-parts/hero', detailContext) %>
+  <%# Các mục của giải nằm ở dải tab này; thanh dưới đáy chỉ còn Trang chủ + Giải đấu (giống trang đội). %>
+  <nav class="section-tabs" aria-label="Mục trong giải">
+    <% (currentUser.role === 'ADMIN' ? ['players','fund','ranking','schedule','fees','settings'] : ['players','fund','ranking','schedule','fees']).forEach((item) => { const labels = {players:'Thành viên', fund:'Quỹ', ranking:'BXH', schedule:'Thi đấu', fees:'Đóng phí', settings:'Cài đặt'}; const icons = {players:'users', fund:'wallet', ranking:'chart', schedule:'calendar', fees:'card', settings:'settings'}; %><a class="<%= section === item ? 'active' : '' %>" href="/tournaments/<%= tournament.id %>/<%= item %>"><%- include('../partials/icon', { name: icons[item] }) %><span><%= labels[item] %></span></a><% }) %>
+  </nav>
   <%- include('detail-parts/players', detailContext) %>
   <%- include('detail-parts/fund', detailContext) %>
   <%- include('detail-parts/ranking', detailContext) %>

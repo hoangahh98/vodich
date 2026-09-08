@@ -1,9 +1,17 @@
   <% if (section === 'fees') { %>
-    <section class="card-lite p"><div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'card' }) %></span><h2 class="section-title">Danh sách đóng phí</h2><p class="muted">Dòng xanh là đủ phí, dòng vàng là còn thiếu.</p></div></div>
-      <% if (currentUser.role === 'ADMIN') { %><form method="post" action="/tournaments/<%= tournament.id %>/payments"><% } %>
-      <div class="table-wrap"><table><thead><tr><th>Tên</th><th>Số tiền</th><th>Trạng thái</th></tr></thead><tbody>
-        <% registrations.forEach((r) => { const feeAmount = Number(r.paidAmount || 0) > 0 ? Number(r.paidAmount) : minimumFee; const mine = String(r.player ? r.player.email : r.externalEmail || '').toLowerCase() === currentEmail; %><tr class="<%= feeAmount >= minimumFee ? 'sufficient-row' : 'insufficient-row' %> <%= mine ? 'mine-row' : '' %>"><td><strong><%= r.player ? r.player.displayName : r.externalName %></strong></td><% if (currentUser.role === 'ADMIN') { %><td><input class="money-input" name="amount_<%= r.id %>" value="<%= formatMoney(feeAmount) %>"></td><td><select class="payment-status-select" name="status_<%= r.id %>"><option value="UNPAID" <%= r.paymentStatus === 'UNPAID' ? 'selected' : '' %>>✕</option><option value="PAID" <%= r.paymentStatus === 'PAID' ? 'selected' : '' %>>✓</option></select></td><% } else { %><td><%= formatMoney(feeAmount) %>đ</td><td><span class="payment-mark <%= r.paymentStatus === 'PAID' ? 'paid' : 'unpaid' %>"><%= r.paymentStatus === 'PAID' ? '✓' : '✕' %></span></td><% } %></tr><% }) %>
-      </tbody></table></div>
-      <% if (currentUser.role === 'ADMIN') { %><div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu tất cả</button></div></form><% } %>
+    <% const isFeeAdmin = currentUser.role === 'ADMIN'; const paidCount = registrations.filter((r) => r.paymentStatus === 'PAID').length; %>
+    <section class="card-lite p mb">
+      <div class="section-heading">
+        <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'card' }) %></span><h2 class="section-title">Đóng phí</h2><p class="muted">Lệ phí <%= formatMoney(minimumFee) %>đ/người. Dòng xanh là đủ phí, dòng vàng là còn thiếu.</p></div>
+        <span class="badge badge-dark"><%= paidCount %>/<%= registrations.length %> đã đóng</span>
+      </div>
     </section>
+
+    <% if (isFeeAdmin) { %><form class="card-lite" method="post" action="/tournaments/<%= tournament.id %>/payments"><% } else { %><section class="card-lite"><% } %>
+      <div class="card-hdr green"><span><%- include('../../partials/icon', { name: 'users' }) %> Chính thức</span><span class="badge badge-dark">Đã thu <%= formatMoney(totalPaid) %>đ</span></div>
+      <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Tên</th><th class="text-right">Số tiền</th><th class="text-right">Trạng thái</th></tr></thead><tbody>
+        <% registrations.forEach((r) => { const feeAmount = Number(r.paidAmount || 0) > 0 ? Number(r.paidAmount) : minimumFee; const mine = String(r.player ? r.player.email : r.externalEmail || '').toLowerCase() === currentEmail; %><tr class="<%= feeAmount >= minimumFee ? 'sufficient-row' : 'insufficient-row' %> <%= mine ? 'mine-row' : '' %>"><td><strong><%= r.player ? r.player.displayName : r.externalName %></strong></td><% if (isFeeAdmin) { %><td class="text-right"><input class="money-input" name="amount_<%= r.id %>" value="<%= formatMoney(feeAmount) %>" aria-label="Số tiền của <%= r.player ? r.player.displayName : r.externalName %>"></td><td class="text-right"><select class="payment-status-select" name="status_<%= r.id %>" aria-label="Trạng thái"><option value="UNPAID" <%= r.paymentStatus === 'UNPAID' ? 'selected' : '' %>>✕</option><option value="PAID" <%= r.paymentStatus === 'PAID' ? 'selected' : '' %>>✓</option></select></td><% } else { %><td class="text-right paid-cell"><strong><%= formatMoney(feeAmount) %></strong><span class="muted">đ</span></td><td class="text-right"><span class="payment-mark <%= r.paymentStatus === 'PAID' ? 'paid' : 'unpaid' %>"><%= r.paymentStatus === 'PAID' ? '✓' : '✕' %></span></td><% } %></tr><% }) %>
+        <% if (!registrations.length) { %><tr><td colspan="3" class="muted text-center">Chưa có thành viên chính thức.</td></tr><% } %>
+      </tbody></table></div>
+      <% if (isFeeAdmin) { %><div class="card-foot"><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu tất cả</button></div></form><% } else { %></section><% } %>
   <% } %>
