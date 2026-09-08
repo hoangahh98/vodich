@@ -10,13 +10,14 @@
           list.push(match);
           roundMap.set(match.roundNumber, list);
         });
+        // Icon đứng trước tiêu đề do round-list.ejs vẽ (cúp cho vòng trong, mũi tên xoay cho vòng thường).
         const roundTitle = (round, list) => {
           const stage = list.find((item) => isKnockoutStage(item.stage))?.stage;
-          if (stage) return `🏆 ${stage.toUpperCase()}`;
-          if (round === 100) return '🏆 TỨ KẾT';
-          if (round === 101) return '🏆 BÁN KẾT';
-          if (round === 102) return '🏆 CHUNG KẾT';
-          return tournament.format === 'GROUP_KNOCKOUT' ? `🔄 LƯỢT ${round}` : `🔄 VÒNG ${round}`;
+          if (stage) return stage.toUpperCase();
+          if (round === 100) return 'TỨ KẾT';
+          if (round === 101) return 'BÁN KẾT';
+          if (round === 102) return 'CHUNG KẾT';
+          return tournament.format === 'GROUP_KNOCKOUT' ? `LƯỢT ${round}` : `VÒNG ${round}`;
         };
       %>
       <%- include('schedule-parts/empty-state') %>

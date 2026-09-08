@@ -16,6 +16,8 @@ model AppUser {
   createdAt    DateTime @default(now()) @map("created_at")
 
   permissions           AdminFeaturePermission[]
+  grantedTournamentAccess PlayerTournamentAccess[] @relation("PlayerTournamentAccessGrantedBy")
+  grantedTeamAccess       PlayerTeamAccess[]       @relation("PlayerTeamAccessGrantedBy")
   ownedTournaments      Tournament[]             @relation("TournamentOwner")
   tournamentPermissions TournamentPermission[]
   ownedTeams            TeamClub[]               @relation("TeamClubOwner")
@@ -43,8 +45,10 @@ model Player {
   notes       String?
   createdAt   DateTime @default(now()) @map("created_at")
 
-  registrations TournamentRegistration[]
-  teamMembers   TeamMember[]
+  registrations    TournamentRegistration[]
+  teamMembers      TeamMember[]
+  tournamentAccess PlayerTournamentAccess[]
+  teamAccess       PlayerTeamAccess[]
 
   @@map("player")
 }
@@ -81,8 +85,27 @@ model Tournament {
   registrations TournamentRegistration[]
   matches       MatchGame[]
   permissions   TournamentPermission[]
+  playerAccess  PlayerTournamentAccess[]
 
   @@map("tournament")
+}
+
+// Quyền XEM giải của một vận động viên (vai CLIENT). Cấp ở màn hình Thành viên, hoặc tự cấp khi
+// admin thêm người vào giải. Có tên trong giải KHÔNG còn tự động = được xem giải (xem docs/bao-mat.md).
+model PlayerTournamentAccess {
+  id               BigInt   @id @default(autoincrement())
+  playerId         BigInt   @map("player_id")
+  tournamentId     BigInt   @map("tournament_id")
+  grantedByAdminId BigInt?  @map("granted_by_admin_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  player     Player     @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  grantedBy  AppUser?   @relation("PlayerTournamentAccessGrantedBy", fields: [grantedByAdminId], references: [id], onDelete: SetNull)
+
+  @@unique([playerId, tournamentId])
+  @@index([tournamentId])
+  @@map("player_tournament_access")
 }
 
 model TournamentPermission {
@@ -153,10 +176,27 @@ model TeamClub {
   ownerAdmin  AppUser?             @relation("TeamClubOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
   members     TeamMember[]
   funds       TeamMonthFund[]
-  expenses    TeamExpense[]
-  permissions TeamClubPermission[]
+  expenses     TeamExpense[]
+  permissions  TeamClubPermission[]
+  playerAccess PlayerTeamAccess[]
 
   @@map("team_club")
+}
+
+model PlayerTeamAccess {
+  id               BigInt   @id @default(autoincrement())
+  playerId         BigInt   @map("player_id")
+  teamId           BigInt   @map("team_id")
+  grantedByAdminId BigInt?  @map("granted_by_admin_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  player    Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  team      TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  grantedBy AppUser? @relation("PlayerTeamAccessGrantedBy", fields: [grantedByAdminId], references: [id], onDelete: SetNull)
+
+  @@unique([playerId, teamId])
+  @@index([teamId])
+  @@map("player_team_access")
 }
 
 model TeamClubPermission {

@@ -1,6 +1,6 @@
 <% if (currentUser.role === 'ADMIN' && tournament.playType === 'DOUBLES' && registrations.length >= 2) { %>
   <details class="manual-pair-box mb">
-    <summary>Ghép đội thủ công</summary>
+    <summary><%- include('../../../partials/icon', { name: 'users' }) %> Ghép đội thủ công</summary>
     <form method="post" action="/tournaments/<%= tournament.id %>/manual-schedule" data-confirm="Ghép đội thủ công sẽ xóa các trận và tỷ số hiện tại. Tiếp tục?">
       <% const pairCount = Math.floor(registrations.length / 2); %>
       <input type="hidden" name="pairCount" value="<%= pairCount %>">
@@ -16,7 +16,7 @@
         <% } %>
       </div>
       <div class="mt">
-        <button class="btn btn-primary" data-loading-text="Đang tạo...">Tạo trận từ đội đã ghép</button>
+        <button class="btn btn-primary" data-loading-text="Đang tạo..."><%- include('../../../partials/icon', { name: 'check' }) %> Tạo trận từ đội đã ghép</button>
         <p class="muted mt">Chỉ cần chốt những đội muốn cố định — ai chưa được xếp sẽ được ghép nốt theo quy tắc của giải
           (<strong><%= tournament.pairingRule === 'RANDOM' ? 'không phân trình' : 'phân trình' %></strong>).
           Đội mới chọn một người coi như chưa ghép, người đó vào chung rổ ghép tự động.</p>

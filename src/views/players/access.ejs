@@ -1,0 +1,52 @@
+<%- include('../partials/head', { title: `Quyền xem — ${player.displayName}` }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell narrow-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <div class="hero-eyebrow">Thành viên</div>
+        <h1><%= player.displayName %></h1>
+        <div class="hero-meta">
+          <span><%- include('../partials/icon', { name: 'mail' }) %><%= player.email %></span>
+          <span><%- include('../partials/icon', { name: 'medal' }) %>Trình <%= player.skillLevel || 'chưa chọn' %></span>
+        </div>
+      </div>
+      <div class="feature-hero-art"><div class="ball3d" aria-hidden="true"></div></div>
+    </div>
+  </section>
+
+  <section class="card-lite p">
+    <div class="section-heading mb">
+      <div><span class="feature-icon"><%- include('../partials/icon', { name: 'shield' }) %></span><h2 class="section-title">Quyền xem</h2><p class="muted">Tích vào giải đấu, đội bóng mà thành viên này được vào xem khi đăng nhập. <% if (!isRoot) { %>Bạn chỉ thấy các giải/đội do mình tạo hoặc được chia sẻ quyền quản lý.<% } %></p></div>
+    </div>
+    <form method="post" action="/players/<%= player.id %>/access">
+      <% if (featureSet.has('TOURNAMENTS')) { %>
+        <section class="form-section">
+          <h2 class="section-title mb"><%- include('../partials/icon', { name: 'trophy' }) %> Giải đấu</h2>
+          <% if (!tournaments.length) { %><p class="muted">Chưa có giải nào trong phạm vi của bạn.</p><% } %>
+          <div class="grid module-grid">
+            <% tournaments.forEach((item) => { %>
+              <label class="option-card"><input type="checkbox" name="tournamentIds" value="<%= item.id %>" <%= item.granted ? 'checked' : '' %>> <span><%= item.name %></span></label>
+            <% }) %>
+          </div>
+        </section>
+      <% } %>
+      <% if (featureSet.has('TEAMS')) { %>
+        <section class="form-section">
+          <h2 class="section-title mb"><%- include('../partials/icon', { name: 'ball' }) %> Đội bóng</h2>
+          <% if (!teams.length) { %><p class="muted">Chưa có đội nào trong phạm vi của bạn.</p><% } %>
+          <div class="grid module-grid">
+            <% teams.forEach((item) => { %>
+              <label class="option-card"><input type="checkbox" name="teamIds" value="<%= item.id %>" <%= item.granted ? 'checked' : '' %>> <span><%= item.name %></span></label>
+            <% }) %>
+          </div>
+        </section>
+      <% } %>
+      <div class="form-actions">
+        <button class="btn btn-success btn-lg" data-loading-text="Đang lưu..."><%- include('../partials/icon', { name: 'save' }) %> Lưu quyền xem</button>
+        <a class="btn btn-lg" href="/players">Quay lại</a>
+      </div>
+    </form>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

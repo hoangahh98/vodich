@@ -3,11 +3,11 @@
   <% const isTeamMemberMine = (member) => String(member.player.email || '').toLowerCase() === memberCurrentEmail; %>
   <section class="card-lite p">
     <div class="section-heading mb">
-      <div><span class="feature-icon">👥</span><h2 class="section-title">Thành viên và đóng phí</h2><p class="muted">Danh sách đóng phí nằm ngay trong mục thành viên.</p></div>
+      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'users' }) %></span><h2 class="section-title">Thành viên và đóng phí</h2><p class="muted">Danh sách đóng phí nằm ngay trong mục thành viên.</p></div>
       <% if (currentUser.role === 'ADMIN' && members.length) { %>
         <div class="hero-action-buttons">
-          <button class="btn btn-sm btn-outline" type="button" data-open-modal="teamEmailModal">Get Email</button>
-          <button class="btn btn-sm btn-success" type="button" data-open-modal="teamContentModal">Content mẫu</button>
+          <button class="btn btn-sm btn-outline" type="button" data-open-modal="teamEmailModal"><%- include('../../partials/icon', { name: 'mail' }) %> Get Email</button>
+          <button class="btn btn-sm btn-success" type="button" data-open-modal="teamContentModal"><%- include('../../partials/icon', { name: 'copy' }) %> Content mẫu</button>
         </div>
       <% } %>
     </div>
@@ -25,14 +25,14 @@
           <div class="flex gap">
             <select name="memberType" class="team-member-type"><option value="FIXED">Cố định</option><option value="GUEST">Vãng lai</option></select>
             <input name="notes" placeholder="Ghi chú">
-            <button class="btn btn-primary" data-loading-text="Đang thêm...">Thêm đã chọn</button>
+            <button class="btn btn-primary" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm đã chọn</button>
           </div>
         </div>
       </form>
 
       <% if (members.length) { %>
         <details class="team-fee-edit mb">
-          <summary>✏️ Cập nhật phí tất cả thành viên</summary>
+          <summary><%- include('../../partials/icon', { name: 'edit' }) %> Cập nhật phí tất cả thành viên</summary>
           <form method="post" action="/teams/<%= team.id %>/payments">
             <input type="hidden" name="month" value="<%= selectedMonth %>">
             <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-fee-edit-table"><thead><tr><th class="sticky-col">Thành viên</th><th>Loại</th><th>Số tiền</th><th>Trạng thái</th><th>Ghi chú phí</th></tr></thead><tbody>
@@ -46,7 +46,7 @@
                 </tr>
               <% }) %>
             </tbody></table></div>
-            <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu tất cả (<%= members.length %> thành viên)</button></div>
+            <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu tất cả (<%= members.length %> thành viên)</button></div>
           </form>
         </details>
       <% } %>

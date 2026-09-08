@@ -1,11 +1,15 @@
 <%- include('../partials/head', { title: 'Thành viên' }) %>
 <%- include('../partials/topbar') %>
 <main class="app-shell players-shell">
-  <div class="flex between center mb">
-    <h1>Quản lý thành viên</h1>
+  <div class="page-title mb">
+    <div><h1>Quản lý thành viên</h1><div class="muted">Danh sách dùng chung cho mọi giải và đội bóng. Thành viên chỉ xem được giải/đội đã được cấp quyền ở cột "Quyền xem".</div></div>
+    <span class="badge badge-dark"><%= players.length %> thành viên</span>
   </div>
 
   <section class="card-lite p mb">
+    <div class="section-heading mb">
+      <div><span class="feature-icon"><%- include('../partials/icon', { name: 'plus' }) %></span><h2 class="section-title">Thêm thành viên</h2></div>
+    </div>
     <form class="player-create-form" method="post" action="/players">
       <div><label>Họ tên</label><input name="displayName" placeholder="Nguyễn Văn A" required></div>
       <div><label>Email</label><input name="email" type="email" placeholder="email@example.com" required></div>
@@ -17,14 +21,14 @@
 
   <section class="card-lite p">
     <div class="section-heading mb">
-      <div><span class="feature-icon">👥</span><h2 class="section-title">Danh sách thành viên</h2><p class="muted">Sửa trực tiếp nhiều người rồi lưu một lần.</p></div>
+      <div><span class="feature-icon"><%- include('../partials/icon', { name: 'users' }) %></span><h2 class="section-title">Danh sách thành viên</h2><p class="muted">Sửa trực tiếp nhiều người rồi lưu một lần.</p></div>
       <span class="badge"><%= players.length %> thành viên</span>
     </div>
     <form method="post" action="/players/bulk">
-      <div class="players-table-wrap">
+      <div class="table-wrap players-table-wrap">
         <table class="players-edit-table">
           <thead>
-            <tr><th>Họ tên / Email</th><th>Trình</th><th>Ghi chú</th></tr>
+            <tr><th>Họ tên / Email</th><th>Trình</th><th>Ghi chú</th><th>Quyền xem</th></tr>
           </thead>
           <tbody>
             <% players.forEach((p) => { %>
@@ -37,12 +41,17 @@
                 </td>
                 <td><select name="skillLevel_<%= p.id %>"><option value="" <%= !p.skillLevel ? 'selected' : '' %>>Chưa chọn</option><% ['A','B','C','D'].forEach((level) => { %><option value="<%= level %>" <%= p.skillLevel === level ? 'selected' : '' %>><%= level %></option><% }) %></select></td>
                 <td><input name="notes_<%= p.id %>" value="<%= p.notes || '' %>" placeholder="Ghi chú"></td>
+                <td class="access-cell">
+                  <% const accessCount = p._count || { tournamentAccess: 0, teamAccess: 0 }; %>
+                  <span class="badge <%= accessCount.tournamentAccess + accessCount.teamAccess ? '' : 'badge-warn' %>"><%= accessCount.tournamentAccess %> giải · <%= accessCount.teamAccess %> đội</span>
+                  <a class="btn btn-sm" href="/players/<%= p.id %>/access"><%- include('../partials/icon', { name: 'shield' }) %> Phân quyền</a>
+                </td>
               </tr>
             <% }) %>
           </tbody>
         </table>
       </div>
-      <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu thay đổi</button></div>
+      <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('../partials/icon', { name: 'save' }) %> Lưu thay đổi</button></div>
     </form>
   </section>
 </main>

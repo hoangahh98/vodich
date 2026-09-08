@@ -15,10 +15,11 @@
   const userChoices = users.some((item) => item.value === user) ? users : [...users, { value: user, label: `${user} (không có log)` }];
 %>
 <main class="app-shell">
-  <section class="card-lite p mb">
-    <div class="flex between center">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
       <div>
-        <h1>Theo dõi log hệ thống</h1>
+        <div class="hero-eyebrow">Hệ thống</div>
+        <h1>Theo dõi log</h1>
         <p class="muted">Thời gian hiển thị theo giờ Việt Nam.</p>
       </div>
       <div class="flex gap">
@@ -30,19 +31,16 @@
   </section>
 
   <section class="card-lite p mb">
-    <div class="flex gap center">
+    <div class="filter-row mb">
       <strong>Nhóm log</strong>
       <% categories.forEach((item) => { %>
         <%# Redis log không gắn với mức nào nên chọn nhóm đó thì mở mức về "tất cả", giữ nguyên hành vi cũ. %>
         <a class="btn btn-sm <%= category === item ? 'btn-primary' : '' %>" href="<%= filterUrl({ category: item, level: item === 'REDIS' ? 'ALL' : level }) %>"><%= categoryLabels[item] || item %></a>
       <% }) %>
     </div>
-  </section>
-
-  <%# Lọc theo tài khoản. Dùng ô chọn chứ không phải hàng nút như hai bộ lọc trên: số tài khoản
-      tăng theo thời gian, mà tên là email nên hàng nút sẽ tràn ngang trên điện thoại. %>
-  <section class="card-lite p mb">
-    <form class="flex gap center" method="get" action="/logs">
+    <%# Lọc theo tài khoản. Dùng ô chọn chứ không phải hàng nút như hai bộ lọc trên: số tài khoản
+        tăng theo thời gian, mà tên là email nên hàng nút sẽ tràn ngang trên điện thoại. %>
+    <form class="filter-row" method="get" action="/logs">
       <input type="hidden" name="level" value="<%= level %>">
       <input type="hidden" name="category" value="<%= category %>">
       <strong>Tài khoản</strong>
@@ -53,7 +51,7 @@
       </select>
       <noscript><button class="btn btn-sm btn-primary">Lọc</button></noscript>
       <% if (user !== 'ALL') { %>
-        <a class="btn btn-sm" href="<%= filterUrl({ user: 'ALL' }) %>">Bỏ lọc</a>
+        <a class="btn btn-sm" href="<%= filterUrl({ user: 'ALL' }) %>"><%- include('../partials/icon', { name: 'x' }) %> Bỏ lọc</a>
       <% } %>
     </form>
   </section>

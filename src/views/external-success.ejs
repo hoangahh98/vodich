@@ -1,16 +1,19 @@
 <%- include('partials/head', { title: 'Đăng ký thành công' }) %>
 <body class="login-page">
+  <%- include('partials/icons') %>
+  <%- include('partials/scene') %>
   <section class="login-card">
+    <div class="login-art"><div class="ball3d" aria-hidden="true"></div></div>
     <h1>Đăng ký thành công</h1>
     <% if (registration.status === 'RESERVE') { %>
       <p class="muted">Bạn đã được thêm vào danh sách dự bị. Tài khoản xem giải:</p>
     <% } else { %>
       <p class="muted">Bạn đã được thêm vào giải. Tài khoản xem giải:</p>
     <% } %>
-    <div class="card-lite p mb">
-      <div><strong>Tài khoản:</strong> <%= registration.externalEmail %></div>
-      <div><strong>Mật khẩu:</strong> 123456789</div>
+    <div class="grid kv-grid mb">
+      <div class="kv"><span>Tài khoản</span><strong><%= registration.externalEmail %></strong></div>
+      <div class="kv"><span>Mật khẩu</span><strong>123456789</strong></div>
     </div>
-    <a class="btn btn-primary" style="width:100%" href="/login?role=CLIENT&username=<%= encodeURIComponent(registration.externalEmail || registration.player?.email || '') %>&next=<%= encodeURIComponent('/tournaments/' + registration.tournamentId + '/players') %>">Link xem giải</a>
+    <a class="btn btn-primary btn-lg" style="width:100%" href="/login?role=CLIENT&username=<%= encodeURIComponent(registration.externalEmail || registration.player?.email || '') %>&next=<%= encodeURIComponent('/tournaments/' + registration.tournamentId + '/players') %>">Link xem giải <%- include('partials/icon', { name: 'arrow' }) %></a>
   </section>
 </body></html>

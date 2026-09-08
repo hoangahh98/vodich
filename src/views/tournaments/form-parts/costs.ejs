@@ -1,5 +1,5 @@
 <section class="form-section">
-  <h2 class="section-title mb">🎯 Điểm và chi phí</h2>
+  <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'target' }) %> Điểm và chi phí</h2>
   <div class="row">
     <div class="col-6"><label>Chạm điểm</label><input type="number" name="touchScore" value="<%= tournament?.touchScore || 11 %>" min="1"></div>
     <div class="col-6"><label>Max điểm</label><input type="number" name="maxScore" value="<%= tournament?.maxScore || 15 %>" min="1"></div>
@@ -7,6 +7,6 @@
     <div class="col-6"><label>Ăn uống</label><input class="money-input" name="foodCost" value="<%= tournament ? formatMoney(tournament.foodCost) : '0' %>"></div>
     <div class="col-6"><label>Giải thưởng</label><input class="money-input" name="prizeCost" value="<%= tournament ? formatMoney(tournament.prizeCost) : '0' %>"></div>
     <div class="col-6"><label>Khác</label><input class="money-input" name="otherCost" value="<%= tournament ? formatMoney(tournament.otherCost) : '0' %>"></div>
-    <div class="col-12 checkbox-line"><label><input type="checkbox" name="externalRegistrationEnabled" <%= tournament?.externalRegistrationEnabled ? 'checked' : '' %>> Cho phép đăng ký ngoài</label></div>
+    <div class="col-12 checkbox-line"><label class="option-card"><input type="checkbox" name="externalRegistrationEnabled" <%= tournament?.externalRegistrationEnabled ? 'checked' : '' %>> <span>Cho phép đăng ký ngoài</span></label></div>
   </div>
 </section>

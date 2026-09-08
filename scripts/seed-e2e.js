@@ -93,6 +93,16 @@ async function main() {
     },
   });
 
+  // Quyền XEM là bảng riêng (docs/bao-mat.md 3b): có tên trong giải/đội chưa đủ để VĐV thấy chúng.
+  await prisma.playerTournamentAccess.createMany({
+    data: [playerA, playerB].map((player) => ({ playerId: player.id, tournamentId: tournament.id })),
+    skipDuplicates: true,
+  });
+  await prisma.playerTeamAccess.createMany({
+    data: [playerA, playerB].map((player) => ({ playerId: player.id, teamId: team.id })),
+    skipDuplicates: true,
+  });
+
   // ─── Hai admin thường để test rò dữ liệu chéo trong trình duyệt thật ───
   // Alice có TOURNAMENTS + TEAMS, Bob CHỈ có TEAMS. Mỗi người sở hữu một đội riêng,
   // nên e2e kiểm được đúng hai thứ: thiếu feature thì bị chặn, và có feature nhưng

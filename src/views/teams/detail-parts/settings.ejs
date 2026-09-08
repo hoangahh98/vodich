@@ -1,47 +1,47 @@
 <% if (section === 'settings') { %>
   <section class="card-lite p tournament-edit-card">
-    <div class="section-heading mb"><div><span class="feature-icon">⚙️</span><h2 class="section-title">Cài đặt đội bóng</h2><p class="muted">Sửa thông tin đội, cấu hình quỹ tháng và phân quyền admin.</p></div></div>
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'settings' }) %></span><h2 class="section-title">Cài đặt đội bóng</h2><p class="muted">Sửa thông tin đội, cấu hình quỹ tháng và phân quyền admin.</p></div></div>
     <% if (currentUser.role === 'ADMIN') { %>
       <form class="tournament-form" method="post" action="/teams/<%= team.id %>/settings">
         <input type="hidden" name="month" value="<%= selectedMonth %>">
         <section class="form-section">
-          <h2 class="section-title mb">👥 Thông tin đội</h2>
+          <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'users' }) %> Thông tin đội</h2>
           <div class="row">
             <div class="col-12"><label>Tên đội bóng</label><input name="name" value="<%= team.name %>" required></div>
             <div class="col-12"><label>Ghi chú đội</label><textarea name="description" rows="3"><%= team.description || '' %></textarea></div>
           </div>
         </section>
         <section class="form-section">
-          <h2 class="section-title mb">💰 Quỹ tháng <%= selectedMonth %></h2>
+          <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'wallet' }) %> Quỹ tháng <%= selectedMonth %></h2>
           <%# Mức phí / người nằm CUỐI vì nó ăn theo ba ô trên: sân + khác - dư tháng trước,
               chia cho số thành viên cố định rồi làm tròn lên bội số 1.000đ. %>
           <div class="row" data-team-fund data-fixed-count="<%= finance.fixedCount %>">
             <div class="col-6"><label>Tiền sân tháng này</label><input class="money-input" name="courtCost" value="<%= formatMoney(finance.courtCost) %>"></div>
-            <div class="col-6"><label>Các khoản tiền khác</label><input class="money-input" name="otherCost" value="<%= formatMoney(finance.otherCost) %>"><small class="muted">Nước, ăn uống, bóng...</small></div>
-            <div class="col-6"><label>Tiền sân còn lại tháng trước</label><input class="money-input" name="previousBalance" value="<%= formatMoney(finance.previousBalance) %>"><small class="muted">Tháng trước còn lại <%= formatMoney(finance.previousMonthBalance) %>đ. Nếu để trống, hệ thống tự dùng số này.</small></div>
+            <div class="col-6"><label>Các khoản tiền khác</label><input class="money-input" name="otherCost" value="<%= formatMoney(finance.otherCost) %>"><small class="field-hint">Nước, ăn uống, bóng...</small></div>
+            <div class="col-6"><label>Tiền sân còn lại tháng trước</label><input class="money-input" name="previousBalance" value="<%= formatMoney(finance.previousBalance) %>"><small class="field-hint">Tháng trước còn lại <%= formatMoney(finance.previousMonthBalance) %>đ. Nếu để trống, hệ thống tự dùng số này.</small></div>
             <div class="col-6"><label>Ghi chú tháng</label><input name="notes" value="<%= fund?.notes || '' %>"></div>
             <div class="col-12">
               <label>Mức phí tháng / người</label>
               <input class="money-input" name="monthlyFee" value="<%= formatMoney(finance.monthlyFee) %>">
-              <small class="muted">
+              <small class="field-hint">
                 <%= finance.fixedCount %> thành viên cố định — gợi ý <strong data-fee-suggest><%= formatMoney(finance.suggestedMonthlyFee) %>đ</strong>/người.
                 <button class="btn btn-sm" type="button" data-fill-fee-suggestion>Dùng gợi ý</button>
               </small>
             </div>
           </div>
         </section>
-        <div class="form-actions"><button class="btn btn-success btn-lg" data-loading-text="Đang lưu...">Lưu thay đổi</button><a class="btn btn-lg" href="/teams/<%= team.id %>/overview?month=<%= selectedMonth %>">Hủy</a></div>
+        <div class="form-actions"><button class="btn btn-success btn-lg" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu thay đổi</button><a class="btn btn-lg" href="/teams/<%= team.id %>/overview?month=<%= selectedMonth %>">Hủy</a></div>
       </form>
       <section class="form-section">
-        <h2 class="section-title mb">🔐 Phân quyền admin</h2>
-        <div class="grid module-grid mb">
-          <div><span class="muted">Người tạo</span><br><strong><%= team.ownerAdmin?.displayName || team.ownerAdmin?.username || 'Admin gốc / dữ liệu cũ' %></strong></div>
-          <div><span class="muted">Đang được phân quyền</span><br><strong><%= team.permissions?.length || 0 %> admin</strong></div>
+        <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'lock' }) %> Phân quyền admin</h2>
+        <div class="grid kv-grid mb">
+          <div class="kv"><span>Người tạo</span><strong><%= team.ownerAdmin?.displayName || team.ownerAdmin?.username || 'Admin gốc / dữ liệu cũ' %></strong></div>
+          <div class="kv"><span>Đang được phân quyền</span><strong><%= team.permissions?.length || 0 %> admin</strong></div>
         </div>
         <% if (admins && admins.length) { %>
           <form class="permission-create-form mb" method="post" action="/teams/<%= team.id %>/permissions">
             <div><label>Thêm admin</label><select name="adminId" required><% admins.forEach((admin) => { %><option value="<%= admin.id %>"><%= admin.displayName %> (<%= admin.username %>)</option><% }) %></select></div>
-            <div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang thêm...">Thêm quyền</button></div>
+            <div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm quyền</button></div>
           </form>
         <% } %>
         <div class="permission-admin-list">
@@ -58,8 +58,8 @@
       </section>
     <% } else { %>
       <div class="grid team-summary-grid">
-        <div class="cost-card">👥<span>Tên đội</span><strong><%= team.name %></strong></div>
-        <div class="cost-card">📝<span>Ghi chú</span><strong><%= team.description || '-' %></strong></div>
+        <div class="cost-card"><%- include('../../partials/icon', { name: 'users' }) %><span>Tên đội</span><strong><%= team.name %></strong></div>
+        <div class="cost-card"><%- include('../../partials/icon', { name: 'note' }) %><span>Ghi chú</span><strong><%= team.description || '-' %></strong></div>
       </div>
     <% } %>
   </section>

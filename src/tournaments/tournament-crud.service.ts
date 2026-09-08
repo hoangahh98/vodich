@@ -3,6 +3,7 @@ import { Tournament } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
 import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere, isRootAdmin, ownedOrSharedWhere } from '../common/admin-scope';
+import { clientTournamentWhere } from '../common/player-scope';
 import { buildTournamentData, normalizePrizes, operatingCostFromForm } from './tournament-form';
 import { minimumFeeForTournament } from './tournament-money';
 
@@ -33,37 +34,14 @@ export class TournamentCrudService {
     }));
   }
 
-  async clientTournaments(email: string): Promise<Tournament[]> {
-    const rows = await this.prisma.tournamentRegistration.findMany({
-      where: {
-        status: { in: ['ACTIVE', 'RESERVE'] },
-        OR: [
-          { externalEmail: { equals: email, mode: 'insensitive' } },
-          { player: { email: { equals: email, mode: 'insensitive' } } },
-        ],
-      },
-      include: { tournament: true },
-      orderBy: { id: 'desc' },
-    });
-    const unique = new Map<string, Tournament>();
-    rows.forEach((row) => unique.set(row.tournament.id.toString(), row.tournament));
-    return [...unique.values()];
+  /** Giải mà vận động viên này được XEM: theo bảng quyền xem, xem src/common/player-scope.ts. */
+  clientTournaments(email: string): Promise<Tournament[]> {
+    return this.prisma.tournament.findMany({ where: clientTournamentWhere({ email }), orderBy: { id: 'desc' } });
   }
 
   async canView(user: CurrentUser, tournamentId: bigint) {
     if (user.role === 'ADMIN') return this.canManage(user, tournamentId);
-    return (
-      (await this.prisma.tournamentRegistration.count({
-        where: {
-          tournamentId,
-          status: { in: ['ACTIVE', 'RESERVE'] },
-          OR: [
-            { externalEmail: { equals: user.email, mode: 'insensitive' } },
-            { player: { email: { equals: user.email, mode: 'insensitive' } } },
-          ],
-        },
-      })) > 0
-    );
+    return (await this.prisma.tournament.count({ where: { id: tournamentId, ...clientTournamentWhere(user) } })) > 0;
   }
 
   async canManage(user: CurrentUser, tournamentId: bigint) {

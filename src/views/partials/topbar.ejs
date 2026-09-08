@@ -1,10 +1,13 @@
 <body>
+<%- include('icons') %>
+<%- include('scene') %>
 <nav class="topbar">
   <a class="brand-link" href="/"><img src="/uploads/logo.png" alt="Logo Vô địch"><span>Vô địch</span></a>
   <div class="flex center gap">
-    <% if (currentUser) { %><span class="muted"><%= currentUser.displayName %></span><% } %>
     <% if (currentUser) { %>
-      <form method="post" action="/logout"><button class="btn btn-sm btn-danger" data-loading-text="...">Đăng xuất</button></form>
+      <% const displayName = String(currentUser.displayName || currentUser.username || ''); %>
+      <span class="topbar-user"><span class="avatar"><%= displayName.trim().charAt(0) || '?' %></span><span><%= displayName %></span></span>
+      <form method="post" action="/logout"><button class="btn btn-sm btn-icon" title="Đăng xuất" aria-label="Đăng xuất" data-loading-text="…"><%- include('icon', { name: 'logout' }) %></button></form>
     <% } %>
   </div>
 </nav>

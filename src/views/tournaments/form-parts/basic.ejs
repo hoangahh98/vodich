@@ -1,5 +1,5 @@
 <section class="form-section">
-  <h2 class="section-title mb">📝 Thông tin giải</h2>
+  <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'note' }) %> Thông tin giải</h2>
   <div class="row">
     <div class="col-12"><label>Tên giải <span class="text-danger">*</span></label><input name="name" value="<%= tournament?.name || '' %>" required></div>
     <div class="col-12"><label>Địa điểm</label><input name="venue" value="<%= tournament?.venue || '' %>"></div>

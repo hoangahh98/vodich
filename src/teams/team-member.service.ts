@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { grantTeamAccess, revokeTeamAccess } from '../players/player-access.service';
 import { cleanText, monthDate, normalizeMemberType } from './team-utils';
 
 @Injectable()
@@ -13,6 +14,7 @@ export class TeamMemberService {
       update: { active: true, memberType: normalizedMemberType, notes: cleanText(notes) },
       create: { teamId, playerId, memberType: normalizedMemberType, notes: cleanText(notes) },
     });
+    await grantTeamAccess(this.prisma, teamId, [playerId]);
     const fundMonth = monthDate(month);
     const fund = await this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth } } });
     if (fund && normalizedMemberType === 'FIXED') {
@@ -43,11 +45,13 @@ export class TeamMemberService {
   }
 
   async removeMember(teamId: bigint, memberId: bigint) {
+    const member = await this.prisma.teamMember.findFirst({ where: { id: memberId, teamId }, select: { playerId: true } });
     const result = await this.prisma.teamMember.updateMany({
       where: { id: memberId, teamId },
       data: { active: false },
     });
     if (!result.count) throw new NotFoundException('Không tìm thấy thành viên trong đội');
+    if (member) await revokeTeamAccess(this.prisma, teamId, [member.playerId]);
     return result;
   }
 }

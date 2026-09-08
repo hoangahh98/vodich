@@ -11,28 +11,43 @@
  * - Điều hướng (HTML): luôn đi mạng, KHÔNG cache. Trang có dữ liệu theo phiên đăng
  *   nhập, cache lại sẽ hiện nhầm dữ liệu người khác. Mạng chết thì trả trang báo lỗi.
  */
+// v3 (9/2026): bỏ Bootstrap, thêm font tự host + motion.js — cache cũ giữ bootstrap.min.css vô dụng.
 // Bump số bản khi HTML đổi theo kiểu bản JS cũ không chạy nổi nữa: cache là
 // stale-while-revalidate nên lần mở đầu sau khi deploy vẫn dùng JS cũ, mà khung vòng quay mới
 // (data-spin-wheel) thì bản spin-draw.js cũ không hiểu. Đổi tên cache là `activate` quét sạch.
-const CACHE = 'vodich-static-v2';
+const CACHE = 'vodich-static-v3';
 
 // Nạp sẵn ngay khi cài để lần mở đầu tiên từ màn hình chính đã có giao diện.
 const PRECACHE = [
-  '/css/bootstrap.min.css',
   '/css/app.css',
+  '/css/games.css',
+  '/fonts/bevietnampro-400-vietnamese.woff2',
+  '/fonts/bevietnampro-400-latin.woff2',
+  '/fonts/bevietnampro-500-vietnamese.woff2',
+  '/fonts/bevietnampro-500-latin.woff2',
+  '/fonts/bevietnampro-600-vietnamese.woff2',
+  '/fonts/bevietnampro-600-latin.woff2',
+  '/fonts/bevietnampro-700-vietnamese.woff2',
+  '/fonts/bevietnampro-700-latin.woff2',
+  '/fonts/bevietnampro-800-vietnamese.woff2',
+  '/fonts/bevietnampro-800-latin.woff2',
+  '/fonts/oswald-vietnamese.woff2',
+  '/fonts/oswald-latin.woff2',
   '/js/app.js',
   '/js/form-controls.js',
   '/js/selection-controls.js',
   '/js/menu.js',
   '/js/modal-copy.js',
   '/js/realtime.js',
+  '/js/motion.js',
+  '/js/no-zoom.js',
   '/uploads/logo.png',
   '/icons/apple-touch-icon.png',
   '/icons/icon-192.png',
   '/manifest.json',
 ];
 
-const STATIC_PATH = /^\/(css|js|icons)\//;
+const STATIC_PATH = /^\/(css|js|icons|fonts)\//;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(

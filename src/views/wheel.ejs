@@ -13,9 +13,11 @@
   <section class="feature-hero p mb">
     <div class="flex between center gap">
       <div>
-        <h1>🎡 Vòng quay</h1>
+        <div class="hero-eyebrow">Công cụ vui</div>
+        <h1>Vòng quay</h1>
         <div class="muted strong-muted">Nhập danh sách, bấm quay để bốc ngẫu nhiên. Tên chỉ nằm trên máy bạn.</div>
       </div>
+      <div class="feature-hero-art"><div class="ball3d" aria-hidden="true"></div></div>
     </div>
   </section>
 
@@ -29,8 +31,8 @@
         </div>
         <div class="wheel-winner" data-wheel-winner></div>
         <div class="spin-actions">
-          <button type="button" class="btn btn-primary" data-wheel-spin>🎡 Quay</button>
-          <button type="button" class="btn btn-light" data-wheel-reset>Làm lại</button>
+          <button type="button" class="btn btn-primary btn-lg" data-wheel-spin><%- include('partials/icon', { name: 'wheel' }) %> Quay</button>
+          <button type="button" class="btn btn-light btn-lg" data-wheel-reset><%- include('partials/icon', { name: 'refresh' }) %> Làm lại</button>
         </div>
       </div>
 
@@ -39,7 +41,7 @@
           <label for="wheelNames">Danh sách — mỗi dòng một tên</label>
           <textarea id="wheelNames" data-wheel-input rows="10" placeholder="An&#10;Bình&#10;Cường&#10;Dũng"></textarea>
         </div>
-        <label class="option-card"><input type="checkbox" data-wheel-remove> Bốc xong thì bỏ tên đó khỏi vòng quay</label>
+        <label class="option-card"><input type="checkbox" data-wheel-remove> <span>Bốc xong thì bỏ tên đó khỏi vòng quay</span></label>
         <div class="spin-results-box">
           <h4 class="spin-results-title">Đã bốc <span class="badge bg-primary rounded-pill" data-wheel-total>0</span></h4>
           <ol class="wheel-history" data-wheel-history></ol>
@@ -49,14 +51,15 @@
   </section>
 </main>
 <nav class="bottom-menu">
-  <button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu">☰</button>
+  <button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu"><span class="burger" aria-hidden="true"><i></i><i></i><i></i></span></button>
   <div class="bottom-menu-inner">
-    <a class="" href="/">🏠 Trang chủ</a>
-    <a class="active" href="/vong-quay">🎡 Vòng quay</a>
+    <a class="" href="/"><%- include('partials/icon', { name: 'home' }) %><span>Trang chủ</span></a>
+    <a class="active" href="/vong-quay"><%- include('partials/icon', { name: 'wheel' }) %><span>Vòng quay</span></a>
   </div>
 </nav>
 <script src="/js/menu.js"></script>
 <script src="/js/wheel.js"></script>
 <script src="/js/wheel-of-names.js"></script>
+<script src="/js/motion.js"></script>
 </body>
 </html>

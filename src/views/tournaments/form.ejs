@@ -5,7 +5,7 @@
 <% const editPrizeFund = Math.max(0, editPrizeTotalPaid - parsePrizeMoney(tournament?.courtCost) - parsePrizeMoney(tournament?.foodCost) - parsePrizeMoney(tournament?.otherCost)); %>
 <main class="app-shell narrow-shell">
   <section class="card-lite p tournament-edit-card">
-    <div class="section-heading mb"><div><span class="feature-icon">✏️</span><h1><%= tournament ? 'Sửa giải đấu' : 'Tạo giải mới' %></h1><p class="muted">Cấu hình thông tin, luật điểm, chi phí và giải thưởng.</p></div></div>
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'edit' }) %></span><h1><%= tournament ? 'Sửa giải đấu' : 'Tạo giải mới' %></h1><p class="muted">Cấu hình thông tin, luật điểm, chi phí và giải thưởng.</p></div></div>
     <% if (typeof error !== 'undefined') { %><div class="alert-lite warn mb"><%= error %></div><% } %>
     <form class="tournament-form" method="post" action="<%= action %>" data-prize-total-paid="<%= editPrizeTotalPaid %>">
       <input type="hidden" name="returnSection" value="<%= typeof returnSection !== 'undefined' ? returnSection : 'settings' %>">

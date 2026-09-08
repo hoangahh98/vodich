@@ -1,0 +1,95 @@
+<%#
+  Cảnh nền dưới mọi trang: một nam một nữ đánh pickleball qua lưới, vẽ kiểu pictogram thể thao
+  bằng SVG thuần, chuyển động bằng CSS (app.css, nhóm .scene-*). Không có JS, không có ảnh
+  ngoài — CSP img-src/script-src không đụng tới.
+
+  Hệ toạ độ: viewBox 1200x520, sân là hình bình hành nhìn chếch từ phía trước (đường biên xa
+  y=300, biên gần y=470). Đường vuông góc với biên dọc ở tỉ lệ f đi từ (360+600f, 300) tới
+  (240+600f, 470): lưới f=0.5, hai vạch bếp (non-volley) f=0.32 và 0.68.
+
+  Bóng: nhóm .scene-ball-x chạy ngang (360 → 776), nhóm .scene-ball-y vẽ vòng cung; hai nhóm
+  lồng nhau cùng chu kỳ 2.4s alternate. Tay vung vợt (.scene-swing) chu kỳ 4.8s, người bên
+  phải lệch pha -2.4s nên vung đúng lúc bóng tới.
+
+  Hai nhân vật vẽ ở toạ độ cục bộ (gốc ở giữa hai bàn chân, mặt hướng +x); nhân vật nam
+  dùng chung khung nhưng lật gương qua translate(1140,0) scale(-1,1).
+%>
+<div class="scene-bg" aria-hidden="true">
+  <svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMax meet" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="scene-mesh" width="7" height="7" patternUnits="userSpaceOnUse">
+        <path class="scene-net-mesh" d="M0 0H7M0 0V7"/>
+      </pattern>
+    </defs>
+
+    <!-- Khối sân: mặt trước và mặt bên để sân nổi như một tấm sàn -->
+    <polygon class="scene-slab" points="240,470 840,470 840,486 240,486"/>
+    <polygon class="scene-slab-side" points="840,470 960,300 960,314 840,484"/>
+    <polygon class="scene-court" points="360,300 960,300 840,470 240,470"/>
+    <polygon class="scene-kitchen" points="552,300 768,300 648,470 432,470"/>
+    <g class="scene-line">
+      <polygon points="360,300 960,300 840,470 240,470"/>
+      <line x1="552" y1="300" x2="432" y2="470"/>
+      <line x1="768" y1="300" x2="648" y2="470"/>
+      <line x1="300" y1="385" x2="492" y2="385"/>
+      <line x1="708" y1="385" x2="900" y2="385"/>
+    </g>
+
+    <!-- Nữ (bên trái), tóc buộc đuôi ngựa, váy -->
+    <g transform="translate(268,446)">
+      <ellipse class="scene-shadow" cx="0" cy="4" rx="46" ry="8"/>
+      <g class="scene-bob">
+        <path class="scene-limb scene-limb-thick" d="M-7,-48 L-27,-6 L-38,-3"/>
+        <path class="scene-limb scene-limb-thick" d="M8,-48 L26,-6 L38,-3"/>
+        <path class="scene-ink" d="M-21,-76 L21,-76 L30,-44 L-30,-44 Z"/>
+        <path class="scene-limb scene-torso" d="M0,-118 L-1,-76"/>
+        <path class="scene-limb" d="M-8,-108 L-30,-86 L-14,-66"/>
+        <circle class="scene-ink" cx="2" cy="-138" r="15"/>
+        <g transform="translate(-10,-146)"><path class="scene-hair scene-tail" d="M0,0 C-22,4 -28,24 -20,42"/></g>
+        <g transform="translate(12,-108)">
+          <g class="scene-swing">
+            <path class="scene-limb" d="M0,0 L26,16 L52,2"/>
+            <path class="scene-limb" style="stroke-width:6" d="M52,2 L66,-8"/>
+            <ellipse class="scene-paddle" cx="80" cy="-19" rx="15" ry="20" transform="rotate(-36 80 -19)"/>
+          </g>
+        </g>
+      </g>
+    </g>
+
+    <!-- Nam (bên phải), quần short, dáng cao hơn — lật gương -->
+    <g transform="translate(1140,0) scale(-1,1)">
+      <g transform="translate(268,446)">
+        <ellipse class="scene-shadow" cx="0" cy="4" rx="50" ry="8"/>
+        <g class="scene-bob scene-bob-r">
+          <path class="scene-limb scene-limb-thick" d="M-9,-52 L-30,-6 L-42,-3"/>
+          <path class="scene-limb scene-limb-thick" d="M9,-52 L28,-6 L40,-3"/>
+          <path class="scene-ink" d="M-19,-82 L19,-82 L24,-50 L5,-50 L0,-62 L-5,-50 L-24,-50 Z"/>
+          <path class="scene-limb scene-torso-m" d="M0,-126 L0,-82"/>
+          <path class="scene-limb" d="M-10,-116 L-32,-92 L-16,-72"/>
+          <circle class="scene-ink" cx="2" cy="-148" r="16"/>
+          <g transform="translate(14,-116)">
+            <g class="scene-swing scene-swing-r">
+              <path class="scene-limb" d="M0,0 L28,18 L54,4"/>
+              <path class="scene-limb" style="stroke-width:6" d="M54,4 L68,-6"/>
+              <ellipse class="scene-paddle" cx="82" cy="-18" rx="15" ry="20" transform="rotate(-36 82 -18)"/>
+            </g>
+          </g>
+        </g>
+      </g>
+    </g>
+
+    <!-- Lưới ở giữa sân -->
+    <polygon class="scene-net-face" points="660,300 540,470 540,408 660,238"/>
+    <polygon points="660,300 540,470 540,408 660,238" fill="url(#scene-mesh)"/>
+    <line class="scene-net-post" x1="660" y1="302" x2="660" y2="234"/>
+    <line class="scene-net-post" x1="540" y1="472" x2="540" y2="404"/>
+    <line class="scene-net-tape" x1="660" y1="238" x2="540" y2="408"/>
+
+    <!-- Bóng và bóng đổ của nó -->
+    <g class="scene-ball-shadow"><ellipse class="scene-shadow" cx="360" cy="456" rx="14" ry="5"/></g>
+    <g class="scene-ball-x"><g class="scene-ball-y">
+      <circle class="scene-ball" cx="360" cy="352" r="8"/>
+      <circle cx="357" cy="349" r="1.4" fill="#87a40f"/><circle cx="363" cy="351" r="1.4" fill="#87a40f"/><circle cx="360" cy="355.5" r="1.4" fill="#87a40f"/>
+    </g></g>
+  </svg>
+</div>

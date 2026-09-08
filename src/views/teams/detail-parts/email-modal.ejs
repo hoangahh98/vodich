@@ -4,17 +4,17 @@
   <div id="teamEmailModal" class="score-modal hidden" aria-hidden="true">
     <div class="score-modal-backdrop" data-close-modal="teamEmailModal"></div>
     <div class="score-modal-panel" role="dialog" aria-modal="true">
-      <div class="score-modal-head"><div><h3>Danh sách email</h3><small>Copy email thành viên cố định</small></div><button class="btn btn-sm" type="button" data-close-modal="teamEmailModal">Đóng</button></div>
+      <div class="score-modal-head"><div><h3><%- include("../../partials/icon", { name: "mail" }) %> Danh sách email</h3><small>Copy email thành viên cố định</small></div><button class="btn btn-sm" type="button" data-close-modal="teamEmailModal">Đóng</button></div>
       <div class="score-modal-body">
         <textarea id="teamEmailListText" rows="6" readonly><%= emailList %></textarea>
-        <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamEmailListText">Copy email</button></div>
+        <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamEmailListText"><%- include("../../partials/icon", { name: "copy" }) %> Copy email</button></div>
       </div>
     </div>
   </div>
   <div id="teamContentModal" class="score-modal hidden" aria-hidden="true">
     <div class="score-modal-backdrop" data-close-modal="teamContentModal"></div>
     <div class="score-modal-panel" role="dialog" aria-modal="true">
-      <div class="score-modal-head"><div><h3>Content mẫu</h3><small>Copy gửi cho thành viên</small></div><button class="btn btn-sm" type="button" data-close-modal="teamContentModal">Đóng</button></div>
+      <div class="score-modal-head"><div><h3><%- include("../../partials/icon", { name: "note" }) %> Content mẫu</h3><small>Copy gửi cho thành viên</small></div><button class="btn btn-sm" type="button" data-close-modal="teamContentModal">Đóng</button></div>
       <div class="score-modal-body">
         <textarea id="teamContentSampleText" rows="14" readonly><%= teamReportLink %> link app theo dõi quỹ nước
 "<%= team.name %>"
@@ -26,14 +26,14 @@ Pass chung: 123456789
 
 Mọi người có thể vào phần quản lý đội bóng để theo dõi chi phí của từng buổi chơi.
 Mọi cập nhật mọi người có thể theo dõi tại đây nhé.</textarea>
-        <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamContentSampleText">Copy nội dung</button></div>
+        <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamContentSampleText"><%- include("../../partials/icon", { name: "copy" }) %> Copy nội dung</button></div>
       </div>
     </div>
   </div>
   <div id="teamFundReportModal" class="score-modal hidden" aria-hidden="true">
     <div class="score-modal-backdrop" data-close-modal="teamFundReportModal"></div>
     <div class="score-modal-panel" role="dialog" aria-modal="true">
-      <div class="score-modal-head"><div><h3>Báo quỹ</h3><small>Copy cập nhật thu chi tháng <%= selectedMonth %></small></div><button class="btn btn-sm" type="button" data-close-modal="teamFundReportModal">Đóng</button></div>
+      <div class="score-modal-head"><div><h3><%- include("../../partials/icon", { name: "receipt" }) %> Báo quỹ</h3><small>Copy cập nhật thu chi tháng <%= selectedMonth %></small></div><button class="btn btn-sm" type="button" data-close-modal="teamFundReportModal">Đóng</button></div>
       <div class="score-modal-body">
         <textarea id="teamFundReportText" rows="18" readonly>Cập nhật quỹ nước - "<%= team.name %>"
 Tháng: <%= selectedMonth %>
@@ -51,7 +51,7 @@ Thành viên còn thiếu quỹ (tổng còn thiếu <%= formatMoney(finance.tot
 <% }) %><% } %>
 Link theo dõi:
 <%= teamReportLink %></textarea>
-        <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamFundReportText">Copy báo quỹ</button></div>
+        <div class="mt text-right"><button class="btn btn-primary" type="button" data-copy-target="teamFundReportText"><%- include("../../partials/icon", { name: "copy" }) %> Copy báo quỹ</button></div>
       </div>
     </div>
   </div>

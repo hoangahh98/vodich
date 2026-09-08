@@ -2,14 +2,16 @@
 <html lang="vi">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <title><%= title || 'Vô địch' %></title>
-  <meta name="theme-color" content="#0d6efd">
+  <meta name="theme-color" content="#14161c">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
-  <!-- Bootstrap self-host: bản CDN làm app mở từ màn hình chính iPhone mất sạch giao diện khi mạng/CDN chập. -->
-  <link href="/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font tự host (public/fonts): CSP font-src 'self', và app mở từ màn hình chính iPhone lúc mạng chập vẫn phải có chữ đẹp. -->
+  <link rel="preload" href="/fonts/bevietnampro-500-vietnamese.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/fonts/oswald-vietnamese.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/css/app.css">
+  <link rel="stylesheet" href="/css/games.css">
   <link rel="manifest" href="/manifest.json">
   <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
   <!-- Ở head (không phải bottom-menu) để cả trang login cũng đăng ký được service worker. -->

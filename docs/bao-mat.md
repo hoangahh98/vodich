@@ -70,8 +70,38 @@ Module đã áp dụng: giải đấu, đội bóng.
 
 - Hiện **không còn** ngoại lệ nào theo module: admin gốc thấy hết. Ngoại lệ duy nhất từng có là
   hồ sơ y tế (admin gốc không mặc nhiên xem được bệnh án nhà người khác), đã đi cùng module đó.
-- **Vai CLIENT**: chỉ đọc, và chỉ thấy giải/đội mà chính họ tham gia. Mật khẩu CLIENT là
-  `123456789` dùng chung — **cố ý**, vì mọi thao tác ghi đều đòi vai ADMIN.
+- **Vai CLIENT**: chỉ đọc, và chỉ thấy giải/đội **đã được cấp quyền xem** (mục 3b). Mật khẩu
+  CLIENT là `123456789` dùng chung — **cố ý**, vì mọi thao tác ghi đều đòi vai ADMIN.
+
+## 3b. Quyền XEM của thành viên (từ 9/2026)
+
+Có tên trong giải **không còn** tự động nghĩa là được xem giải. Quyền xem là hai bảng riêng,
+`player_tournament_access` và `player_team_access`, cấp ở màn hình **Thành viên → Phân quyền**
+(`/players/:id/access`, `PlayerAccessService`). Bộ lọc cho vai CLIENT nằm ở một chỗ:
+`src/common/player-scope.ts` (`clientTournamentWhere`, `clientTeamWhere`).
+
+| Ai | Thấy gì trên màn hình Thành viên | Cấp/thu được gì |
+|----|----------------------------------|-----------------|
+| Admin gốc | Mọi thành viên, mọi giải, mọi đội | Tất cả |
+| Admin phụ | Mọi thành viên; chỉ giải/đội mình **tạo ra hoặc được chia sẻ quyền quản lý** (`ownedOrSharedWhere`), và chỉ trong module được cấp (TOURNAMENTS / TEAMS) | Chỉ trong phạm vi đó |
+| CLIENT | Không vào được (`@AdminOnly`) | — |
+
+Ba luật bắt buộc, `test/player-access.test.js` khoá lại:
+
+1. **Phạm vi áp ngay trong truy vấn, cả đọc lẫn ghi.** Id giải gửi lên ngoài phạm vi bị lọc bỏ
+   trước khi chạm bảng quyền; lệnh xoá cũng chỉ xoá `tournamentId IN (phạm vi)`. Admin phụ không
+   thể thu quyền mà admin khác đã cấp cho giải của họ, kể cả khi sửa form.
+2. **So khớp CLIENT bằng email, không bằng `user.id`.** Với người đăng ký ngoài, `user.id` là id
+   dòng đăng ký; dùng nó làm `playerId` là mở nhầm đội của vận động viên có id trùng (lỗi từng
+   có ở bộ lọc đội cũ).
+3. **Ngoại lệ duy nhất**: người đăng ký ngoài chưa có hồ sơ `player` (không có chỗ để cấp quyền)
+   vẫn thấy đúng giải mình vừa đăng ký, khớp lời hứa của trang "Đăng ký thành công".
+
+Luồng tự động, để admin không phải cấp tay từng người: thêm người vào giải/đội (kể cả đăng ký
+ngoài khớp hồ sơ có sẵn) → cấp luôn; xoá khỏi giải / gỡ khỏi đội → thu lại. "Bỏ giải" (withdraw)
+không thu, vì còn khôi phục được. Migration `20260908120000` cấp sẵn cho mọi người đang có tên
+trong giải/đội để không ai mất quyền lúc deploy.
+
 
 ## 4. Chống CSRF
 
@@ -137,6 +167,7 @@ Sai cấu hình bảo mật thì chết ngay lúc deploy vẫn hơn là chạy �
 | `test/authorization.test.js` | Rò dữ liệu giữa hai admin, FeatureGuard, khoá tính năng |
 | `test/security.test.js` | CSRF, che secret trong log, danh sách route công khai |
 | `test/permission-snapshot.test.js` | Giao diện từng vai nhìn thấy đúng những gì |
+| `test/player-access.test.js` | Quyền xem thành viên theo phạm vi admin, bộ lọc CLIENT |
 | `e2e/permissions.spec.js` | Cả stack trong trình duyệt thật, **cần `E2E_DATABASE_URL`** |
 
 CI có bước `scripts/assert-e2e-permissions-ran.js` để bắt trường hợp bộ e2e phân quyền tự

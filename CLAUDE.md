@@ -140,6 +140,13 @@ nào, không gọi API và không lưu DB — danh sách tên nằm trong `local
 
 ### Phân quyền — đọc `docs/bao-mat.md` trước khi đụng vào
 
+Từ 9/2026 có thêm quyền xem của thành viên, chi tiết ở `docs/bao-mat.md` mục 3b:
+
+- **Quyền xem của thành viên**: vai CLIENT chỉ thấy giải/đội đã được cấp ở `/players/:id/access`
+  (`PlayerAccessService`, bộ lọc CLIENT ở `src/common/player-scope.ts`). Admin phụ chỉ cấp được
+  trong phạm vi `ownedOrSharedWhere` của mình — phạm vi áp ngay trong truy vấn cả đọc lẫn ghi.
+  Thêm người vào giải/đội thì tự cấp (`grantTournamentAccess`/`grantTeamAccess`), xoá thì tự thu.
+
 Bốn lớp chặn, theo thứ tự: `LocalsMiddleware` → `CsrfMiddleware` → `FeatureGuard` (global) →
 bộ lọc chủ sở hữu trong service.
 
@@ -156,6 +163,30 @@ bộ lọc chủ sở hữu trong service.
 - Guard chạy trước interceptor nên `HttpLogInterceptor` không thấy request bị chặn — guard tự gọi
   `LogService.recordDenied()`. Đừng gỡ.
 - Vai `CLIENT` dùng mật khẩu chung `123456789` là **cố ý** (chỉ đọc); đừng "sửa" thành mật khẩu mạnh.
+
+### Giao diện — design system "Sân đấu" (9/2026)
+
+Không còn Bootstrap. Toàn bộ style nằm ở `public/css/app.css` (app) và `public/css/games.css`
+(màn hình game cho bé). Quy ước, và là thứ chủ app đã nói rõ là **ghét**:
+
+- **Không** viền màu ở mép trái thẻ (`border-left: 4px solid ...`), **không** emoji nhốt trong ô
+  vuông màu, **không** nền gradient bảy sắc cho thẻ dữ liệu. Trạng thái nói bằng huy hiệu, "của
+  tôi" nói bằng vòng chanh (`.mine-row`, `.mine-card`).
+- Icon là SVG sprite: `src/views/partials/icons.ejs` nhúng một lần sau `<body>` (topbar.ejs),
+  gọi bằng `<%- include('partials/icon', { name: 'trophy' }) %>` (đường dẫn tương đối theo file
+  gọi). Thêm icon mới thì thêm `<symbol id="i-...">` vào sprite.
+- Font tự host trong `public/fonts` (CSP `font-src 'self'`): Be Vietnam Pro cho chữ, Oswald cho
+  tiêu đề/điểm số. Thêm file font là phải thêm vào `PRECACHE` của `public/sw.js`.
+- Cảnh nền hai người đánh pickleball qua lưới: `src/views/partials/scene.ejs` (SVG + CSS
+  animation, nhóm `.scene-*` trong app.css). Nằm `position: fixed; z-index: -1` dưới mọi trang.
+- Chuyển động trang trí ở `public/js/motion.js` (nghiêng thẻ theo chuột, lộ dần khi cuộn, đếm
+  số, số điểm nảy). Tôn trọng `prefers-reduced-motion`. Có lưới an toàn 6s để nội dung không
+  bao giờ bị ẩn vì observer không bắn.
+- **Đừng** đặt `z-index` cho `.app-shell` và **đừng** để animation giữ `transform` trên phần tử
+  cha của modal: modal dùng `position: fixed`, cha có transform là modal lệch và bị topbar đè
+  (đã xảy ra, đã sửa bằng `:not(.score-modal)` + keyframe kết thúc `transform: none`).
+- `.wheel-winner` không được `text-transform`: e2e so `innerText` với tên gốc.
+- Đổi view có chủ ý thì chạy `UPDATE_SNAPSHOTS=1 npm test` rồi soi diff snapshot.
 
 ### CSP: không có inline script
 

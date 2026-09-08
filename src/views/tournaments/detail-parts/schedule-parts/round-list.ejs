@@ -1,4 +1,4 @@
-<% Array.from(roundMap.entries()).forEach(([round, roundMatches]) => { 
+<% Array.from(roundMap.entries()).forEach(([round, roundMatches]) => {
   const doneCount = roundMatches.filter((item) => item.status === 'FINISHED').length;
   const courtMap = new Map();
   roundMatches.forEach((match) => {
@@ -7,17 +7,19 @@
     courtMap.set(match.courtNumber, list);
   });
   const courts = Array.from(courtMap.entries());
+  const knockoutRound = roundMatches.some((item) => isKnockoutStage(item.stage)) || round >= 100;
 %>
   <div class="mb-4" data-round-block>
-    <div class="vong-header rounded px-3 py-2 mb-3 fw-bold text-primary">
+    <div class="vong-header mb-3">
+      <%- include('../../../partials/icon', { name: knockoutRound ? 'trophy' : 'refresh' }) %>
       <%= roundTitle(round, roundMatches) %> — <%= roundMatches.length %> trận
-      <small class="text-muted fw-normal ms-2">(<span data-done-count><%= doneCount %></span> đã xong)</small>
+      <small>(<span data-done-count><%= doneCount %></span> đã xong)</small>
     </div>
     <div class="grid courts-grid">
       <% courts.forEach(([court, courtMatches]) => { %>
         <div class="court-column">
-          <div class="border rounded p-2 h-100" style="border-color:#0d6efd44!important;">
-            <div class="text-center fw-bold small text-primary mb-2">🏟️ SÂN <%= court %></div>
+          <div class="border rounded p-2 h-100">
+            <div class="court-title"><%- include('../../../partials/icon', { name: 'court' }) %> Sân <%= court %></div>
             <% courtMatches.forEach((m) => { const knockout = isKnockoutStage(m.stage); const done = m.status === 'FINISHED'; %>
               <div class="tran-card rounded p-2 mb-2 <%= done ? 'da-xong' : '' %> <%= knockout ? 'knockout' : '' %> <%= isMine(m.teamA) || isMine(m.teamB) ? 'mine-card' : '' %>" tabindex="0" data-match-id="<%= m.id %>" data-team-a="<%= m.teamA %>" data-team-b="<%= m.teamB %>" data-score-a="<%= m.scoreA %>" data-score-b="<%= m.scoreB %>" data-score-order="<%= m.scoreOrder || 2 %>" data-serving-team="<%= m.servingTeam || 'A' %>" data-knockout="<%= knockout ? 'true' : 'false' %>">
                 <div class="match-meta">

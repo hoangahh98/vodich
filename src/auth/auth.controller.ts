@@ -23,6 +23,8 @@ export class AuthController {
     return render(res, 'login', { next: req.query.next || '', username: req.query.username || '', role: req.query.role || 'ADMIN' });
   }
 
+
+
   @Post('/login')
   async login(@Req() req: Request, @Res() res: Response, @Body() body: { username: string; password: string; role: UserRole; next?: string }) {
     const limitKey = `login:${clientIp(req)}:${String(body.username || '').trim().toLowerCase()}`;

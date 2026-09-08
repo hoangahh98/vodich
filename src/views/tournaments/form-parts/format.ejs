@@ -1,11 +1,11 @@
 <section class="form-section">
-  <h2 class="section-title mb">🧩 Thể thức thi đấu</h2>
+  <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'puzzle' }) %> Thể thức thi đấu</h2>
   <div class="segmented segmented-3">
     <label><input type="radio" name="format" value="ROUND_ROBIN" <%= (tournament?.format || 'ROUND_ROBIN') === 'ROUND_ROBIN' ? 'checked' : '' %>> Vòng tròn</label>
     <label><input type="radio" name="format" value="GROUP_KNOCKOUT" <%= tournament?.format === 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Đánh bảng + vòng trong</label>
     <label><input type="radio" name="format" value="AMERICANO" <%= tournament?.format === 'AMERICANO' ? 'checked' : '' %>> Đôi xoay vòng <small>(Americano)</small></label>
   </div>
-  <p class="muted" id="americanoNote">Đôi xoay vòng: mỗi người lần lượt đánh chung đội với từng người còn lại, xếp hạng theo từng cá nhân. Luôn là đánh đôi.</p>
+  <p class="muted mt" id="americanoNote">Đôi xoay vòng: mỗi người lần lượt đánh chung đội với từng người còn lại, xếp hạng theo từng cá nhân. Luôn là đánh đôi.</p>
   <div id="knockoutQualifierField" class="mt">
     <input type="hidden" name="knockoutQualifierCount" id="knockoutQualifierCount" value="<%= tournament?.knockoutQualifierCount || 2 %>">
     <div class="knockout-option-grid">
@@ -19,7 +19,7 @@
         <label class="option-card"><input type="checkbox" id="knockoutQuarter" data-value="8" data-min-teams="16" <%= (tournament?.knockoutQualifierCount || 2) >= 8 ? 'checked' : '' %>> Tứ kết <small>Lấy 8 đội</small></label>
       </div>
     </div>
-    <p class="muted">Chỉ hiện cấu hình vòng trong khi chọn đánh bảng. Vòng tròn vẫn giữ bảng xếp hạng bình thường.</p>
+    <p class="muted mt">Chỉ hiện cấu hình vòng trong khi chọn đánh bảng. Vòng tròn vẫn giữ bảng xếp hạng bình thường.</p>
     <div class="row mt">
       <div class="col-6"><label>Chạm điểm vòng trong</label><input type="number" name="knockoutTouchScore" value="<%= tournament?.knockoutTouchScore || 15 %>" min="1"></div>
       <div class="col-6"><label>Max điểm vòng trong</label><input type="number" name="knockoutMaxScore" value="<%= tournament?.knockoutMaxScore || 19 %>" min="1"></div>
@@ -27,11 +27,11 @@
   </div>
 
   <div id="pairingRuleField" class="mt">
-    <h3 class="section-title mb">⚖️ Quy tắc ghép cặp</h3>
+    <h3 class="section-title mb"><%- include('../../partials/icon', { name: 'scale' }) %> Quy tắc ghép cặp</h3>
     <div class="segmented">
       <label><input type="radio" name="pairingRule" value="BY_SKILL" <%= (tournament?.pairingRule || 'BY_SKILL') !== 'RANDOM' ? 'checked' : '' %>> Phân trình <small>Mạnh ghép yếu cho cân</small></label>
       <label><input type="radio" name="pairingRule" value="RANDOM" <%= tournament?.pairingRule === 'RANDOM' ? 'checked' : '' %>> Không phân trình <small>Bốc ngẫu nhiên</small></label>
     </div>
-    <p class="muted">Chỉ áp dụng cho đánh đôi. <strong>Phân trình</strong>: gom theo trình rồi ghép mạnh với yếu để các đội cân sức. <strong>Không phân trình</strong>: bỏ qua trình độ, xáo ngẫu nhiên.</p>
+    <p class="muted mt">Chỉ áp dụng cho đánh đôi. <strong>Phân trình</strong>: gom theo trình rồi ghép mạnh với yếu để các đội cân sức. <strong>Không phân trình</strong>: bỏ qua trình độ, xáo ngẫu nhiên.</p>
   </div>
 </section>

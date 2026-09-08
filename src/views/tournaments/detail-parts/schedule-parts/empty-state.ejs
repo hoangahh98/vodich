@@ -1,8 +1,9 @@
 <% if (!matches.length) { %>
-  <div class="text-center py-4">
+  <div class="empty-state">
+    <%- include('../../../partials/icon', { name: 'court' }) %>
     <p class="muted mb">Chưa có trận thi đấu. Bấm bên trên để tự động chia trận.</p>
     <% if (currentUser.role === 'ADMIN') { %>
-      <form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary" data-loading-text="Đang chia...">⚡ TỰ ĐỘNG CHIA TRẬN</button></form>
+      <form method="post" action="/tournaments/<%= tournament.id %>/generate-schedule"><button class="btn btn-primary btn-lg" data-loading-text="Đang chia..."><%- include('../../../partials/icon', { name: 'bolt' }) %> Tự động chia trận</button></form>
     <% } %>
   </div>
 <% } %>

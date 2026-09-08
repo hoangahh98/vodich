@@ -1,14 +1,15 @@
   <% if (section === 'ranking') { %>
     <% const isAmericano = tournament.format === 'AMERICANO'; %>
-    <section class="card-lite p ranking-live"><div class="section-heading mb"><div><span class="feature-icon">📊</span><h2 class="section-title">Bảng xếp hạng</h2><p class="muted"><%= isAmericano ? 'Đôi xoay vòng: đội đổi sau mỗi vòng nên xếp hạng theo từng cá nhân, ưu tiên tổng điểm ghi được.' : 'Theo dõi số trận, điểm và hiệu số sau mỗi trận.' %></p></div></div>
+    <% const rankCell = (rank) => rank <= 3 ? `<span class="rank-medal r${rank}">${rank}</span>` : `<span class="rank-medal">${rank}</span>`; %>
+    <section class="card-lite p ranking-live"><div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'chart' }) %></span><h2 class="section-title">Bảng xếp hạng</h2><p class="muted"><%= isAmericano ? 'Đôi xoay vòng: đội đổi sau mỗi vòng nên xếp hạng theo từng cá nhân, ưu tiên tổng điểm ghi được.' : 'Theo dõi số trận, điểm và hiệu số sau mỗi trận.' %></p></div></div>
 
       <% if (isAmericano) { %>
         <% if (!playerRankings.length) { %><p class="muted">Chưa có trận thi đấu để tính xếp hạng.</p><% } %>
         <% if (playerRankings.length) { %>
           <div class="ranking-board">
-            <div class="ranking-board-title"><span>🏅</span><strong>Xếp hạng cá nhân</strong></div>
+            <div class="ranking-board-title"><%- include('../../partials/icon', { name: 'medal' }) %><strong>Xếp hạng cá nhân</strong></div>
             <div class="table-wrap ranking-table"><table><thead><tr><th>#</th><th>Vận động viên</th><th>Trận</th><th class="text-success">W</th><th class="text-danger">L</th><th>Điểm ghi</th><th>Hiệu số</th></tr></thead><tbody>
-              <% playerRankings.forEach((row, index) => { const rank = index + 1; const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %> <%= isMine(row.playerName) ? 'mine-row' : '' %>"><td><%= rankLabel %></td><td><strong class="ranking-team-name"><span><%= row.playerName %></span></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.pointsFor %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
+              <% playerRankings.forEach((row, index) => { const rank = index + 1; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %> <%= isMine(row.playerName) ? 'mine-row' : '' %>"><td><%- rankCell(rank) %></td><td><strong class="ranking-team-name"><span><%= row.playerName %></span></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.pointsFor %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
             </tbody></table></div>
           </div>
         <% } %>
@@ -17,9 +18,9 @@
         <div class="ranking-board-list">
           <% rankingGroups.forEach((group) => { %>
             <div class="ranking-board">
-              <div class="ranking-board-title"><span>🏅</span><strong><%= tournament.format === 'ROUND_ROBIN' ? 'Bảng xếp hạng' : `Bảng xếp hạng ${group.groupName}` %></strong></div>
+              <div class="ranking-board-title"><%- include('../../partials/icon', { name: 'medal' }) %><strong><%= tournament.format === 'ROUND_ROBIN' ? 'Bảng xếp hạng' : `Bảng xếp hạng ${group.groupName}` %></strong></div>
               <div class="table-wrap ranking-table"><table><thead><tr><th>#</th><th>Đội</th><th>Trận</th><th class="text-success">W</th><th class="text-danger">L</th><th>Điểm</th><th>Hiệu số</th></tr></thead><tbody>
-                <% group.rows.forEach((row, index) => { const rank = index + 1; const rankLabel = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %> <%= isMine(row.teamName) ? 'mine-row' : '' %>"><td><%= rankLabel %></td><td><strong class="ranking-team-name"><% String(row.teamName).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.rankingPoints %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
+                <% group.rows.forEach((row, index) => { const rank = index + 1; const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : ''; %><tr class="<%= rankClass %> <%= isMine(row.teamName) ? 'mine-row' : '' %>"><td><%- rankCell(rank) %></td><td><strong class="ranking-team-name"><% String(row.teamName).split(/\s*\/\s*/).forEach((name) => { %><span><%= name %></span><% }) %></strong></td><td><%= row.played %></td><td class="text-success"><strong><%= row.won %></strong></td><td class="text-danger"><%= row.lost %></td><td><span class="badge bg-primary rounded-pill"><%= row.rankingPoints %></span></td><td class="<%= row.pointDiff > 0 ? 'hieu-so-pos' : row.pointDiff < 0 ? 'hieu-so-neg' : '' %>"><%= row.pointDiff > 0 ? '+' : '' %><%= row.pointDiff %></td></tr><% }) %>
               </tbody></table></div>
             </div>
           <% }) %>
@@ -27,4 +28,3 @@
       <% } %>
     </section>
   <% } %>
-

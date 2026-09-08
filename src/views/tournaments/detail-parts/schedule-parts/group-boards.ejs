@@ -1,6 +1,6 @@
 <% if (tournament.format === 'GROUP_KNOCKOUT' && groupBoards && groupBoards.length) { %>
   <div class="mb-4">
-    <div class="vong-header rounded px-3 py-2 mb-3 fw-bold text-success">📋 DANH SÁCH BẢNG ĐẤU</div>
+    <div class="vong-header mb-3"><%- include('../../../partials/icon', { name: 'list' }) %> Danh sách bảng đấu</div>
     <div class="grid group-grid">
       <% groupBoards.forEach((group) => { %>
         <div class="group-board">

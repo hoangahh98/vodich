@@ -1,6 +1,7 @@
 <section class="feature-hero p mb">
   <div class="flex between center">
     <div>
+      <div class="hero-eyebrow">Đội bóng</div>
       <h1><%= team.name %></h1>
       <div class="muted strong-muted"><%= team.description || 'Chưa có ghi chú' %></div>
     </div>
@@ -10,7 +11,7 @@
         <input type="month" name="month" value="<%= selectedMonth %>" data-autosubmit>
       </form>
       <% if (currentUser.role === 'ADMIN') { %>
-        <button class="btn btn-sm btn-primary" type="button" data-open-modal="teamFundReportModal">Báo quỹ</button>
+        <button class="btn btn-sm btn-success" type="button" data-open-modal="teamFundReportModal"><%- include('../../partials/icon', { name: 'receipt' }) %> Báo quỹ</button>
       <% } %>
     </div>
   </div>

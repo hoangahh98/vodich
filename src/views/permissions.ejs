@@ -3,14 +3,19 @@
 <% const featureLabels = { TOURNAMENTS: 'Giải đấu', TEAMS: 'Đội bóng', PERMISSIONS: 'Phân quyền' }; %>
 <main class="app-shell permissions-shell">
   <section class="feature-hero p mb">
-    <div class="section-heading">
-      <div><span class="feature-icon">🔐</span><h1>Phân quyền quản trị</h1><p class="muted">Admin gốc mặc định có toàn quyền. Chỉ tạo và phân quyền cho các admin phụ tại đây.</p></div>
+    <div class="flex between center gap">
+      <div>
+        <div class="hero-eyebrow">Quản trị</div>
+        <h1>Phân quyền quản trị</h1>
+        <div class="muted strong-muted">Admin gốc mặc định có toàn quyền. Chỉ tạo và phân quyền cho các admin phụ tại đây.</div>
+      </div>
+      <div class="feature-hero-art"><div class="ball3d" aria-hidden="true"></div></div>
     </div>
   </section>
 
   <section class="card-lite p mb">
     <div class="section-heading mb">
-      <div><span class="feature-icon">➕</span><h2 class="section-title">Tạo quản trị mới</h2><p class="muted">Thông tin admin đã tạo sẽ được sửa ở phần danh sách bên dưới.</p></div>
+      <div><span class="feature-icon"><%- include('partials/icon', { name: 'plus' }) %></span><h2 class="section-title">Tạo quản trị mới</h2><p class="muted">Thông tin admin đã tạo sẽ được sửa ở phần danh sách bên dưới.</p></div>
     </div>
     <form class="permission-create-form" method="post" action="/admins">
       <div><label>Tài khoản</label><input name="username" placeholder="admin_phu" autocomplete="username" required></div>
@@ -22,7 +27,7 @@
 
   <section class="card-lite p">
     <div class="section-heading mb">
-      <div><span class="feature-icon">⚙️</span><h2 class="section-title">Sửa admin và quyền</h2><p class="muted">Sửa thông tin, chọn quyền cho tất cả admin phụ rồi lưu một lần.</p></div>
+      <div><span class="feature-icon"><%- include('partials/icon', { name: 'shield' }) %></span><h2 class="section-title">Sửa admin và quyền</h2><p class="muted">Sửa thông tin, chọn quyền cho tất cả admin phụ rồi lưu một lần.</p></div>
       <span class="badge"><%= admins.length %> admin phụ</span>
     </div>
     <% if (!admins.length) { %>
@@ -45,7 +50,7 @@
             </section>
           <% }) %>
         </div>
-        <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu...">Lưu tất cả quyền</button></div>
+        <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('partials/icon', { name: 'save' }) %> Lưu tất cả quyền</button></div>
       </form>
     <% } %>
   </section>

@@ -2,17 +2,19 @@
 <%- include('../partials/topbar') %>
 <main class="app-shell" data-teams-index>
   <section class="feature-hero p mb">
-    <div class="flex between center">
+    <div class="flex between center gap">
       <div>
+        <div class="hero-eyebrow">Đội bóng</div>
         <h1>Quản lý đội bóng</h1>
         <div class="muted strong-muted">Theo dõi thành viên, quỹ tháng, đóng phí và khoản chi của từng đội.</div>
       </div>
+      <div class="feature-hero-art"><div class="ball3d" aria-hidden="true"></div></div>
     </div>
   </section>
 
   <% if (currentUser.role === 'ADMIN') { %>
     <section class="card-lite p mb">
-      <div class="section-heading mb"><div><span class="feature-icon">➕</span><h2 class="section-title">Tạo đội bóng</h2><p class="muted">Tạo đội rồi vào chi tiết để thêm thành viên và cấu hình quỹ.</p></div></div>
+      <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'plus' }) %></span><h2 class="section-title">Tạo đội bóng</h2><p class="muted">Tạo đội rồi vào chi tiết để thêm thành viên và cấu hình quỹ.</p></div></div>
       <form class="team-create-form" method="post" action="/teams">
         <div><label>Tên đội bóng</label><input name="name" placeholder="Ví dụ: Pickleball tối thứ 3" required></div>
         <div><label>Ghi chú</label><input name="description" placeholder="Sân, lịch chơi, ghi chú nội bộ"></div>
@@ -22,15 +24,16 @@
   <% } %>
 
   <% if (!teams.length) { %>
-    <div class="alert-lite info">Chưa có đội bóng nào.</div>
+    <section class="card-lite empty-state"><%- include('../partials/icon', { name: 'ball' }) %><p>Chưa có đội bóng nào.</p></section>
   <% } %>
   <div class="grid module-grid">
     <% teams.forEach((team) => { %>
       <a class="card-lite module-card team-card" href="/teams/<%= team.id %>/overview">
-        <div class="module-icon">🏟️</div>
+        <div class="module-icon"><%- include('../partials/icon', { name: 'ball' }) %></div>
         <h3><%= team.name %></h3>
         <p class="muted"><%= team.description || 'Chưa có ghi chú' %></p>
-        <div class="team-card-footer"><span class="badge"><%= team.activeMemberCount %> thành viên</span></div>
+        <div class="team-card-footer"><span class="badge"><%- include('../partials/icon', { name: 'users' }) %> <%= team.activeMemberCount %> thành viên</span></div>
+        <span class="card-arrow"><%- include('../partials/icon', { name: 'arrow' }) %></span>
       </a>
     <% }) %>
   </div>

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { grantTournamentAccess, revokeTournamentAccess } from '../players/player-access.service';
 import { minimumFeeForTournament } from './tournament-money';
 
 @Injectable()
@@ -44,6 +45,8 @@ export class TournamentRegistrationService {
         },
       });
     }
+    // Admin vừa quyết định cho họ tham gia thì cấp luôn quyền xem giải; bỏ thì thu ở deleteRegistration/bulk.
+    await grantTournamentAccess(this.prisma, tournamentId, players.map((player) => player.id));
     return { added: players.length, reserveCount };
   }
 
@@ -55,6 +58,7 @@ export class TournamentRegistrationService {
     const activeCount = await this.prisma.tournamentRegistration.count({ where: { tournamentId, status: 'ACTIVE' } });
     const status = activeCount < tournament.expectedPlayers ? 'ACTIVE' : 'RESERVE';
     if (existingPlayer) {
+      await grantTournamentAccess(this.prisma, tournamentId, [existingPlayer.id]);
       return this.prisma.tournamentRegistration.upsert({
         where: { tournamentId_playerId: { tournamentId, playerId: existingPlayer.id } },
         update: { status, withdrawnAt: null, skillLevel: blankToNull(skillLevel) || existingPlayer.skillLevel },
@@ -113,7 +117,8 @@ export class TournamentRegistrationService {
   }
 
   async deleteRegistration(registrationId: bigint) {
-    await this.prisma.tournamentRegistration.delete({ where: { id: registrationId } });
+    const registration = await this.prisma.tournamentRegistration.delete({ where: { id: registrationId } });
+    if (registration.playerId) await revokeTournamentAccess(this.prisma, registration.tournamentId, [registration.playerId]);
   }
 
   async updateRegistrationSkill(registrationId: bigint, skillLevel: string) {
@@ -129,12 +134,14 @@ export class TournamentRegistrationService {
     // Chỉ thao tác trên registration thực sự thuộc giải này (chống IDOR chéo giải).
     const scoped = await this.prisma.tournamentRegistration.findMany({
       where: { id: { in: requestedIds }, tournamentId },
-      select: { id: true },
+      select: { id: true, playerId: true },
     });
     const ids = scoped.map((registration) => registration.id);
     if (!ids.length) return;
     if (action === 'delete') {
       await this.prisma.tournamentRegistration.deleteMany({ where: { id: { in: ids }, tournamentId } });
+      const playerIds = scoped.map((registration) => registration.playerId).filter((id): id is bigint => id !== null);
+      await revokeTournamentAccess(this.prisma, tournamentId, playerIds);
       return;
     }
     if (action === 'withdraw') {

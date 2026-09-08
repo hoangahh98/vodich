@@ -61,6 +61,13 @@ export class AuthService implements OnModuleInit {
     if (password !== CLIENT_PASSWORD) {
       throw new Error('Mật khẩu không đúng');
     }
+    const client = await this.findClient(normalized);
+    if (!client) throw new Error('Không tìm thấy client');
+    return client;
+  }
+
+  /** Vận động viên theo email: hồ sơ `player` trước, không có thì tìm người đăng ký ngoài còn tên trong giải. */
+  private async findClient(normalized: string): Promise<CurrentUser | null> {
     const player = await this.prisma.player.findUnique({ where: { email: normalized } });
     if (player) {
       return { id: player.id.toString(), email: player.email, displayName: player.displayName, role: 'CLIENT' };
@@ -69,9 +76,7 @@ export class AuthService implements OnModuleInit {
       where: { externalEmail: { equals: normalized, mode: 'insensitive' }, status: { in: ['ACTIVE', 'RESERVE'] } },
       orderBy: { id: 'asc' },
     });
-    if (!registration || !registration.externalEmail) {
-      throw new Error('Không tìm thấy client');
-    }
+    if (!registration || !registration.externalEmail) return null;
     return {
       id: registration.id.toString(),
       email: registration.externalEmail,

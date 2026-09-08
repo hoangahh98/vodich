@@ -1,10 +1,11 @@
 <%- include('partials/head', { title: 'Lỗi' }) %>
 <%- include('partials/topbar') %>
-<main class="app-shell">
-  <section class="card-lite p">
+<main class="app-shell narrow-shell">
+  <section class="card-lite p error-card">
+    <div class="ball3d sm" aria-hidden="true"></div>
     <h1>Không thể xử lý</h1>
     <p class="muted"><%= message || 'Có lỗi xảy ra' %></p>
-    <a class="btn" href="/">Trang chủ</a>
+    <a class="btn btn-primary mt" href="/"><%- include('partials/icon', { name: 'home' }) %> Về trang chủ</a>
   </section>
 </main>
 <%- include('partials/bottom-menu') %>

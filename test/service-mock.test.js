@@ -253,7 +253,7 @@ test('TeamFundService sets fund and seeds fixed member payments from previous ba
   assert.equal(paymentUpserts[0].create.paidAmount, 100000);
 });
 
-test('TeamCrudService restricts client teams to active memberships', async () => {
+test('TeamCrudService: đội hiện ra với CLIENT là đội đã cấp quyền xem, so bằng email', async () => {
   let teamWhere;
   let countWhere;
   const service = new TeamCrudService({
@@ -281,10 +281,12 @@ test('TeamCrudService restricts client teams to active memberships', async () =>
 
   assert.equal(teams.length, 1);
   assert.equal(teams[0].activeMemberCount, 2);
-  assert.equal(teamWhere.members.some.active, true);
-  assert.equal(teamWhere.members.some.OR[0].playerId, 7n);
-  assert.equal(teamWhere.members.some.OR[1].player.is.email.equals, 'player@test.local');
+  // Quyền xem là bảng riêng (docs/bao-mat.md 3b), KHÔNG còn suy từ bảng thành viên; và không
+  // dùng user.id làm playerId vì với người đăng ký ngoài đó là id dòng đăng ký.
+  assert.equal(teamWhere.playerAccess.some.player.email.equals, 'player@test.local');
+  assert.equal(teamWhere.members, undefined);
+  assert.equal(JSON.stringify(teamWhere).includes('playerId'), false);
   assert.equal(canView, true);
   assert.equal(countWhere.id, 3n);
-  assert.equal(countWhere.members.some.active, true);
+  assert.equal(countWhere.playerAccess.some.player.email.equals, 'player@test.local');
 });

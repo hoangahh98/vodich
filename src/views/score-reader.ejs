@@ -4,8 +4,9 @@
   <section class="feature-hero p mb">
     <div class="flex between center gap">
       <div>
+        <div class="hero-eyebrow">Giao lưu</div>
         <h1>Đọc điểm giao lưu</h1>
-        <div class="muted strong-muted">Bộ đọc điểm độc lập, dùng được cho admin và VĐV.</div>
+        <div class="muted strong-muted">Bộ đọc điểm độc lập, dùng được cho admin và VĐV. Chạm vào đội để đổi bên giao.</div>
       </div>
     </div>
   </section>
@@ -68,8 +69,8 @@
         <button class="btn btn-primary" type="button" data-reader-order="2">Tay 2</button>
       </div>
       <div class="score-reader-command">
-        <button class="btn btn-primary" id="readerSpeakScore" type="button">🔊 Đọc lại</button>
-        <button class="btn btn-danger" id="readerResetScore" type="button">Đặt lại</button>
+        <button class="btn btn-dark" id="readerSpeakScore" type="button"><%- include('partials/icon', { name: 'speaker' }) %> Đọc lại</button>
+        <button class="btn btn-danger" id="readerResetScore" type="button"><%- include('partials/icon', { name: 'refresh' }) %> Đặt lại</button>
       </div>
     </div>
     <div id="readerStatus" class="score-save-status muted">Sẵn sàng</div>
@@ -78,11 +79,13 @@
 <script src="/js/score-speech.js"></script>
 <script src="/js/score-reader.js"></script>
 <nav class="bottom-menu">
-  <button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu">☰</button>
+  <button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu"><span class="burger" aria-hidden="true"><i></i><i></i><i></i></span></button>
   <div class="bottom-menu-inner">
-    <a class="active" href="/score-reader">🔊 Đọc điểm</a>
+    <a class="" href="/"><%- include('partials/icon', { name: 'home' }) %><span>Trang chủ</span></a>
+    <a class="active" href="/score-reader"><%- include('partials/icon', { name: 'speaker' }) %><span>Đọc điểm</span></a>
   </div>
 </nav>
 <script src="/js/menu.js"></script>
+<script src="/js/motion.js"></script>
 </body>
 </html>

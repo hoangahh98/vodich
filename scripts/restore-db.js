@@ -18,6 +18,8 @@ const ORDER = [
   'AppUser', 'Player', 'AdminFeaturePermission',
   'Tournament', 'TournamentPermission', 'TournamentRegistration', 'MatchGame',
   'TeamClub', 'TeamClubPermission', 'TeamMember', 'TeamMonthFund', 'TeamMemberPayment', 'TeamExpense',
+  // Quyền xem của thành viên (9/2026): con của Player + Tournament/TeamClub + AppUser (người cấp).
+  'PlayerTournamentAccess', 'PlayerTeamAccess',
   'AppLog',
   'KnightCharacter', 'KnightProgress',
 ];

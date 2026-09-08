@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere, isRootAdmin, ownedOrSharedWhere } from '../common/admin-scope';
+import { clientTeamWhere } from '../common/player-scope';
 import { CurrentUser } from '../types';
 import { cleanText } from './team-utils';
 
@@ -47,7 +48,7 @@ export class TeamCrudService {
 
   async canView(user: CurrentUser, teamId: bigint) {
     if (user.role === 'ADMIN') return this.canManage(user, teamId);
-    return (await this.prisma.teamClub.count({ where: { id: teamId, ...this.clientTeamWhere(user) } })) > 0;
+    return (await this.prisma.teamClub.count({ where: { id: teamId, ...clientTeamWhere(user) } })) > 0;
   }
 
   async availableAdmins(teamId: bigint, ownerAdminId?: bigint | null) {
@@ -65,19 +66,8 @@ export class TeamCrudService {
     return this.prisma.teamClubPermission.deleteMany({ where: { id: permissionId, teamId } });
   }
 
-  private clientTeamWhere(user: CurrentUser): Prisma.TeamClubWhereInput {
-    return {
-      members: {
-        some: {
-          active: true,
-          OR: [{ playerId: BigInt(user.id) }, { player: { is: { email: { equals: user.email, mode: 'insensitive' } } } }],
-        },
-      },
-    };
-  }
-
   private teamWhereForUser(user: CurrentUser): Prisma.TeamClubWhereInput {
-    if (user.role === 'CLIENT') return this.clientTeamWhere(user);
+    if (user.role === 'CLIENT') return clientTeamWhere(user);
     if (!isRootAdmin(user)) return ownedOrSharedWhere(user);
     return {};
   }

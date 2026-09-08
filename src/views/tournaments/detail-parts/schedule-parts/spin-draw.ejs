@@ -22,12 +22,12 @@
     <div class="score-modal-panel">
       <div class="score-modal-head">
         <div>
-          <h3>🎡 Vòng quay chia trận</h3>
+          <h3><%- include('../../../partials/icon', { name: 'wheel' }) %> Vòng quay chia trận</h3>
           <small data-spin-hint></small>
         </div>
         <div class="score-modal-head-actions">
-          <button type="button" class="btn btn-light btn-sm" data-spin-reset>Làm lại</button>
-          <button type="button" class="btn btn-light btn-sm" data-spin-close>Đóng</button>
+          <button type="button" class="btn btn-sm" data-spin-reset>Làm lại</button>
+          <button type="button" class="btn btn-sm" data-spin-close>Đóng</button>
         </div>
       </div>
       <div class="score-modal-body">
@@ -40,8 +40,8 @@
           <div class="spin-picked" data-spin-picked></div>
         </div>
         <div class="spin-actions">
-          <button type="button" class="btn btn-primary" data-spin-once>🎡 Quay</button>
-          <button type="button" class="btn btn-success" data-spin-all>Bốc nhanh phần còn lại</button>
+          <button type="button" class="btn btn-primary" data-spin-once><%- include('../../../partials/icon', { name: 'wheel' }) %> Quay</button>
+          <button type="button" class="btn btn-success" data-spin-all><%- include('../../../partials/icon', { name: 'bolt' }) %> Bốc nhanh phần còn lại</button>
         </div>
         <div class="spin-results-box">
           <h4 class="spin-results-title">Đội đã bốc <span class="badge bg-primary rounded-pill" data-spin-total>0</span></h4>
@@ -50,7 +50,7 @@
         <form method="post" action="/tournaments/<%= tournament.id %>/manual-schedule" class="spin-apply hidden" data-spin-form>
           <input type="hidden" name="pairCount" value="0" data-spin-count>
           <div data-spin-inputs></div>
-          <button class="btn btn-success spin-apply-btn" data-loading-text="Đang chia...">Chốt danh sách này & chia trận</button>
+          <button class="btn btn-success spin-apply-btn" data-loading-text="Đang chia..."><%- include('../../../partials/icon', { name: 'check' }) %> Chốt danh sách này &amp; chia trận</button>
           <p class="muted">Bấm nút này sẽ xoá lịch thi đấu cũ và chia lại theo các đội vừa bốc.</p>
         </form>
       </div>

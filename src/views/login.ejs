@@ -1,16 +1,18 @@
 <%- include('partials/head', { title: 'Đăng nhập - Vô địch' }) %>
 <body class="login-page">
+  <%- include('partials/icons') %>
+  <%- include('partials/scene') %>
   <section class="login-card">
-    <img class="login-logo" src="/uploads/logo.png" alt="Logo Vô địch">
-    <h1 class="text-center">Vô địch</h1>
-    <p class="text-center muted">Quản lý giải đấu, đội bóng và tỉ số trực tiếp</p>
+    <div class="login-art"><div class="ball3d" aria-hidden="true"></div></div>
+    <h1>Vô địch</h1>
+    <p class="muted">Quản lý giải đấu, đội bóng và tỉ số trực tiếp</p>
     <% if (typeof error !== 'undefined') { %><div class="badge badge-danger mb"><%= error %></div><% } %>
     <form method="post" action="/login">
       <input type="hidden" name="next" value="<%= typeof next !== 'undefined' ? next : '' %>">
-      <div class="mb"><label>Tài khoản / Email</label><input name="username" value="<%= typeof username !== 'undefined' ? username : '' %>" required autofocus></div>
-      <div class="mb"><label>Mật khẩu</label><input name="password" type="password" required><div class="muted">Khách xem mặc định: 123456789</div></div>
+      <div class="mb"><label>Tài khoản / Email</label><input name="username" value="<%= typeof username !== 'undefined' ? username : '' %>" required autofocus autocomplete="username"></div>
+      <div class="mb"><label>Mật khẩu</label><input name="password" type="password" required autocomplete="current-password"><span class="field-hint">Khách xem mặc định: 123456789</span></div>
       <div class="mb"><label>Vai trò</label><select name="role"><option value="ADMIN" <%= (typeof role === 'undefined' || role !== 'CLIENT') ? 'selected' : '' %>>Quản trị</option><option value="CLIENT" <%= typeof role !== 'undefined' && role === 'CLIENT' ? 'selected' : '' %>>Khách xem</option></select></div>
-      <button class="btn btn-primary" style="width:100%" data-loading-text="Đang đăng nhập...">Đăng nhập</button>
+      <button class="btn btn-primary btn-lg" data-loading-text="Đang đăng nhập...">Đăng nhập <%- include('partials/icon', { name: 'arrow' }) %></button>
     </form>
   </section>
   <script src="/js/app.js"></script>

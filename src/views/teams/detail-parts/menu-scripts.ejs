@@ -1,5 +1,6 @@
-<nav class="bottom-menu"><button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu">☰</button><div class="bottom-menu-inner">
-  <% (currentUser.role === 'ADMIN' ? ['overview','members','expenses','settings'] : ['overview','members','expenses']).forEach((item) => { const labels = {overview:'📊 Tổng quan', members:'👥 Thành viên', expenses:'💸 Khoản chi', settings:'⚙️ Cài đặt'}; %><a class="<%= section === item ? 'active' : '' %>" href="/teams/<%= team.id %>/<%= item %>?month=<%= selectedMonth %>"><%= labels[item] %></a><% }) %>
+<nav class="bottom-menu"><button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu"><span class="burger" aria-hidden="true"><i></i><i></i><i></i></span></button><div class="bottom-menu-inner">
+  <a class="" href="/teams"><%- include('../../partials/icon', { name: 'home' }) %><span>Danh sách đội</span></a>
+  <% (currentUser.role === 'ADMIN' ? ['overview','members','expenses','settings'] : ['overview','members','expenses']).forEach((item) => { const labels = {overview:'Tổng quan', members:'Thành viên', expenses:'Khoản chi', settings:'Cài đặt'}; const icons = {overview:'chart', members:'users', expenses:'receipt', settings:'settings'}; %><a class="<%= section === item ? 'active' : '' %>" href="/teams/<%= team.id %>/<%= item %>?month=<%= selectedMonth %>"><%- include('../../partials/icon', { name: icons[item] }) %><span><%= labels[item] %></span></a><% }) %>
 </div></nav>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>
@@ -8,5 +9,6 @@
 <script src="/js/menu.js"></script>
 <script src="/js/modal-copy.js"></script>
 <script src="/js/realtime.js"></script>
+<script src="/js/motion.js"></script>
 </body>
 </html>

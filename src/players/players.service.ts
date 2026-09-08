@@ -10,6 +10,18 @@ export class PlayersService {
     return this.prisma.player.findMany({ orderBy: { displayName: 'asc' } });
   }
 
+  find(id: bigint) {
+    return this.prisma.player.findUnique({ where: { id } });
+  }
+
+  /** Kèm số giải/đội mà người này được xem — đếm theo bộ lọc phạm vi của admin đang xem (PlayerAccessService.countFilters). */
+  listWithAccess(countFilters: { tournamentAccess: { where: Record<string, unknown> }; teamAccess: { where: Record<string, unknown> } }) {
+    return this.prisma.player.findMany({
+      orderBy: { displayName: 'asc' },
+      include: { _count: { select: countFilters } },
+    });
+  }
+
   async upsert(body: Record<string, string>) {
     const email = body.email.trim().toLowerCase();
     const data = {
