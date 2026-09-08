@@ -12,7 +12,7 @@
       </div>
       <div class="score-modal-body">
         <div id="scoreSetupStep" class="score-step-view">
-          <div class="match-player-settings">
+          <div class="match-player-settings" data-doubles-only>
             <section class="match-player-card side-a">
               <h4 id="matchTeamAPlayerTitle">Đội A</h4>
               <div><label>Tay 1</label><select id="matchAPlayer1"></select></div>
@@ -25,7 +25,7 @@
             </section>
           </div>
           <div class="score-options">
-            <span>Đội giao trước</span>
+            <span data-serving-label="setup">Đội giao trước</span>
             <button type="button" class="btn btn-sm" data-serving-select="A">Đội A</button>
             <button type="button" class="btn btn-sm" data-serving-select="B">Đội B</button>
           </div>
@@ -52,11 +52,11 @@
             </div>
           </div>
           <div class="score-options">
-            <span>Đội đang giao</span>
+            <span data-serving-label="play">Đội đang giao</span>
             <button type="button" class="btn btn-sm" data-serving-select="A">Đội A</button>
             <button type="button" class="btn btn-sm" data-serving-select="B">Đội B</button>
           </div>
-          <div class="score-options">
+          <div class="score-options" data-doubles-only>
             <span>Thứ tự đánh</span>
             <button type="button" class="btn btn-sm" data-score-order-select="1">1</button>
             <button type="button" class="btn btn-sm" data-score-order-select="2">2</button>

@@ -2,7 +2,7 @@
   <section class="card-lite p">
     <%- include('schedule-parts/header') %>
     <%- include('schedule-parts/manual-pairs') %>
-    <div id="matchList" data-tournament-id="<%= tournament.id %>" data-touch-score="<%= tournament.touchScore || 11 %>" data-max-score="<%= tournament.maxScore || 15 %>" data-knockout-touch-score="<%= tournament.knockoutTouchScore || 15 %>" data-knockout-max-score="<%= tournament.knockoutMaxScore || 19 %>">
+    <div id="matchList" data-tournament-id="<%= tournament.id %>" data-play-type="<%= tournament.playType === 'DOUBLES' ? 'DOUBLES' : 'SINGLES' %>" data-touch-score="<%= tournament.touchScore || 11 %>" data-max-score="<%= tournament.maxScore || 15 %>" data-knockout-touch-score="<%= tournament.knockoutTouchScore || 15 %>" data-knockout-max-score="<%= tournament.knockoutMaxScore || 19 %>">
       <%
         const roundMap = new Map();
         matches.forEach((match) => {

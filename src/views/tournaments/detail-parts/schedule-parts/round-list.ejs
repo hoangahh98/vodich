@@ -39,7 +39,7 @@
                   </div>
                   <div class="score-section">
                     <span class="badge <%= done ? 'bg-success' : 'bg-primary' %> px-2 py-1 score-pill">
-                      <span class="score-a"><%= m.scoreA %></span> – <span class="score-b"><%= m.scoreB %></span> - <span class="score-order"><%= m.scoreOrder || 2 %></span>
+                      <span class="score-a"><%= m.scoreA %></span> – <span class="score-b"><%= m.scoreB %></span><% if (tournament.playType === 'DOUBLES') { %> - <span class="score-order"><%= m.scoreOrder || 2 %></span><% } %>
                     </span>
                     <span class="badge <%= done ? 'bg-success' : 'bg-secondary' %> match-status"><%= done ? 'Đã xong' : 'Đang đánh' %></span>
                     <% if (currentUser.role === 'ADMIN') { %><small class="muted">Bấm thẻ để ghi điểm</small><% } %>

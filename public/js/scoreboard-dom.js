@@ -15,7 +15,9 @@
     row.dataset.servingTeam = match.servingTeam || 'A';
     row.querySelector('.score-a').textContent = match.scoreA;
     row.querySelector('.score-b').textContent = match.scoreB;
-    row.querySelector('.score-order').textContent = match.scoreOrder || 2;
+    // Đánh đơn không có số thứ tự đánh nên thẻ trận không có ô này.
+    const orderEl = row.querySelector('.score-order');
+    if (orderEl) orderEl.textContent = match.scoreOrder || 2;
 
     const finished = match.status === 'FINISHED';
     const scorePill = row.querySelector('.score-pill');

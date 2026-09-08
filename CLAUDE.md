@@ -100,6 +100,15 @@ Socket.IO cho tỉ số trực tiếp, deploy trên Render.
   `stage !== 'Vòng bảng' && ...` — thêm một thể thức mới là những chỗ tự viết ấy lặng lẽ chấm
   điểm sai luật (đã xảy ra với gateway ghi điểm và hai view lịch).
 
+### Ghi điểm: đánh đơn khác đánh đôi
+
+`public/js/scoreboard.js` đọc `data-play-type` của `#matchList`. Đánh ĐƠN (luật
+https://irace.vn/luat-choi-pickleball-danh-don/): điểm chỉ hai số giao – nhận, không có "thứ tự
+đánh", thua bóng là đối thủ giao ngay (không chặn "phải ở tay 2"), sơ đồ sân một người mỗi bên:
+người giao ô phải khi điểm mình chẵn, ô trái khi lẻ, người nhận đứng chéo (ô 1 = ô phải). Các phần
+chỉ có ở đánh đôi (chọn Tay 1/2, hàng "Thứ tự đánh") mang `data-doubles-only`; thẻ trận đơn không
+in số thứ tự đánh. `scoreOrder` của trận đơn luôn lưu 2 cho DB khỏi đổi.
+
 ### Vòng quay chia trận
 
 Ba lớp tách rời, đừng gộp:

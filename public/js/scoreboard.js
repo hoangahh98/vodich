@@ -9,6 +9,10 @@
   const tournamentId = list.dataset.tournamentId;
   const socket = getTournamentSocket(tournamentId);
   if (!socket) return;
+  // Đánh ĐƠN (luật: https://irace.vn/luat-choi-pickleball-danh-don/): điểm chỉ hai số (giao – nhận),
+  // mỗi bên một người, chỉ một lần giao — thua bóng là đối thủ giao ngay (không có tay 2), người
+  // giao đứng bên phải khi điểm mình chẵn, bên trái khi lẻ; người nhận đứng chéo sân.
+  const singles = list.dataset.playType === 'SINGLES';
 
   const config = {
     group: {
@@ -52,6 +56,14 @@
     B1: document.querySelector('[data-match-court-slot="B1"]'),
     B2: document.querySelector('[data-match-court-slot="B2"]'),
   };
+
+  const applySinglesLayout = () => {
+    if (!singles) return;
+    document.querySelectorAll('[data-doubles-only]').forEach((el) => el.classList.add('hidden'));
+    document.querySelectorAll('[data-serving-label]').forEach((el) => { el.textContent = el.dataset.servingLabel === 'setup' ? 'Người giao trước' : 'Người đang giao'; });
+    if (backToSetup) backToSetup.textContent = 'Đổi người giao trước';
+  };
+  applySinglesLayout();
 
   let activeRow = null;
   let state = { scoreA: 0, scoreB: 0, servingTeam: 'A', servingPlayer: '1', firstServerActive: true, scoreHistory: [], scoreOrder: 2, sidesSwapped: false, positions: { A: { 1: '1', 2: '2' }, B: { 1: '1', 2: '2' } } };
@@ -97,6 +109,12 @@
   const renderTeamLabels = () => {
     if (scoreTeamA) scoreTeamA.textContent = dom.formatTeam?.(teamDisplayName(teamOnSide('A'))) || teamDisplayName(teamOnSide('A'));
     if (scoreTeamB) scoreTeamB.textContent = dom.formatTeam?.(teamDisplayName(teamOnSide('B'))) || teamDisplayName(teamOnSide('B'));
+    // Đánh đơn: nút chọn người giao ghi thẳng tên người thay vì "Đội A/B".
+    if (singles) {
+      document.querySelectorAll('[data-serving-select]').forEach((button) => {
+        button.textContent = teamDisplayName(teamOnSide(button.dataset.servingSelect === 'B' ? 'B' : 'A'));
+      });
+    }
   };
 
   const renderModal = () => {
@@ -154,6 +172,23 @@
   const syncServingPlayer = () => { state.servingPlayer = playerAtSlot(state.servingTeam, serverSlot()); };
 
   const renderCourt = () => {
+    if (singles) {
+      // Chẵn phải, lẻ trái theo điểm của NGƯỜI GIAO; ô 1 là ô bên phải, người nhận đứng chéo (cùng số ô).
+      const slot = teamScore(state.servingTeam) % 2 === 0 ? 1 : 2;
+      ['A', 'B'].forEach((side) => {
+        const team = teamOnSide(side);
+        [1, 2].forEach((candidate) => {
+          const marker = courtSlots[`${side}${candidate}`];
+          if (!marker) return;
+          const shown = candidate === slot;
+          marker.classList.toggle('hidden', !shown);
+          if (!shown) return;
+          marker.textContent = playerName(team, '1');
+          marker.classList.toggle('serving', state.servingTeam === team);
+        });
+      });
+      return;
+    }
     ['A', 'B'].forEach((side) => {
       const team = teamOnSide(side);
       [1, 2].forEach((slot) => {
@@ -237,17 +272,18 @@
     const scorePair = state.servingTeam === 'B'
       ? `${read(state.scoreB)} ${read(state.scoreA)}`
       : `${read(state.scoreA)} ${read(state.scoreB)}`;
-    const orderText = read(state.scoreOrder);
+    // Đánh đơn chỉ đọc hai số; đánh đôi đọc thêm số thứ tự đánh (tay).
+    const orderText = singles ? '' : read(state.scoreOrder);
     const speakParts = speech.speakSequence || ((parts) => speech.speak?.(parts.join(' ')));
     const winner = winnerName();
     const winnerKey = activeRow ? `${activeRow.dataset.matchId}:${winner}:${state.scoreA}-${state.scoreB}` : '';
     if (winner && winnerKey !== lastWinnerKey) {
       lastWinnerKey = winnerKey;
       const prefix = winner.includes(' và ') ? 'đội ' : '';
-      speakParts([scorePair, `${orderText}. Chúc mừng ${prefix}${winner} giành chiến thắng`]);
+      speakParts([scorePair, `${orderText ? `${orderText}. ` : ''}Chúc mừng ${prefix}${winner} giành chiến thắng`]);
       return;
     }
-    speakParts([scorePair, orderText]);
+    speakParts(orderText ? [scorePair, orderText] : [scorePair]);
   };
 
   const scheduleSpeak = (delay = 220) => {
@@ -315,7 +351,7 @@
     if (!activeRow) return;
     const side = teamOnSide(displaySide);
     if (side !== state.servingTeam) {
-      setStatus('Chỉ đội đang giao được ghi điểm. Muốn đổi đội giao phải ở tay 2.', 'text-danger');
+      setStatus(singles ? 'Chỉ người đang giao được ghi điểm. Thua bóng thì bấm tên người kia để đổi giao.' : 'Chỉ đội đang giao được ghi điểm. Muốn đổi đội giao phải ở tay 2.', 'text-danger');
       return;
     }
     const next = { ...state };
@@ -338,7 +374,7 @@
     if (side === 'B') next.scoreB = Math.max(0, next.scoreB + delta);
     [next.scoreA, next.scoreB] = rules.clampScores?.(next.scoreA, next.scoreB, activeRules()) || [next.scoreA, next.scoreB];
     state = next;
-    if (delta > 0) swapServingSide(side);
+    if (delta > 0 && !singles) swapServingSide(side);
     optimisticRow();
     renderPlayerSettings();
     renderModal();
@@ -415,7 +451,8 @@
         saveScore();
         return;
       }
-      if (side !== state.servingTeam && state.scoreOrder !== 2) {
+      // Đánh đôi: chỉ mất giao khi cả hai tay đã giao. Đánh đơn: thua bóng là đổi giao ngay.
+      if (!singles && side !== state.servingTeam && state.scoreOrder !== 2) {
         setStatus('Chỉ đổi đội giao khi đang ở tay 2', 'text-danger');
         scheduleSpeak(0);
         return;
@@ -424,7 +461,7 @@
       state = {
         ...state,
         servingTeam: side === 'B' ? 'B' : 'A',
-        scoreOrder: changedServingTeam ? 1 : state.scoreOrder,
+        scoreOrder: singles ? 2 : changedServingTeam ? 1 : state.scoreOrder,
         firstServerActive: false,
         scoreHistory: [],
       };
