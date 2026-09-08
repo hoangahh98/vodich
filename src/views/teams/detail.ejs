@@ -4,6 +4,10 @@
 <% const isMine = (member) => String(member.player.email || '').toLowerCase() === currentEmail; %>
 <main class="app-shell team-detail-shell" data-team-id="<%= team.id %>">
   <%- include('detail-parts/hero') %>
+  <%# Các mục của đội nằm ở dải tab này; thanh dưới đáy chỉ còn Trang chủ + Đội bóng theo ý chủ app. %>
+  <nav class="section-tabs" aria-label="Mục trong đội">
+    <% (currentUser.role === 'ADMIN' ? ['overview','members','income','expenses','settings'] : ['overview','members','income','expenses']).forEach((item) => { const labels = {overview:'Tổng quan', members:'Thành viên', income:'Khoản thu', expenses:'Khoản chi', settings:'Cài đặt'}; const icons = {overview:'chart', members:'users', income:'coin', expenses:'receipt', settings:'settings'}; %><a class="<%= section === item ? 'active' : '' %>" href="/teams/<%= team.id %>/<%= item %>?month=<%= selectedMonth %>"><%- include('../partials/icon', { name: icons[item] }) %><span><%= labels[item] %></span></a><% }) %>
+  </nav>
   <%- include('detail-parts/overview') %>
   <%- include('detail-parts/members') %>
   <%- include('detail-parts/income') %>

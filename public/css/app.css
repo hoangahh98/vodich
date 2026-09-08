@@ -520,12 +520,6 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .log-table { min-width: 980px; }
 .log-table thead th { position: sticky; top: 0; z-index: 2; }
 .log-table td { font-size: 13.5px; }
-.team-frozen-wrap { max-height: 70vh; overflow: auto; }
-.team-fee-table { min-width: 980px; }
-.team-frozen-wrap thead th { position: sticky; top: 0; z-index: 3; }
-.team-frozen-wrap .sticky-col { position: sticky; left: 0; z-index: 2; background: #fff; min-width: 180px; }
-.team-frozen-wrap thead .sticky-col { z-index: 4; background: var(--court); color: #fff; }
-.team-frozen-wrap .mine-row .sticky-col { background: var(--lime-soft); }
 .team-fee-edit { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); padding: 12px 14px; }
 .team-fee-edit summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 .team-fee-edit summary::marker, .team-fee-edit summary::-webkit-details-marker { display: none; content: ""; }
@@ -636,6 +630,24 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .guest-receipt-form .receipt-date, .guest-receipt-form .receipt-amount, .guest-receipt-form .receipt-action { padding-bottom: 18px; }
 /* Bảng thành viên: hai khối gọn, không đầu bảng xanh đậm — nhẹ mắt hơn */
 .member-table { border: 0; border-radius: 0; }
+.member-table:last-child { border-radius: 0 0 var(--radius) var(--radius); }
+.member-table .paid-of { justify-content: flex-end; }
+.member-table .paid-of input { width: 120px; }
+.member-table .nowrap { white-space: nowrap; }
+.member-table .row-action { width: 1%; white-space: nowrap; }
+.member-table .row-action form { display: inline-block; }
+.btn-icon { padding-left: 10px; padding-right: 10px; }
+.card-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px 20px; }
+
+/* ─── Dải tab mục trong trang chi tiết ─────────────────────────────────────────────────────
+   Viên thuốc trắng có cạnh 3D, mục đang mở đổi sang navy. Cuộn ngang khi hẹp. */
+.section-tabs { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; padding: 2px 2px 8px; margin-bottom: 12px; }
+.section-tabs::-webkit-scrollbar { display: none; }
+.section-tabs a { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 7px; padding: 10px 16px; border-radius: 999px; background: #fff; border: 1px solid var(--line); color: var(--muted); font-weight: 700; font-size: 13.5px; text-decoration: none; white-space: nowrap; box-shadow: 0 3px 0 var(--line); transition: transform .2s var(--ease-spring), background .2s, color .15s, box-shadow .2s; -webkit-tap-highlight-color: transparent; }
+.section-tabs a .ic { width: 17px; height: 17px; }
+.section-tabs a:hover { color: var(--navy); transform: translateY(-1px); }
+.section-tabs a.active { color: #fff; background: var(--navy); border-color: var(--navy); box-shadow: 0 3px 0 #0a1238, 0 12px 24px -12px rgba(22, 32, 74, .7); }
+.section-tabs a:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--line); }
 .member-table th { background: var(--paper); color: var(--muted); font-size: 11.5px; letter-spacing: .12em; white-space: normal; }
 .member-table th:first-child, .member-table td:first-child { padding-left: 20px; }
 .member-table th:last-child, .member-table td:last-child { padding-right: 20px; }
@@ -683,10 +695,10 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 /* ─── Thanh điều hướng dưới đáy (thay nút ba gạch) ───────────────────────────────────
    Viên thuốc kính mờ nằm sát đáy, mỗi mục là icon + nhãn, mục đang mở sáng chanh. Nhiều mục thì
    cuộn ngang, không xuống dòng. Dùng chung cho cả máy tính lẫn điện thoại. */
-.bottom-nav { position: fixed; left: 0; right: 0; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 40; width: min(820px, calc(100% - 20px)); margin: 0 auto; padding: 6px; border-radius: 999px; background: rgba(255, 255, 255, .72); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); border: 1px solid rgba(255, 255, 255, .7); box-shadow: 0 18px 40px -18px rgba(20, 22, 28, .45), 0 2px 0 rgba(20, 22, 28, .06), inset 0 1px 0 #fff; }
+.bottom-nav { position: fixed; left: 0; right: 0; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 40; width: max-content; max-width: min(820px, calc(100% - 20px)); margin: 0 auto; padding: 6px; border-radius: 999px; background: rgba(255, 255, 255, .72); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); border: 1px solid rgba(255, 255, 255, .7); box-shadow: 0 18px 40px -18px rgba(20, 22, 28, .45), 0 2px 0 rgba(20, 22, 28, .06), inset 0 1px 0 #fff; }
 .bottom-nav-inner { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; scroll-snap-type: x proximity; }
 .bottom-nav-inner::-webkit-scrollbar { display: none; }
-.bottom-nav a { flex: 1 0 auto; min-width: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 12px; border-radius: 999px; text-decoration: none; color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; scroll-snap-align: center; transition: color .15s, background .2s, transform .2s var(--ease-spring), box-shadow .2s; -webkit-tap-highlight-color: transparent; }
+.bottom-nav a { flex: 1 0 auto; min-width: 88px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 12px; border-radius: 999px; text-decoration: none; color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; scroll-snap-align: center; transition: color .15s, background .2s, transform .2s var(--ease-spring), box-shadow .2s; -webkit-tap-highlight-color: transparent; }
 .bottom-nav a .ic { width: 21px; height: 21px; transition: transform .25s var(--ease-spring); }
 .bottom-nav a:hover { color: var(--navy); background: rgba(31, 61, 138, .07); }
 .bottom-nav a:hover .ic { transform: translateY(-2px); }
@@ -975,27 +987,13 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
   .team-summary-grid { grid-template-columns: 1fr; }
   .team-action-cell { flex-direction: column; align-items: stretch; }
   .team-action-cell .btn { width: 100%; }
-  .team-frozen-wrap { max-height: none; overflow-x: visible; border: 0; background: transparent; }
-  .team-member-fee-list, .team-fee-edit-table { min-width: 0; border-collapse: separate; border-spacing: 0 10px; }
-  .team-member-fee-list thead, .team-fee-edit-table thead { display: none; }
-  .team-member-fee-list tbody, .team-member-fee-list tr, .team-member-fee-list td,
-  .team-fee-edit-table tbody, .team-fee-edit-table tr, .team-fee-edit-table td { display: block; width: 100%; }
-  .team-member-fee-list tr, .team-fee-edit-table tr { border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff; overflow: hidden; box-shadow: var(--shadow-1); }
-  .team-member-fee-list td, .team-fee-edit-table td { border-bottom: 1px solid var(--line); padding: 10px 12px; }
-  .team-member-fee-list td:last-child, .team-fee-edit-table td:last-child { border-bottom: 0; }
-  .team-member-fee-list .sticky-col, .team-fee-edit-table .sticky-col { position: static; min-width: 0; background: var(--paper); }
-  .team-member-fee-list td:not(.sticky-col), .team-fee-edit-table td:not(.sticky-col) { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  .team-member-fee-list td:not(.sticky-col)::before, .team-fee-edit-table td:not(.sticky-col)::before { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; flex: 0 0 112px; }
-  .team-member-fee-list td:nth-child(2)::before { content: "Đã thu / phí"; }
   .member-table th, .member-table td { padding: 10px 12px; }
   .member-table th:first-child, .member-table td:first-child { padding-left: 14px; }
   .member-table th:last-child, .member-table td:last-child { padding-right: 14px; }
   .paid-cell strong { font-size: 15px; }
   .guest-receipt-form .receipt-who, .guest-receipt-form .receipt-date, .guest-receipt-form .receipt-amount, .guest-receipt-form .receipt-action { padding-bottom: 0; }
   .guest-receipt-form .field-hint { position: static; }
-  .team-fee-edit-table td:nth-child(2)::before { content: "Đã thu"; flex-basis: 64px; }
-  .paid-of { flex: 1 1 auto; justify-content: flex-end; }
-  .paid-of input { width: 112px; }
+  .member-table .paid-of input { width: 104px; }
   .guest-receipt-form { grid-template-columns: 1fr; }
   .guest-receipt-form .receipt-date input { width: 100%; }
   .ranking-board { min-width: 0; }
@@ -1014,8 +1012,8 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
   .feature-hero-art { order: 1; }
   .scene-bg { height: 34vh; opacity: .6; }
   .balls-bg .ball3d:nth-child(n+6) { display: none; }
-  .bottom-nav { width: calc(100% - 16px); padding: 5px; }
-  .bottom-nav a { min-width: 64px; padding: 7px 10px; font-size: 11px; }
+  .bottom-nav { max-width: calc(100% - 16px); padding: 5px; }
+  .bottom-nav a { min-width: 76px; padding: 7px 10px; font-size: 11px; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
   .app-shell { margin-top: 12px; padding: 0 10px; }

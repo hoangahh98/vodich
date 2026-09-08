@@ -1,6 +1,6 @@
-<nav class="bottom-nav" aria-label="Điều hướng đội"><div class="bottom-nav-inner">
-  <a class="" href="/teams"><%- include('../../partials/icon', { name: 'home' }) %><span>Các đội</span></a>
-  <% (currentUser.role === 'ADMIN' ? ['overview','members','income','expenses','settings'] : ['overview','members','income','expenses']).forEach((item) => { const labels = {overview:'Tổng quan', members:'Thành viên', income:'Khoản thu', expenses:'Khoản chi', settings:'Cài đặt'}; const icons = {overview:'chart', members:'users', income:'coin', expenses:'receipt', settings:'settings'}; %><a class="<%= section === item ? 'active' : '' %>" href="/teams/<%= team.id %>/<%= item %>?month=<%= selectedMonth %>"><%- include('../../partials/icon', { name: icons[item] }) %><span><%= labels[item] %></span></a><% }) %>
+<nav class="bottom-nav" aria-label="Điều hướng"><div class="bottom-nav-inner">
+  <a class="" href="/"><%- include('../../partials/icon', { name: 'home' }) %><span>Trang chủ</span></a>
+  <a class="active" href="/teams"><%- include('../../partials/icon', { name: 'ball' }) %><span>Đội bóng</span></a>
 </div></nav>
 <script src="/socket.io/socket.io.js"></script>
 <script src="/js/app.js"></script>

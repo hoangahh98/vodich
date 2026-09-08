@@ -186,6 +186,11 @@ Không còn Bootstrap. Toàn bộ style nằm ở `public/css/app.css` (app) và
   cha của modal: modal dùng `position: fixed`, cha có transform là modal lệch và bị topbar đè
   (đã xảy ra, đã sửa bằng `:not(.score-modal)` + keyframe kết thúc `transform: none`).
 - `.wheel-winner` không được `text-transform`: e2e so `innerText` với tên gốc.
+- Điều hướng: thanh dưới đáy `.bottom-nav` (partials/bottom-menu.ejs; trang giải/đội có bản riêng ở
+  `detail-parts/menu-scripts.ejs`) thay cho nút ba gạch cũ — không còn `menu.js`. Trong trang đội,
+  thanh dưới chỉ có Trang chủ + Đội bóng theo ý chủ app; các mục của đội nằm ở dải `.section-tabs`
+  ngay dưới hero (teams/detail.ejs). Bảng dữ liệu trong thẻ dùng `.table-wrap.member-table` +
+  `table.member-list` (đầu bảng màu giấy, không phải đầu bảng xanh mặc định của `th`).
 - Đổi view có chủ ý thì chạy `UPDATE_SNAPSHOTS=1 npm test` rồi soi diff snapshot.
 
 ### Quỹ đội bóng: mỗi tháng là một ảnh chụp (9/2026)
