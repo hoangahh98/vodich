@@ -36,11 +36,15 @@
   <section class="card-lite p mb">
     <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'plus' }) %></span><h2 class="section-title">Thêm người vào nhóm</h2><% if (group.teams.length) { %><p class="muted">Người được thêm sẽ tự vào <%= group.teams.length %> đội đang dùng nhóm từ tháng này.</p><% } %></div></div>
     <form method="post" action="/groups/<%= group.id %>/members" data-require-checked="playerIds">
-      <div class="player-check-list mb">
+      <% if (candidates.length) { %>
+        <div class="check-filter mb"><%- include('../partials/icon', { name: 'search' }) %><input type="search" data-check-filter="groupCandidateList" placeholder="Gõ tên hoặc email để tìm…" autocomplete="off" aria-label="Tìm người"><span class="badge" data-check-filter-count><%= candidates.length %></span></div>
+      <% } %>
+      <div class="player-check-list mb" id="groupCandidateList">
         <% candidates.forEach((p) => { %>
           <label><input type="checkbox" name="playerIds" value="<%= p.id %>"><span><strong><%= p.displayName %></strong><small><%= p.email %> · <%= p.skillLevel || 'Chưa chọn trình' %></small></span></label>
         <% }) %>
         <% if (!candidates.length) { %><div class="muted p">Mọi thành viên đã ở trong nhóm.</div><% } %>
+        <div class="muted p" data-check-filter-empty hidden>Không có ai khớp.</div>
       </div>
       <button class="btn btn-primary" data-loading-text="Đang thêm..."><%- include('../partials/icon', { name: 'check' }) %> Thêm đã chọn</button>
     </form>

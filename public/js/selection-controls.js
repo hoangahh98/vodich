@@ -66,8 +66,38 @@
     sync();
   };
 
+  // Ô tìm nhanh cho danh sách tích chọn dài: gõ tên/email, so không dấu; người đã tích luôn hiện
+  // để không "mất" lựa chọn khi lọc. Đếm số hiện/tổng để biết còn bao nhiêu người khớp.
+  const initCheckFilter = () => {
+    const fold = (text) => String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+    document.querySelectorAll('[data-check-filter]').forEach((input) => {
+      const list = document.getElementById(input.dataset.checkFilter);
+      if (!list) return;
+      const rows = [...list.querySelectorAll('label')];
+      const counter = input.parentElement ? input.parentElement.querySelector('[data-check-filter-count]') : null;
+      const empty = list.querySelector('[data-check-filter-empty]');
+      rows.forEach((row) => { row.dataset.fold = fold(row.textContent); });
+      const apply = () => {
+        const needle = fold(input.value.trim());
+        let shown = 0;
+        rows.forEach((row) => {
+          const checkbox = row.querySelector('input[type="checkbox"]');
+          const hit = !needle || row.dataset.fold.includes(needle) || (checkbox && checkbox.checked);
+          row.hidden = !hit;
+          if (hit) shown += 1;
+        });
+        if (counter) counter.textContent = needle ? `${shown}/${rows.length}` : `${rows.length}`;
+        if (empty) empty.hidden = shown > 0 || !rows.length;
+      };
+      input.addEventListener('input', apply);
+      list.addEventListener('change', apply);
+      apply();
+    });
+  };
+
   initManualPairs();
   initTeamMemberPicker();
+  initCheckFilter();
   initCheckAll();
   initPlayerSlotHint();
 })();

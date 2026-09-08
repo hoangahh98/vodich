@@ -13,10 +13,15 @@
             </div>
             <label>Hoặc chọn lẻ</label>
           <% } %>
-          <div class="player-check-list mb" data-player-picker>
-            <% players.filter((p) => !usedPlayerIds.has(p.id.toString())).forEach((p) => { %>
+          <% const freePlayers = players.filter((p) => !usedPlayerIds.has(p.id.toString())); %>
+          <% if (freePlayers.length) { %>
+            <div class="check-filter mb"><%- include('../../partials/icon', { name: 'search' }) %><input type="search" data-check-filter="tournamentCandidateList" placeholder="Gõ tên hoặc email để tìm…" autocomplete="off" aria-label="Tìm người"><span class="badge" data-check-filter-count><%= freePlayers.length %></span></div>
+          <% } %>
+          <div class="player-check-list mb" id="tournamentCandidateList" data-player-picker>
+            <% freePlayers.forEach((p) => { %>
               <label><input type="checkbox" name="playerId" value="<%= p.id %>"><span><strong><%= p.displayName %></strong><small><%= p.email %> · <%= p.skillLevel || 'Chưa chọn trình' %></small></span></label>
             <% }) %>
+            <div class="muted p" data-check-filter-empty hidden>Không có ai khớp.</div>
           </div>
           <button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm thành viên đã chọn</button>
         </form>

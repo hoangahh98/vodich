@@ -438,6 +438,12 @@ label { font-weight: 600; display: block; margin-bottom: 6px; font-size: 13.5px;
 .player-check-list label:last-child { border-bottom: 0; }
 .player-check-list input, .check-col input, td input[type="checkbox"] { width: 20px; height: 20px; min-height: 20px; margin-top: 2px; }
 .player-check-list small { display: block; color: var(--muted); margin-top: 2px; }
+.player-check-list label[hidden] { display: none; }
+.check-filter { display: flex; align-items: center; gap: 10px; padding: 0 12px 0 14px; border: 1px solid var(--line); border-radius: 999px; background: #fff; box-shadow: inset 0 2px 0 rgba(20, 22, 28, .04); }
+.check-filter .ic { width: 18px; height: 18px; color: var(--muted); flex: 0 0 auto; }
+.check-filter input { flex: 1 1 auto; min-width: 0; border: 0; background: transparent; box-shadow: none; padding: 11px 0; }
+.check-filter input:focus { outline: none; box-shadow: none; }
+.check-filter input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
 .manual-pair-box { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); padding: 14px; }
 .manual-pair-box summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 8px; }
 .manual-pair-box summary::marker, .manual-pair-box summary::-webkit-details-marker { display: none; content: ""; }
