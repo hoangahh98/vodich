@@ -159,11 +159,23 @@
       const need = ['courtCost', 'otherCost'].reduce((sum, name) => sum + parseMoneyValue(box.querySelector(`[name="${name}"]`)?.value), 0) - parseMoneyValue(box.querySelector('[name="previousBalance"]')?.value);
       return need <= 0 ? 0 : Math.ceil(need / fixedCount / 1000) * 1000;
     };
+    const modeRadios = [...box.querySelectorAll('input[name="feeMode"]')];
+    const fillButton = box.querySelector('[data-fill-fee-suggestion]');
+    const isAuto = () => (modeRadios.length ? modeRadios.find((radio) => radio.checked)?.value !== 'MANUAL' : false);
     const sync = () => {
       if (label) label.textContent = `${formatMoneyValue(suggestion())}đ`;
+      // Tự chia đều: ô phí chỉ hiện, không sửa được — server tính lại từ chi phí và số cố định.
+      if (feeInput && isAuto()) {
+        feeInput.value = formatMoneyValue(suggestion());
+        feeInput.readOnly = true;
+      } else if (feeInput) {
+        feeInput.readOnly = false;
+      }
+      fillButton?.classList.toggle('hidden', isAuto());
     };
     ['courtCost', 'otherCost', 'previousBalance'].forEach((name) => box.querySelector(`[name="${name}"]`)?.addEventListener('input', sync));
-    box.querySelector('[data-fill-fee-suggestion]')?.addEventListener('click', () => {
+    modeRadios.forEach((radio) => radio.addEventListener('change', sync));
+    fillButton?.addEventListener('click', () => {
       if (feeInput) feeInput.value = formatMoneyValue(suggestion());
     });
     sync();

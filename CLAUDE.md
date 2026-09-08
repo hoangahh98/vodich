@@ -188,6 +188,16 @@ Không còn Bootstrap. Toàn bộ style nằm ở `public/css/app.css` (app) và
 - `.wheel-winner` không được `text-transform`: e2e so `innerText` với tên gốc.
 - Đổi view có chủ ý thì chạy `UPDATE_SNAPSHOTS=1 npm test` rồi soi diff snapshot.
 
+### Quỹ đội bóng: mỗi tháng là một ảnh chụp (9/2026)
+
+`src/teams/team-month.service.ts`. Loại thành viên (cố định/vãng lai) ghi vào `team_member_payment.member_type`
+của TỪNG THÁNG; đổi loại hay rời đội chỉ áp dụng từ tháng đang thao tác trở đi, tháng cũ giữ nguyên số
+và tiền đã đóng. Danh sách của tháng lấy từ dòng phí tháng đó (`TeamDetailService.monthRoster`), không
+lấy từ cờ `active`. Mọi thao tác ghi lên tháng đều qua `ensureMonth` → `recompute`: tháng ở chế độ
+`fee_mode = AUTO` tự chia đều mức phí và lan số dư sang tháng sau (cũng AUTO); MANUAL thì giữ số gõ.
+Tháng chưa chốt được xem trước (`fundPreview`) chứ không ghi DB. `previousMonthBalance` đếm cố định theo
+ảnh chụp tháng trước — đừng đổi về đếm `active`, đó là lỗi cũ làm hụt quỹ khi có người rời đội.
+
 ### Nhóm thành viên (9/2026)
 
 `src/groups/` — nhóm là tập VĐV đặt tên sẵn. Đội bóng **liên kết** nhóm (`team_club_group`): thêm

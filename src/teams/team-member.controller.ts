@@ -27,7 +27,7 @@ export class TeamMemberController {
   @Post('/teams/:teamId/members/:memberId/edit')
   async editTeamMember(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('memberId') memberId: string, @Body() body: Record<string, string>) {
     if (!(await this.teams.canManage(req.session.user!, BigInt(teamId)))) return forbidden(res);
-    await this.teams.updateMember(BigInt(teamId), BigInt(memberId), body.memberType || 'FIXED', body.notes);
+    await this.teams.updateMember(BigInt(teamId), BigInt(memberId), body.memberType || 'FIXED', body.notes, body.month || currentMonth());
     this.matchGateway.emitTeamUpdated(teamId, 'members');
     return res.redirect(`/teams/${teamId}/members?month=${body.month || currentMonth()}`);
   }
@@ -35,7 +35,7 @@ export class TeamMemberController {
   @Post('/teams/:teamId/members/:memberId/delete')
   async deleteTeamMember(@Req() req: Request, @Res() res: Response, @Param('teamId') teamId: string, @Param('memberId') memberId: string, @Body('month') month: string) {
     if (!(await this.teams.canManage(req.session.user!, BigInt(teamId)))) return forbidden(res);
-    await this.teams.removeMember(BigInt(teamId), BigInt(memberId));
+    await this.teams.removeMember(BigInt(teamId), BigInt(memberId), month || currentMonth());
     this.matchGateway.emitTeamUpdated(teamId, 'members');
     return res.redirect(`/teams/${teamId}/members?month=${month || currentMonth()}`);
   }

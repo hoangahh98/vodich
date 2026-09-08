@@ -1,6 +1,9 @@
 <% if (section === 'overview') { %>
   <%# Các ô bấm được dùng details/summary, không cần JS. %>
   <% const unpaidMembers = members.filter((member) => member.expectedAmount > member.paidAmount); %>
+  <% if (typeof fundPreview !== 'undefined' && fundPreview) { %>
+    <section class="alert-lite warn mb"><span>Tháng <%= selectedMonth %> chưa chốt quỹ — số dưới đây là tạm tính: tiền sân lấy theo tháng trước, mức phí tự chia đều cho <%= finance.fixedCount %> người cố định.<% if (currentUser.role === 'ADMIN') { %> Vào <a href="/teams/<%= team.id %>/settings?month=<%= selectedMonth %>">Cài đặt</a> để chốt.<% } %></span></section>
+  <% } %>
   <section class="grid finance-grid mb">
     <details class="metric-card green metric-drop">
       <summary><span>Tổng quỹ</span><strong><%= formatMoney(finance.totalFund) %>đ</strong><small>Cả đội phải đóng <%= formatMoney(finance.totalDue) %>đ + còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ<% if (finance.guestPaid) { %> + người chơi vãng lai đóng <%= formatMoney(finance.guestPaid) %>đ<% } %></small></summary>

@@ -3,7 +3,7 @@
   <% const isTeamMemberMine = (member) => String(member.player.email || '').toLowerCase() === memberCurrentEmail; %>
   <section class="card-lite p">
     <div class="section-heading mb">
-      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'users' }) %></span><h2 class="section-title">Thành viên và đóng phí</h2><p class="muted">Danh sách đóng phí nằm ngay trong mục thành viên.</p></div>
+      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'users' }) %></span><h2 class="section-title">Thành viên và đóng phí</h2><p class="muted">Danh sách của tháng <%= selectedMonth %>. Đổi loại hay rời đội chỉ áp dụng từ tháng này trở đi, tháng cũ giữ nguyên.<% if (typeof fundPreview !== 'undefined' && fundPreview) { %> Tháng này chưa chốt quỹ, số phí là tạm tính.<% } %></p></div>
       <% if (currentUser.role === 'ADMIN' && members.length) { %>
         <div class="hero-action-buttons">
           <button class="btn btn-sm btn-outline" type="button" data-open-modal="teamEmailModal"><%- include('../../partials/icon', { name: 'mail' }) %> Get Email</button>
@@ -74,7 +74,7 @@
     <div class="table-wrap team-frozen-wrap"><table class="team-fee-table team-member-fee-list"><thead><tr><th class="sticky-col">Tên</th><th>Loại</th><th>Tiền đóng</th><th>Trạng thái</th><th>Donate/thiếu</th></tr></thead><tbody>
       <% members.forEach((member) => { %>
         <tr class="<%= isTeamMemberMine(member) ? 'mine-row' : '' %> <%= member.paymentStatus === 'PAID' ? 'sufficient-row' : 'insufficient-row' %>">
-          <td class="sticky-col"><strong><%= member.player.displayName %></strong><% if (member.notes && currentUser.role === 'ADMIN') { %><br><span class="muted"><%= member.notes %></span><% } %></td>
+          <td class="sticky-col"><strong><%= member.player.displayName %></strong><% if (!member.active) { %> <span class="badge badge-warn">Đã rời đội</span><% } %><% if (member.notes && currentUser.role === 'ADMIN') { %><br><span class="muted"><%= member.notes %></span><% } %><% if (currentUser.role === 'ADMIN' && member.active) { %><form class="leave-form" method="post" action="/teams/<%= team.id %>/members/<%= member.id %>/delete" data-confirm="<%= member.player.displayName %> rời đội từ tháng <%= selectedMonth %>? Các tháng trước giữ nguyên, phí tháng này tự chia lại cho người còn lại."><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-ghost text-danger" data-loading-text="Đang gỡ..."><%- include('../../partials/icon', { name: 'logout' }) %> Rời đội</button></form><% } %></td>
           <td><span class="badge <%= member.memberType === 'GUEST' ? 'bg-info text-dark' : 'bg-success' %>"><%= member.typeLabel %></span></td>
           <td><strong><%= formatMoney(member.paidAmount) %>đ</strong></td>
           <td><span class="payment-mark <%= member.paymentStatus === 'PAID' ? 'paid' : 'unpaid' %>"><%= member.paymentStatus === 'PAID' ? '✓' : '✕' %></span></td>

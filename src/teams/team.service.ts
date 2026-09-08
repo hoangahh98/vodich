@@ -60,12 +60,12 @@ export class TeamService {
     return this.members.unlinkGroup(teamId, groupId);
   }
 
-  updateMember(teamId: bigint, memberId: bigint, memberType: string, notes?: string) {
-    return this.members.updateMember(teamId, memberId, memberType, notes);
+  updateMember(teamId: bigint, memberId: bigint, memberType: string, notes?: string, month?: string) {
+    return this.members.updateMember(teamId, memberId, memberType, notes, month);
   }
 
-  removeMember(teamId: bigint, memberId: bigint) {
-    return this.members.removeMember(teamId, memberId);
+  removeMember(teamId: bigint, memberId: bigint, month?: string) {
+    return this.members.removeMember(teamId, memberId, month);
   }
 
   setFund(teamId: bigint, month: string, input: TeamFundForm) {

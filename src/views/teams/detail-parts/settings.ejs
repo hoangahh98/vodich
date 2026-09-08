@@ -13,6 +13,7 @@
         </section>
         <section class="form-section">
           <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'wallet' }) %> Quỹ tháng <%= selectedMonth %></h2>
+          <% if (typeof fundPreview !== 'undefined' && fundPreview) { %><div class="alert-lite warn mb"><span>Tháng này chưa chốt. Số đang hiện là tạm tính (tiền sân lấy theo tháng trước). Bấm Lưu để chốt.</span></div><% } %>
           <%# Mức phí / người nằm CUỐI vì nó ăn theo ba ô trên: sân + khác - dư tháng trước,
               chia cho số thành viên cố định rồi làm tròn lên bội số 1.000đ. %>
           <div class="row" data-team-fund data-fixed-count="<%= finance.fixedCount %>">
@@ -21,11 +22,19 @@
             <div class="col-6"><label>Tiền sân còn lại tháng trước</label><input class="money-input" name="previousBalance" value="<%= formatMoney(finance.previousBalance) %>"><small class="field-hint">Tháng trước còn lại <%= formatMoney(finance.previousMonthBalance) %>đ. Nếu để trống, hệ thống tự dùng số này.</small></div>
             <div class="col-6"><label>Ghi chú tháng</label><input name="notes" value="<%= fund?.notes || '' %>"></div>
             <div class="col-12">
+              <label>Cách tính mức phí / người</label>
+              <% const feeMode = fund?.feeMode === 'MANUAL' ? 'MANUAL' : 'AUTO'; %>
+              <div class="segmented">
+                <label><input type="radio" name="feeMode" value="AUTO" <%= feeMode === 'AUTO' ? 'checked' : '' %>> Tự chia đều <small>Sân + khác − dư tháng trước, chia cho số cố định; đội đổi người là tự tính lại</small></label>
+                <label><input type="radio" name="feeMode" value="MANUAL" <%= feeMode === 'MANUAL' ? 'checked' : '' %>> Nhập tay <small>Tool không đụng tới số bạn gõ</small></label>
+              </div>
+            </div>
+            <div class="col-12">
               <label>Mức phí tháng / người</label>
-              <input class="money-input" name="monthlyFee" value="<%= formatMoney(finance.monthlyFee) %>">
+              <input class="money-input" name="monthlyFee" value="<%= formatMoney(finance.monthlyFee) %>" <%= feeMode === 'AUTO' ? 'readonly' : '' %>>
               <small class="field-hint">
-                <%= finance.fixedCount %> thành viên cố định — gợi ý <strong data-fee-suggest><%= formatMoney(finance.suggestedMonthlyFee) %>đ</strong>/người.
-                <button class="btn btn-sm" type="button" data-fill-fee-suggestion>Dùng gợi ý</button>
+                <%= finance.fixedCount %> thành viên cố định — chia đều ra <strong data-fee-suggest><%= formatMoney(finance.suggestedMonthlyFee) %>đ</strong>/người.
+                <button class="btn btn-sm <%= feeMode === 'AUTO' ? 'hidden' : '' %>" type="button" data-fill-fee-suggestion>Dùng số này</button>
               </small>
             </div>
           </div>

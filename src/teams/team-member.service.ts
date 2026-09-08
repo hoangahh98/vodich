@@ -1,11 +1,19 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { grantTeamAccess, revokeTeamAccess } from '../players/player-access.service';
+import { TeamMonthService } from './team-month.service';
 import { cleanText, monthDate, normalizeMemberType } from './team-utils';
 
+/**
+ * Thành viên đội và ảnh chụp theo tháng (xem team-month.service.ts): mọi thay đổi người/loại đều
+ * nhận `month` và chỉ chạm vào tháng đó trở đi.
+ */
 @Injectable()
 export class TeamMemberService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly months: TeamMonthService,
+  ) {}
 
   async addMember(teamId: bigint, playerId: bigint, memberType: string, notes?: string, month?: string) {
     const normalizedMemberType = normalizeMemberType(memberType);
@@ -15,15 +23,10 @@ export class TeamMemberService {
       create: { teamId, playerId, memberType: normalizedMemberType, notes: cleanText(notes) },
     });
     await grantTeamAccess(this.prisma, teamId, [playerId]);
-    const fundMonth = monthDate(month);
-    const fund = await this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth } } });
-    if (fund && normalizedMemberType === 'FIXED') {
-      await this.prisma.teamMemberPayment.upsert({
-        where: { memberId_fundMonth: { memberId: member.id, fundMonth: fund.fundMonth } },
-        update: { paidAmount: Number(fund.monthlyFee), paymentStatus: 'UNPAID' },
-        create: { memberId: member.id, fundMonth: fund.fundMonth, paidAmount: Number(fund.monthlyFee), paymentStatus: 'UNPAID' },
-      });
-    }
+    // Ghi loại vào ảnh chụp tháng này (người quay lại đội trong cùng tháng thì cập nhật loại), rồi
+    // chốt tháng để mức phí tự chia lại.
+    await this.months.snapshotMemberType(member.id, month, normalizedMemberType);
+    await this.months.ensureMonth(teamId, month);
     return member;
   }
 
@@ -51,23 +54,34 @@ export class TeamMemberService {
     return this.prisma.teamClubGroup.deleteMany({ where: { teamId, groupId } });
   }
 
-  async updateMember(teamId: bigint, memberId: bigint, memberType: string, notes?: string) {
+  async updateMember(teamId: bigint, memberId: bigint, memberType: string, notes?: string, month?: string) {
+    const normalizedMemberType = normalizeMemberType(memberType);
     const result = await this.prisma.teamMember.updateMany({
       where: { id: memberId, teamId },
-      data: { memberType: normalizeMemberType(memberType), notes: cleanText(notes) },
+      data: { memberType: normalizedMemberType, notes: cleanText(notes) },
     });
     if (!result.count) throw new NotFoundException('Không tìm thấy thành viên trong đội');
+    await this.months.snapshotMemberType(memberId, month, normalizedMemberType);
+    await this.months.ensureMonth(teamId, month);
     return result;
   }
 
-  async removeMember(teamId: bigint, memberId: bigint) {
+  /**
+   * Rời đội TỪ THÁNG `month` trở đi: các tháng trước giữ nguyên (kể cả tiền đã đóng); dòng phí của
+   * tháng này và các tháng sau bị bỏ nếu chưa đóng, còn dòng đã đóng thì giữ vì tiền đã thu thật.
+   * Sau đó mức phí tháng này (và các tháng sau ở chế độ AUTO) tự chia lại cho người còn lại.
+   */
+  async removeMember(teamId: bigint, memberId: bigint, month?: string) {
     const member = await this.prisma.teamMember.findFirst({ where: { id: memberId, teamId }, select: { playerId: true } });
     const result = await this.prisma.teamMember.updateMany({
       where: { id: memberId, teamId },
       data: { active: false },
     });
     if (!result.count) throw new NotFoundException('Không tìm thấy thành viên trong đội');
+    const fundMonth = monthDate(month);
+    await this.prisma.teamMemberPayment.deleteMany({ where: { memberId, fundMonth: { gte: fundMonth }, paymentStatus: { not: 'PAID' } } });
     if (member) await revokeTeamAccess(this.prisma, teamId, [member.playerId]);
+    await this.months.recompute(teamId, fundMonth);
     return result;
   }
 }

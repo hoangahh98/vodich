@@ -217,40 +217,32 @@ test('AdminService.listLogUsers lấy tài khoản từ chính log, kèm mục "
   assert.deepEqual(only.map((u) => u.value), ['ALL', 'admin@test'], 'không có request ẩn danh thì không bày mục đó ra');
 });
 
-test('TeamFundService sets fund and seeds fixed member payments from previous balance', async () => {
+test('TeamFundService: lưu cài đặt rồi chốt tháng; MANUAL giữ số gõ, AUTO bỏ số gõ để tool tự chia', async () => {
   let fundPayload;
-  const paymentUpserts = [];
-  const service = new TeamFundService(
-    { previousMonthBalance: async () => 250000 },
-    {
-      teamMonthFund: {
-        upsert: async (payload) => {
-          fundPayload = payload;
-          return payload.create;
-        },
+  const ensured = [];
+  const prisma = {
+    teamMonthFund: {
+      upsert: async (payload) => {
+        fundPayload = payload;
+        return payload.create;
       },
-      teamMember: {
-        findMany: async () => [{ id: 10n }, { id: 11n }],
-      },
-      teamMemberPayment: {
-        upsert: (payload) => {
-          paymentUpserts.push(payload);
-          return payload;
-        },
-      },
-      $transaction: async (items) => items,
+      findUnique: async () => fundPayload.create,
     },
-  );
+  };
+  const months = { ensureMonth: async (teamId, month) => ensured.push(`${teamId}:${month}`) };
+  const service = new TeamFundService({ previousMonthBalance: async () => 250000 }, prisma, months);
 
-  await service.setFund(1n, '2026-07', { monthlyFee: '100,000', courtCost: '300,000', otherCost: '80,000', previousBalance: '', notes: ' July fund ' });
-
-  assert.equal(fundPayload.create.previousBalance, 250000);
+  await service.setFund(1n, '2026-07', { feeMode: 'MANUAL', monthlyFee: '100,000', courtCost: '300,000', otherCost: '80,000', previousBalance: '', notes: ' July fund ' });
+  assert.equal(fundPayload.create.previousBalance, 250000, 'để trống thì lấy số dư tháng trước');
+  assert.equal(fundPayload.create.feeMode, 'MANUAL');
   assert.equal(fundPayload.create.monthlyFee, 100000);
   assert.equal(fundPayload.create.courtCost, 300000);
-  assert.equal(fundPayload.create.otherCost, 80000);
   assert.equal(fundPayload.create.notes, 'July fund');
-  assert.equal(paymentUpserts.length, 2);
-  assert.equal(paymentUpserts[0].create.paidAmount, 100000);
+  assert.deepEqual(ensured, ['1:2026-07'], 'lưu xong phải chốt tháng để dòng phí và mức phí đồng bộ');
+
+  await service.setFund(1n, '2026-08', { feeMode: 'AUTO', monthlyFee: '999,999', courtCost: '300,000' });
+  assert.equal(fundPayload.create.feeMode, 'AUTO');
+  assert.equal(fundPayload.create.monthlyFee, 0, 'AUTO: số gõ tay bị bỏ, TeamMonthService tính lại');
 });
 
 test('TeamCrudService: đội hiện ra với CLIENT là đội đã cấp quyền xem, so bằng email', async () => {

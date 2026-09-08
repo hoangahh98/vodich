@@ -626,6 +626,8 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .cost-card strong { font-family: var(--display); font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
 .team-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 
+.leave-form { margin-top: 4px; }
+.leave-form .btn { padding: 2px 6px; min-height: 26px; font-size: 12px; }
 /* ─── Nhóm thành viên ─────────────────────────────────────────────────────────────── */
 .group-members { display: flex; flex-wrap: wrap; gap: 8px; }
 .group-member, .group-chip { display: inline-flex; align-items: center; gap: 6px; margin: 0; padding: 4px 6px 4px 12px; border-radius: 999px; background: var(--paper); border: 1px solid var(--line); font-size: 14px; }

@@ -280,6 +280,8 @@ model TeamMonthFund {
   id              BigInt   @id @default(autoincrement())
   teamId          BigInt   @map("team_id")
   fundMonth       DateTime @map("fund_month") @db.Date
+  // AUTO: mức phí tự chia đều theo số cố định của tháng; MANUAL: admin gõ tay. Xem team-month.service.ts.
+  feeMode         String   @default("AUTO") @map("fee_mode") @db.VarChar(10)
   monthlyFee      Decimal  @default(0) @map("monthly_fee") @db.Decimal(14, 2)
   courtCost       Decimal  @default(0) @map("court_cost") @db.Decimal(14, 2)
   otherCost       Decimal  @default(0) @map("other_cost") @db.Decimal(14, 2)
@@ -296,6 +298,8 @@ model TeamMemberPayment {
   id            BigInt   @id @default(autoincrement())
   memberId      BigInt   @map("member_id")
   fundMonth     DateTime @map("fund_month") @db.Date
+  // Loại thành viên TẠI THÁNG NÀY (ảnh chụp) — đổi loại/rời đội không sửa quá khứ.
+  memberType    String?  @map("member_type") @db.VarChar(20)
   paidAmount    Decimal  @default(0) @map("paid_amount") @db.Decimal(14, 2)
   paymentStatus String   @default("UNPAID") @map("payment_status") @db.VarChar(40)
   notes         String?
