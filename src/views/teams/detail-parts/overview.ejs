@@ -18,7 +18,23 @@
     </details>
     <div class="metric-card <%= finance.balance < 0 ? 'red' : 'gold' %>"><span>Quỹ còn lại</span><strong><%= formatMoney(finance.balance) %>đ</strong><small>= Tổng quỹ <%= formatMoney(finance.totalFund) %>đ − Tổng đã chi <%= formatMoney(finance.totalSpent) %>đ</small></div>
   </section>
+  <% const paidFixed = members.filter((member) => member.memberType === 'FIXED' && member.paidAmount > 0); const overviewReceipts = typeof guestReceipts !== 'undefined' ? guestReceipts : []; const legacyGuestRows = members.filter((member) => member.memberType === 'GUEST' && member.paidAmount > 0); %>
   <section class="grid finance-grid mb">
+    <details class="metric-card blue metric-drop">
+      <summary><span>Tổng đã thu</span><strong><%= formatMoney(finance.totalPaid) %>đ</strong><small>Cố định <%= formatMoney(finance.fixedPaid) %>đ (<%= paidFixed.length %>/<%= finance.fixedCount %> người)<% if (finance.guestPaid) { %> + vãng lai <%= formatMoney(finance.guestPaid) %>đ<% } %></small></summary>
+      <div class="metric-drop-body">
+        <% paidFixed.forEach((member) => { %>
+          <div><span><%= member.player.displayName %></span><strong><%= formatMoney(member.paidAmount) %>đ<% if (member.paidAmount < member.expectedAmount) { %> <small class="muted">/ <%= formatMoney(member.expectedAmount) %>đ</small><% } %></strong></div>
+        <% }) %>
+        <% legacyGuestRows.forEach((member) => { %>
+          <div><span><%= member.player.displayName %> <small class="muted">· vãng lai</small></span><strong><%= formatMoney(member.paidAmount) %>đ</strong></div>
+        <% }) %>
+        <% overviewReceipts.forEach((receipt) => { %>
+          <div><span><%= new Date(receipt.receiptDate).toLocaleDateString('vi-VN') %> · <%= receipt.player ? receipt.player.displayName : receipt.guestName %> <small class="muted">· vãng lai</small></span><strong><%= formatMoney(receipt.amount) %>đ</strong></div>
+        <% }) %>
+        <% if (!paidFixed.length && !legacyGuestRows.length && !overviewReceipts.length) { %><p class="metric-drop-note">Tháng này chưa thu được khoản nào.</p><% } %>
+      </div>
+    </details>
     <details class="metric-card orange metric-drop">
       <summary><span>Tổng đã chi</span><strong><%= formatMoney(finance.totalSpent) %>đ</strong><small>Tiền sân + <%= expenses.length %> khoản chi trong tháng</small></summary>
       <div class="metric-drop-body">

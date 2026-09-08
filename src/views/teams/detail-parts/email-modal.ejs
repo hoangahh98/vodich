@@ -1,6 +1,7 @@
 <% if (currentUser.role === 'ADMIN') { %>
   <% const teamReportLink = typeof teamLink !== 'undefined' ? teamLink : ''; %>
   <% const missingFixedMembers = members.filter((member) => member.memberType === 'FIXED' && member.expectedAmount > member.paidAmount); %>
+  <% const reportPaidFixed = members.filter((member) => member.memberType === 'FIXED' && member.paidAmount > 0); const reportLegacyGuests = members.filter((member) => member.memberType === 'GUEST' && member.paidAmount > 0); const reportReceipts = typeof guestReceipts !== 'undefined' ? guestReceipts : []; %>
   <div id="teamEmailModal" class="score-modal hidden" aria-hidden="true">
     <div class="score-modal-backdrop" data-close-modal="teamEmailModal"></div>
     <div class="score-modal-panel" role="dialog" aria-modal="true">
@@ -41,6 +42,12 @@ Tháng: <%= selectedMonth %>
 Tổng quỹ: <%= formatMoney(finance.totalFund) %>đ (cả đội phải đóng <%= formatMoney(finance.totalDue) %>đ + còn lại tháng trước <%= formatMoney(finance.previousBalance) %>đ<% if (finance.guestPaid) { %> + người chơi vãng lai đóng <%= formatMoney(finance.guestPaid) %>đ<% } %>)
 Còn lại: <%= formatMoney(finance.balance) %>đ
 
+Chi tiết đã thu (tổng <%= formatMoney(finance.totalPaid) %>đ):
+- Cố định: <%= formatMoney(finance.fixedPaid) %>đ (<%= reportPaidFixed.length %>/<%= finance.fixedCount %> người đã đóng)
+- Vãng lai: <%= formatMoney(finance.guestPaid) %>đ
+<% reportLegacyGuests.forEach((member) => { %>  + <%= member.player.displayName %>: <%= formatMoney(member.paidAmount) %>đ
+<% }) %><% reportReceipts.forEach((receipt) => { %>  + <%= new Date(receipt.receiptDate).toLocaleDateString('vi-VN') %> <%= receipt.player ? receipt.player.displayName : receipt.guestName %>: <%= formatMoney(receipt.amount) %>đ
+<% }) %>
 Chi tiết đã chi (tổng <%= formatMoney(finance.totalSpent) %>đ):
 - Tiền sân: <%= formatMoney(finance.courtCost) %>đ
 <% expenses.forEach((expense) => { %>- <%= expense.expenseDate ? new Date(expense.expenseDate).toLocaleDateString('vi-VN') : selectedMonth %>: <%= expense.content %> - <%= formatMoney(expense.amount) %>đ<% if (expense.notes) { %> (<%= expense.notes %>)<% } %>
