@@ -1,4 +1,5 @@
-<% if (currentUser.role === 'ADMIN' && tournament.playType === 'DOUBLES' && registrations.length >= 2) { %>
+<%# Đôi xoay vòng tự đổi cặp mỗi vòng nên không có đội cố định để ghép tay. %>
+<% if (currentUser.role === 'ADMIN' && tournament.playType === 'DOUBLES' && tournament.format !== 'AMERICANO' && registrations.length >= 2) { %>
   <details class="manual-pair-box mb">
     <summary><%- include('../../../partials/icon', { name: 'users' }) %> Ghép đội thủ công</summary>
     <form method="post" action="/tournaments/<%= tournament.id %>/manual-schedule" data-confirm="Ghép đội thủ công sẽ xóa các trận và tỷ số hiện tại. Tiếp tục?">

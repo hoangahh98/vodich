@@ -160,8 +160,10 @@ nào, không gọi API và không lưu DB — danh sách tên nằm trong `local
 
 Từ 9/2026 có thêm quyền xem của thành viên, chi tiết ở `docs/bao-mat.md` mục 3b:
 
-- **Quyền xem của thành viên**: vai CLIENT chỉ thấy giải/đội đã được cấp ở `/players/:id/access`
-  (`PlayerAccessService`, bộ lọc CLIENT ở `src/common/player-scope.ts`). Admin phụ chỉ cấp được
+- **Quyền xem của thành viên**: vai CLIENT chỉ thấy giải/đội đã được cấp (`PlayerAccessService`,
+  bộ lọc CLIENT ở `src/common/player-scope.ts`). Từ 9/2026 trang Thành viên KHÔNG còn cột/link
+  "Quyền xem" (chủ app bỏ vì đã có nhóm) — quyền chỉ còn tự cấp khi thêm vào giải/đội; trang
+  `/players/:id/access` vẫn tồn tại nhưng không có link tới. Admin phụ chỉ cấp được
   trong phạm vi `ownedOrSharedWhere` của mình — phạm vi áp ngay trong truy vấn cả đọc lẫn ghi.
   Thêm người vào giải/đội thì tự cấp (`grantTournamentAccess`/`grantTeamAccess`), xoá thì tự thu.
 

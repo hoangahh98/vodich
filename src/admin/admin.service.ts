@@ -77,6 +77,15 @@ export class AdminService {
 
 
   /**
+   * Xoá admin phụ. Không bao giờ xoá admin gốc hay chính mình. Giải/đội/nhóm người này tạo giữ
+   * nguyên (khoá ngoại SetNull), quyền module và quyền theo giải/đội tự xoá (Cascade).
+   */
+  async deleteDelegatedAdmin(adminId: bigint, currentUserId?: string) {
+    if (currentUserId && BigInt(currentUserId) === adminId) return null;
+    return this.prisma.appUser.deleteMany({ where: { id: adminId, role: 'ADMIN', username: { not: 'admin' } } });
+  }
+
+  /**
    * `user` là tên đăng nhập đã ghi trong log, `ANON` = các request chưa đăng nhập, `ALL` = không lọc.
    * Lọc theo tên chứ không theo id: log của tài khoản đã bị xoá vẫn tra lại được, và đó chính là
    * lúc người ta cần soi nhất.
@@ -91,12 +100,13 @@ export class AdminService {
   }
 
   /**
-   * Các tài khoản THẬT SỰ có mặt trong log, để dựng ô lọc. Lấy từ chính bảng log chứ không
-   * từ danh sách admin: liệt kê tài khoản không có dòng nào là bày ra một ô lọc luôn ra rỗng,
-   * còn tài khoản đã xoá thì lại biến mất đúng lúc cần tra.
+   * Các tài khoản THẬT SỰ có dòng log khớp mức + nhóm đang lọc, để dựng ô lọc. Lấy từ chính bảng
+   * log chứ không từ danh sách admin: liệt kê tài khoản không có dòng nào là bày ra một ô lọc luôn
+   * ra rỗng, còn tài khoản đã xoá thì lại biến mất đúng lúc cần tra.
    */
-  async listLogUsers(): Promise<Array<{ value: string; label: string }>> {
+  async listLogUsers(level = 'ALL', category = 'ALL'): Promise<Array<{ value: string; label: string }>> {
     const rows = await this.prisma.appLog.findMany({
+      where: { ...(level === 'ALL' ? {} : { level }), ...(category === 'ALL' ? {} : { category }) },
       distinct: ['username'],
       select: { username: true },
       orderBy: { username: 'asc' },

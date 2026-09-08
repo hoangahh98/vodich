@@ -56,8 +56,9 @@
     </form>
   </section>
 
-  <section class="card-lite table-wrap log-table-wrap">
-    <table class="log-table">
+  <section class="card-lite">
+    <div class="card-hdr"><span><%- include('../partials/icon', { name: 'log' }) %> Dòng log</span><span class="badge badge-dark"><%= logs.length %> dòng<%= logs.length >= 200 ? ' (mới nhất)' : '' %></span></div>
+    <div class="table-wrap member-table log-table-wrap"><table class="member-list log-table">
       <thead>
         <tr>
           <th>Thời gian</th>
@@ -81,12 +82,10 @@
             <td class="muted"><%= log.errorMessage || '' %></td>
           </tr>
         <% }) %>
+        <%# Không có dòng nào thì phải NÓI ra. Bảng rỗng trơn trông hệt như log chưa tải xong. %>
+        <% if (!logs.length) { %><tr><td colspan="7" class="muted text-center">Không có dòng log nào khớp bộ lọc đang chọn.</td></tr><% } %>
       </tbody>
-    </table>
-    <%# Không có dòng nào thì phải NÓI ra. Bảng rỗng trơn trông hệt như log chưa tải xong. %>
-    <% if (!logs.length) { %>
-      <p class="muted text-center p">Không có dòng log nào khớp bộ lọc đang chọn.</p>
-    <% } %>
+    </table></div>
   </section>
 </main>
 <%- include('../partials/bottom-menu') %>

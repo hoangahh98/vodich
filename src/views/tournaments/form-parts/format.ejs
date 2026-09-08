@@ -1,7 +1,7 @@
 <section class="form-section">
   <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'puzzle' }) %> Thể thức thi đấu</h2>
   <div class="row mb">
-    <div class="col-12"><label>Loại đấu</label><select name="playType"><option value="SINGLES" <%= tournament?.playType !== 'DOUBLES' ? 'selected' : '' %>>Thi đơn</option><option value="DOUBLES" <%= tournament?.playType === 'DOUBLES' ? 'selected' : '' %>>Thi đôi</option></select></div>
+    <div class="col-12"><label>Loại đấu</label><select name="playType"><option value="DOUBLES" <%= (tournament?.playType || 'DOUBLES') === 'DOUBLES' ? 'selected' : '' %>>Thi đôi</option><option value="SINGLES" <%= tournament?.playType === 'SINGLES' ? 'selected' : '' %>>Thi đơn</option></select><span class="field-hint">Ghép đội thủ công và vòng quay chỉ có khi thi đôi.</span></div>
   </div>
   <div class="segmented segmented-3">
     <label><input type="radio" name="format" value="ROUND_ROBIN" <%= (tournament?.format || 'ROUND_ROBIN') === 'ROUND_ROBIN' ? 'checked' : '' %>> Vòng tròn</label>

@@ -204,6 +204,7 @@ cử chỉ chụm ngón bằng JS thì mới thật sự khoá được zoom. Xe
 <label class="option-card"><input type="checkbox" name="features_2" value="PERMISSIONS" >
 <span>Phân quyền</span></label>
 </div>
+<div class="permission-admin-actions"><button class="btn btn-sm btn-danger" type="submit" form="deleteAdmin_2" data-loading-text="Đang xoá..."><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg> Xoá tài khoản</button></div>
 </section>
 <section class="permission-admin-card">
 <div class="permission-admin-info">
@@ -219,17 +220,18 @@ cử chỉ chụm ngón bằng JS thì mới thật sự khoá được zoom. Xe
 <label class="option-card"><input type="checkbox" name="features_3" value="PERMISSIONS" >
 <span>Phân quyền</span></label>
 </div>
+<div class="permission-admin-actions"><button class="btn btn-sm btn-danger" type="submit" form="deleteAdmin_3" data-loading-text="Đang xoá..."><svg class="ic" aria-hidden="true"><use href="#i-trash"/></svg> Xoá tài khoản</button></div>
 </section>
 </div>
 <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu..."><svg class="ic" aria-hidden="true"><use href="#i-save"/></svg> Lưu tất cả quyền</button></div>
 </form>
+<form id="deleteAdmin_2" method="post" action="/admins/2/delete" data-confirm="Xoá tài khoản subadmin? Giải và đội người này tạo vẫn giữ nguyên, chỉ không còn chủ sở hữu."></form><form id="deleteAdmin_3" method="post" action="/admins/3/delete" data-confirm="Xoá tài khoản ketoan? Giải và đội người này tạo vẫn giữ nguyên, chỉ không còn chủ sở hữu."></form>
 </section>
 </main>
 <nav class="bottom-nav" aria-label="Điều hướng">
 <div class="bottom-nav-inner">
 <a class="" href="/"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg><span>Trang chủ</span></a>
 <a class="active" href="/permissions"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg><span>Phân quyền</span></a>
-<a class="" href="/logs"><svg class="ic" aria-hidden="true"><use href="#i-log"/></svg><span>Log</span></a>
 </div>
 </nav>
 <script src="/socket.io/socket.io.js"></script>

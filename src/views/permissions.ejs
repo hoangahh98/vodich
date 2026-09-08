@@ -47,11 +47,14 @@
                   <label class="option-card"><input type="checkbox" name="features_<%= admin.id %>" value="<%= feature %>" <%= checked ? 'checked' : '' %>> <span><%= featureLabels[feature] || feature %></span></label>
                 <% }) %>
               </div>
+              <div class="permission-admin-actions"><button class="btn btn-sm btn-danger" type="submit" form="deleteAdmin_<%= admin.id %>" data-loading-text="Đang xoá..."><%- include('partials/icon', { name: 'trash' }) %> Xoá tài khoản</button></div>
             </section>
           <% }) %>
         </div>
         <div class="mt text-right"><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('partials/icon', { name: 'save' }) %> Lưu tất cả quyền</button></div>
       </form>
+      <%# Form xoá đứng ngoài form lưu quyền (không lồng form); giải/đội người này tạo vẫn còn, chỉ mất chủ. %>
+      <% admins.forEach((admin) => { %><form id="deleteAdmin_<%= admin.id %>" method="post" action="/admins/<%= admin.id %>/delete" data-confirm="Xoá tài khoản <%= admin.username %>? Giải và đội người này tạo vẫn giữ nguyên, chỉ không còn chủ sở hữu."></form><% }) %>
     <% } %>
   </section>
 </main>

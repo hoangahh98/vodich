@@ -27,7 +27,6 @@ export class PlayersService {
     const data = {
       displayName: body.displayName.trim(),
       skillLevel: blankToNull(body.skillLevel),
-      notes: blankToNull(body.notes),
     };
     return this.prisma.player.upsert({
       where: { email },
@@ -47,10 +46,24 @@ export class PlayersService {
           displayName: String(body[`displayName_${id}`] || '').trim(),
           email: String(body[`email_${id}`] || '').trim().toLowerCase(),
           skillLevel: blankToNull(body[`skillLevel_${id}`]),
-          notes: blankToNull(body[`notes_${id}`]),
         },
       }),
     );
     if (updates.length) await this.prisma.$transaction(updates);
+  }
+
+  /**
+   * Xoá hẳn một người khỏi danh sách chung. Nhóm, đội (kèm phí các tháng), quyền xem tự xoá theo
+   * khoá ngoại (Cascade); đăng ký giải thì xoá tay vì khoá ngoại chỉ SetNull — để lại dòng không
+   * tên trong giải. Khoản thu vãng lai giữ lại dưới dạng tên khách để quỹ đội không hụt.
+   */
+  async remove(id: bigint) {
+    const player = await this.prisma.player.findUnique({ where: { id } });
+    if (!player) return null;
+    return this.prisma.$transaction([
+      this.prisma.teamGuestReceipt.updateMany({ where: { playerId: id }, data: { playerId: null, guestName: player.displayName } }),
+      this.prisma.tournamentRegistration.deleteMany({ where: { playerId: id } }),
+      this.prisma.player.delete({ where: { id } }),
+    ]);
   }
 }

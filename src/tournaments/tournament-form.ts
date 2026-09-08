@@ -20,7 +20,9 @@ export function buildTournamentConfig(form: Record<string, unknown>, prizes: num
   // Đôi xoay vòng luôn là đánh ĐÔI: mỗi trận 4 người và cả thể thức xoay quanh việc đổi bạn
   // đánh cặp. Để lọt "đánh đơn" vào đây là dựng ra một giải không sinh nổi lịch đúng, nên ép
   // ngay từ lúc lưu thay vì đi kiểm tra rải rác về sau.
-  const playType = format === 'AMERICANO' ? 'DOUBLES' : oneOf(form.playType, PLAY_TYPES, 'SINGLES');
+  // Mặc định THI ĐÔI: form tạo giải không còn ô Loại đấu, mà pickleball ở đây chủ yếu đánh đôi — để
+  // mặc định đơn là giải mới mất luôn ghép đội thủ công / vòng quay (chủ app đã vấp, 9/2026).
+  const playType = format === 'AMERICANO' ? 'DOUBLES' : oneOf(form.playType, PLAY_TYPES, 'DOUBLES');
   return {
     playType,
     format,

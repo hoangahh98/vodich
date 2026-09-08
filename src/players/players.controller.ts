@@ -28,9 +28,7 @@ export class PlayersController {
   async players(@Req() req: Request, @Res() res: Response) {
     const user = requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS']);
     if (!user) return;
-    const featureSet = this.featureSet(res);
-    const players = await this.playersService.listWithAccess(this.access.countFilters(user, featureSet));
-    return render(res, 'players/index', { players });
+    return render(res, 'players/index', { players: await this.playersService.list() });
   }
 
   @Post('/players')
@@ -44,6 +42,15 @@ export class PlayersController {
   async updatePlayers(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     if (!requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS'])) return;
     await this.playersService.bulkUpdate(body);
+    return res.redirect('/players');
+  }
+
+  @Post('/players/:id/delete')
+  async deletePlayer(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    if (!requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS'])) return;
+    const playerId = parseBigId(id);
+    if (!playerId) return notFound(res, 'Không tìm thấy thành viên');
+    await this.playersService.remove(playerId);
     return res.redirect('/players');
   }
 

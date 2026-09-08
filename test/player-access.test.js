@@ -175,7 +175,7 @@ function fakeRes(featureSet) {
 }
 
 test('PlayersController: admin chỉ có TEAMS vẫn vào được để cấp quyền đội', async () => {
-  const players = { listWithAccess: async () => [] };
+  const players = { list: async () => [] };
   const access = new PlayerAccessService({});
   const controller = new PlayersController(players, access, new AuthService({}));
   const res = fakeRes(new Set(['TEAMS']));
@@ -184,7 +184,7 @@ test('PlayersController: admin chỉ có TEAMS vẫn vào được để cấp q
 });
 
 test('PlayersController: admin không có feature nào thì 403, CLIENT cũng 403', async () => {
-  const controller = new PlayersController({ listWithAccess: async () => [] }, new PlayerAccessService({}), new AuthService({}));
+  const controller = new PlayersController({ list: async () => [] }, new PlayerAccessService({}), new AuthService({}));
   const noFeature = fakeRes(new Set());
   await controller.players({ session: { user: BOB } }, noFeature);
   assert.equal(noFeature.statusCode, 403);
