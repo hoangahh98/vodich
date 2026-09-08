@@ -50,7 +50,7 @@ export class TournamentDetailViewModelBuilder {
       isKnockoutStage,
       isMine: (name: string) => [...myNames].some((myName) => String(name || '').includes(myName)),
       manualPrize,
-      missingFee: unpaidCount * minimumFee,
+      missingFee: registrations.reduce((sum, registration) => sum + Math.max(0, minimumFee - Number(registration.paidAmount || 0)), 0),
       myNames,
       operatingCost,
       paymentLabels: { PAID: 'Đã đóng', UNPAID: 'Chưa đóng' },

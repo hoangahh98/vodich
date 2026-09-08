@@ -80,8 +80,10 @@ Socket.IO cho tỉ số trực tiếp, deploy trên Render.
   mỗi người đi với đủ người bên kia đúng một lần và **không bao giờ** ghép cùng bên. `BY_SKILL` =
   bên mạnh / bên yếu (sắp theo trình rồi cắt đôi), `RANDOM` = xáo rồi cắt đôi. Lẻ cặp trong vòng
   thì một cặp nghỉ, chọn cặp nghỉ ít nhất để ai cũng nghỉ đều. 10 người → 10 trận, 8 → 8, 12 → 18.
-  Đừng quay lại kiểu "vòng quay n-1 vòng + giới hạn (n-2)/2" cũ: chủ app muốn 10 người thì mỗi
-  người đi với đủ 5 người bên kia.
+  Cặp chờ (lẻ cặp trong vòng) KHÔNG bị bỏ mà dồn thành vòng phụ cuối giải (`extraRounds`), chỉ
+  tối đa một cặp cuối không ghép được trận: 10 người → 12 trận, 14 → 24 (12 người đủ 7 trận, 2
+  người 6). Đừng quay lại kiểu "vòng quay n-1 vòng + giới hạn (n-2)/2" cũ, cũng đừng bỏ cặp chờ —
+  chủ app từng hỏi "sao 14 người mỗi người có 6 trận".
 - Luôn xáo trước khi sắp theo trình để bấm "Chia trận" lần sau ra kèo khác (người cùng trình đổi
   chỗ) — trước đây xếp thẳng theo thứ tự đăng ký nên bấm mười lần ra một kiểu, người dùng tưởng
   nút hỏng.
@@ -135,6 +137,11 @@ tổng chi phí như trước). Ở form: nhập lệ phí trước rồi mới 
 uống + Giải thưởng (Khác không bắt buộc) mới mở Cài đặt giải thưởng — khoá bằng `readonly` +
 `.is-locked` trong form-controls.js, **không** `disabled` (input disabled không gửi lên, lưu là
 mất số cũ). `req.session.flash` được LocalsMiddleware đưa ra `flash` và topbar.ejs hiện một lần.
+
+Đóng phí giải làm giống Khoản thu đội: `tournament_registration.paid_amount` là tiền THẬT đã thu
+(đăng ký mới = 0; migration 20260909100000 đưa các dòng chưa đóng về 0), `payment_status` suy ra
+từ tiền so với lệ phí trong `TournamentPaymentService` — không còn ô tích ✓/✕, có nút "Tất cả đã
+đóng" (`markAllPaid`). Đừng đọc `paid_amount` như "mức phải đóng" nữa.
 
 ### Ghép đội thủ công
 

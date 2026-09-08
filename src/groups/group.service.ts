@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { isRootAdmin } from '../common/admin-scope';
 import { PrismaService } from '../prisma.service';
+import { minimumFeeForTournament } from '../tournaments/tournament-money';
 import { TeamMemberService } from '../teams/team-member.service';
 import { monthDate } from '../teams/team-utils';
 import { CurrentUser } from '../types';
@@ -162,10 +163,11 @@ export class GroupService {
     }
     const registrations = await this.prisma.tournamentRegistration.findMany({
       where: { playerId, status: { in: ['ACTIVE', 'RESERVE'] }, paymentStatus: { not: 'PAID' } },
-      include: { tournament: { select: { id: true, name: true } } },
+      include: { tournament: true },
       orderBy: { id: 'desc' },
     });
-    const unpaidTournaments = registrations.map((registration) => ({ tournamentId: registration.tournamentId, name: registration.tournament.name, amount: Number(registration.paidAmount || 0) }));
+    // paid_amount là tiền đã thu; còn thiếu = lệ phí − đã thu.
+    const unpaidTournaments = registrations.map((registration) => ({ tournamentId: registration.tournamentId, name: registration.tournament.name, amount: Math.max(0, minimumFeeForTournament(registration.tournament) - Number(registration.paidAmount || 0)) }));
     const hasWarnings = unpaidTournaments.length > 0 || teams.some((item) => item.current.shortfall > 0 || item.debts.length > 0);
     return { group, player, month: monthKey, teams, unpaidTournaments, hasWarnings };
   }

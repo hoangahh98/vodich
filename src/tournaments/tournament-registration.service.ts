@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { grantTournamentAccess, revokeTournamentAccess } from '../players/player-access.service';
-import { minimumFeeForTournament } from './tournament-money';
 
 @Injectable()
 export class TournamentRegistrationService {
@@ -33,14 +32,14 @@ export class TournamentRegistrationService {
       if (status === 'RESERVE') reserveCount++;
       await this.prisma.tournamentRegistration.upsert({
         where: { tournamentId_playerId: { tournamentId, playerId: player.id } },
-        update: { status, withdrawnAt: null, paidAmount: minimumFeeForTournament(tournament) },
+        update: { status, withdrawnAt: null },
         create: {
           tournamentId,
           playerId: player.id,
           skillLevel: player.skillLevel,
           source: 'INTERNAL',
           status,
-          paidAmount: minimumFeeForTournament(tournament),
+          paidAmount: 0,
           paymentStatus: 'UNPAID',
         },
       });
@@ -68,7 +67,7 @@ export class TournamentRegistrationService {
           skillLevel: blankToNull(skillLevel) || existingPlayer.skillLevel,
           source: 'INTERNAL',
           status,
-          paidAmount: minimumFeeForTournament(tournament),
+          paidAmount: 0,
           paymentStatus: 'UNPAID',
         },
         include: { player: true },
@@ -84,7 +83,7 @@ export class TournamentRegistrationService {
         skillLevel: blankToNull(skillLevel),
         source: 'EXTERNAL',
         status,
-        paidAmount: minimumFeeForTournament(tournament),
+        paidAmount: 0,
         paymentStatus: 'UNPAID',
       },
       include: { player: true },
@@ -111,7 +110,6 @@ export class TournamentRegistrationService {
       data: {
         status: activeCount < registration.tournament.expectedPlayers ? 'ACTIVE' : 'RESERVE',
         withdrawnAt: null,
-        paidAmount: Number(registration.paidAmount || 0) > 0 ? registration.paidAmount : minimumFeeForTournament(registration.tournament),
       },
     });
   }

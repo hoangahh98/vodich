@@ -179,12 +179,29 @@ function partnersOf(matches) {
   return partners;
 }
 
-test('Americano: n/2 vòng, mỗi vòng ghép hết hai bên rồi lẻ cặp thì một cặp nghỉ', () => {
-  // 10 người → 5 vòng × (5 cặp = 2 trận + 1 cặp nghỉ) = 10 trận; 8 người → 4 vòng × 2 = 8 trận.
-  for (const [count, expected] of [[8, 8], [9, 10], [10, 10], [11, 12], [12, 18], [16, 32]]) {
+test('Americano: mọi cặp hai bên đều được đánh, chỉ tối đa một cặp dư khi tổng số cặp lẻ', () => {
+  // Chẵn người: (n/2)² cặp → floor((n/2)²/2) trận. 10 người → 12 trận, 14 người → 24 trận
+  // (chủ app từng thấy 14 người mỗi người chỉ 6 trận vì cặp chờ bị bỏ). 8 người → 8, 12 → 18.
+  for (const [count, expected] of [[8, 8], [10, 12], [12, 18], [14, 24], [16, 32]]) {
     for (let run = 0; run < 25; run++) {
       assert.equal(americano(count).length, expected, `${count} người phải ra ${expected} trận`);
     }
+  }
+  // Lẻ người: bên mạnh hơn bên yếu một người → (h)(h-1) cặp; 9 người 20 cặp = 10 trận.
+  for (let run = 0; run < 25; run++) {
+    assert.equal(americano(9).length, 10);
+    assert.ok(americano(11).length >= 13 && americano(11).length <= 15, '11 người phải ra 13–15 trận');
+  }
+});
+
+test('Americano 14 người: 12 người đánh đủ 7 trận, 2 người 6 trận', () => {
+  for (let run = 0; run < 25; run++) {
+    const played = new Map();
+    for (const match of americano(14)) {
+      for (const name of [...splitTeamName(match.teamA), ...splitTeamName(match.teamB)]) played.set(name, (played.get(name) || 0) + 1);
+    }
+    const counts = [...played.values()].sort((a, b) => b - a);
+    assert.deepEqual(counts, [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 6, 6]);
   }
 });
 
@@ -311,7 +328,7 @@ test('Americano: chia lại phải ra lịch khác, không đứng im như trư�
 
 test('Americano: chia lại vẫn giữ nguyên số trận, không lần nhiều lần ít', () => {
   for (const rule of ['BY_SKILL', 'RANDOM']) {
-    for (const [count, expected] of [[8, 8], [10, 10], [12, 18]]) {
+    for (const [count, expected] of [[8, 8], [10, 12], [12, 18], [14, 24]]) {
       for (let run = 0; run < 20; run++) assert.equal(americano(count, rule).length, expected);
     }
   }

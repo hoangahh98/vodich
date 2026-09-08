@@ -52,12 +52,12 @@ test('TournamentCrudService creates normalized tournament payload', async () => 
   assert.equal(createdData.ownerAdminId, 9n);
 });
 
-test('TournamentPaymentService bulk update uses minimum fee when amount is blank', async () => {
+test('TournamentPaymentService: tiền đã thu là tiền thật, trạng thái suy ra, "Tất cả đã đóng" nâng lên đủ lệ phí', async () => {
   const updates = [];
-  const tournament = { expectedPlayers: 4, courtCost: 100, foodCost: 100, prizeCost: 100, otherCost: 100 };
+  const tournament = { expectedPlayers: 4, feePerPlayer: 150000, courtCost: 100, foodCost: 100, prizeCost: 100, otherCost: 100 };
   const service = new TournamentPaymentService({
     tournamentRegistration: {
-      findMany: async () => [{ id: 7n, tournament }],
+      findMany: async () => [{ id: 7n, tournament }, { id: 8n, tournament }, { id: 9n, tournament }],
       update: (payload) => {
         updates.push(payload);
         return payload;
@@ -66,12 +66,12 @@ test('TournamentPaymentService bulk update uses minimum fee when amount is blank
     $transaction: async (items) => items,
   });
 
-  await service.updatePayments(1n, { amount_7: '', status_7: 'PAID' });
+  await service.updatePayments(1n, { amount_7: '', amount_8: '150,000', amount_9: '50,000' });
+  assert.deepEqual(updates.map((u) => [u.data.paidAmount, u.data.paymentStatus]), [[0, 'UNPAID'], [150000, 'PAID'], [50000, 'UNPAID']]);
 
-  assert.equal(updates.length, 1);
-  assert.equal(updates[0].where.id, 7n);
-  assert.equal(updates[0].data.paidAmount, 50000);
-  assert.equal(updates[0].data.paymentStatus, 'PAID');
+  updates.length = 0;
+  await service.updatePayments(1n, { markAllPaid: '1', amount_7: '', amount_8: '200,000', amount_9: '50,000' });
+  assert.deepEqual(updates.map((u) => [u.data.paidAmount, u.data.paymentStatus]), [[150000, 'PAID'], [200000, 'PAID'], [150000, 'PAID']]);
 });
 
 test('TournamentRegistrationService external registration normalizes email and reserve status', async () => {

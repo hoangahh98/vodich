@@ -76,8 +76,8 @@ export class TournamentService {
     return this.registrations.registerExternal(tournamentId, displayName, email, skillLevel);
   }
 
-  updatePayment(registrationId: bigint, amount: string, status: string) {
-    return this.payments.updatePayment(registrationId, amount, status);
+  updatePayment(registrationId: bigint, amount: string) {
+    return this.payments.updatePayment(registrationId, amount);
   }
 
   updatePayments(tournamentId: bigint, body: Record<string, string>) {

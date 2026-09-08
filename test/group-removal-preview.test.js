@@ -34,7 +34,8 @@ test('removalPreview: liệt kê đội sẽ rời / ở lại, tiền tháng n�
         { fundMonth: d('2026-09-01'), monthlyFee: 200000 },
       ],
     },
-    tournamentRegistration: { findMany: async () => [{ tournamentId: 7n, paidAmount: 150000, tournament: { id: 7n, name: 'Cúp thu' } }] },
+    // paidAmount là tiền ĐÃ thu (9/2026): lệ phí 150.000, mới thu 50.000 → còn thiếu 100.000.
+    tournamentRegistration: { findMany: async () => [{ tournamentId: 7n, paidAmount: 50000, tournament: { id: 7n, name: 'Cúp thu', feePerPlayer: 150000, expectedPlayers: 10, courtCost: 0, foodCost: 0, prizeCost: 0, otherCost: 0 } }] },
   };
   const preview = await new GroupService(prisma, {}).removalPreview(BOB, 9n, 5n, '2026-09');
 
@@ -50,7 +51,7 @@ test('removalPreview: liệt kê đội sẽ rời / ở lại, tiền tháng n�
   assert.equal(teamB.isMember, false, 'nhóm gắn đội B nhưng người này không có trong đội B');
   assert.equal(teamB.willLeave, false);
 
-  assert.deepEqual(preview.unpaidTournaments, [{ tournamentId: 7n, name: 'Cúp thu', amount: 150000 }]);
+  assert.deepEqual(preview.unpaidTournaments, [{ tournamentId: 7n, name: 'Cúp thu', amount: 100000 }]);
   assert.equal(preview.hasWarnings, true);
 });
 

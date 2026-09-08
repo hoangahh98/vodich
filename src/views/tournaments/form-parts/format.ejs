@@ -6,7 +6,7 @@
   <div class="segmented segmented-3">
     <label><input type="radio" name="format" value="ROUND_ROBIN" <%= (tournament?.format || 'ROUND_ROBIN') === 'ROUND_ROBIN' ? 'checked' : '' %>> Vòng tròn</label>
     <label><input type="radio" name="format" value="GROUP_KNOCKOUT" <%= tournament?.format === 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Đánh bảng + vòng trong</label>
-    <label><input type="radio" name="format" value="AMERICANO" <%= tournament?.format === 'AMERICANO' ? 'checked' : '' %>> Đôi xoay vòng <small>(Americano)</small></label>
+    <label><input type="radio" name="format" value="AMERICANO" <%= tournament?.format === 'AMERICANO' ? 'checked' : '' %>> Đôi xoay vòng</label>
   </div>
   <p class="muted mt" id="americanoNote">Đôi xoay vòng: chia hai bên, mỗi người lần lượt đánh chung đội với từng người bên kia (phân trình: bên mạnh đi với bên yếu; không phân trình: xáo ngẫu nhiên). Xếp hạng theo từng cá nhân. Luôn là đánh đôi.</p>
   <div id="knockoutQualifierField" class="mt" data-expected-players="<%= tournament?.expectedPlayers || 10 %>">

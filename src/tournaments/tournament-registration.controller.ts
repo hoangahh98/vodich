@@ -85,10 +85,10 @@ export class TournamentRegistrationController {
   }
 
   @Post('/registrations/:id/payment')
-  async payment(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: { amount: string; status: string }) {
+  async payment(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: { amount: string }) {
     const scope = await this.authorizeRegistration(req, res, id);
     if (!scope) return;
-    await this.tournaments.updatePayment(scope.registrationId, body.amount, body.status);
+    await this.tournaments.updatePayment(scope.registrationId, body.amount);
     this.matchGateway.emitTournamentUpdated(scope.tournamentId, 'payments');
     return res.redirect(`/tournaments/${scope.tournamentId}/fees`);
   }
