@@ -49,7 +49,7 @@
     <% if (preview.hasWarnings) { %><div class="alert-lite warn mb"><span>Người này còn khoản chưa thu ở trên. Bạn vẫn đưa ra khỏi nhóm được, số nợ vẫn hiện trong tháng tương ứng để thu sau.</span></div><% } else { %><div class="alert-lite info mb"><span>Không có khoản nào còn thiếu.</span></div><% } %>
     <form method="post" action="/groups/<%= preview.group.id %>/members/<%= preview.player.id %>/delete" class="flex gap">
       <button class="btn btn-danger btn-lg" data-loading-text="Đang đưa ra..."><%- include('../partials/icon', { name: 'x' }) %> Đưa ra khỏi nhóm</button>
-      <a class="btn btn-lg" href="/groups#group-<%= preview.group.id %>">Quay lại</a>
+      <a class="btn btn-lg" href="/groups/<%= preview.group.id %>">Quay lại</a>
     </form>
   </section>
 </main>

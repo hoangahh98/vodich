@@ -36,7 +36,6 @@ const PRECACHE = [
   '/js/app.js',
   '/js/form-controls.js',
   '/js/selection-controls.js',
-  '/js/menu.js',
   '/js/modal-copy.js',
   '/js/realtime.js',
   '/js/motion.js',

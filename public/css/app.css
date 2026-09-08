@@ -222,7 +222,7 @@ small { font-size: 13px; }
 
 /* KHÔNG đặt z-index cho .app-shell: nó sẽ thành stacking context và modal (position: fixed, z-index 60)
    nằm trong đó bị topbar (z-index 30) đè lên. Cảnh nền tự nằm dưới bằng z-index âm. */
-.app-shell { position: relative; max-width: 1180px; margin: 24px auto 120px; padding: 0 16px; }
+.app-shell { position: relative; max-width: 1180px; margin: 24px auto calc(110px + env(safe-area-inset-bottom)); padding: 0 16px; }
 .narrow-shell { max-width: 900px; }
 .players-shell, .permissions-shell { max-width: 1320px; }
 .team-detail-shell { max-width: 1280px; }
@@ -331,6 +331,7 @@ small { font-size: 13px; }
 .ht-games { --accent: #e11d74; }
 .ht-perm { --accent: #2563eb; }
 .ht-log { --accent: #475569; }
+.group-tile { --accent: #0f8b8d; }
 .tournament-card { --accent: #e0821c; }
 .team-card { --accent: #0f9d58; }
 .tournament-card { padding-bottom: 58px; }
@@ -679,30 +680,19 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .settings-permission-section { margin-bottom: 26px; }
 .settings-action-row { padding-top: 12px; border-top: 1px solid var(--line); }
 
-/* ─── Menu nổi (nút tròn chanh + bảng bật lên) ────────────────────────────────────── */
-.bottom-menu { position: fixed; left: auto; right: 18px; bottom: 18px; z-index: 40; width: auto; background: transparent; border: 0; box-shadow: none; }
-@supports (height: 100svh) {
-  .bottom-menu { top: calc(100svh - 80px - env(safe-area-inset-bottom)); bottom: auto; }
-}
-.mobile-menu-toggle { position: relative; display: grid; place-items: center; border: 0; background: var(--lime); color: var(--ink); width: 62px; height: 62px; border-radius: 999px; cursor: pointer; box-shadow: 0 4px 0 var(--lime-edge), 0 18px 30px -12px rgba(20, 22, 28, .5); transition: transform .15s, box-shadow .15s; user-select: none; -webkit-tap-highlight-color: transparent; font-size: 0; }
-.mobile-menu-toggle::before { content: ""; position: absolute; inset: -12px; border-radius: 999px; }
-.mobile-menu-toggle:active { transform: translateY(4px); box-shadow: 0 0 0 var(--lime-edge), 0 8px 18px -10px rgba(20, 22, 28, .5); }
-.burger { position: relative; width: 22px; height: 16px; display: block; }
-.burger i { position: absolute; left: 0; width: 22px; height: 3px; border-radius: 3px; background: var(--ink); transition: transform .3s var(--ease-spring), opacity .2s, top .3s; }
-.burger i:nth-child(1) { top: 0; }
-.burger i:nth-child(2) { top: 6.5px; }
-.burger i:nth-child(3) { top: 13px; }
-.bottom-menu.open .burger i:nth-child(1) { top: 6.5px; transform: rotate(45deg); }
-.bottom-menu.open .burger i:nth-child(2) { opacity: 0; transform: scaleX(0); }
-.bottom-menu.open .burger i:nth-child(3) { top: 6.5px; transform: rotate(-45deg); }
-.bottom-menu-inner { display: none; position: absolute; right: 0; bottom: 74px; min-width: 240px; padding: 8px; background: #fff; border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow-3); overflow: hidden; grid-auto-flow: row; grid-auto-columns: auto; transform-origin: 90% 100%; }
-.bottom-menu.open .bottom-menu-inner { display: grid; animation: menu-pop .32s var(--ease-spring); }
-@keyframes menu-pop { from { opacity: 0; transform: scale(.85) translateY(10px); } to { opacity: 1; transform: none; } }
-.bottom-menu a { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; text-align: left; text-decoration: none; color: var(--ink); font-weight: 600; font-size: 14.5px; transition: background .12s, transform .12s; }
-.bottom-menu a .ic { width: 20px; height: 20px; color: var(--muted); }
-.bottom-menu a:hover { background: var(--paper); transform: translateX(2px); }
-.bottom-menu a.active { color: var(--ink); background: var(--lime-soft); }
-.bottom-menu a.active .ic { color: var(--ink); }
+/* ─── Thanh điều hướng dưới đáy (thay nút ba gạch) ───────────────────────────────────
+   Viên thuốc kính mờ nằm sát đáy, mỗi mục là icon + nhãn, mục đang mở sáng chanh. Nhiều mục thì
+   cuộn ngang, không xuống dòng. Dùng chung cho cả máy tính lẫn điện thoại. */
+.bottom-nav { position: fixed; left: 0; right: 0; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 40; width: min(820px, calc(100% - 20px)); margin: 0 auto; padding: 6px; border-radius: 999px; background: rgba(255, 255, 255, .72); -webkit-backdrop-filter: blur(22px) saturate(160%); backdrop-filter: blur(22px) saturate(160%); border: 1px solid rgba(255, 255, 255, .7); box-shadow: 0 18px 40px -18px rgba(20, 22, 28, .45), 0 2px 0 rgba(20, 22, 28, .06), inset 0 1px 0 #fff; }
+.bottom-nav-inner { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; scroll-snap-type: x proximity; }
+.bottom-nav-inner::-webkit-scrollbar { display: none; }
+.bottom-nav a { flex: 1 0 auto; min-width: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 8px 12px; border-radius: 999px; text-decoration: none; color: var(--muted); font-size: 11.5px; font-weight: 700; letter-spacing: .01em; white-space: nowrap; scroll-snap-align: center; transition: color .15s, background .2s, transform .2s var(--ease-spring), box-shadow .2s; -webkit-tap-highlight-color: transparent; }
+.bottom-nav a .ic { width: 21px; height: 21px; transition: transform .25s var(--ease-spring); }
+.bottom-nav a:hover { color: var(--navy); background: rgba(31, 61, 138, .07); }
+.bottom-nav a:hover .ic { transform: translateY(-2px); }
+.bottom-nav a.active { color: var(--navy); background: linear-gradient(135deg, var(--lime), #e2fa8a); box-shadow: 0 3px 0 var(--lime-edge), 0 0 22px rgba(205, 242, 70, .55); }
+.bottom-nav a.active .ic { transform: translateY(-1px) scale(1.08); }
+.bottom-nav a:active { transform: translateY(2px); }
 
 /* ─── Lịch thi đấu ────────────────────────────────────────────────────────────────── */
 .vong-header { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px !important; border-radius: var(--radius-xs); background: var(--court-grad); color: #fff !important; font-family: var(--display); font-weight: 500 !important; text-transform: uppercase; letter-spacing: .08em; font-size: 14px; }
@@ -1024,7 +1014,8 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
   .feature-hero-art { order: 1; }
   .scene-bg { height: 34vh; opacity: .6; }
   .balls-bg .ball3d:nth-child(n+6) { display: none; }
-  .bottom-menu-inner { min-width: min(260px, calc(100vw - 36px)); }
+  .bottom-nav { width: calc(100% - 16px); padding: 5px; }
+  .bottom-nav a { min-width: 64px; padding: 7px 10px; font-size: 11px; }
 }
 @media (max-height: 520px) and (orientation: landscape) {
   .app-shell { margin-top: 12px; padding: 0 10px; }
@@ -1049,7 +1040,7 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 }
 /* Ai tắt hiệu ứng chuyển động ở hệ điều hành thì tôn trọng: tắt hết animation trang trí. */
 @media (prefers-reduced-motion: reduce) {
-  .app-shell > *, .reveal, .ball3d, .ball3d::before, .ball3d::after, .scene-bg *, .balls-bg *, .feature-hero::after, .login-card, .score-modal-panel, .score-modal-backdrop, .bottom-menu-inner, .wheel-winner { animation: none !important; transition: none !important; }
+  .app-shell > *, .reveal, .ball3d, .ball3d::before, .ball3d::after, .scene-bg *, .balls-bg *, .feature-hero::after, .login-card, .score-modal-panel, .score-modal-backdrop, .wheel-winner { animation: none !important; transition: none !important; }
   .reveal { opacity: 1; transform: none; }
   .module-card, .game-card { transform: none !important; }
 }

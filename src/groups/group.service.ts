@@ -58,6 +58,16 @@ export class GroupService {
     });
   }
 
+  findScoped(user: CurrentUser, groupId: bigint) {
+    return this.prisma.playerGroup.findFirst({
+      where: { id: groupId, ...this.scope(user) },
+      include: {
+        members: { include: { player: true }, orderBy: { player: { displayName: 'asc' } } },
+        teams: { include: { team: { select: { id: true, name: true } } } },
+      },
+    });
+  }
+
   create(user: CurrentUser, name: string) {
     const trimmed = String(name || '').trim();
     if (!trimmed) throw new Error('Tên nhóm không được để trống');

@@ -1,39 +1,47 @@
-<nav class="bottom-menu">
-  <button class="mobile-menu-toggle" type="button" data-menu-toggle aria-label="Mở menu"><span class="burger" aria-hidden="true"><i></i><i></i><i></i></span></button>
-  <div class="bottom-menu-inner">
-    <% const currentPath = path || '/'; %>
+<%# Thanh điều hướng dưới đáy (thay cho nút ba gạch): mỗi trang liệt kê các mục trong module của nó,
+    luôn có "Trang chủ" để không thành ngõ cụt. Mục đang mở mang class="active" — test khoá đúng
+    dạng `class="active" href="..."`. Nhiều mục thì cuộn ngang được. %>
+<% const currentPath = path || '/'; const isAdmin = currentUser && currentUser.role === 'ADMIN'; %>
+<nav class="bottom-nav" aria-label="Điều hướng">
+  <div class="bottom-nav-inner">
     <% if (currentPath === '/') { %>
+      <a class="active" href="/"><%- include('icon', { name: 'home' }) %><span>Trang chủ</span></a>
+      <% if (featureSet.has('TOURNAMENTS')) { %><a class="" href="/tournaments"><%- include('icon', { name: 'trophy' }) %><span>Giải đấu</span></a><% } %>
+      <% if (featureSet.has('TEAMS')) { %><a class="" href="/teams"><%- include('icon', { name: 'ball' }) %><span>Đội bóng</span></a><% } %>
+      <% if (isAdmin && (featureSet.has('TOURNAMENTS') || featureSet.has('TEAMS'))) { %><a class="" href="/groups"><%- include('icon', { name: 'list' }) %><span>Nhóm</span></a><% } %>
       <a class="" href="/score-reader"><%- include('icon', { name: 'speaker' }) %><span>Đọc điểm</span></a>
       <a class="" href="/vong-quay"><%- include('icon', { name: 'wheel' }) %><span>Vòng quay</span></a>
       <a class="" href="/games"><%- include('icon', { name: 'gamepad' }) %><span>Học vui</span></a>
-      <% if (featureSet.has('TOURNAMENTS')) { %><a class="" href="/tournaments"><%- include('icon', { name: 'trophy' }) %><span>Giải đấu</span></a><% } %>
-      <% if (featureSet.has('TEAMS')) { %><a class="" href="/teams"><%- include('icon', { name: 'ball' }) %><span>Đội bóng</span></a><% } %>
       <% if (featureSet.has('PERMISSIONS')) { %><a class="" href="/permissions"><%- include('icon', { name: 'lock' }) %><span>Phân quyền</span></a><% } %>
       <% if (isRoot) { %><a class="" href="/logs"><%- include('icon', { name: 'log' }) %><span>Log</span></a><% } %>
     <% } else { %>
-      <%# Menu theo từng mục chỉ liệt kê trang trong mục đó, nên phải có lối về trang chủ
-          để còn sang module khác, nếu không menu thành ngõ cụt. %>
       <a class="" href="/"><%- include('icon', { name: 'home' }) %><span>Trang chủ</span></a>
-    <% } %>
-    <% if (currentPath === '/') { %>
-    <% } else if ((currentPath.startsWith('/players') || currentPath.startsWith('/groups')) && currentUser && currentUser.role === 'ADMIN') { %>
-      <a class="<%= currentPath.startsWith('/players') ? 'active' : '' %>" href="/players"><%- include('icon', { name: 'users' }) %><span>Thành viên</span></a>
-      <a class="<%= currentPath.startsWith('/groups') ? 'active' : '' %>" href="/groups"><%- include('icon', { name: 'list' }) %><span>Nhóm thành viên</span></a>
-      <% if (featureSet.has('TOURNAMENTS')) { %><a class="" href="/tournaments"><%- include('icon', { name: 'trophy' }) %><span>Giải đấu</span></a><% } %>
-      <% if (featureSet.has('TEAMS')) { %><a class="" href="/teams"><%- include('icon', { name: 'ball' }) %><span>Đội bóng</span></a><% } %>
-    <% } else if (currentPath.startsWith('/tournaments') && featureSet.has('TOURNAMENTS')) { %>
-      <a class="active" href="/tournaments"><%- include('icon', { name: 'trophy' }) %><span>Giải đấu</span></a>
-      <% if (currentUser && currentUser.role === 'ADMIN') { %><a class="" href="/players"><%- include('icon', { name: 'users' }) %><span>Thành viên</span></a><% } %>
-    <% } else if (currentPath.startsWith('/teams') && featureSet.has('TEAMS')) { %>
-      <a class="active" href="/teams"><%- include('icon', { name: 'ball' }) %><span>Đội bóng</span></a>
-    <% } else if (currentPath.startsWith('/permissions') && featureSet.has('PERMISSIONS')) { %>
-      <a class="active" href="/permissions"><%- include('icon', { name: 'lock' }) %><span>Phân quyền</span></a>
-    <% } else if (currentPath.startsWith('/logs') && isRoot) { %>
-      <a class="active" href="/logs"><%- include('icon', { name: 'log' }) %><span>Log</span></a>
-    <% } else if (currentPath.startsWith('/vong-quay') || currentPath.startsWith('/wheel')) { %>
-      <a class="active" href="/vong-quay"><%- include('icon', { name: 'wheel' }) %><span>Vòng quay</span></a>
-    <% } else if (currentPath.startsWith('/score-reader') || currentPath.startsWith('/doc-diem-giao-luu')) { %>
-      <a class="active" href="/score-reader"><%- include('icon', { name: 'speaker' }) %><span>Đọc điểm</span></a>
+      <% if ((currentPath.startsWith('/players') || currentPath.startsWith('/groups')) && isAdmin) { %>
+        <a class="<%= currentPath.startsWith('/players') ? 'active' : '' %>" href="/players"><%- include('icon', { name: 'users' }) %><span>Thành viên</span></a>
+        <a class="<%= currentPath.startsWith('/groups') ? 'active' : '' %>" href="/groups"><%- include('icon', { name: 'list' }) %><span>Nhóm</span></a>
+        <% if (featureSet.has('TOURNAMENTS')) { %><a class="" href="/tournaments"><%- include('icon', { name: 'trophy' }) %><span>Giải đấu</span></a><% } %>
+        <% if (featureSet.has('TEAMS')) { %><a class="" href="/teams"><%- include('icon', { name: 'ball' }) %><span>Đội bóng</span></a><% } %>
+      <% } else if (currentPath.startsWith('/tournaments') && featureSet.has('TOURNAMENTS')) { %>
+        <a class="active" href="/tournaments"><%- include('icon', { name: 'trophy' }) %><span>Giải đấu</span></a>
+        <% if (isAdmin) { %><a class="" href="/players"><%- include('icon', { name: 'users' }) %><span>Thành viên</span></a><a class="" href="/groups"><%- include('icon', { name: 'list' }) %><span>Nhóm</span></a><% } %>
+      <% } else if (currentPath.startsWith('/teams') && featureSet.has('TEAMS')) { %>
+        <a class="active" href="/teams"><%- include('icon', { name: 'ball' }) %><span>Đội bóng</span></a>
+        <% if (isAdmin) { %><a class="" href="/groups"><%- include('icon', { name: 'list' }) %><span>Nhóm</span></a><% } %>
+      <% } else if (currentPath.startsWith('/permissions') && featureSet.has('PERMISSIONS')) { %>
+        <a class="active" href="/permissions"><%- include('icon', { name: 'lock' }) %><span>Phân quyền</span></a>
+        <% if (isRoot) { %><a class="" href="/logs"><%- include('icon', { name: 'log' }) %><span>Log</span></a><% } %>
+      <% } else if (currentPath.startsWith('/logs') && isRoot) { %>
+        <a class="" href="/permissions"><%- include('icon', { name: 'lock' }) %><span>Phân quyền</span></a>
+        <a class="active" href="/logs"><%- include('icon', { name: 'log' }) %><span>Log</span></a>
+      <% } else if (currentPath.startsWith('/vong-quay') || currentPath.startsWith('/wheel')) { %>
+        <a class="active" href="/vong-quay"><%- include('icon', { name: 'wheel' }) %><span>Vòng quay</span></a>
+        <a class="" href="/score-reader"><%- include('icon', { name: 'speaker' }) %><span>Đọc điểm</span></a>
+      <% } else if (currentPath.startsWith('/score-reader') || currentPath.startsWith('/doc-diem-giao-luu')) { %>
+        <a class="active" href="/score-reader"><%- include('icon', { name: 'speaker' }) %><span>Đọc điểm</span></a>
+        <a class="" href="/vong-quay"><%- include('icon', { name: 'wheel' }) %><span>Vòng quay</span></a>
+      <% } else if (currentPath.startsWith('/games')) { %>
+        <a class="active" href="/games"><%- include('icon', { name: 'gamepad' }) %><span>Học vui</span></a>
+      <% } %>
     <% } %>
   </div>
 </nav>
@@ -41,7 +49,6 @@
 <script src="/js/app.js"></script>
 <script src="/js/form-controls.js"></script>
 <script src="/js/selection-controls.js"></script>
-<script src="/js/menu.js"></script>
 <script src="/js/modal-copy.js"></script>
 <script src="/js/realtime.js"></script>
 <script src="/js/motion.js"></script>

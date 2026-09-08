@@ -1,0 +1,56 @@
+<%- include('../partials/head', { title: `Nhóm ${group.name}` }) %>
+<%- include('../partials/topbar') %>
+<% const memberIds = new Set(group.members.map((m) => m.playerId.toString())); const candidates = players.filter((p) => !memberIds.has(p.id.toString())); %>
+<main class="app-shell narrow-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <div class="hero-eyebrow">Nhóm thành viên</div>
+        <h1><%= group.name %></h1>
+        <div class="hero-meta">
+          <span><%- include('../partials/icon', { name: 'user' }) %><%= group.members.length %> người</span>
+          <span><%- include('../partials/icon', { name: 'ball' }) %><% if (group.teams.length) { %>Đội: <%= group.teams.map((link) => link.team.name).join(', ') %><% } else { %>Chưa gắn đội nào<% } %></span>
+        </div>
+        <div class="hero-chips">
+          <a class="chip" href="/groups"><%- include('../partials/icon', { name: 'arrow' }) %> Tất cả nhóm</a>
+          <% group.teams.forEach((link) => { %><a class="chip lime" href="/teams/<%= link.team.id %>/members"><%- include('../partials/icon', { name: 'ball' }) %> <%= link.team.name %></a><% }) %>
+        </div>
+      </div>
+      <div class="feature-hero-art"><div class="ball3d" aria-hidden="true"></div></div>
+    </div>
+  </section>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'users' }) %></span><h2 class="section-title">Người trong nhóm</h2><p class="muted">Bấm dấu x để kiểm tra khoản liên quan rồi mới đưa ra khỏi nhóm.</p></div><span class="badge badge-dark"><%= group.members.length %> người</span></div>
+    <div class="group-members">
+      <% group.members.forEach((member) => { %>
+        <div class="group-member">
+          <span><strong><%= member.player.displayName %></strong><small class="muted"><%= member.player.skillLevel ? ' · ' + member.player.skillLevel : '' %></small></span>
+          <a class="group-member-remove" href="/groups/<%= group.id %>/members/<%= member.playerId %>/remove" title="Kiểm tra rồi đưa ra khỏi nhóm" aria-label="Đưa ra khỏi nhóm" data-loading-text="…"><%- include('../partials/icon', { name: 'x' }) %></a>
+        </div>
+      <% }) %>
+      <% if (!group.members.length) { %><span class="muted">Nhóm trống — thêm người bên dưới.</span><% } %>
+    </div>
+  </section>
+
+  <section class="card-lite p mb">
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'plus' }) %></span><h2 class="section-title">Thêm người vào nhóm</h2><% if (group.teams.length) { %><p class="muted">Người được thêm sẽ tự vào <%= group.teams.length %> đội đang dùng nhóm từ tháng này.</p><% } %></div></div>
+    <form method="post" action="/groups/<%= group.id %>/members" data-require-checked="playerIds">
+      <div class="player-check-list mb">
+        <% candidates.forEach((p) => { %>
+          <label><input type="checkbox" name="playerIds" value="<%= p.id %>"><span><strong><%= p.displayName %></strong><small><%= p.email %> · <%= p.skillLevel || 'Chưa chọn trình' %></small></span></label>
+        <% }) %>
+        <% if (!candidates.length) { %><div class="muted p">Mọi thành viên đã ở trong nhóm.</div><% } %>
+      </div>
+      <button class="btn btn-primary" data-loading-text="Đang thêm..."><%- include('../partials/icon', { name: 'check' }) %> Thêm đã chọn</button>
+    </form>
+  </section>
+
+  <section class="card-lite p">
+    <div class="flex between center gap">
+      <div><strong>Xoá nhóm</strong><br><span class="muted">Người chỉ thuộc nhóm này sẽ rời các đội đang dùng nhóm từ tháng này; tháng cũ giữ nguyên.</span></div>
+      <form method="post" action="/groups/<%= group.id %>/delete" data-confirm="Xoá nhóm '<%= group.name %>'?"><button class="btn btn-danger" data-loading-text="Đang xoá..."><%- include('../partials/icon', { name: 'trash' }) %> Xoá nhóm</button></form>
+    </div>
+  </section>
+</main>
+<%- include('../partials/bottom-menu') %>

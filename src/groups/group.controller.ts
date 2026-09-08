@@ -26,12 +26,22 @@ export class GroupController {
     return render(res, 'groups/index', { groups, players });
   }
 
+  @Get('/groups/:id')
+  async detail(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {
+    const user = requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS']);
+    if (!user) return;
+    const groupId = parseBigId(id);
+    const group = groupId ? await this.groups.findScoped(user, groupId) : null;
+    if (!group) return notFound(res, 'Không tìm thấy nhóm');
+    return render(res, 'groups/detail', { group, players: await this.players.list() });
+  }
+
   @Post('/groups')
   async create(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string>) {
     const user = requireAnyFeature(req, res, this.auth, ['TOURNAMENTS', 'TEAMS']);
     if (!user) return;
     const group = await this.groups.create(user, body.name);
-    return res.redirect(`/groups#group-${group.id}`);
+    return res.redirect(`/groups/${group.id}`);
   }
 
   @Post('/groups/:id/members')
@@ -41,7 +51,7 @@ export class GroupController {
     const groupId = parseBigId(id);
     if (!groupId) return notFound(res);
     await this.groups.addMembers(user, groupId, idList(body.playerIds), currentMonth());
-    return res.redirect(`/groups#group-${id}`);
+    return res.redirect(`/groups/${id}`);
   }
 
   /** Trang soi trước: đưa ra khỏi nhóm thì rời đội nào, còn nợ gì. Nút xác nhận mới POST xoá thật. */
@@ -65,7 +75,7 @@ export class GroupController {
     const pid = parseBigId(playerId);
     if (!gid || !pid) return notFound(res);
     await this.groups.removeMember(user, gid, pid, currentMonth());
-    return res.redirect(`/groups#group-${groupId}`);
+    return res.redirect(`/groups/${groupId}`);
   }
 
   @Post('/groups/:id/delete')

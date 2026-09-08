@@ -23,43 +23,18 @@
   <% if (!groups.length) { %>
     <section class="card-lite empty-state"><%- include('../partials/icon', { name: 'users' }) %><p>Chưa có nhóm nào.</p></section>
   <% } %>
-  <% groups.forEach((group) => { const memberIds = new Set(group.members.map((m) => m.playerId.toString())); const candidates = players.filter((p) => !memberIds.has(p.id.toString())); %>
-    <section class="card-lite mb" id="group-<%= group.id %>">
-      <div class="card-hdr blue"><span><%- include('../partials/icon', { name: 'users' }) %> <%= group.name %></span><span class="badge badge-dark"><%= group.members.length %> người</span></div>
-      <div class="p">
-        <% if (group.teams.length) { %>
-          <div class="hero-chips mb" style="margin-top:0">
-            <% group.teams.forEach((link) => { %><a class="badge badge-teal" href="/teams/<%= link.team.id %>/members"><%- include('../partials/icon', { name: 'ball' }) %> <%= link.team.name %></a><% }) %>
-          </div>
-        <% } else { %>
-          <p class="muted">Chưa đội bóng nào dùng nhóm này.</p>
-        <% } %>
-        <div class="group-members mb">
-          <% group.members.forEach((member) => { %>
-            <div class="group-member">
-              <span><strong><%= member.player.displayName %></strong><small class="muted"><%= member.player.skillLevel ? ' · ' + member.player.skillLevel : '' %></small></span>
-              <a class="group-member-remove" href="/groups/<%= group.id %>/members/<%= member.playerId %>/remove" title="Kiểm tra rồi đưa ra khỏi nhóm" aria-label="Đưa ra khỏi nhóm" data-loading-text="…"><%- include('../partials/icon', { name: 'x' }) %></a>
-            </div>
-          <% }) %>
-          <% if (!group.members.length) { %><span class="muted">Nhóm trống — thêm người bên dưới.</span><% } %>
+  <div class="grid module-grid">
+    <% groups.forEach((group) => { %>
+      <a class="card-lite module-card group-tile" href="/groups/<%= group.id %>">
+        <div class="module-icon"><%- include('../partials/icon', { name: 'users' }) %></div>
+        <h3><%= group.name %></h3>
+        <div class="card-meta">
+          <span><%- include('../partials/icon', { name: 'user' }) %> <strong><%= group.members.length %></strong>&nbsp;người<% if (group.members.length) { %>: <%= group.members.slice(0, 3).map((m) => m.player.displayName).join(', ') %><%= group.members.length > 3 ? '…' : '' %><% } %></span>
+          <span><%- include('../partials/icon', { name: 'ball' }) %> <% if (group.teams.length) { %>Đội: <%= group.teams.map((link) => link.team.name).join(', ') %><% } else { %>Chưa gắn đội nào<% } %></span>
         </div>
-        <details class="manual-pair-box mb">
-          <summary><%- include('../partials/icon', { name: 'plus' }) %> Thêm người vào nhóm</summary>
-          <form method="post" action="/groups/<%= group.id %>/members" data-require-checked="playerIds" class="mt">
-            <div class="player-check-list mb">
-              <% candidates.forEach((p) => { %>
-                <label><input type="checkbox" name="playerIds" value="<%= p.id %>"><span><strong><%= p.displayName %></strong><small><%= p.email %> · <%= p.skillLevel || 'Chưa chọn trình' %></small></span></label>
-              <% }) %>
-              <% if (!candidates.length) { %><div class="muted p">Mọi thành viên đã ở trong nhóm.</div><% } %>
-            </div>
-            <button class="btn btn-primary" data-loading-text="Đang thêm..."><%- include('../partials/icon', { name: 'check' }) %> Thêm đã chọn<% if (group.teams.length) { %> (tự vào <%= group.teams.length %> đội)<% } %></button>
-          </form>
-        </details>
-        <div class="text-right">
-          <form method="post" action="/groups/<%= group.id %>/delete" data-confirm="Xoá nhóm này? Người chỉ thuộc nhóm này sẽ rời các đội đang dùng nhóm từ tháng này; tháng cũ giữ nguyên."><button class="btn btn-sm btn-danger" data-loading-text="Đang xoá..."><%- include('../partials/icon', { name: 'trash' }) %> Xoá nhóm</button></form>
-        </div>
-      </div>
-    </section>
-  <% }) %>
+        <span class="card-arrow"><%- include('../partials/icon', { name: 'arrow' }) %></span>
+      </a>
+    <% }) %>
+  </div>
 </main>
 <%- include('../partials/bottom-menu') %>
