@@ -1,0 +1,70 @@
+<% if (section === 'recurring') { %>
+  <%
+    const recurringForm = (recurring) => `
+      <div><label>Tên khoản</label><input name="name" value="${recurring ? recurring.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: Trả góp nhà, Tiền học, Lương chồng" required></div>
+      <div><label>Loại</label><select name="kind" data-tx-kind>${['EXPENSE','INCOME','TRANSFER'].map((kind) => `<option value="${kind}" ${recurring && recurring.kind === kind ? 'selected' : ''}>${kind === 'TRANSFER' ? 'Chuyển nguồn (trả nợ, trả thẻ, cất tiết kiệm)' : labels.tx[kind]}</option>`).join('')}</select></div>
+      <div><label>Từ nguồn</label><select name="sourceId"><option value="">— chọn —</option>${sources.map((source) => `<option value="${source.id}" ${recurring && recurring.sourceId && recurring.sourceId.toString() === source.id.toString() ? 'selected' : ''}>${source.name}</option>`).join('')}</select></div>
+      <div data-tx-target ${recurring && recurring.kind === 'TRANSFER' ? '' : 'hidden'}><label>Sang nguồn</label><select name="targetSourceId"><option value="">— chọn —</option>${sources.map((source) => `<option value="${source.id}" ${recurring && recurring.targetSourceId && recurring.targetSourceId.toString() === source.id.toString() ? 'selected' : ''}>${source.name} (${labels.source[source.kind]})</option>`).join('')}</select></div>
+      <div><label>Số tiền (gốc)</label><input class="money-input" name="amount" value="${recurring ? formatMoney(recurring.amount) : ''}" inputmode="numeric"></div>
+      <div data-tx-interest ${recurring && recurring.kind === 'TRANSFER' ? '' : 'hidden'}><label>Lãi</label><select name="interestMode"><option value="NONE" ${!recurring || recurring.interestMode === 'NONE' ? 'selected' : ''}>Không tính lãi (số trên là tất cả)</option><option value="FROM_RATE" ${recurring && recurring.interestMode === 'FROM_RATE' ? 'selected' : ''}>Tự tính: dư nợ đầu tháng × lãi suất / 12</option></select></div>
+      <div><label>Mục đích</label><select name="purposeId"><option value="">— chưa chọn —</option>${purposes.map((purpose) => `<option value="${purpose.id}" ${recurring && recurring.purposeId && recurring.purposeId.toString() === purpose.id.toString() ? 'selected' : ''}>${purpose.name} · ${labels.purpose[purpose.kind]}</option>`).join('')}</select></div>
+      <div><label>Ngày trong tháng</label><input type="number" name="dayOfMonth" min="1" max="31" value="${recurring ? recurring.dayOfMonth : 5}"></div>
+      <div><label>Từ tháng</label><input type="month" name="startMonth" value="${recurring ? recurring.startMonth : selectedMonth}"></div>
+      <div><label>Đến tháng (trống = vô hạn)</label><input type="month" name="endMonth" value="${recurring && recurring.endMonth ? recurring.endMonth : ''}"></div>
+      <div class="hh-form-wide"><label>Ghi chú</label><input name="note" value="${recurring ? recurring.note.replace(/"/g, '&quot;') : ''}"></div>`;
+    const paidTotal = expectations.filter((item) => item.paid).reduce((sum, item) => sum + item.expected, 0);
+    const pendingTotal = expectations.filter((item) => !item.paid).reduce((sum, item) => sum + item.expected, 0);
+  %>
+  <section class="card-lite p mb">
+    <div class="section-heading">
+      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'refresh' }) %></span><h2 class="section-title">Khoản định kỳ</h2><p class="muted">Khai một lần, tháng nào cũng tự hiện dự kiến. Tin ngân hàng về đúng số là tự khớp; không có tin thì bấm Ghi nhận.</p></div>
+      <span class="badge badge-dark">Đã trả <%= formatMoney(paidTotal) %>đ · còn <%= formatMoney(pendingTotal) %>đ</span>
+    </div>
+  </section>
+
+  <section class="card-lite mb">
+    <div class="card-hdr blue"><span><%- include('../../partials/icon', { name: 'calendar' }) %> Tháng <%= selectedMonth %></span><span class="badge badge-dark"><%= expectations.length %> khoản</span></div>
+    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Khoản</th><th>Hạn</th><th class="text-right">Dự kiến</th><th>Trạng thái</th><% if (isAdmin) { %><th></th><% } %></tr></thead><tbody>
+      <% expectations.forEach((item) => { const recurring = recurrings.find((row) => row.id.toString() === item.recurring.id); %>
+        <tr>
+          <td><strong><%= item.recurring.name %></strong><br><span class="muted"><%= labels.tx[item.recurring.kind] %><% if (recurring.source) { %> · <%= recurring.source.name %><% } %><% if (recurring.targetSource) { %> → <%= recurring.targetSource.name %><% } %><% if (item.interest) { %> · gốc <%= formatMoney(item.principal) %>đ + lãi <%= formatMoney(item.interest) %>đ<% } %></span></td>
+          <td class="nowrap"><%= fmtDate(item.dueDate) %></td>
+          <td class="text-right paid-cell"><strong><%= formatMoney(item.expected) %></strong><span class="muted">đ</span></td>
+          <td><% if (item.paid) { %><span class="badge bg-success">Đã ghi <%= formatMoney(item.transaction.amount) %>đ</span><% } else if (item.overdue) { %><span class="badge bg-danger">Quá hạn</span><% } else { %><span class="badge">Chờ</span><% } %></td>
+          <% if (isAdmin) { %><td class="text-right row-action"><% if (!item.paid) { %><form method="post" action="/household/<%= household.id %>/recurring/<%= item.recurring.id %>/record" data-confirm="Ghi nhận đã trả '<%= item.recurring.name %>' <%= formatMoney(item.expected) %>đ?"><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-success" data-loading-text="…">Ghi nhận</button></form><% } %></td><% } %>
+        </tr>
+      <% }) %>
+      <% if (!expectations.length) { %><tr><td colspan="<%= isAdmin ? 5 : 4 %>" class="muted text-center">Không có khoản định kỳ nào trong tháng này.</td></tr><% } %>
+    </tbody></table></div>
+  </section>
+
+  <% if (isAdmin) { %>
+    <section class="card-lite p mb">
+      <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'plus' }) %> Thêm khoản định kỳ</h2>
+      <form class="hh-form" method="post" action="/household/<%= household.id %>/recurring" data-tx-form>
+        <input type="hidden" name="month" value="<%= selectedMonth %>">
+        <%- recurringForm(null) %>
+        <div class="hh-form-action"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm</button></div>
+      </form>
+    </section>
+
+    <section class="card-lite mb">
+      <div class="card-hdr"><span><%- include('../../partials/icon', { name: 'list' }) %> Tất cả khoản định kỳ</span><span class="badge badge-dark"><%= recurrings.length %></span></div>
+      <div class="p">
+        <% recurrings.forEach((recurring) => { %>
+          <details class="hh-edit hh-recurring <%= recurring.active ? '' : 'is-muted' %>">
+            <summary><strong><%= recurring.name %></strong> <span class="muted">· <%= formatMoney(recurring.amount) %>đ · ngày <%= recurring.dayOfMonth %> · từ <%= recurring.startMonth %><%= recurring.endMonth ? ' đến ' + recurring.endMonth : '' %><%= recurring.active ? '' : ' · đã dừng' %></span></summary>
+            <form class="hh-form hh-form-inline" method="post" action="/household/<%= household.id %>/recurring/<%= recurring.id %>" data-tx-form>
+              <input type="hidden" name="month" value="<%= selectedMonth %>">
+              <%- recurringForm(recurring) %>
+              <div><label>Trạng thái</label><select name="active"><option value="on" <%= recurring.active ? 'selected' : '' %>>Đang chạy</option><option value="off" <%= recurring.active ? '' : 'selected' %>>Dừng</option></select></div>
+              <div class="hh-form-action"><button class="btn btn-sm btn-primary" data-loading-text="…">Lưu</button></div>
+            </form>
+            <form method="post" action="/household/<%= household.id %>/recurring/<%= recurring.id %>/delete" data-confirm="Kết thúc khoản '<%= recurring.name %>'? Đã có giao dịch thì chỉ dừng, lịch sử giữ nguyên."><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-danger" data-loading-text="…">Kết thúc</button></form>
+          </details>
+        <% }) %>
+        <% if (!recurrings.length) { %><p class="muted">Chưa khai khoản định kỳ nào. Ví dụ: trả góp nhà, tiền học, tiền điện, lương.</p><% } %>
+      </div>
+    </section>
+  <% } %>
+<% } %>

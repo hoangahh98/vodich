@@ -326,6 +326,7 @@ small { font-size: 13px; }
 .module-icon .ic { width: 24px; height: 24px; }
 .ht-tour { --accent: #e0821c; }
 .ht-team { --accent: #0f9d58; }
+.ht-house { --accent: #b45309; }
 .ht-member { --accent: #7c3aed; }
 .ht-group { --accent: #0f8b8d; }
 .ht-games { --accent: #e11d74; }
@@ -1057,3 +1058,32 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
   .reveal { opacity: 1; transform: none; }
   .module-card, .game-card { transform: none !important; }
 }
+
+/* ─── Chi tiêu gia đình (9/2026) ─── */
+.hh-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; align-items: end; }
+.hh-form > div { min-width: 0; }
+.hh-form .hh-form-wide { grid-column: 1 / -1; }
+.hh-form .hh-form-action { display: flex; align-items: end; }
+.hh-form-inline { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); }
+.hh-edit > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
+.hh-edit > summary::-webkit-details-marker { display: none; }
+.hh-edit > form + form { margin-top: 8px; }
+.hh-recurring { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.hh-recurring:last-of-type { border-bottom: 0; }
+.hh-recurring > summary { display: block; }
+.hh-new td:first-child { box-shadow: inset 3px 0 0 var(--lime-2); }
+.hh-inbox { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.hh-inbox summary { cursor: pointer; font-weight: 600; }
+.hh-inbox pre { white-space: pre-wrap; font-size: 12.5px; background: var(--paper); padding: 10px; border-radius: var(--radius-sm); overflow-x: auto; }
+.hh-steps { padding-left: 20px; display: grid; gap: 6px; }
+.hh-steps code, .hh-code { font-family: var(--display); font-size: 18px; letter-spacing: .12em; background: var(--paper); padding: 2px 8px; border-radius: 6px; }
+.hh-balance { font-family: var(--display); font-size: 22px; }
+.hh-source.is-muted, tr.is-muted, .hh-recurring.is-muted { opacity: .55; }
+.hh-form .field-hint { display: block; }
+.inline-form { display: inline-block; }
+.mb-0 { margin-bottom: 0; }
+select.is-warn { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
+.tab-count { margin-left: 4px; font-style: normal; font-size: 11px; font-weight: 800; background: var(--danger); color: #fff; border-radius: 999px; padding: 1px 6px; }
+.member-list td input, .member-list td select { min-height: 38px; padding: 6px 10px; font-size: 14px; }
+.member-list td select.mt { margin-top: 6px; }
+@media (max-width: 640px) { .hh-form { grid-template-columns: 1fr 1fr; } .hh-form .hh-form-wide, .hh-form .hh-form-action { grid-column: 1 / -1; } }

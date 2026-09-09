@@ -23,6 +23,10 @@ const ORDER = [
   'PlayerGroup', 'PlayerGroupMember', 'TeamClubGroup', 'TeamGuestReceipt',
   'AppLog',
   'KnightCharacter', 'KnightProgress',
+  // Chi tiêu gia đình (9/2026): hộ trước, rồi nguồn/mục đích, rồi định kỳ (trỏ nguồn + mục đích),
+  // rồi giao dịch (trỏ cả định kỳ), hộp thư Telegram sau cùng.
+  'Household', 'HouseholdPermission', 'PlayerHouseholdAccess', 'HouseholdSource', 'HouseholdPurpose',
+  'HouseholdRecurring', 'HouseholdTransaction', 'HouseholdInbox',
 ];
 
 /**

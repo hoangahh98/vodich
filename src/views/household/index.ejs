@@ -1,0 +1,46 @@
+<%- include('../partials/head', { title: 'Chi tiêu' }) %>
+<%- include('../partials/topbar') %>
+<main class="app-shell">
+  <section class="feature-hero p mb">
+    <div class="flex between center gap">
+      <div>
+        <div class="hero-eyebrow">Chi tiêu gia đình</div>
+        <h1>Sổ chi tiêu</h1>
+        <div class="muted strong-muted">Nguồn tiền, mục đích, khoản định kỳ và giao dịch tự ghi từ tin ngân hàng qua Telegram.</div>
+      </div>
+      <div class="feature-hero-art"><div class="ball3d" aria-hidden="true"></div></div>
+    </div>
+  </section>
+
+  <% if (currentUser.role === 'ADMIN') { %>
+    <section class="card-lite p mb">
+      <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'plus' }) %></span><h2 class="section-title">Tạo hộ chi tiêu</h2><p class="muted">Mỗi hộ có nguồn tiền, mục đích và thành viên riêng. Tạo xong sẽ có sẵn bộ mục đích mặc định.</p></div></div>
+      <form class="team-create-form" method="post" action="/household">
+        <div><label>Tên hộ</label><input name="name" placeholder="Ví dụ: Nhà mình" required></div>
+        <div><label>Ghi chú</label><input name="description" placeholder="Ai là chủ hộ, ghi chú nội bộ"></div>
+        <div class="team-create-action"><button class="btn btn-success" data-loading-text="Đang tạo...">Tạo hộ</button></div>
+      </form>
+    </section>
+  <% } %>
+
+  <% if (!households.length) { %>
+    <section class="card-lite empty-state"><%- include('../partials/icon', { name: 'wallet' }) %><p>Chưa có hộ chi tiêu nào.</p></section>
+  <% } %>
+  <div class="grid module-grid">
+    <% households.forEach((household) => { %>
+      <a class="card-lite module-card team-card" href="/household/<%= household.id %>/overview">
+        <div class="module-icon"><%- include('../partials/icon', { name: 'wallet' }) %></div>
+        <h3><%= household.name %></h3>
+        <p class="muted"><%= household.description || 'Chưa có ghi chú' %></p>
+        <div class="team-card-footer">
+          <span class="badge"><%- include('../partials/icon', { name: 'card' }) %> <%= household._count.sources %> nguồn</span>
+          <span class="badge"><%- include('../partials/icon', { name: 'users' }) %> <%= household._count.playerAccess %> thành viên</span>
+          <% if (household.unclassifiedCount) { %><span class="badge bg-danger"><%= household.unclassifiedCount %> chưa phân loại</span><% } %>
+          <% if (household.telegramChatId) { %><span class="badge bg-success">Telegram</span><% } %>
+        </div>
+        <span class="card-arrow"><%- include('../partials/icon', { name: 'arrow' }) %></span>
+      </a>
+    <% }) %>
+  </div>
+</main>
+<%- include('../partials/bottom-menu') %>

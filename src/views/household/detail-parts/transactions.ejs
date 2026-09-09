@@ -1,0 +1,80 @@
+<% if (section === 'transactions') { %>
+  <% const nowInput = inputDateTime(new Date()); %>
+  <section class="card-lite p mb">
+    <div class="section-heading">
+      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'receipt' }) %></span><h2 class="section-title">Giao dịch</h2><p class="muted">Tháng <%= selectedMonth %>. Tin ngân hàng qua Telegram tự vào đây; nhập tay cho tiền mặt hoặc khoản không có tin.</p></div>
+      <span class="badge badge-dark"><%= transactions.length %> giao dịch</span>
+    </div>
+  </section>
+
+  <% if (isAdmin) { %>
+    <section class="card-lite p mb">
+      <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'plus' }) %> Ghi giao dịch</h2>
+      <% if (!activeSources.length) { %>
+        <div class="alert-lite info"><span>Chưa có nguồn tiền. <a href="/household/<%= household.id %>/sources">Khai nguồn</a> trước rồi mới ghi được.</span></div>
+      <% } else { %>
+        <form class="hh-form" method="post" action="/household/<%= household.id %>/transactions" data-tx-form>
+          <input type="hidden" name="month" value="<%= selectedMonth %>">
+          <div><label>Loại</label><select name="kind" data-tx-kind><option value="EXPENSE">Chi</option><option value="INCOME">Thu</option><option value="TRANSFER">Chuyển nguồn (trả thẻ, trả nợ, cất tiết kiệm)</option></select></div>
+          <div><label>Từ nguồn</label><select name="sourceId" required><% activeSources.forEach((source) => { %><option value="<%= source.id %>"><%= source.name %></option><% }) %></select></div>
+          <div data-tx-target hidden><label>Sang nguồn</label><select name="targetSourceId"><option value="">— chọn —</option><% activeSources.forEach((source) => { %><option value="<%= source.id %>"><%= source.name %> (<%= labels.source[source.kind] %>)</option><% }) %></select></div>
+          <div><label>Số tiền</label><input class="money-input" name="amount" required inputmode="numeric"></div>
+          <div data-tx-interest hidden><label>Trong đó lãi</label><input class="money-input" name="interest" inputmode="numeric"><small class="field-hint">Trả nợ vay: phần lãi tính là chi, phần còn lại trừ gốc.</small></div>
+          <div><label>Mục đích</label><select name="purposeId"><option value="">— chưa chọn —</option><% activePurposes.forEach((purpose) => { %><option value="<%= purpose.id %>" data-kind="<%= purpose.kind %>"><%= purpose.name %> · <%= labels.purpose[purpose.kind] %></option><% }) %></select></div>
+          <div><label>Thời điểm</label><input type="datetime-local" name="occurredAt" value="<%= nowInput %>"></div>
+          <div class="hh-form-wide"><label>Nội dung</label><input name="description" placeholder="Ví dụ: Đi chợ, Đóng học cho con"></div>
+          <div class="hh-form-action"><button class="btn btn-success" data-loading-text="Đang ghi..."><%- include('../../partials/icon', { name: 'plus' }) %> Ghi</button></div>
+        </form>
+      <% } %>
+    </section>
+  <% } %>
+
+  <section class="card-lite mb">
+    <div class="card-hdr blue"><span><%- include('../../partials/icon', { name: 'list' }) %> Tháng <%= selectedMonth %></span><span class="badge badge-dark">Thu <%= formatMoney(report.income) %>đ · dùng <%= formatMoney(report.used) %>đ</span></div>
+    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Ngày</th><th>Nội dung</th><th>Nguồn</th><th class="text-right">Tiền</th><th>Mục đích</th><% if (isAdmin) { %><th></th><% } %></tr></thead><tbody>
+      <% transactions.forEach((tx) => { %>
+        <tr class="<%= tx.status === 'NEW' ? 'hh-new' : '' %>">
+          <td class="nowrap"><%= fmtDateTime(tx.occurredAt) %></td>
+          <td><span class="badge <%= kindBadge[tx.kind] %>"><%= labels.tx[tx.kind] %></span> <strong><%= tx.description || '(không có nội dung)' %></strong><% if (tx.recurringName) { %><br><span class="muted">định kỳ: <%= tx.recurringName %></span><% } %><% if (tx.interest) { %><br><span class="muted">lãi <%= formatMoney(tx.interest) %>đ</span><% } %></td>
+          <td><%= tx.sourceName %><% if (tx.targetName) { %> → <%= tx.targetName %><% } %></td>
+          <td class="text-right paid-cell"><strong><%= tx.kind === 'INCOME' ? '+' : '−' %><%= formatMoney(tx.amount) %></strong><span class="muted">đ</span></td>
+          <td>
+            <% if (isAdmin) { %>
+              <form method="post" action="/household/<%= household.id %>/transactions/<%= tx.id %>/purpose"><input type="hidden" name="month" value="<%= selectedMonth %>"><select name="purposeId" data-autosubmit class="<%= !tx.purposeId && tx.kind === 'EXPENSE' ? 'is-warn' : '' %>"><option value="">— chưa chọn —</option><% activePurposes.filter((purpose) => (tx.kind === 'INCOME' ? purpose.kind === 'INCOME' : purpose.kind !== 'INCOME') || purpose.id.toString() === tx.purposeId).forEach((purpose) => { %><option value="<%= purpose.id %>" <%= purpose.id.toString() === tx.purposeId ? 'selected' : '' %>><%= purpose.name %></option><% }) %></select></form>
+            <% } else { %><%= tx.purposeName || '—' %><% } %>
+          </td>
+          <% if (isAdmin) { %>
+            <td class="text-right row-action">
+              <details class="hh-edit"><summary class="btn btn-sm btn-icon" aria-label="Sửa"><%- include('../../partials/icon', { name: 'edit' }) %></summary>
+                <form class="hh-form hh-form-inline" method="post" action="/household/<%= household.id %>/transactions/<%= tx.id %>" data-tx-form>
+                  <input type="hidden" name="month" value="<%= selectedMonth %>">
+                  <div><label>Loại</label><select name="kind" data-tx-kind><% ['EXPENSE','INCOME','TRANSFER'].forEach((kind) => { %><option value="<%= kind %>" <%= tx.kind === kind ? 'selected' : '' %>><%= labels.tx[kind] %></option><% }) %></select></div>
+                  <div><label>Từ nguồn</label><select name="sourceId"><% sources.forEach((source) => { %><option value="<%= source.id %>" <%= source.id.toString() === tx.sourceId ? 'selected' : '' %>><%= source.name %></option><% }) %></select></div>
+                  <div data-tx-target <%= tx.kind === 'TRANSFER' ? '' : 'hidden' %>><label>Sang nguồn</label><select name="targetSourceId"><option value="">— chọn —</option><% sources.forEach((source) => { %><option value="<%= source.id %>" <%= source.id.toString() === tx.targetSourceId ? 'selected' : '' %>><%= source.name %></option><% }) %></select></div>
+                  <div><label>Số tiền</label><input class="money-input" name="amount" value="<%= formatMoney(tx.amount) %>"></div>
+                  <div data-tx-interest <%= tx.kind === 'TRANSFER' ? '' : 'hidden' %>><label>Trong đó lãi</label><input class="money-input" name="interest" value="<%= formatMoney(tx.interest) %>"></div>
+                  <div><label>Mục đích</label><select name="purposeId"><option value="">— chưa chọn —</option><% purposes.forEach((purpose) => { %><option value="<%= purpose.id %>" <%= purpose.id.toString() === tx.purposeId ? 'selected' : '' %>><%= purpose.name %></option><% }) %></select></div>
+                  <div><label>Thời điểm</label><input type="datetime-local" name="occurredAt" value="<%= inputDateTime(tx.occurredAt) %>"></div>
+                  <div class="hh-form-wide"><label>Nội dung</label><input name="description" value="<%= tx.description %>"></div>
+                  <div class="hh-form-action"><button class="btn btn-sm btn-primary" data-loading-text="…">Lưu</button></div>
+                </form>
+                <form method="post" action="/household/<%= household.id %>/transactions/<%= tx.id %>/delete" data-confirm="Xoá giao dịch này?"><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-danger" data-loading-text="…">Xoá</button></form>
+              </details>
+            </td>
+          <% } %>
+        </tr>
+      <% }) %>
+      <% if (!transactions.length) { %><tr><td colspan="<%= isAdmin ? 6 : 5 %>" class="muted text-center">Chưa có giao dịch nào trong tháng.</td></tr><% } %>
+    </tbody></table></div>
+  </section>
+
+  <% if (inbox.length && isAdmin) { %>
+    <section class="card-lite mb">
+      <div class="card-hdr warn"><span><%- include('../../partials/icon', { name: 'mail' }) %> Tin Telegram chưa đọc được</span><span class="badge badge-dark"><%= inbox.length %></span></div>
+      <div class="p">
+        <p class="muted">Bot không đọc ra số tiền hoặc không khớp nguồn nào. Nhập tay ở form trên; khai đúng số tài khoản / 4 số cuối thẻ ở Nguồn tiền để lần sau tự khớp.</p>
+        <% inbox.forEach((item) => { %><details class="hh-inbox"><summary><%= fmtDateTime(item.receivedAt) %> · <%= item.text.split('\n').find((line) => line.trim()) || '(trống)' %></summary><pre><%= item.text %></pre></details><% }) %>
+      </div>
+    </section>
+  <% } %>
+<% } %>

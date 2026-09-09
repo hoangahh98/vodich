@@ -21,6 +21,8 @@
         <a class="active" href="/tournaments"><%- include('icon', { name: 'trophy' }) %><span>Giải đấu</span></a>
       <% } else if (currentPath.startsWith('/teams') && featureSet.has('TEAMS')) { %>
         <a class="active" href="/teams"><%- include('icon', { name: 'ball' }) %><span>Đội bóng</span></a>
+      <% } else if (currentPath.startsWith('/household') && featureSet.has('HOUSEHOLD')) { %>
+        <a class="active" href="/household"><%- include('icon', { name: 'wallet' }) %><span>Chi tiêu</span></a>
       <% } else if (currentPath.startsWith('/permissions') && featureSet.has('PERMISSIONS')) { %>
         <a class="active" href="/permissions"><%- include('icon', { name: 'lock' }) %><span>Phân quyền</span></a>
       <% } else if (currentPath.startsWith('/logs') && isRoot) { %>

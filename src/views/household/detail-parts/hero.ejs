@@ -1,0 +1,20 @@
+<section class="feature-hero p mb">
+  <div class="flex between center">
+    <div>
+      <div class="hero-eyebrow">Chi tiêu gia đình</div>
+      <h1><%= household.name %></h1>
+      <div class="muted strong-muted"><%= household.description || 'Chưa có ghi chú' %></div>
+      <div class="hero-chips mt">
+        <span class="chip"><%- include('../../partials/icon', { name: 'wallet' }) %>Tiền có <%= formatMoney(totals.cash) %>đ</span>
+        <span class="chip"><%- include('../../partials/icon', { name: 'card' }) %>Đang nợ <%= formatMoney(totals.debt) %>đ</span>
+        <% if (linked) { %><span class="chip lime"><%- include('../../partials/icon', { name: 'bolt' }) %>Telegram đã nối</span><% } %>
+      </div>
+    </div>
+    <div class="team-hero-tools">
+      <form method="get" action="/household/<%= household.id %>/<%= section %>" class="month-filter">
+        <label>Tháng</label>
+        <input type="month" name="month" value="<%= selectedMonth %>" data-autosubmit>
+      </form>
+    </div>
+  </div>
+</section>

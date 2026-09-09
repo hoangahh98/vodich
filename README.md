@@ -42,6 +42,7 @@ REQUIRE_REDIS=false
 - `ALLOW_WEAK_ADMIN_PASSWORD=true`: cửa thoát tạm cho `APP_ADMIN_PASSWORD` yếu (chỉ cảnh báo thay vì chặn khởi động). Dùng khi cần deploy gấp, đổi mật khẩu xong thì gỡ ra.
 - `CSRF_ALLOWED_ORIGINS`: danh sách origin được phép gửi request ghi ngoài chính host của app, ngăn cách bằng dấu phẩy. Hiếm khi cần — chỉ dùng khi app đứng sau nhiều tên miền.
 - `LOG_ALL_HTTP=true`: ghi cả health check/static asset vào log. Mặc định app bỏ qua các request này để giảm DB writes.
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`: bot của module Chi tiêu (xem mục "Chi tiêu gia đình: bot Telegram"). Không đặt = webhook đóng, module vẫn dùng được bằng nhập tay.
 
 Biến chỉ nên dùng cho test/CI:
 
@@ -115,6 +116,54 @@ Xem [docs/bao-mat.md](docs/bao-mat.md) cho mô hình phân quyền đầy đủ.
 - `GEMINI_API_KEY`: bắt buộc để dùng AI (game nói chuyện). Lấy tại https://aistudio.google.com/apikey.
 - `GEMINI_MODEL`: model dùng, mặc định `gemini-2.0-flash`. Nếu hay bị lỗi 429 (hết hạn mức/ngày của bản free), thử đổi sang model có hạn mức free cao hơn, ví dụ `gemini-1.5-flash`, hoặc bật billing trong Google Cloud để tăng giới hạn.
 - App tự thử lại vài lần khi gặp 429/503 tạm thời và báo lỗi thân thiện khi hết lượt.
+
+## Chi tiêu gia đình: bot Telegram
+
+Luồng: mail ngân hàng → (Apps Script trên Gmail) → nhóm Telegram có bot → (webhook) → app ghi giao dịch
+→ bot trả lời kèm nút chọn mục đích. Mẫu đọc tin có sẵn cho **VPBank NEO** (mail giao dịch thành công)
+và **MSB thẻ tín dụng** (mail biến động số dư); ngân hàng khác đọc theo mẫu chung "±số tiền VND".
+
+1. Tạo bot với @BotFather, lấy token → `TELEGRAM_BOT_TOKEN`. Tắt privacy mode của bot
+   (`/setprivacy` → Disable) để bot đọc được tin trong nhóm.
+2. Sinh chuỗi ngẫu nhiên → `TELEGRAM_WEBHOOK_SECRET`. Deploy xong, đặt webhook một lần (mở URL này trên trình duyệt):
+
+   ```
+   https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<host>/telegram/webhook/<SECRET>&secret_token=<SECRET>
+   ```
+
+3. Tạo một nhóm Telegram riêng, thêm bot vào. Trên web: Chi tiêu → hộ → Cài đặt → lấy mã, rồi gõ trong nhóm
+   `/link <mã>`.
+4. Đẩy mail vào nhóm bằng Google Apps Script (script.google.com, chạy trên chính Gmail nhận mail ngân hàng),
+   đặt trigger "time-driven, mỗi 5 phút":
+
+   ```javascript
+   // Đẩy mail VPBank / MSB chưa đọc vào nhóm Telegram. Đổi TOKEN và CHAT_ID (id nhóm, số âm).
+   const TOKEN = '123456:ABC...';
+   const CHAT_ID = '-1001234567890';
+   const QUERY = 'is:unread (from:vpbank.com.vn OR from:msb.com.vn) newer_than:2d';
+   function pushBankMails() {
+     for (const thread of GmailApp.search(QUERY, 0, 20)) {
+       for (const mail of thread.getMessages()) {
+         if (!mail.isUnread()) continue;
+         const text = mail.getPlainBody().replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').slice(0, 3500);
+         UrlFetchApp.fetch('https://api.telegram.org/bot' + TOKEN + '/sendMessage', {
+           method: 'post',
+           contentType: 'application/json',
+           payload: JSON.stringify({ chat_id: CHAT_ID, text: text }),
+           muteHttpExceptions: true,
+         });
+         mail.markRead();
+       }
+     }
+   }
+   ```
+
+   Lấy `CHAT_ID`: gửi một tin bất kỳ trong nhóm rồi mở
+   `https://api.telegram.org/bot<TOKEN>/getUpdates` (chỉ xem được khi CHƯA đặt webhook, nên làm bước này trước bước 2).
+
+Trong app: nguồn tiền khai **số tài khoản** (VPBank) hoặc **4 số cuối thẻ** (MSB) để tin khớp đúng nguồn. Tin
+không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được". Tiền VÀO thẻ tín dụng bị bỏ qua có chủ ý
+(trả thẻ đã ghi ở tài khoản trả; hoàn tiền thì sửa tay).
 
 ## Backup / khôi phục dữ liệu
 

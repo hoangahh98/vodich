@@ -42,6 +42,12 @@ import { TeamMemberController } from './teams/team-member.controller';
 import { TeamMemberService } from './teams/team-member.service';
 import { TeamMonthService } from './teams/team-month.service';
 import { TeamController } from './teams/team.controller';
+import { HouseholdController } from './household/household.controller';
+import { HouseholdService } from './household/household.service';
+import { HouseholdConfigService } from './household/household-config.service';
+import { HouseholdLedgerService } from './household/household-ledger.service';
+import { HouseholdTelegramService } from './household/household-telegram.service';
+import { TelegramController } from './household/telegram.controller';
 import { AiService } from './common/ai.service';
 import { LocalsMiddleware } from './common/locals.middleware';
 import { RateLimitService } from './common/rate-limit.service';
@@ -49,7 +55,7 @@ import { FeatureGuard } from './common/feature.guard';
 import { CsrfMiddleware } from './common/csrf';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, GroupController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, GroupController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, HouseholdController, TelegramController, AdminController],
   providers: [
     PrismaService,
     AuthService,
@@ -75,6 +81,10 @@ import { CsrfMiddleware } from './common/csrf';
     TeamFundService,
     TeamMemberService,
     TeamMonthService,
+    HouseholdService,
+    HouseholdConfigService,
+    HouseholdLedgerService,
+    HouseholdTelegramService,
     AiService,
     MatchGateway,
     LocalsMiddleware,

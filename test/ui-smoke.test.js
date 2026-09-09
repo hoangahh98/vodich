@@ -656,3 +656,105 @@ test('vòng quay chỉ có lối vào từ menu ba gạch, không có ô ngoài 
   assert.match(menu, /class="active" href="\/vong-quay"/, 'đang ở trang vòng quay thì menu phải sáng mục đó');
   assert.match(menu, /href="\/"/, 'menu trang con luôn phải có lối về trang chủ');
 });
+
+// ─────────────────────────── Chi tiêu gia đình ───────────────────────────
+
+function householdLocals(section, over = {}) {
+  const common = commonLocals(`/household/1/${section}`);
+  const labels = {
+    source: { BANK: 'Tài khoản ngân hàng', CARD: 'Thẻ tín dụng', CASH: 'Tiền mặt', LOAN: 'Khoản vay' },
+    purpose: { LIVING: 'Chi tiêu', SAVING: 'Tiết kiệm', DEBT: 'Trả nợ', RESERVE: 'Dự phòng', LENDING: 'Cho vay', INCOME: 'Thu nhập' },
+    tx: { EXPENSE: 'Chi', INCOME: 'Thu', TRANSFER: 'Chuyển' },
+    bank: { VPBANK: 'VPBank', MSB: 'MSB', OTHER: 'Khác' },
+  };
+  const sources = [
+    { id: 1n, name: 'VPBank Diện', kind: 'BANK', bank: 'VPBANK', matchKey: '0382079196', ownerName: 'Vợ', openingBalance: 10000000, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true },
+    { id: 2n, name: 'Thẻ MSB', kind: 'CARD', bank: 'MSB', matchKey: '3065', ownerName: '', openingBalance: 0, creditLimit: 20000000, interestRate: 0, statementDay: 20, dueDay: 5, active: true },
+  ];
+  const purposes = [
+    { id: 11n, name: 'Lương vợ', kind: 'INCOME', monthlyPlan: 0, active: true },
+    { id: 12n, name: 'Ăn uống', kind: 'LIVING', monthlyPlan: 5000000, active: true },
+  ];
+  const recurrings = [{ id: 21n, name: 'Tiền học', kind: 'EXPENSE', sourceId: 1n, targetSourceId: null, purposeId: 12n, amount: 2000000, interestMode: 'NONE', dayOfMonth: 10, startMonth: '2026-09', endMonth: null, active: true, note: '', source: sources[0], targetSource: null }];
+  const balances = [
+    { source: { ...sources[0], id: '1' }, balance: 9850000, available: 0 },
+    { source: { ...sources[1], id: '2' }, balance: 86093, available: 19913907 },
+  ];
+  const transactions = [
+    { id: '31', kind: 'EXPENSE', sourceId: '2', targetSourceId: null, purposeId: null, recurringId: null, amount: 86093, interest: 0, month: '2026-09', status: 'NEW', occurredAt: new Date('2026-09-07T11:22:00Z'), description: 'Shopee', sourceName: 'Thẻ MSB', targetName: '', purposeName: '', purposeKind: '', recurringName: '' },
+    { id: '32', kind: 'INCOME', sourceId: '1', targetSourceId: null, purposeId: '11', recurringId: null, amount: 30000000, interest: 0, month: '2026-09', status: 'CONFIRMED', occurredAt: new Date('2026-09-05T03:00:00Z'), description: 'Lương', sourceName: 'VPBank Diện', targetName: '', purposeName: 'Lương vợ', purposeKind: 'INCOME', recurringName: '' },
+  ];
+  return {
+    ...common,
+    featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'HOUSEHOLD', 'PERMISSIONS']),
+    labels,
+    section,
+    household: { id: 1n, name: 'Nhà mình', description: 'Sổ chung', ownerAdmin: { displayName: 'Admin', username: 'admin' }, permissions: [], playerAccess: [], telegramChatId: null },
+    selectedMonth: '2026-09',
+    sources,
+    purposes,
+    recurrings,
+    admins: [],
+    players: [{ id: 5n, displayName: 'Vợ', email: 'vo@test' }],
+    members: [],
+    inbox: [{ id: 1n, text: 'Tin lạ\nkhông đọc được', receivedAt: new Date() }],
+    balances,
+    balanceById: Object.fromEntries(balances.map((item) => [item.source.id, item])),
+    totals: { cash: 9850000, debt: 86093 },
+    report: { month: '2026-09', income: 30000000, living: 86093, saving: 0, reserve: 0, lending: 0, debt: { total: 0, principal: 0, interest: 0 }, cardPayment: 0, used: 86093, free: 29913907, unclassified: { count: 1, total: 86093 }, byPurpose: [{ purpose: { id: '12', name: 'Ăn uống', kind: 'LIVING', monthlyPlan: 5000000, active: true }, actual: 0, plan: 5000000, count: 0 }], cardSpending: 86093 },
+    expectations: [{ recurring: { ...recurrings[0], id: '21', sourceId: '1' }, expected: 2000000, principal: 2000000, interest: 0, dueDate: new Date('2026-09-10T05:00:00Z'), transaction: null, paid: false, overdue: false }],
+    transactions,
+    unclassified: transactions.filter((tx) => tx.kind === 'EXPENSE' && !tx.purposeId),
+    unclassifiedAll: 1,
+    months: ['2026-09'],
+    linked: false,
+    linkCode: 'AB12CD34',
+    ...over,
+  };
+}
+
+test('chi tiêu: trang danh sách hộ có form tạo cho admin và thẻ hộ', async () => {
+  const html = await renderView('household/index.ejs', { ...commonLocals('/household'), featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'HOUSEHOLD', 'PERMISSIONS']), households: [{ id: 1n, name: 'Nhà mình', description: '', _count: { sources: 2, playerAccess: 1 }, unclassifiedCount: 3, telegramChatId: '-100' }] });
+  assert.match(html, /action="\/household"/, 'admin phải tạo được hộ');
+  assert.match(html, /Nhà mình/);
+  assert.match(html, /3 chưa phân loại/);
+  assert.match(html, /class="active" href="\/household"/, 'thanh dưới phải đánh dấu mục Chi tiêu');
+});
+
+test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', async () => {
+  const overview = await renderView('household/detail.ejs', householdLocals('overview'));
+  assert.match(overview, /Còn tự do/);
+  assert.match(overview, /Khoản định kỳ chưa ghi nhận/);
+  assert.match(overview, /transactions\/31\/purpose/, 'khoản chưa phân loại phải chọn được mục đích ngay ở Tổng quan');
+  assert.match(overview, /\/js\/household\.js/);
+
+  const transactions = await renderView('household/detail.ejs', householdLocals('transactions'));
+  assert.match(transactions, /data-tx-kind/, 'form ghi giao dịch có ô loại điều khiển ô nguồn đích');
+  assert.match(transactions, /name="targetSourceId"/);
+  assert.match(transactions, /Tin Telegram chưa đọc được/);
+  assert.match(transactions, /transactions\/31\/delete/);
+
+  const sources = await renderView('household/detail.ejs', householdLocals('sources'));
+  assert.match(sources, /name="matchKey"/, 'nguồn phải khai được số tài khoản / 4 số cuối thẻ');
+  assert.match(sources, /còn hạn mức/);
+
+  const recurring = await renderView('household/detail.ejs', householdLocals('recurring'));
+  assert.match(recurring, /recurring\/21\/record/, 'khoản chưa trả phải có nút Ghi nhận');
+  assert.match(recurring, /FROM_RATE/);
+
+  const settings = await renderView('household/detail.ejs', householdLocals('settings'));
+  assert.match(settings, /\/link AB12CD34/, 'mã liên kết Telegram phải hiện khi chưa nối');
+  assert.match(settings, /name="playerIds"/, 'chọn được thành viên trong nhà');
+  assert.match(settings, /purposes\/12\/delete/);
+  assert.doesNotMatch(settings, /<tr[^>]*>\s*<form/, 'form không được nằm trong <tr>');
+});
+
+test('chi tiêu: thành viên (CLIENT) chỉ xem, không có form ghi và không có tab Cài đặt', async () => {
+  const client = { id: '77', role: 'CLIENT', displayName: 'Vợ', email: 'vo@test' };
+  const html = await renderView('household/detail.ejs', householdLocals('transactions', { currentUser: client, isRoot: false, featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'HOUSEHOLD']) }));
+  // Form lọc tháng ở hero là GET cùng đường dẫn, nên chỉ soi form POST.
+  assert.doesNotMatch(html, /method="post" action="\/household\/1\/transactions"/, 'CLIENT không ghi được giao dịch');
+  assert.doesNotMatch(html, /data-tx-kind/, 'CLIENT không có form ghi');
+  assert.doesNotMatch(html, /\/household\/1\/settings/, 'CLIENT không thấy tab Cài đặt');
+  assert.match(html, /Shopee/, 'nhưng vẫn xem được giao dịch');
+});

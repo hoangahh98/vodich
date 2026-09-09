@@ -75,6 +75,11 @@ Module đã áp dụng: giải đấu, đội bóng.
 
 ## 3b. Quyền XEM của thành viên (từ 9/2026)
 
+> Từ 9/9/2026 có thêm module Chi tiêu (`HOUSEHOLD`): cùng khuôn — admin theo `ownedOrSharedWhere`
+> (`household_permission`), thành viên trong nhà là CLIENT qua `player_household_access`
+> (`clientHouseholdWhere`). Webhook Telegram là `@Public` thứ tư, bảo vệ bằng bí mật trong đường dẫn + header
+> `X-Telegram-Bot-Api-Secret-Token`; thiếu `TELEGRAM_WEBHOOK_SECRET` là route đóng.
+
 Có tên trong giải **không còn** tự động nghĩa là được xem giải. Quyền xem là hai bảng riêng,
 `player_tournament_access` và `player_team_access`, cấp ở màn hình **Thành viên → Phân quyền**
 (`/players/:id/access`, `PlayerAccessService`). Bộ lọc cho vai CLIENT nằm ở một chỗ:

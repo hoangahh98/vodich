@@ -180,6 +180,35 @@ Ngoài ra có **vòng quay bốc tên đứng riêng** ở `/vong-quay` (`src/vi
 `public/js/wheel-of-names.js`), đặt cạnh `/score-reader`: chỉ cần đăng nhập, không thuộc module
 nào, không gọi API và không lưu DB — danh sách tên nằm trong `localStorage` của máy người dùng.
 
+### Chi tiêu gia đình (module `src/household/`, dựng lại 9/2026)
+
+Module Chi tiêu từng được dựng 4 lần trong hai tuần (7–8/2026) rồi gỡ hẳn vì mô hình đổi theo từng tính
+năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch — đừng thêm cột "số dư", "đã trả", "còn lại":
+
+| Bảng | Vai trò |
+|---|---|
+| `household_source` | Nguồn tiền: BANK/CASH giữ số dư, CARD/LOAN giữ DƯ NỢ. `match_key` = số TK / 4 số cuối thẻ để khớp tin. |
+| `household_purpose` | Mục đích tự đặt; `kind` (LIVING/SAVING/DEBT/RESERVE/LENDING/INCOME) quyết định luật báo cáo. |
+| `household_transaction` | EXPENSE / INCOME / TRANSFER. TRANSFER sang LOAN = trả nợ (`interest` là lãi), sang CARD = trả thẻ. `external_id` chống ghi trùng. |
+| `household_recurring` | Khoản định kỳ khai một lần; `interest_mode = FROM_RATE` → lãi = dư nợ đầu tháng × lãi suất / 12. |
+| `household_inbox` | Tin Telegram thô; UNPARSED để xử lý tay. |
+
+- Toán ở `household-month.ts` (thuần, có test `test/household.test.js`): `sourceBalances`, `monthReport`,
+  `recurringExpectations`, `matchRecurring`. **Luật chủ app chốt 9/9/2026**: quẹt thẻ là chi tiêu lúc quẹt,
+  trả thẻ chỉ là chuyển nguồn; trả nợ vay tính vào "dùng" cả gốc lẫn lãi, gốc trừ dư nợ; giao dịch chưa có
+  mục đích tính vào chi tiêu và đếm ở "chưa phân loại".
+- Mọi giao dịch đi qua `HouseholdLedgerService.create()` (form tay, nút Ghi nhận định kỳ, Telegram) để cùng
+  một luật khớp định kỳ (cùng nguồn, lệch ≤ 2%) và đoán mục đích theo lần trước cùng nội dung
+  (`normalizeDescription`).
+- Telegram: webhook `POST /telegram/webhook/:secret` (`telegram.controller.ts`, @Public có trong danh sách
+  duyệt của `test/security.test.js`), không quét định kỳ. Mẫu đọc tin ở `bank-parsers.ts` (VPBank NEO, MSB thẻ,
+  mẫu chung) — thêm ngân hàng thì thêm parser + test với mail thật. Nút inline `hp:<tx>:<purpose>` gán mục
+  đích, `ht:<tx>:<source>` đổi khoản chi thành trả thẻ/trả nợ. Liên kết nhóm bằng `/link <mã>`.
+- Quyền: `@FeatureAccess('HOUSEHOLD')`; admin theo `ownedOrSharedWhere`, thành viên trong nhà là CLIENT qua
+  `player_household_access` (`clientHouseholdWhere`). Mỗi admin tạo được nhiều hộ.
+- View `src/views/household/` cùng khuôn trang đội; form trong bảng dùng thuộc tính `form=` trỏ tới form rỗng
+  đứng ngoài `<table>` (form trong `<tr>` là HTML sai). JS riêng: `public/js/household.js` (ẩn/hiện ô nguồn đích).
+
 ### Phân quyền — đọc `docs/bao-mat.md` trước khi đụng vào
 
 Từ 9/2026 có thêm quyền xem của thành viên, chi tiết ở `docs/bao-mat.md` mục 3b:

@@ -1,0 +1,127 @@
+import { Injectable } from '@nestjs/common';
+import { parseMoney } from '../common/money';
+import { PrismaService } from '../prisma.service';
+import { normalizeBank, normalizeInterestMode, normalizeMonth, normalizePurposeKind, normalizeSourceKind, normalizeTxKind } from './household-enums';
+
+type Form = Record<string, string | undefined>;
+
+const clampDay = (value: unknown) => Math.min(31, Math.max(0, Number.parseInt(String(value || '0'), 10) || 0));
+const text = (value: unknown, max = 120) => String(value || '').trim().slice(0, max);
+
+/**
+ * Cấu hình của một hộ: nguồn tiền, mục đích, khoản định kỳ. Mọi hàm nhận `householdId` và lọc
+ * theo nó ngay trong truy vấn (updateMany/deleteMany) — id gửi lên thuộc hộ khác thì không đụng
+ * được, khỏi phải kiểm riêng.
+ */
+@Injectable()
+export class HouseholdConfigService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ───────────────────────────── Nguồn tiền ─────────────────────────────
+
+  private sourceData(form: Form) {
+    return {
+      name: text(form.name) || 'Nguồn tiền',
+      kind: normalizeSourceKind(form.kind),
+      bank: normalizeBank(form.bank),
+      matchKey: text(form.matchKey, 40).replace(/\s+/g, ''),
+      ownerName: text(form.ownerName),
+      openingBalance: parseMoney(form.openingBalance),
+      creditLimit: parseMoney(form.creditLimit),
+      interestRate: Math.max(0, Number.parseFloat(String(form.interestRate || '0').replace(',', '.')) || 0),
+      statementDay: clampDay(form.statementDay),
+      dueDay: clampDay(form.dueDay),
+    };
+  }
+
+  createSource(householdId: bigint, form: Form) {
+    return this.prisma.householdSource.create({ data: { householdId, ...this.sourceData(form) } });
+  }
+
+  updateSource(householdId: bigint, sourceId: bigint, form: Form) {
+    return this.prisma.householdSource.updateMany({ where: { id: sourceId, householdId }, data: { ...this.sourceData(form), active: form.active !== 'off' } });
+  }
+
+  /** Nguồn có giao dịch thì chỉ ẩn (active = false) để số cũ không mất; chưa có thì xoá hẳn. */
+  async deleteSource(householdId: bigint, sourceId: bigint) {
+    const used = await this.prisma.householdTransaction.count({ where: { householdId, OR: [{ sourceId }, { targetSourceId: sourceId }] } });
+    if (used) return this.prisma.householdSource.updateMany({ where: { id: sourceId, householdId }, data: { active: false } });
+    return this.prisma.householdSource.deleteMany({ where: { id: sourceId, householdId } });
+  }
+
+  // ───────────────────────────── Mục đích ─────────────────────────────
+
+  createPurpose(householdId: bigint, form: Form) {
+    return this.prisma.householdPurpose.create({
+      data: { householdId, name: text(form.name) || 'Mục mới', kind: normalizePurposeKind(form.kind), monthlyPlan: parseMoney(form.monthlyPlan), sortOrder: 999 },
+    });
+  }
+
+  updatePurpose(householdId: bigint, purposeId: bigint, form: Form) {
+    return this.prisma.householdPurpose.updateMany({
+      where: { id: purposeId, householdId },
+      data: { name: text(form.name) || 'Mục', kind: normalizePurposeKind(form.kind), monthlyPlan: parseMoney(form.monthlyPlan), active: form.active !== 'off' },
+    });
+  }
+
+  async deletePurpose(householdId: bigint, purposeId: bigint) {
+    const used = await this.prisma.householdTransaction.count({ where: { householdId, purposeId } });
+    if (used) return this.prisma.householdPurpose.updateMany({ where: { id: purposeId, householdId }, data: { active: false } });
+    return this.prisma.householdPurpose.deleteMany({ where: { id: purposeId, householdId } });
+  }
+
+  // ───────────────────────────── Khoản định kỳ ─────────────────────────────
+
+  private async recurringData(householdId: bigint, form: Form) {
+    const kind = normalizeTxKind(form.kind);
+    const sourceId = await this.ownSourceId(householdId, form.sourceId);
+    const targetSourceId = kind === 'TRANSFER' ? await this.ownSourceId(householdId, form.targetSourceId) : null;
+    const purposeId = await this.ownPurposeId(householdId, form.purposeId);
+    const startMonth = normalizeMonth(form.startMonth);
+    const endMonth = form.endMonth && /^\d{4}-\d{2}$/.test(form.endMonth) ? form.endMonth : null;
+    return {
+      name: text(form.name) || 'Khoản định kỳ',
+      kind,
+      sourceId,
+      targetSourceId,
+      purposeId,
+      amount: parseMoney(form.amount),
+      interestMode: targetSourceId ? normalizeInterestMode(form.interestMode) : 'NONE',
+      dayOfMonth: Math.min(31, Math.max(1, clampDay(form.dayOfMonth) || 1)),
+      startMonth,
+      endMonth: endMonth && endMonth < startMonth ? null : endMonth,
+      note: text(form.note, 500),
+    };
+  }
+
+  async createRecurring(householdId: bigint, form: Form) {
+    return this.prisma.householdRecurring.create({ data: { householdId, ...(await this.recurringData(householdId, form)) } });
+  }
+
+  async updateRecurring(householdId: bigint, recurringId: bigint, form: Form) {
+    return this.prisma.householdRecurring.updateMany({
+      where: { id: recurringId, householdId },
+      data: { ...(await this.recurringData(householdId, form)), active: form.active !== 'off' },
+    });
+  }
+
+  /** Kết thúc khoản định kỳ: tháng sau không sinh dự kiến nữa, lịch sử đã trả vẫn giữ. */
+  async deleteRecurring(householdId: bigint, recurringId: bigint) {
+    const used = await this.prisma.householdTransaction.count({ where: { householdId, recurringId } });
+    if (used) return this.prisma.householdRecurring.updateMany({ where: { id: recurringId, householdId }, data: { active: false } });
+    return this.prisma.householdRecurring.deleteMany({ where: { id: recurringId, householdId } });
+  }
+
+  /** Id nguồn gửi lên phải thuộc hộ này, không thì coi như không chọn. */
+  async ownSourceId(householdId: bigint, raw: unknown): Promise<bigint | null> {
+    if (!/^\d+$/.test(String(raw || ''))) return null;
+    const id = BigInt(String(raw));
+    return (await this.prisma.householdSource.count({ where: { id, householdId } })) ? id : null;
+  }
+
+  async ownPurposeId(householdId: bigint, raw: unknown): Promise<bigint | null> {
+    if (!/^\d+$/.test(String(raw || ''))) return null;
+    const id = BigInt(String(raw));
+    return (await this.prisma.householdPurpose.count({ where: { id, householdId } })) ? id : null;
+  }
+}

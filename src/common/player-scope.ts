@@ -25,6 +25,11 @@ export function clientTournamentWhere(user: Pick<CurrentUser, 'email'>) {
   };
 }
 
+/** Thành viên trong nhà (module Chi tiêu) — cùng khuôn với đội bóng: bảng `player_household_access`. */
+export function clientHouseholdWhere(user: Pick<CurrentUser, 'email'>) {
+  return { playerAccess: { some: { player: { email: { equals: user.email, mode: 'insensitive' as const } } } } };
+}
+
 export function clientTeamWhere(user: Pick<CurrentUser, 'email'>) {
   return { playerAccess: { some: { player: { email: { equals: user.email, mode: 'insensitive' as const } } } } };
 }

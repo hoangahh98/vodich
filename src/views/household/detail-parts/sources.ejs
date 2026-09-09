@@ -1,0 +1,61 @@
+<% if (section === 'sources') { %>
+  <%
+    const sourceForm = (source) => `
+      <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: VPBank Diện, Thẻ MSB" required></div>
+      <div><label>Loại</label><select name="kind">${['BANK','CARD','CASH','LOAN'].map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${labels.source[kind]}</option>`).join('')}</select></div>
+      <div><label>Ngân hàng (mẫu đọc tin)</label><select name="bank">${['VPBANK','MSB','OTHER'].map((bank) => `<option value="${bank}" ${(source ? source.bank : 'VPBANK') === bank ? 'selected' : ''}>${labels.bank[bank]}</option>`).join('')}</select></div>
+      <div><label>Số tài khoản / 4 số cuối thẻ</label><input name="matchKey" value="${source ? source.matchKey : ''}" placeholder="0382079196 hoặc 3065"><small class="field-hint">Để khớp tin ngân hàng với đúng nguồn.</small></div>
+      <div><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}" placeholder="Chồng / Vợ"></div>
+      <div><label>Số dư đầu (dư nợ đầu với thẻ / vay)</label><input class="money-input" name="openingBalance" value="${source ? formatMoney(source.openingBalance) : ''}" inputmode="numeric"></div>
+      <div><label>Hạn mức thẻ</label><input class="money-input" name="creditLimit" value="${source ? formatMoney(source.creditLimit) : ''}" inputmode="numeric"></div>
+      <div><label>Lãi suất %/năm</label><input name="interestRate" value="${source ? Number(source.interestRate) : ''}" placeholder="Ví dụ: 10.5" inputmode="decimal"></div>
+      <div><label>Ngày sao kê</label><input type="number" name="statementDay" min="0" max="31" value="${source ? source.statementDay : ''}"></div>
+      <div><label>Ngày đến hạn</label><input type="number" name="dueDay" min="0" max="31" value="${source ? source.dueDay : ''}"></div>`;
+  %>
+  <section class="card-lite p mb">
+    <div class="section-heading">
+      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'card' }) %></span><h2 class="section-title">Nguồn tiền</h2><p class="muted">Tài khoản, thẻ tín dụng, khoản vay, tiền mặt. Số dư và dư nợ tự cộng từ giao dịch, không nhập tay.</p></div>
+      <span class="badge badge-dark">Có <%= formatMoney(totals.cash) %>đ · nợ <%= formatMoney(totals.debt) %>đ</span>
+    </div>
+  </section>
+
+  <% if (isAdmin) { %>
+    <section class="card-lite p mb">
+      <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'plus' }) %> Thêm nguồn</h2>
+      <form class="hh-form" method="post" action="/household/<%= household.id %>/sources">
+        <%- sourceForm(null) %>
+        <div class="hh-form-action"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm nguồn</button></div>
+      </form>
+      <p class="muted mt">Thẻ tín dụng: quẹt thẻ là chi tiêu ngay lúc quẹt; trả thẻ ghi là <strong>Chuyển nguồn</strong> từ tài khoản sang thẻ, không tính chi lần hai. Khoản vay: trả nợ ghi Chuyển nguồn sang khoản vay, phần lãi ghi ở ô "Trong đó lãi".</p>
+    </section>
+  <% } %>
+
+  <div class="grid module-grid">
+    <% balances.forEach((item) => { const source = sources.find((row) => row.id.toString() === item.source.id); const debt = ['CARD', 'LOAN'].includes(item.source.kind); %>
+      <section class="card-lite p hh-source <%= item.source.active ? '' : 'is-muted' %>">
+        <div class="flex between center gap">
+          <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
+          <div class="text-right"><strong class="hh-balance <%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt ? 'nợ ' : '' %><%= formatMoney(item.balance) %>đ</strong><% if (item.source.kind === 'CARD' && item.source.creditLimit) { %><br><span class="muted">còn hạn mức <%= formatMoney(item.available) %>đ</span><% } %></div>
+        </div>
+        <div class="grid kv-grid mt">
+          <% if (source.ownerName) { %><div class="kv"><span>Chủ nguồn</span><strong><%= source.ownerName %></strong></div><% } %>
+          <% if (Number(source.interestRate)) { %><div class="kv"><span>Lãi suất</span><strong><%= Number(source.interestRate) %>%/năm</strong></div><% } %>
+          <% if (source.statementDay) { %><div class="kv"><span>Sao kê</span><strong>ngày <%= source.statementDay %></strong></div><% } %>
+          <% if (source.dueDay) { %><div class="kv"><span>Đến hạn</span><strong>ngày <%= source.dueDay %></strong></div><% } %>
+          <div class="kv"><span><%= debt ? 'Dư nợ đầu' : 'Số dư đầu' %></span><strong><%= formatMoney(source.openingBalance) %>đ</strong></div>
+        </div>
+        <% if (isAdmin) { %>
+          <details class="hh-edit mt"><summary class="btn btn-sm"><%- include('../../partials/icon', { name: 'edit' }) %> Sửa nguồn</summary>
+            <form class="hh-form hh-form-inline" method="post" action="/household/<%= household.id %>/sources/<%= source.id %>">
+              <%- sourceForm(source) %>
+              <div><label>Trạng thái</label><select name="active"><option value="on" <%= source.active ? 'selected' : '' %>>Đang dùng</option><option value="off" <%= source.active ? '' : 'selected' %>>Ẩn</option></select></div>
+              <div class="hh-form-action"><button class="btn btn-sm btn-primary" data-loading-text="…">Lưu</button></div>
+            </form>
+            <form method="post" action="/household/<%= household.id %>/sources/<%= source.id %>/delete" data-confirm="Xoá nguồn '<%= source.name %>'? Nguồn đã có giao dịch sẽ chỉ bị ẩn."><button class="btn btn-sm btn-danger" data-loading-text="…">Xoá / ẩn</button></form>
+          </details>
+        <% } %>
+      </section>
+    <% }) %>
+  </div>
+  <% if (!balances.length) { %><section class="card-lite empty-state"><%- include('../../partials/icon', { name: 'card' }) %><p>Chưa có nguồn tiền nào.</p></section><% } %>
+<% } %>

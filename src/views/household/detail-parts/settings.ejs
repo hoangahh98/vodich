@@ -1,0 +1,99 @@
+<% if (section === 'settings' && isAdmin) { %>
+  <section class="card-lite p tournament-edit-card mb">
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'settings' }) %></span><h2 class="section-title">Cài đặt hộ</h2><p class="muted">Thông tin, mục đích, thành viên được xem, Telegram và phân quyền admin.</p></div></div>
+    <form class="tournament-form" method="post" action="/household/<%= household.id %>/settings">
+      <section class="form-section">
+        <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'note' }) %> Thông tin</h2>
+        <div class="row">
+          <div class="col-12"><label>Tên hộ</label><input name="name" value="<%= household.name %>" required></div>
+          <div class="col-12"><label>Ghi chú</label><textarea name="description" rows="2"><%= household.description || '' %></textarea></div>
+        </div>
+      </section>
+      <div class="form-actions mb-4"><button class="btn btn-success" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu</button></div>
+    </form>
+  </section>
+
+  <section class="card-lite p mb">
+    <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'target' }) %> Mục đích</h2>
+    <p class="muted">Tên tuỳ ý, <strong>loại</strong> quyết định cách tính: chi tiêu, tiết kiệm, trả nợ, dự phòng, cho vay, thu nhập. Kế hoạch tháng để so "đã dùng / kế hoạch".</p>
+    <%# Form sửa từng mục đứng ngoài bảng (form trong <tr> là HTML sai); ô nhập trỏ tới bằng thuộc tính form=. %>
+    <% purposes.forEach((purpose) => { %><form method="post" action="/household/<%= household.id %>/purposes/<%= purpose.id %>" id="purpose-<%= purpose.id %>"></form><% }) %>
+    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Tên</th><th>Loại</th><th class="text-right">Kế hoạch / tháng</th><th></th></tr></thead><tbody>
+      <% purposes.forEach((purpose) => { %>
+        <tr class="<%= purpose.active ? '' : 'is-muted' %>">
+          <td><input name="name" form="purpose-<%= purpose.id %>" value="<%= purpose.name %>"></td>
+          <td><select name="kind" form="purpose-<%= purpose.id %>"><% ['LIVING','SAVING','DEBT','RESERVE','LENDING','INCOME'].forEach((kind) => { %><option value="<%= kind %>" <%= purpose.kind === kind ? 'selected' : '' %>><%= labels.purpose[kind] %></option><% }) %></select></td>
+          <td class="text-right"><input class="money-input text-right" name="monthlyPlan" form="purpose-<%= purpose.id %>" value="<%= Number(purpose.monthlyPlan) ? formatMoney(purpose.monthlyPlan) : '' %>" inputmode="numeric"><select name="active" form="purpose-<%= purpose.id %>" class="mt"><option value="on" <%= purpose.active ? 'selected' : '' %>>Đang dùng</option><option value="off" <%= purpose.active ? '' : 'selected' %>>Ẩn</option></select></td>
+          <td class="text-right row-action nowrap"><button class="btn btn-sm btn-primary" form="purpose-<%= purpose.id %>" data-loading-text="…">Lưu</button> <form method="post" action="/household/<%= household.id %>/purposes/<%= purpose.id %>/delete" data-confirm="Xoá mục '<%= purpose.name %>'? Đã có giao dịch thì chỉ ẩn." class="inline-form"><button class="btn btn-sm btn-danger btn-icon" aria-label="Xoá" data-loading-text="…"><%- include('../../partials/icon', { name: 'trash' }) %></button></form></td>
+        </tr>
+      <% }) %>
+    </tbody></table></div>
+    <form class="hh-form mt" method="post" action="/household/<%= household.id %>/purposes">
+      <div><label>Mục mới</label><input name="name" placeholder="Ví dụ: Hiếu hỉ" required></div>
+      <div><label>Loại</label><select name="kind"><% ['LIVING','SAVING','DEBT','RESERVE','LENDING','INCOME'].forEach((kind) => { %><option value="<%= kind %>"><%= labels.purpose[kind] %></option><% }) %></select></div>
+      <div><label>Kế hoạch / tháng</label><input class="money-input" name="monthlyPlan" inputmode="numeric"></div>
+      <div class="hh-form-action"><button class="btn btn-success" data-loading-text="…"><%- include('../../partials/icon', { name: 'plus' }) %> Thêm mục</button></div>
+    </form>
+  </section>
+
+  <section class="card-lite p mb">
+    <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'bolt' }) %> Telegram</h2>
+    <% if (linked) { %>
+      <div class="alert-lite info mb"><span>Đã liên kết với một nhóm Telegram. Tin ngân hàng gửi vào nhóm sẽ tự ghi sổ; bấm nút dưới tin để chọn mục đích.</span></div>
+      <form method="post" action="/household/<%= household.id %>/telegram/unlink" data-confirm="Gỡ liên kết nhóm Telegram?"><button class="btn btn-sm btn-danger" data-loading-text="…">Gỡ liên kết</button></form>
+    <% } else { %>
+      <ol class="hh-steps">
+        <li>Thêm bot của app vào một nhóm Telegram riêng của gia đình (bot cần quyền đọc tin nhắn trong nhóm).</li>
+        <li>Trong nhóm gõ: <code>/link <%= linkCode %></code></li>
+        <li>Cài Apps Script trên Gmail đẩy mail VPBank / MSB vào nhóm đó (hướng dẫn ở README, mục Telegram).</li>
+      </ol>
+      <p class="muted">Mã liên kết: <strong class="hh-code"><%= linkCode %></strong> — dùng một lần, tải lại trang vẫn giữ mã cho tới khi liên kết xong.</p>
+    <% } %>
+  </section>
+
+  <section class="card-lite p mb">
+    <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'users' }) %> Thành viên trong nhà</h2>
+    <p class="muted">Thành viên đăng nhập bằng email trong danh sách Thành viên (mật khẩu chung như vận động viên) và chỉ XEM được hộ này.</p>
+    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Tên</th><th>Email</th><th></th></tr></thead><tbody>
+      <% members.forEach((access) => { %>
+        <tr><td><strong><%= access.player.displayName %></strong></td><td><%= access.player.email %></td><td class="text-right row-action"><form method="post" action="/household/<%= household.id %>/members/<%= access.id %>/delete" data-confirm="Bỏ quyền xem của <%= access.player.displayName %>?"><button class="btn btn-sm btn-danger btn-icon" aria-label="Bỏ" data-loading-text="…"><%- include('../../partials/icon', { name: 'trash' }) %></button></form></td></tr>
+      <% }) %>
+      <% if (!members.length) { %><tr><td colspan="3" class="muted text-center">Chưa có thành viên nào được xem.</td></tr><% } %>
+    </tbody></table></div>
+    <% if (players.length) { %>
+      <form class="mt" method="post" action="/household/<%= household.id %>/members">
+        <label>Thêm người được xem</label>
+        <div class="grid module-grid" data-player-picker>
+          <% players.forEach((player) => { %><label class="option-card"><input type="checkbox" name="playerIds" value="<%= player.id %>"> <span><%= player.displayName %> <small class="muted"><%= player.email %></small></span></label><% }) %>
+        </div>
+        <div class="mt"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Cấp quyền xem</button></div>
+      </form>
+    <% } else { %>
+      <p class="muted mt">Chưa có ai để thêm — tạo người ở trang <a href="/players">Thành viên</a> trước.</p>
+    <% } %>
+  </section>
+
+  <section class="card-lite p mb">
+    <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'lock' }) %> Phân quyền admin</h2>
+    <div class="grid kv-grid mb">
+      <div class="kv"><span>Người tạo</span><strong><%= household.ownerAdmin?.displayName || household.ownerAdmin?.username || 'Admin gốc' %></strong></div>
+      <div class="kv"><span>Đang được phân quyền</span><strong><%= household.permissions.length %> admin</strong></div>
+    </div>
+    <% if (admins.length) { %>
+      <form class="permission-create-form mb" method="post" action="/household/<%= household.id %>/permissions">
+        <div><label>Thêm admin</label><select name="adminId" required><% admins.forEach((admin) => { %><option value="<%= admin.id %>"><%= admin.displayName %> (<%= admin.username %>)</option><% }) %></select></div>
+        <div class="permission-create-action"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm quyền</button></div>
+      </form>
+    <% } %>
+    <div class="permission-admin-list">
+      <% household.permissions.forEach((permission) => { %>
+        <div class="permission-admin-card"><div class="flex between center gap"><div><strong><%= permission.admin.displayName %></strong><br><span class="muted"><%= permission.admin.username %></span></div><form method="post" action="/household/<%= household.id %>/permissions/<%= permission.id %>/delete" data-confirm="Gỡ quyền admin này?"><button class="btn btn-sm btn-danger" data-loading-text="Đang gỡ...">Gỡ quyền</button></form></div></div>
+      <% }) %>
+      <% if (!household.permissions.length) { %><div class="alert-lite info">Chưa cấp quyền cho admin nào.</div><% } %>
+    </div>
+  </section>
+
+  <div class="flex gap settings-action-row mb">
+    <form method="post" action="/household/<%= household.id %>/delete" data-confirm="Xoá hộ '<%= household.name %>' cùng toàn bộ nguồn, giao dịch, khoản định kỳ? Không khôi phục được."><button class="btn btn-danger" data-loading-text="Đang xoá..."><%- include('../../partials/icon', { name: 'trash' }) %> Xoá hộ</button></form>
+  </div>
+<% } %>

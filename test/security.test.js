@@ -156,6 +156,7 @@ const EXPECTED_PUBLIC = [
   'src/auth/auth.controller.ts', // trang đăng nhập/đăng xuất
   'src/health.controller.ts', // Render gọi khi chưa có session
   'src/tournaments/external-registration.controller.ts', // người ngoài tự đăng ký giải qua link
+  'src/household/telegram.controller.ts', // webhook Telegram gọi vào, chặn bằng secret trong đường dẫn + header
 ];
 
 function listControllers(dir = path.join(root, 'src')) {

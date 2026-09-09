@@ -23,6 +23,9 @@ model AppUser {
   tournamentPermissions TournamentPermission[]
   ownedTeams            TeamClub[]               @relation("TeamClubOwner")
   teamPermissions       TeamClubPermission[]
+  ownedHouseholds         Household[]              @relation("HouseholdOwner")
+  householdPermissions    HouseholdPermission[]
+  grantedHouseholdAccess  PlayerHouseholdAccess[]  @relation("PlayerHouseholdAccessGrantedBy")
   knightCharacters      KnightCharacter[]        @relation("KnightCharacterOwner")
 
   @@map("app_user")
@@ -50,6 +53,7 @@ model Player {
   teamMembers      TeamMember[]
   tournamentAccess PlayerTournamentAccess[]
   teamAccess       PlayerTeamAccess[]
+  householdAccess  PlayerHouseholdAccess[]
   groupMembers     PlayerGroupMember[]
   guestReceipts    TeamGuestReceipt[]
 
@@ -407,4 +411,197 @@ model AppLog {
   errorMessage String?  @map("error_message")
 
   @@map("app_log")
+}
+
+// ─────────────────────────── Chi tiêu gia đình (9/2026) ───────────────────────────
+// Lõi cố ý nhỏ: Nguồn tiền, Mục đích, Giao dịch, Khoản định kỳ. Mọi con số (số dư, dư nợ, báo cáo
+// tháng) SUY từ giao dịch, không lưu. Xem src/household/household-month.ts và CLAUDE.md.
+
+model Household {
+  id               BigInt   @id @default(autoincrement())
+  name             String   @db.VarChar(255)
+  description      String?
+  ownerAdminId     BigInt?  @map("owner_admin_id")
+  /// Nhóm Telegram đã liên kết (gõ /link <mã> trong nhóm). Null = chưa liên kết.
+  telegramChatId   String?  @map("telegram_chat_id") @db.VarChar(40)
+  telegramLinkCode String?  @map("telegram_link_code") @db.VarChar(40)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @map("updated_at")
+
+  ownerAdmin   AppUser?                @relation("HouseholdOwner", fields: [ownerAdminId], references: [id], onDelete: SetNull)
+  permissions  HouseholdPermission[]
+  playerAccess PlayerHouseholdAccess[]
+  sources      HouseholdSource[]
+  purposes     HouseholdPurpose[]
+  transactions HouseholdTransaction[]
+  recurrings   HouseholdRecurring[]
+  inbox        HouseholdInbox[]
+
+  @@map("household")
+}
+
+model HouseholdPermission {
+  id          BigInt   @id @default(autoincrement())
+  householdId BigInt   @map("household_id")
+  adminId     BigInt   @map("admin_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  admin     AppUser   @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@unique([householdId, adminId])
+  @@map("household_permission")
+}
+
+model PlayerHouseholdAccess {
+  id               BigInt   @id @default(autoincrement())
+  playerId         BigInt   @map("player_id")
+  householdId      BigInt   @map("household_id")
+  grantedByAdminId BigInt?  @map("granted_by_admin_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  player    Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  household Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  grantedBy AppUser?  @relation("PlayerHouseholdAccessGrantedBy", fields: [grantedByAdminId], references: [id], onDelete: SetNull)
+
+  @@unique([playerId, householdId])
+  @@index([householdId])
+  @@map("player_household_access")
+}
+
+/// Nguồn tiền: BANK (tài khoản), CARD (thẻ tín dụng), LOAN (vay thế chấp/tín chấp/thấu chi), CASH.
+/// `openingBalance` với BANK/CASH là số dư đầu, với CARD/LOAN là DƯ NỢ đầu (số dương).
+model HouseholdSource {
+  id             BigInt   @id @default(autoincrement())
+  householdId    BigInt   @map("household_id")
+  name           String   @db.VarChar(120)
+  kind           String   @default("BANK") @db.VarChar(12)
+  /// Mẫu đọc tin Telegram: VPBANK | MSB | OTHER.
+  bank           String   @default("") @db.VarChar(20)
+  /// Số tài khoản hoặc 4 số cuối thẻ để khớp tin ngân hàng.
+  matchKey       String   @default("") @map("match_key") @db.VarChar(40)
+  ownerName      String   @default("") @map("owner_name") @db.VarChar(120)
+  openingBalance Decimal  @default(0) @map("opening_balance") @db.Decimal(14, 2)
+  creditLimit    Decimal  @default(0) @map("credit_limit") @db.Decimal(14, 2)
+  /// Lãi suất %/năm (LOAN, CARD). 0 = không lãi.
+  interestRate   Decimal  @default(0) @map("interest_rate") @db.Decimal(6, 2)
+  statementDay   Int      @default(0) @map("statement_day")
+  dueDay         Int      @default(0) @map("due_day")
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0) @map("sort_order")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  household         Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions      HouseholdTransaction[] @relation("SourceTransactions")
+  incomingTransfers HouseholdTransaction[] @relation("TargetTransactions")
+  recurrings        HouseholdRecurring[]   @relation("RecurringSource")
+  recurringTargets  HouseholdRecurring[]   @relation("RecurringTarget")
+
+  @@index([householdId])
+  @@map("household_source")
+}
+
+/// Mục đích do từng hộ tự đặt; `kind` quyết định luật: LIVING | SAVING | DEBT | RESERVE | LENDING | INCOME.
+model HouseholdPurpose {
+  id          BigInt   @id @default(autoincrement())
+  householdId BigInt   @map("household_id")
+  name        String   @db.VarChar(120)
+  kind        String   @default("LIVING") @db.VarChar(12)
+  /// Kế hoạch mỗi tháng (0 = không đặt).
+  monthlyPlan Decimal  @default(0) @map("monthly_plan") @db.Decimal(14, 2)
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  household    Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  transactions HouseholdTransaction[]
+  recurrings   HouseholdRecurring[]
+
+  @@index([householdId])
+  @@map("household_purpose")
+}
+
+/// `kind`: EXPENSE (tiền ra khỏi nguồn), INCOME (tiền vào nguồn), TRANSFER (nguồn → nguồn đích).
+/// TRANSFER sang LOAN là trả nợ: `interest` là phần lãi (tính như chi tiêu), phần còn lại trừ gốc.
+/// TRANSFER sang CARD là trả thẻ: không phải chi tiêu (đã tính lúc quẹt).
+model HouseholdTransaction {
+  id             BigInt    @id @default(autoincrement())
+  householdId    BigInt    @map("household_id")
+  kind           String    @default("EXPENSE") @db.VarChar(10)
+  sourceId       BigInt    @map("source_id")
+  targetSourceId BigInt?   @map("target_source_id")
+  purposeId      BigInt?   @map("purpose_id")
+  recurringId    BigInt?   @map("recurring_id")
+  amount         Decimal   @default(0) @db.Decimal(14, 2)
+  interest       Decimal   @default(0) @db.Decimal(14, 2)
+  occurredAt     DateTime  @map("occurred_at")
+  month          String    @db.VarChar(7)
+  description    String    @default("") @db.VarChar(255)
+  rawText        String?   @map("raw_text")
+  /// Mã giao dịch ngân hàng / mã tin Telegram — chống ghi trùng.
+  externalId     String?   @map("external_id") @db.VarChar(120)
+  /// NEW = máy ghi, chưa ai xác nhận mục đích; CONFIRMED = đã có người xem.
+  status         String    @default("CONFIRMED") @db.VarChar(10)
+  telegramChatId String?   @map("telegram_chat_id") @db.VarChar(40)
+  telegramMsgId  BigInt?   @map("telegram_msg_id")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  household    Household           @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  source       HouseholdSource     @relation("SourceTransactions", fields: [sourceId], references: [id], onDelete: Cascade)
+  targetSource HouseholdSource?    @relation("TargetTransactions", fields: [targetSourceId], references: [id], onDelete: SetNull)
+  purpose      HouseholdPurpose?   @relation(fields: [purposeId], references: [id], onDelete: SetNull)
+  recurring    HouseholdRecurring? @relation(fields: [recurringId], references: [id], onDelete: SetNull)
+
+  @@unique([householdId, externalId])
+  @@index([householdId, month])
+  @@index([sourceId])
+  @@map("household_transaction")
+}
+
+/// Khoản định kỳ: khai một lần, tháng nào cũng tự sinh dòng "dự kiến" và khớp với giao dịch thật.
+/// `interestMode` = FROM_RATE: lãi = dư nợ nguồn đích × lãi suất / 12, cộng vào `amount` (gốc).
+model HouseholdRecurring {
+  id             BigInt   @id @default(autoincrement())
+  householdId    BigInt   @map("household_id")
+  name           String   @db.VarChar(120)
+  kind           String   @default("EXPENSE") @db.VarChar(10)
+  sourceId       BigInt?  @map("source_id")
+  targetSourceId BigInt?  @map("target_source_id")
+  purposeId      BigInt?  @map("purpose_id")
+  amount         Decimal  @default(0) @db.Decimal(14, 2)
+  interestMode   String   @default("NONE") @map("interest_mode") @db.VarChar(10)
+  dayOfMonth     Int      @default(1) @map("day_of_month")
+  startMonth     String   @map("start_month") @db.VarChar(7)
+  endMonth       String?  @map("end_month") @db.VarChar(7)
+  active         Boolean  @default(true)
+  sortOrder      Int      @default(0) @map("sort_order")
+  note           String   @default("")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  household    Household              @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  source       HouseholdSource?       @relation("RecurringSource", fields: [sourceId], references: [id], onDelete: SetNull)
+  targetSource HouseholdSource?       @relation("RecurringTarget", fields: [targetSourceId], references: [id], onDelete: SetNull)
+  purpose      HouseholdPurpose?      @relation(fields: [purposeId], references: [id], onDelete: SetNull)
+  transactions HouseholdTransaction[]
+
+  @@index([householdId])
+  @@map("household_recurring")
+}
+
+/// Tin Telegram đã nhận: cái nào đọc ra giao dịch thì PARSED, không đọc được thì UNPARSED để xử lý tay.
+model HouseholdInbox {
+  id            BigInt   @id @default(autoincrement())
+  householdId   BigInt?  @map("household_id")
+  chatId        String   @map("chat_id") @db.VarChar(40)
+  messageId     BigInt   @map("message_id")
+  text          String
+  status        String   @default("UNPARSED") @db.VarChar(10)
+  transactionId BigInt?  @map("transaction_id")
+  receivedAt    DateTime @default(now()) @map("received_at")
+
+  household Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([chatId, messageId])
+  @@index([householdId, status])
+  @@map("household_inbox")
 }
