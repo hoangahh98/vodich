@@ -179,17 +179,23 @@ export class HouseholdService {
     const reportedRows = await this.prisma.householdTransaction.findMany({
       where: { householdId, reportedBalance: { not: null } },
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-      select: { sourceId: true, targetSourceId: true, reportedBalance: true, occurredAt: true },
+      select: { id: true, sourceId: true, targetSourceId: true, reportedBalance: true, occurredAt: true },
     });
-    const reportedBySource = new Map<string, { balance: number; at: Date }>();
+    const reportedBySource = new Map<string, { balance: number; at: Date; txId: string }>();
     for (const row of reportedRows) {
       const mailSide = ['BANK', 'CARD'].includes(sourceKindById.get(String(row.sourceId)) || '') ? String(row.sourceId) : row.targetSourceId ? String(row.targetSourceId) : String(row.sourceId);
-      if (!reportedBySource.has(mailSide)) reportedBySource.set(mailSide, { balance: Number(row.reportedBalance), at: row.occurredAt });
+      if (!reportedBySource.has(mailSide)) reportedBySource.set(mailSide, { balance: Number(row.reportedBalance), at: row.occurredAt, txId: String(row.id) });
     }
+    // Nguồn có mail báo số dư thì NGÂN HÀNG THẮNG: số dư = số trong mail gần nhất + các giao dịch phát sinh
+    // SAU mail đó. Khoản bị xoá/thiếu trước mốc mail không làm lệch được nữa (chủ app 10/9/2026: "mail báo
+    // còn 20k thì phải lấy 20k từ đây").
     const balanceList = sourceRows.map((source) => {
       const item = balances.get(source.id)!;
       const reported = reportedBySource.get(source.id) || null;
-      return { ...item, reported, diff: reported ? item.balance - reported.balance : 0 };
+      if (!reported) return { ...item, reported, diff: 0, anchored: false };
+      const after = txRows.filter((tx) => tx.occurredAt > reported.at || (tx.occurredAt.getTime() === reported.at.getTime() && BigInt(tx.id) > BigInt(reported.txId)));
+      const flowAfter = sourceBalances([{ ...source, openingBalance: 0 }], after).get(source.id)?.balance ?? 0;
+      return { ...item, balance: reported.balance + flowAfter, reported, diff: item.balance - (reported.balance + flowAfter), anchored: true };
     });
     const totals = {
       cash: balanceList.filter((item) => ['BANK', 'CASH'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
