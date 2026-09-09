@@ -97,11 +97,15 @@ export class HouseholdTelegramService {
     const parsed = parseBankMessage(text);
     if (!parsed) {
       await this.send(chatId, `Không đọc được tin ngân hàng này, đã cất vào "Tin Telegram chưa đọc được" trên web.\n${text.trim().slice(0, 200)}`);
+      return 'done';
+    }
 
     const sources = await this.prisma.householdSource.findMany({ where: { householdId: household.id, active: true } });
     const source = pickSource(sources, parsed.bank, parsed.accountKey);
     if (!source) {
-      return this.send(chatId, `Chưa có nguồn tiền nào khớp ${parsed.bank}${parsed.accountKey ? ` (${parsed.accountKey})` : ''}. Vào Nguồn tiền trên web khai số tài khoản / 4 số cuối thẻ rồi gửi lại.`);
+      // Không khớp nguồn: xoá dòng hộp thư để khai nguồn xong gửi lại là ăn ngay.
+      await this.prisma.householdInbox.delete({ where: { id: inbox.id } });
+      await this.send(chatId, `Chưa có nguồn tiền nào khớp ${parsed.bank}${parsed.accountKey ? ` (${parsed.accountKey})` : ''}. Vào Nguồn tiền trên web khai số tài khoản / 4 số cuối thẻ rồi gửi lại.`);
       return 'done';
     }
     const when = parsed.occurredAt.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
@@ -160,6 +164,7 @@ export class HouseholdTelegramService {
         ? []
         : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source);
     await this.send(chatId, lines.join('\n'), keyboard);
+    return 'done';
   }
 
   private async handleCallback(query: NonNullable<TelegramUpdate['callback_query']>) {
