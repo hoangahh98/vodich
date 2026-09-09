@@ -140,8 +140,11 @@ và **MSB thẻ tín dụng** (mail biến động số dư); ngân hàng khác 
    // Đẩy mail VPBank / MSB chưa đọc vào nhóm Telegram. Đổi TOKEN và CHAT_ID (id nhóm, số âm).
    const TOKEN = '123456:ABC...';
    const CHAT_ID = '-1001234567890';
-   // Địa chỉ gửi thật (9/2026): VPBank NEO từ vpbankonline@vpb.com.vn, thẻ MSB từ banking_notify@msb.com.vn.
-   const QUERY = 'is:unread (from:vpbankonline@vpb.com.vn OR from:banking_notify@msb.com.vn) newer_than:2d';
+   // Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật (9/2026), kẻo mail OTP/quảng cáo/tiền vào cùng địa chỉ cũng bị đẩy:
+   //   VPBank NEO: vpbankonline@vpb.com.vn, tiêu đề "VPBank thong bao giao dich VPBank NEO thanh cong – Payment successful"
+   //   Thẻ MSB:    banking_notify@msb.com.vn, tiêu đề "Biến động thanh toán thẻ tín dụng"
+   // Chỉ lấy một cụm chữ chắc chắn trong tiêu đề (Gmail tìm không phân biệt dấu, bỏ được dấu gạch dài).
+   const QUERY = 'is:unread newer_than:2d ((from:vpbankonline@vpb.com.vn subject:"VPBank NEO thanh cong") OR (from:banking_notify@msb.com.vn subject:"thanh toan the tin dung"))';
    function pushBankMails() {
      for (const thread of GmailApp.search(QUERY, 0, 20)) {
        for (const mail of thread.getMessages()) {
