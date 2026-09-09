@@ -22,11 +22,15 @@ export class HouseholdConfigService {
   // ───────────────────────────── Nguồn tiền ─────────────────────────────
 
   private sourceData(form: Form) {
+    const kind = normalizeSourceKind(form.kind);
+    // Chỉ tài khoản và thẻ mới nhận tin ngân hàng. Tiền mặt / khoản vay / cho vay mà mang bank = TIMO
+    // (ô bị ẩn nhưng form vẫn gửi) thì hộ có hai "Timo" và bot không dám chọn — đã dính 10/9/2026.
+    const receivesMail = kind === 'BANK' || kind === 'CARD';
     return {
       name: text(form.name) || 'Nguồn tiền',
-      kind: normalizeSourceKind(form.kind),
-      bank: normalizeBank(form.bank),
-      matchKey: text(form.matchKey, 40).replace(/\s+/g, ''),
+      kind,
+      bank: receivesMail ? normalizeBank(form.bank) : 'OTHER',
+      matchKey: receivesMail ? text(form.matchKey, 40).replace(/\s+/g, '') : '',
       ownerName: text(form.ownerName),
       creditLimit: parseMoney(form.creditLimit),
       interestRate: Math.max(0, Number.parseFloat(String(form.interestRate || '0').replace(',', '.')) || 0),

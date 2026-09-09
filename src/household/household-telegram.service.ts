@@ -315,8 +315,10 @@ export class HouseholdTelegramService {
  * nhau; không có khoá thì lấy nguồn duy nhất của ngân hàng đó (nhiều nguồn mà không khoá = mù).
  */
 export function pickSource<T extends Pick<HouseholdSource, 'id' | 'name' | 'kind' | 'bank' | 'matchKey'>>(sources: T[], bank: string, accountKey: string): T | null {
-  const sameBank = sources.filter((source) => source.bank === bank);
-  const pool = sameBank.length ? sameBank : sources.filter((source) => source.bank === 'OTHER');
+  // Chỉ tài khoản / thẻ mới nhận tin ngân hàng; nguồn cũ lỡ mang bank = TIMO (tiền mặt, cho vay) không được tính.
+  const candidates = sources.filter((source) => source.kind === 'BANK' || source.kind === 'CARD');
+  const sameBank = candidates.filter((source) => source.bank === bank);
+  const pool = sameBank.length ? sameBank : candidates.filter((source) => source.bank === 'OTHER');
   if (accountKey) {
     const keyed = pool.find((source) => source.matchKey && (accountKey.endsWith(source.matchKey) || source.matchKey.endsWith(accountKey)));
     if (keyed) return keyed;
