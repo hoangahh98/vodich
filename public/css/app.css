@@ -1096,10 +1096,14 @@ select.is-warn { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-sof
 .hh-source { min-width: 0; }
 .hh-source h3 { overflow-wrap: anywhere; }
 .hh-source-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-.hh-source-head > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.hh-source-head > div { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.hh-source-head h3 { margin-right: 4px; }
 .hh-source-head .badge { margin-right: 4px; }
 .hh-source-amount { text-align: right; margin-left: auto; }
-.hh-source .kv-grid { grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); }
+.hh-source .kv-grid { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+.hh-source .kv { padding: 8px 10px; }
+.hh-source .kv > span { font-size: 11px; margin-bottom: 2px; }
+.hh-source .kv strong { font-size: 14px; }
 .hh-source .kv strong { overflow-wrap: anywhere; }
 .hh-form label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 13px; }
 .hh-form input, .hh-form select { width: 100%; min-width: 0; }
