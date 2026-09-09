@@ -5,8 +5,8 @@ import { PrismaService } from '../prisma.service';
 import { parseBankMessage } from './bank-parsers';
 import { HouseholdConfigService } from './household-config.service';
 import { HouseholdLedgerService } from './household-ledger.service';
-import { sourceBalances } from './household-month';
-import { toSourceRow, toTransactionRow } from './household-rows';
+import { LendingRow, lendingKey, lendingLedger, sourceBalances } from './household-month';
+import { toPurposeRow, toSourceRow, toTransactionRow } from './household-rows';
 
 /** Phần của một update Telegram mà ta dùng. Bot API gửi nhiều hơn nhưng không cần khai hết. */
 export interface TelegramUpdate {
@@ -153,6 +153,8 @@ export class HouseholdTelegramService {
     const purposes = await this.prisma.householdPurpose.findMany({ where: { householdId: household.id, active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
     const allTransactions = await this.prisma.householdTransaction.findMany({ where: { householdId: household.id } });
     const balances = sourceBalances(sources.map(toSourceRow), allTransactions.map(toTransactionRow));
+    // Người vay đã có trong sổ (ghi bằng mục đích Cho vay) → thành nút "Cho vay: Sơn" / "Sơn trả nợ".
+    const borrowers = lendingLedger(purposes.map(toPurposeRow), allTransactions.map(toTransactionRow)).rows;
     const tx = result.transaction;
     const purposeName = tx.purposeId ? purposes.find((item) => item.id === tx.purposeId)?.name : '';
     const refund = tx.kind === 'INCOME' && source.kind === 'CARD';
@@ -167,10 +169,10 @@ export class HouseholdTelegramService {
     else if (purposeName) lines.push(`Mặc định: ${purposeName}. Bấm nút nếu muốn đổi.`);
     else lines.push('Chọn mục đích:');
     const keyboard = refund
-      ? [...this.purposeKeyboard(tx.id, 'EXPENSE', purposes, sources, source, balances), [{ text: 'Bỏ qua (đã ghi trả thẻ)', callback_data: `hx:${tx.id}` }]]
+      ? [...this.purposeKeyboard(tx.id, 'EXPENSE', purposes, sources, source, balances, borrowers), [{ text: 'Bỏ qua (đã ghi trả thẻ)', callback_data: `hx:${tx.id}` }]]
       : result.matched
         ? []
-        : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source, balances);
+        : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source, balances, borrowers);
     await this.send(chatId, lines.join('\n'), keyboard);
     return 'done';
   }
@@ -185,9 +187,19 @@ export class HouseholdTelegramService {
     const transfer = /^ht:(\d+):(\d+)(?::([PI]))?$/.exec(data);
     const keep = /^hk:(\d+)$/.exec(data);
     const repay = /^hr:(\d+):(\d+)$/.exec(data);
+    const person = /^h([lb]):(\d+):([0-9a-f]+)$/.exec(data);
     const drop = /^hx:(\d+)$/.exec(data);
     let done = '';
-    if (repay) {
+    if (person) {
+      // Tìm lại người theo mã băm tên trong sổ cho vay hiện tại.
+      const [purposes, transactions] = await Promise.all([
+        this.prisma.householdPurpose.findMany({ where: { householdId: household.id } }),
+        this.prisma.householdTransaction.findMany({ where: { householdId: household.id } }),
+      ]);
+      const row = lendingLedger(purposes.map(toPurposeRow), transactions.map(toTransactionRow)).rows.find((item) => textHash(lendingKey(item.name)).toString(16) === person[3]);
+      const tx = row ? await this.ledger.setLendingPerson(household.id, BigInt(person[2]), row.name) : null;
+      if (tx && row) done = person[1] === 'l' ? `✓ Cho vay ${row.name} ${formatMoney(Number(tx.amount))}đ` : `✓ ${row.name} trả nợ ${formatMoney(Number(tx.amount))}đ (không tính là thu nhập)`;
+    } else if (repay) {
       const tx = await this.ledger.convertToRepayment(household.id, BigInt(repay[1]), BigInt(repay[2]));
       if (tx) done = `✓ ${tx.source.name} trả nợ ${formatMoney(Number(tx.amount))}đ → ${tx.targetSource?.name} (không tính là thu nhập)`;
     } else if (keep) {
@@ -232,8 +244,10 @@ export class HouseholdTelegramService {
     sources: HouseholdSource[],
     source: HouseholdSource,
     balances: Map<string, { balance: number }>,
+    borrowers: LendingRow[] = [],
   ): InlineButton[][] {
     const owed = (item: HouseholdSource) => balances.get(String(item.id))?.balance ?? 0;
+    const personCode = (row: LendingRow) => textHash(lendingKey(row.name)).toString(16);
     const fitting = purposes.filter((purpose) => (kind === 'INCOME' ? purpose.kind === 'INCOME' : purpose.kind !== 'INCOME'));
     const rows = chunk(
       fitting.map((purpose) => ({ text: purpose.name, callback_data: `hp:${transactionId}:${purpose.id}` })),
@@ -249,15 +263,21 @@ export class HouseholdTelegramService {
           buttons.push({ text: `Trả lãi ${item.name}`, callback_data: `ht:${transactionId}:${item.id}:I` });
         } else if (item.kind === 'LENT') buttons.push({ text: `Cho vay: ${item.name}`, callback_data: `ht:${transactionId}:${item.id}` });
       }
+      // Người vay trong sổ (ghi bằng mục đích): cho vay thêm cho đúng người, khỏi lên web sửa tên.
+      for (const row of borrowers) buttons.push({ text: `Cho vay: ${row.name}`, callback_data: `hl:${transactionId}:${personCode(row)}` });
       rows.push(...chunk(buttons, 2));
     }
     // Tiền vào tài khoản có thể là người ta trả nợ chứ không phải lương — chỉ hiện người CÒN nợ.
     if (kind === 'INCOME' && ['BANK', 'CASH'].includes(source.kind)) {
       const lent = sources.filter((item) => item.kind === 'LENT' && owed(item) > 0);
       rows.push(...chunk(lent.map((item) => ({ text: `${item.name} trả nợ`, callback_data: `hr:${transactionId}:${item.id}` })), 2));
-      // Cho vay ghi bằng mục đích: gán mục đích Cho vay cho khoản thu = họ trả, trừ khỏi sổ cho vay.
-      const lendingPurpose = purposes.find((purpose) => purpose.kind === 'LENDING');
-      if (lendingPurpose) rows.push([{ text: 'Người vay trả nợ', callback_data: `hp:${transactionId}:${lendingPurpose.id}` }]);
+      // Người vay trong sổ còn nợ → "Sơn trả nợ"; không có ai thì mới hiện nút chung.
+      const owing = borrowers.filter((row) => row.outstanding > 0);
+      if (owing.length) rows.push(...chunk(owing.map((row) => ({ text: `${row.name} trả nợ`, callback_data: `hb:${transactionId}:${personCode(row)}` })), 2));
+      else {
+        const lendingPurpose = purposes.find((purpose) => purpose.kind === 'LENDING');
+        if (lendingPurpose) rows.push([{ text: 'Người vay trả nợ', callback_data: `hp:${transactionId}:${lendingPurpose.id}` }]);
+      }
     }
     return rows;
   }

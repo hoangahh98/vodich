@@ -230,6 +230,20 @@ export class HouseholdLedgerService {
   }
 
   /**
+   * Cho vay / trả nợ theo TÊN người trong sổ cho vay (cách ghi bằng mục đích, không có nguồn riêng): gán mục
+   * đích Cho vay và đặt nội dung = tên người để thẻ gom đúng dòng. Chi = cho vay thêm, thu = họ trả.
+   */
+  async setLendingPerson(householdId: bigint, transactionId: bigint, name: string) {
+    const purposeId = await this.purposeOfKind(householdId, 'LENDING');
+    if (!purposeId) return null;
+    await this.prisma.householdTransaction.updateMany({
+      where: { id: transactionId, householdId },
+      data: { purposeId, description: name.slice(0, 255), status: 'CONFIRMED' },
+    });
+    return this.prisma.householdTransaction.findFirst({ where: { id: transactionId, householdId }, include: { purpose: true, source: true } });
+  }
+
+  /**
    * Tiền VÀO tài khoản mà là người ta trả nợ (bấm nút "<tên> trả nợ" trên Telegram): đổi khoản thu thành
    * CHUYỂN từ khoản cho vay về tài khoản — không phải thu nhập, chỉ là tiền quay về, khoản cho vay giảm.
    */
