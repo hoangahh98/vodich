@@ -28,8 +28,13 @@
   const syncSource = (form) => {
     const kind = form.querySelector('[data-source-kind]');
     if (!kind) return;
+    // Timo báo số dư trong từng mail nên tài khoản Timo không khai số dư: ô Số dư nhường chỗ cho dòng ghi chú.
+    const bank = form.querySelector('select[name="bank"]');
+    const timoBank = kind.value === 'BANK' && bank && bank.value === 'TIMO';
     form.querySelectorAll('[data-for]').forEach((box) => {
-      const shown = box.dataset.for.split(' ').includes(kind.value);
+      let shown = box.dataset.for.split(' ').includes(kind.value);
+      if (box.hasAttribute('data-balance-box') && timoBank) shown = false;
+      if (box.hasAttribute('data-timo-note')) shown = timoBank;
       box.hidden = !shown;
       const opening = box.querySelector('[data-opening]');
       if (opening) opening.name = shown ? 'currentBalance' : '';
@@ -39,8 +44,8 @@
   };
   document.querySelectorAll('[data-source-form]').forEach(syncSource);
   document.addEventListener('change', (event) => {
-    const kind = event.target instanceof Element ? event.target.closest('[data-source-kind]') : null;
-    if (kind && kind.form) syncSource(kind.form);
+    const control = event.target instanceof Element ? event.target.closest('[data-source-kind], select[name="bank"]') : null;
+    if (control && control.form && control.form.hasAttribute('data-source-form')) syncSource(control.form);
   });
   document.addEventListener('change', (event) => {
     const kind = event.target instanceof Element ? event.target.closest('[data-tx-kind]') : null;

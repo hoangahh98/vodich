@@ -1110,3 +1110,4 @@ select.is-warn { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-sof
 @media (max-width: 640px) { .hh-source-head { flex-direction: column; } .hh-source-amount { margin-left: 0; text-align: left; } .hh-row-side { white-space: normal; } }
 .hh-review { display: flex; gap: 6px; align-items: center; }
 .hh-review select { min-width: 140px; }
+.field-static { min-height: 44px; display: flex; align-items: center; padding: 8px 12px; border: 1px dashed var(--line); border-radius: var(--radius-sm); background: var(--paper); color: var(--muted); font-weight: 600; }

@@ -12,7 +12,8 @@
       <div data-for="BANK"><label>Số tài khoản</label><input name="matchKey" value="${source ? source.matchKey : ''}" placeholder="Chỉ cần khi có nhiều tài khoản cùng ngân hàng" inputmode="numeric" data-match-key></div>
       <div data-for="CARD"><label>4 số cuối thẻ</label><input value="${source ? source.matchKey : ''}" placeholder="3065" inputmode="numeric" maxlength="4" data-match-key></div>
       <div data-for="BANK CARD CASH LOAN"><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}" placeholder="Chồng / Vợ"></div>
-      <div data-for="BANK CASH"><label>Số dư</label><input class="money-input" name="currentBalance" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
+      <div data-for="BANK CASH" data-balance-box><label>Số dư</label><input class="money-input" name="currentBalance" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
+      <div data-for="BANK" data-timo-note hidden><label>Số dư</label><div class="field-static">Tự lấy từ mail Timo gần nhất${source ? ': ' + formatMoney(current) + 'đ' : ''}</div></div>
       <div data-for="CARD LOAN"><label>Nợ hiện tại</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="LENT"><label>Đã cho vay</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="CARD"><label>Hạn mức thẻ</label><input class="money-input" name="creditLimit" value="${source ? formatMoney(source.creditLimit) : ''}" inputmode="numeric"></div>
