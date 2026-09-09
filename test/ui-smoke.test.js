@@ -741,13 +741,14 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(sources, /còn hạn mức/);
 
   const recurring = await renderView('household/detail.ejs', householdLocals('recurring'));
-  assert.match(recurring, /recurring\/21\/record/, 'khoản chưa trả phải có nút Ghi nhận');
-  assert.match(recurring, /FROM_RATE/);
+  assert.match(recurring, /recurring\/21\/record/, 'link cũ tới mục định kỳ vẫn render được');
+  assert.doesNotMatch(overview, /\/household\/1\/recurring\?month/, 'tab Định kỳ đã ẩn theo ý chủ app');
+  assert.match(transactions, /name="debtPart"/, 'chuyển nguồn phải chọn được trả gốc / trả lãi');
 
   const settings = await renderView('household/detail.ejs', householdLocals('settings'));
   assert.match(settings, /\/link AB12CD34/, 'mã liên kết Telegram phải hiện khi chưa nối');
   assert.match(settings, /name="playerIds"/, 'chọn được thành viên trong nhà');
-  assert.match(settings, /purposes\/12\/delete/);
+  assert.doesNotMatch(settings, /purposes\/12\/delete/, 'mục Mục đích đã ẩn khỏi Cài đặt');
   assert.doesNotMatch(settings, /<tr[^>]*>\s*<form/, 'form không được nằm trong <tr>');
 });
 

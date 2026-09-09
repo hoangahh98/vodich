@@ -1,6 +1,6 @@
 <% if (section === 'settings' && isAdmin) { %>
   <section class="card-lite p tournament-edit-card mb">
-    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'settings' }) %></span><h2 class="section-title">Cài đặt hộ</h2><p class="muted">Thông tin, mục đích, thành viên được xem, Telegram và phân quyền admin.</p></div></div>
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'settings' }) %></span><h2 class="section-title">Cài đặt hộ</h2><p class="muted">Thông tin, thành viên được xem, Telegram và phân quyền admin.</p></div></div>
     <form class="tournament-form" method="post" action="/household/<%= household.id %>/settings">
       <section class="form-section">
         <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'note' }) %> Thông tin</h2>
@@ -13,32 +13,7 @@
     </form>
   </section>
 
-  <section class="card-lite p mb">
-    <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'target' }) %> Mục đích</h2>
-    <p class="muted">Tên tuỳ ý, <strong>loại</strong> quyết định cách tính: chi tiêu, tiết kiệm, trả nợ, dự phòng, cho vay, thu nhập. Kế hoạch tháng để so "đã dùng / kế hoạch".</p>
-    <div class="hh-list">
-      <% purposes.forEach((purpose) => { %>
-        <details class="hh-edit hh-row <%= purpose.active ? '' : 'is-muted' %>">
-          <summary><span class="hh-row-main"><strong><%= purpose.name %></strong><span class="badge"><%= labels.purpose[purpose.kind] %></span><% if (!purpose.active) { %><span class="badge">đã ẩn</span><% } %></span><span class="hh-row-side"><%= Number(purpose.monthlyPlan) ? formatMoney(purpose.monthlyPlan) + 'đ / tháng' : 'Chưa đặt kế hoạch' %></span></summary>
-          <form class="hh-form hh-form-inline" method="post" action="/household/<%= household.id %>/purposes/<%= purpose.id %>">
-            <div><label>Tên</label><input name="name" value="<%= purpose.name %>" required></div>
-            <div><label>Loại</label><select name="kind"><% ['LIVING','SAVING','DEBT','RESERVE','LENDING','INCOME'].forEach((kind) => { %><option value="<%= kind %>" <%= purpose.kind === kind ? 'selected' : '' %>><%= labels.purpose[kind] %></option><% }) %></select></div>
-            <div><label>Kế hoạch / tháng</label><input class="money-input" name="monthlyPlan" value="<%= Number(purpose.monthlyPlan) ? formatMoney(purpose.monthlyPlan) : '' %>" inputmode="numeric"></div>
-            <div><label>Trạng thái</label><select name="active"><option value="on" <%= purpose.active ? 'selected' : '' %>>Đang dùng</option><option value="off" <%= purpose.active ? '' : 'selected' %>>Ẩn</option></select></div>
-            <div class="hh-form-action"><button class="btn btn-sm btn-primary" data-loading-text="…">Lưu</button></div>
-          </form>
-          <form method="post" action="/household/<%= household.id %>/purposes/<%= purpose.id %>/delete" data-confirm="Xoá mục '<%= purpose.name %>'? Đã có giao dịch thì chỉ ẩn."><button class="btn btn-sm btn-danger" data-loading-text="…">Xoá / ẩn</button></form>
-        </details>
-      <% }) %>
-    </div>
-    <form class="hh-form mt" method="post" action="/household/<%= household.id %>/purposes">
-      <div><label>Mục mới</label><input name="name" placeholder="Ví dụ: Hiếu hỉ" required></div>
-      <div><label>Loại</label><select name="kind"><% ['LIVING','SAVING','DEBT','RESERVE','LENDING','INCOME'].forEach((kind) => { %><option value="<%= kind %>"><%= labels.purpose[kind] %></option><% }) %></select></div>
-      <div><label>Kế hoạch / tháng</label><input class="money-input" name="monthlyPlan" inputmode="numeric"></div>
-      <div class="hh-form-action"><button class="btn btn-success" data-loading-text="…"><%- include('../../partials/icon', { name: 'plus' }) %> Thêm mục</button></div>
-    </form>
-  </section>
-
+  <%# Mục "Mục đích" đã ẩn theo ý chủ app (10/9/2026): dùng bộ mặc định tạo sẵn khi lập hộ. Route sửa/xoá vẫn còn. %>
   <section class="card-lite p mb">
     <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'bolt' }) %> Telegram</h2>
     <% if (linked) { %>

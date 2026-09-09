@@ -7,7 +7,7 @@
       <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: Timo, Thẻ MSB" required></div>
       <div><label>Loại</label><select name="kind" data-source-kind>${['BANK','CARD','CASH','LOAN'].map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${labels.source[kind]}</option>`).join('')}</select></div>
       <div data-for="BANK CARD"><label>Ngân hàng</label><select name="bank">${['TIMO','MSB','OTHER'].map((bank) => `<option value="${bank}" ${(source ? source.bank : 'TIMO') === bank ? 'selected' : ''}>${labels.bank[bank]}</option>`).join('')}</select></div>
-      <div data-for="BANK"><label>Số tài khoản (Timo để trống)</label><input name="matchKey" value="${source ? source.matchKey : ''}" placeholder="Chỉ cần khi có nhiều tài khoản cùng ngân hàng" inputmode="numeric" data-match-key></div>
+      <div data-for="BANK"><label>Số tài khoản</label><input name="matchKey" value="${source ? source.matchKey : ''}" placeholder="Chỉ cần khi có nhiều tài khoản cùng ngân hàng" inputmode="numeric" data-match-key></div>
       <div data-for="CARD"><label>4 số cuối thẻ</label><input value="${source ? source.matchKey : ''}" placeholder="3065" inputmode="numeric" maxlength="4" data-match-key></div>
       <div><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}" placeholder="Chồng / Vợ"></div>
       <div data-for="BANK CASH"><label>Số dư đầu</label><input class="money-input" name="openingBalance" value="${source ? formatMoney(source.openingBalance) : ''}" inputmode="numeric" data-opening></div>
@@ -38,7 +38,7 @@
       <section class="card-lite p hh-source <%= item.source.active ? '' : 'is-muted' %>">
         <div class="hh-source-head">
           <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
-          <div class="hh-source-amount"><strong class="hh-balance <%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt ? 'nợ ' : '' %><%= formatMoney(item.balance) %>đ</strong><% if (item.source.kind === 'CARD' && item.source.creditLimit) { %><br><span class="muted">còn hạn mức <%= formatMoney(item.available) %>đ</span><% } %></div>
+          <div class="hh-source-amount"><strong class="hh-balance <%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt ? 'nợ ' : '' %><%= formatMoney(item.balance) %>đ</strong><% if (item.source.kind === 'CARD' && item.source.creditLimit) { %><br><span class="muted">còn hạn mức <%= formatMoney(item.available) %>đ</span><% } %><% if (item.reported) { %><br><span class="<%= Math.abs(item.diff) < 1 ? 'muted' : 'text-danger' %>">Ngân hàng báo <%= formatMoney(item.reported.balance) %>đ (<%= fmtDateTime(item.reported.at) %>)<%= Math.abs(item.diff) < 1 ? ' · khớp' : ' · lệch ' + (item.diff > 0 ? '+' : '−') + formatMoney(Math.abs(item.diff)) + 'đ' %></span><% } %></div>
         </div>
         <div class="grid kv-grid mt">
           <% if (source.ownerName) { %><div class="kv"><span>Chủ nguồn</span><strong><%= source.ownerName %></strong></div><% } %>

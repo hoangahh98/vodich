@@ -173,7 +173,9 @@ khoản", cả tăng lẫn giảm, kèm số dư hiện tại) và **MSB thẻ t
    Dùng HAI Gmail (mỗi người nhận mail ngân hàng của mình)? Cài cùng đoạn script này trên CẢ HAI tài khoản Google,
    cùng `TOKEN` và `CHAT_ID`; mỗi script chỉ đọc hộp thư của tài khoản đang chạy nó.
 
-Trong app: nguồn Timo để trống số tài khoản (mail Timo không ghi số), thẻ MSB khai **4 số cuối thẻ** để tin khớp đúng nguồn. Tin
+Trong app: nguồn Timo để trống số tài khoản (mail Timo không ghi số), thẻ MSB khai **4 số cuối thẻ** để tin khớp đúng nguồn.
+Mail Timo có "Số dư hiện tại": app lưu vào `reported_balance` của giao dịch, so với số app tự cộng và báo lệch
+ngay trong tin Telegram và ở Nguồn tiền — lệch là có khoản chưa vào sổ hoặc số dư đầu khai chưa đúng. Tin
 không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được". Tiền VÀO thẻ tín dụng trước đây bị bỏ qua
 (trả thẻ đã ghi ở tài khoản trả; hoàn tiền thì sửa tay). Khoản chi không bấm nút mục đích nào thì mặc định vào
 mục chi tiêu "Khác" và nằm ở danh sách "Cần xem lại" cho tới khi bấm ✓ hoặc đổi mục đích. Tiền VÀO thẻ: trùng

@@ -21,6 +21,8 @@ export interface TransactionInput {
   status?: 'NEW' | 'CONFIRMED';
   telegramChatId?: string | null;
   telegramMsgId?: bigint | null;
+  /** Số dư ngân hàng báo sau giao dịch (nếu mail có). */
+  reportedBalance?: number | null;
 }
 
 export interface CreateResult {
@@ -68,6 +70,7 @@ export class HouseholdLedgerService {
       status: input.status || 'CONFIRMED',
       telegramChatId: input.telegramChatId || null,
       telegramMsgId: input.telegramMsgId || null,
+      reportedBalance: input.reportedBalance ?? null,
     };
 
     // 1) Khớp khoản định kỳ đang chờ trong tháng: trúng thì mượn luôn mục đích, loại, nguồn đích, lãi.
@@ -111,13 +114,14 @@ export class HouseholdLedgerService {
     const sourceId = await this.config.ownSourceId(householdId, form.sourceId);
     if (!sourceId) return null;
     const occurredAt = parseDateInput(form.occurredAt);
+    const amount = parseMoney(form.amount);
     return this.create(householdId, {
       kind: normalizeTxKind(form.kind),
       sourceId,
       targetSourceId: await this.config.ownSourceId(householdId, form.targetSourceId),
       purposeId: await this.config.ownPurposeId(householdId, form.purposeId),
-      amount: parseMoney(form.amount),
-      interest: parseMoney(form.interest),
+      amount,
+      interest: interestFromForm(form, amount),
       occurredAt,
       description: form.description,
       status: 'CONFIRMED',
@@ -130,6 +134,7 @@ export class HouseholdLedgerService {
     if (!sourceId) return;
     const kind = normalizeTxKind(form.kind);
     const occurredAt = parseDateInput(form.occurredAt);
+    const amount = Math.max(0, parseMoney(form.amount));
     await this.prisma.householdTransaction.updateMany({
       where: { id: transactionId, householdId },
       data: {
@@ -137,8 +142,8 @@ export class HouseholdLedgerService {
         sourceId,
         targetSourceId: kind === 'TRANSFER' ? await this.config.ownSourceId(householdId, form.targetSourceId) : null,
         purposeId: await this.config.ownPurposeId(householdId, form.purposeId),
-        amount: Math.max(0, parseMoney(form.amount)),
-        interest: kind === 'TRANSFER' ? Math.max(0, parseMoney(form.interest)) : 0,
+        amount,
+        interest: kind === 'TRANSFER' ? interestFromForm(form, amount) : 0,
         occurredAt,
         month: monthOf(occurredAt),
         description: String(form.description || '').trim().slice(0, 255),
@@ -158,13 +163,15 @@ export class HouseholdLedgerService {
    * bấm nút "Trả thẻ MSB" trên Telegram là xong, khỏi mở web sửa. Với nguồn đích là khoản vay thì
    * lãi = lãi dự kiến của khoản định kỳ nếu khớp, không thì 0 (sửa tay sau).
    */
-  async convertToTransfer(householdId: bigint, transactionId: bigint, targetSourceId: bigint) {
+  async convertToTransfer(householdId: bigint, transactionId: bigint, targetSourceId: bigint, part: 'PRINCIPAL' | 'INTEREST' | 'AUTO' = 'AUTO') {
     const target = await this.prisma.householdSource.findFirst({ where: { id: targetSourceId, householdId } });
     const tx = await this.prisma.householdTransaction.findFirst({ where: { id: transactionId, householdId } });
     if (!target || !tx) return null;
     let interest = 0;
     let recurringId = tx.recurringId;
-    let purposeId = tx.purposeId;
+    // Trả thẻ không có mục đích (chỉ là chuyển nguồn); trả nợ vay gắn mục "Trả nợ" (loại DEBT) nếu có,
+    // để bảng theo mục đích không dồn tiền trả nợ vào "Khác" (mục mặc định lúc tin về).
+    let purposeId: bigint | null = target.kind === 'LOAN' ? await this.debtPurpose(householdId) : null;
     const matched = matchRecurring(
       (await this.expectationsFor(householdId, tx.month)).filter((item) => item.recurring.targetSourceId === String(targetSourceId)),
       { kind: 'TRANSFER', sourceId: String(tx.sourceId), targetSourceId: String(targetSourceId), amount: Number(tx.amount) },
@@ -172,8 +179,11 @@ export class HouseholdLedgerService {
     if (matched) {
       interest = matched.interest;
       recurringId = BigInt(matched.recurring.id);
-      purposeId = purposeId || (matched.recurring.purposeId ? BigInt(matched.recurring.purposeId) : null);
+      purposeId = matched.recurring.purposeId ? BigInt(matched.recurring.purposeId) : purposeId;
     }
+    // Người bấm nút "Trả lãi": cả khoản là lãi, dư nợ không đổi. "Trả gốc": không có lãi.
+    if (target.kind === 'LOAN' && part === 'INTEREST') interest = Number(tx.amount);
+    if (part === 'PRINCIPAL') interest = 0;
     await this.prisma.householdTransaction.updateMany({
       where: { id: transactionId, householdId },
       data: { kind: 'TRANSFER', targetSourceId, interest, recurringId, purposeId, status: 'CONFIRMED' },
@@ -211,6 +221,12 @@ export class HouseholdLedgerService {
       },
     });
     return transaction;
+  }
+
+  /** Mục đích loại Trả nợ đầu tiên đang dùng (bộ mặc định có "Trả nợ vay"). */
+  async debtPurpose(householdId: bigint): Promise<bigint | null> {
+    const purpose = await this.prisma.householdPurpose.findFirst({ where: { householdId, kind: 'DEBT', active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
+    return purpose?.id || null;
   }
 
   /** Mục chi tiêu mặc định: "Khác" nếu có, không thì mục LIVING đầu tiên đang dùng. */
@@ -254,4 +270,15 @@ export function parseDateInput(raw: string | undefined): Date {
   if (!value) return new Date();
   const date = new Date(/T\d{2}:\d{2}/.test(value) ? `${value}:00+07:00` : `${value}T12:00:00+07:00`);
   return Number.isNaN(date.getTime()) ? new Date() : date;
+}
+
+/**
+ * Phần lãi của một khoản chuyển theo ô "Khoản chuyển này là": Trả gốc → 0 (cả khoản trừ dư nợ), Trả lãi
+ * → cả khoản (dư nợ không đổi, chỉ mất tiền), Gốc + lãi → số nhập tay, không quá tổng.
+ */
+export function interestFromForm(form: Record<string, string | undefined>, amount: number): number {
+  const part = String(form.debtPart || 'MIXED');
+  if (part === 'PRINCIPAL') return 0;
+  if (part === 'INTEREST') return Math.max(0, amount);
+  return Math.min(Math.max(0, parseMoney(form.interest)), Math.max(0, amount));
 }

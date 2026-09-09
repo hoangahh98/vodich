@@ -173,7 +173,19 @@ export class HouseholdService {
     const unclassified = rows.filter(needsReview);
     const unclassifiedAll = txRows.filter(needsReview).length;
     const unclassifiedTotal = unclassified.reduce((sum, tx) => sum + tx.amount, 0);
-    const balanceList = sourceRows.map((source) => balances.get(source.id)!);
+    // Số dư ngân hàng báo gần nhất (Timo gửi kèm mỗi giao dịch) để so với số app tính.
+    const reportedRows = await this.prisma.householdTransaction.findMany({
+      where: { householdId, reportedBalance: { not: null } },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+      distinct: ['sourceId'],
+      select: { sourceId: true, reportedBalance: true, occurredAt: true },
+    });
+    const reportedBySource = new Map(reportedRows.map((row) => [String(row.sourceId), { balance: Number(row.reportedBalance), at: row.occurredAt }]));
+    const balanceList = sourceRows.map((source) => {
+      const item = balances.get(source.id)!;
+      const reported = reportedBySource.get(source.id) || null;
+      return { ...item, reported, diff: reported ? item.balance - reported.balance : 0 };
+    });
     const totals = {
       cash: balanceList.filter((item) => !['CARD', 'LOAN'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
       debt: balanceList.filter((item) => ['CARD', 'LOAN'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),

@@ -276,3 +276,22 @@ test('hoàn tiền: tiền vào gắn mục đích chi (hoặc vào thẻ chưa 
   // Dư nợ thẻ giảm đúng số hoàn.
   assert.equal(sourceBalances([bank, card, loan], refunds).get('c').balance, -172_691 - 10_000);
 });
+
+// ─────────────────────────── Trả nợ: gốc / lãi ───────────────────────────
+
+const { interestFromForm } = require('../dist/household/household-ledger.service');
+
+test('trả nợ vay: chọn Trả lãi thì cả khoản là lãi (không trừ dư nợ), Trả gốc thì lãi 0, Gốc + lãi thì lấy số nhập', () => {
+  assert.equal(interestFromForm({ debtPart: 'INTEREST' }, 3_000_000), 3_000_000);
+  assert.equal(interestFromForm({ debtPart: 'PRINCIPAL', interest: '999' }, 3_000_000), 0);
+  assert.equal(interestFromForm({ debtPart: 'MIXED', interest: '1,000,000' }, 3_000_000), 1_000_000);
+  assert.equal(interestFromForm({ debtPart: 'MIXED', interest: '9,000,000' }, 3_000_000), 3_000_000, 'lãi không vượt tổng');
+  // Và dư nợ phản ứng đúng: trả lãi 3tr → dư nợ giữ nguyên; trả gốc 3tr → giảm 3tr.
+  const onlyInterest = tx({ id: 'i', kind: 'TRANSFER', targetSourceId: 'l', amount: 3_000_000, interest: 3_000_000 });
+  const onlyPrincipal = tx({ id: 'p', kind: 'TRANSFER', targetSourceId: 'l', amount: 3_000_000, interest: 0 });
+  assert.equal(sourceBalances([bank, loan], [onlyInterest]).get('l').balance, 100_000_000);
+  assert.equal(sourceBalances([bank, loan], [onlyPrincipal]).get('l').balance, 97_000_000);
+  assert.equal(sourceBalances([bank, loan], [onlyInterest]).get('b').balance, 7_000_000, 'tiền vẫn ra khỏi tài khoản');
+  const report = monthReport('2026-09', [bank, loan], purposes, [onlyInterest, onlyPrincipal]);
+  assert.deepEqual(report.debt, { total: 6_000_000, principal: 3_000_000, interest: 3_000_000 });
+});

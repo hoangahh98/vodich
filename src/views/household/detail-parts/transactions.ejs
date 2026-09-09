@@ -19,7 +19,7 @@
           <div><label>Từ nguồn</label><select name="sourceId" required><% activeSources.forEach((source) => { %><option value="<%= source.id %>"><%= source.name %></option><% }) %></select></div>
           <div data-tx-target hidden><label>Sang nguồn</label><select name="targetSourceId"><option value="">— chọn —</option><% activeSources.forEach((source) => { %><option value="<%= source.id %>"><%= source.name %> (<%= labels.source[source.kind] %>)</option><% }) %></select></div>
           <div><label>Số tiền</label><input class="money-input" name="amount" required inputmode="numeric"></div>
-          <div data-tx-interest hidden><label>Trong đó lãi</label><input class="money-input" name="interest" inputmode="numeric"><small class="field-hint">Trả nợ vay: phần lãi tính là chi, phần còn lại trừ gốc.</small></div>
+          <div data-tx-interest hidden><label>Khoản chuyển này là</label><select name="debtPart" data-debt-part><option value="PRINCIPAL">Trả gốc — trừ dư nợ</option><option value="INTEREST">Trả lãi — chỉ mất tiền, không trừ dư nợ</option><option value="MIXED">Gốc + lãi — nhập phần lãi</option></select><small class="field-hint">Trả thẻ tín dụng: để "Trả gốc".</small></div><div data-tx-mixed hidden><label>Trong đó lãi</label><input class="money-input" name="interest" inputmode="numeric"></div>
           <div><label>Mục đích</label><select name="purposeId"><option value="">— chưa chọn —</option><% activePurposes.forEach((purpose) => { %><option value="<%= purpose.id %>" data-kind="<%= purpose.kind %>"><%= purpose.name %> · <%= labels.purpose[purpose.kind] %></option><% }) %></select></div>
           <div><label>Thời điểm</label><input type="datetime-local" name="occurredAt" value="<%= nowInput %>"></div>
           <div class="hh-form-wide"><label>Nội dung</label><input name="description" placeholder="Ví dụ: Đi chợ, Đóng học cho con"></div>
@@ -35,7 +35,7 @@
       <% transactions.forEach((tx) => { %>
         <tr class="<%= tx.status === 'NEW' ? 'hh-new' : '' %>">
           <td class="nowrap"><%= fmtDateTime(tx.occurredAt) %></td>
-          <td><span class="badge <%= tx.refund ? 'bg-info' : kindBadge[tx.kind] %>"><%= tx.refund ? 'Hoàn' : labels.tx[tx.kind] %></span> <strong><%= tx.description || '(không có nội dung)' %></strong><% if (tx.recurringName) { %><br><span class="muted">định kỳ: <%= tx.recurringName %></span><% } %><% if (tx.interest) { %><br><span class="muted">lãi <%= formatMoney(tx.interest) %>đ</span><% } %></td>
+          <td><span class="badge <%= tx.refund ? 'bg-info' : kindBadge[tx.kind] %>"><%= tx.refund ? 'Hoàn' : labels.tx[tx.kind] %></span> <strong><%= tx.description || '(không có nội dung)' %></strong><% if (tx.recurringName) { %><br><span class="muted">định kỳ: <%= tx.recurringName %></span><% } %><% if (tx.kind === 'TRANSFER' && tx.interest) { %><br><span class="muted"><%= tx.interest >= tx.amount ? 'trả lãi, không trừ dư nợ' : 'lãi ' + formatMoney(tx.interest) + 'đ, gốc ' + formatMoney(tx.amount - tx.interest) + 'đ' %></span><% } %></td>
           <td><%= tx.sourceName %><% if (tx.targetName) { %> → <%= tx.targetName %><% } %></td>
           <td class="text-right paid-cell"><strong><%= tx.kind === 'INCOME' ? '+' : '−' %><%= formatMoney(tx.amount) %></strong><span class="muted">đ</span></td>
           <td>
@@ -52,7 +52,9 @@
                   <div><label>Từ nguồn</label><select name="sourceId"><% sources.forEach((source) => { %><option value="<%= source.id %>" <%= source.id.toString() === tx.sourceId ? 'selected' : '' %>><%= source.name %></option><% }) %></select></div>
                   <div data-tx-target <%= tx.kind === 'TRANSFER' ? '' : 'hidden' %>><label>Sang nguồn</label><select name="targetSourceId"><option value="">— chọn —</option><% sources.forEach((source) => { %><option value="<%= source.id %>" <%= source.id.toString() === tx.targetSourceId ? 'selected' : '' %>><%= source.name %></option><% }) %></select></div>
                   <div><label>Số tiền</label><input class="money-input" name="amount" value="<%= formatMoney(tx.amount) %>"></div>
-                  <div data-tx-interest <%= tx.kind === 'TRANSFER' ? '' : 'hidden' %>><label>Trong đó lãi</label><input class="money-input" name="interest" value="<%= formatMoney(tx.interest) %>"></div>
+                  <% const debtPart = tx.kind !== 'TRANSFER' || !tx.interest ? 'PRINCIPAL' : tx.interest >= tx.amount ? 'INTEREST' : 'MIXED'; %>
+                  <div data-tx-interest <%= tx.kind === 'TRANSFER' ? '' : 'hidden' %>><label>Khoản chuyển này là</label><select name="debtPart" data-debt-part><option value="PRINCIPAL" <%= debtPart === 'PRINCIPAL' ? 'selected' : '' %>>Trả gốc — trừ dư nợ</option><option value="INTEREST" <%= debtPart === 'INTEREST' ? 'selected' : '' %>>Trả lãi — không trừ dư nợ</option><option value="MIXED" <%= debtPart === 'MIXED' ? 'selected' : '' %>>Gốc + lãi — nhập phần lãi</option></select></div>
+                  <div data-tx-mixed <%= debtPart === 'MIXED' ? '' : 'hidden' %>><label>Trong đó lãi</label><input class="money-input" name="interest" value="<%= formatMoney(tx.interest) %>"></div>
                   <div><label>Mục đích</label><select name="purposeId"><option value="">— chưa chọn —</option><% purposes.forEach((purpose) => { %><option value="<%= purpose.id %>" <%= purpose.id.toString() === tx.purposeId ? 'selected' : '' %>><%= purpose.name %></option><% }) %></select></div>
                   <div><label>Thời điểm</label><input type="datetime-local" name="occurredAt" value="<%= inputDateTime(tx.occurredAt) %>"></div>
                   <div class="hh-form-wide"><label>Nội dung</label><input name="description" value="<%= tx.description %>"></div>

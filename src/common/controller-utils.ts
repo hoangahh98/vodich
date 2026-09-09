@@ -89,6 +89,7 @@ export function safeTournamentSection(value: unknown) {
 
 export function safeHouseholdSection(value: unknown) {
   const section = String(value || 'overview');
+  // 'recurring' vẫn nhận để link cũ không 404, nhưng tab đã ẩn khỏi giao diện.
   return ['overview', 'transactions', 'sources', 'recurring', 'settings'].includes(section) ? section : 'overview';
 }
 

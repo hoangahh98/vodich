@@ -534,6 +534,8 @@ model HouseholdTransaction {
   recurringId    BigInt?   @map("recurring_id")
   amount         Decimal   @default(0) @db.Decimal(14, 2)
   interest       Decimal   @default(0) @db.Decimal(14, 2)
+  /// Số dư ngân hàng báo NGAY SAU giao dịch này (Timo có). Chỉ để so với số app tính, không tham gia tính.
+  reportedBalance Decimal? @map("reported_balance") @db.Decimal(14, 2)
   occurredAt     DateTime  @map("occurred_at")
   month          String    @db.VarChar(7)
   description    String    @default("") @db.VarChar(255)

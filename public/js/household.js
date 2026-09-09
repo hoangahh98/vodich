@@ -10,7 +10,16 @@
     form.querySelectorAll('[data-tx-target], [data-tx-interest]').forEach((box) => {
       box.hidden = !transfer;
     });
+    // Ô "Trong đó lãi" chỉ khi chọn Gốc + lãi.
+    const part = form.querySelector('[data-debt-part]');
+    form.querySelectorAll('[data-tx-mixed]').forEach((box) => {
+      box.hidden = !transfer || !part || part.value !== 'MIXED';
+    });
   };
+  document.addEventListener('change', (event) => {
+    const part = event.target instanceof Element ? event.target.closest('[data-debt-part]') : null;
+    if (part && part.form) sync(part.form);
+  });
   document.querySelectorAll('[data-tx-form]').forEach(sync);
 
   // Form nguồn tiền: ô nào mang data-for="BANK CARD" chỉ hiện khi loại nằm trong danh sách. Hai cặp ô
