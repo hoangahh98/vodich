@@ -171,7 +171,7 @@ export class HouseholdLedgerService {
     let recurringId = tx.recurringId;
     // Trả thẻ không có mục đích (chỉ là chuyển nguồn); trả nợ vay gắn mục "Trả nợ" (loại DEBT) nếu có,
     // để bảng theo mục đích không dồn tiền trả nợ vào "Khác" (mục mặc định lúc tin về).
-    let purposeId: bigint | null = target.kind === 'LOAN' ? await this.debtPurpose(householdId) : null;
+    let purposeId: bigint | null = target.kind === 'LOAN' ? await this.purposeOfKind(householdId, 'DEBT') : target.kind === 'LENT' ? await this.purposeOfKind(householdId, 'LENDING') : null;
     const matched = matchRecurring(
       (await this.expectationsFor(householdId, tx.month)).filter((item) => item.recurring.targetSourceId === String(targetSourceId)),
       { kind: 'TRANSFER', sourceId: String(tx.sourceId), targetSourceId: String(targetSourceId), amount: Number(tx.amount) },
@@ -223,10 +223,25 @@ export class HouseholdLedgerService {
     return transaction;
   }
 
-  /** Mục đích loại Trả nợ đầu tiên đang dùng (bộ mặc định có "Trả nợ vay"). */
-  async debtPurpose(householdId: bigint): Promise<bigint | null> {
-    const purpose = await this.prisma.householdPurpose.findFirst({ where: { householdId, kind: 'DEBT', active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
+  /** Mục đích đầu tiên đang dùng của một loại (bộ mặc định có "Trả nợ vay" loại DEBT, "Cho vay" loại LENDING). */
+  async purposeOfKind(householdId: bigint, kind: string): Promise<bigint | null> {
+    const purpose = await this.prisma.householdPurpose.findFirst({ where: { householdId, kind, active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
     return purpose?.id || null;
+  }
+
+  /**
+   * Tiền VÀO tài khoản mà là người ta trả nợ (bấm nút "<tên> trả nợ" trên Telegram): đổi khoản thu thành
+   * CHUYỂN từ khoản cho vay về tài khoản — không phải thu nhập, chỉ là tiền quay về, khoản cho vay giảm.
+   */
+  async convertToRepayment(householdId: bigint, transactionId: bigint, lentSourceId: bigint) {
+    const lent = await this.prisma.householdSource.findFirst({ where: { id: lentSourceId, householdId, kind: 'LENT' } });
+    const tx = await this.prisma.householdTransaction.findFirst({ where: { id: transactionId, householdId } });
+    if (!lent || !tx) return null;
+    await this.prisma.householdTransaction.updateMany({
+      where: { id: transactionId, householdId },
+      data: { kind: 'TRANSFER', sourceId: lentSourceId, targetSourceId: tx.sourceId, interest: 0, purposeId: await this.purposeOfKind(householdId, 'LENDING'), status: 'CONFIRMED' },
+    });
+    return this.prisma.householdTransaction.findFirst({ where: { id: transactionId, householdId }, include: { purpose: true, source: true, targetSource: true } });
   }
 
   /** Mục chi tiêu mặc định: "Khác" nếu có, không thì mục LIVING đầu tiên đang dùng. */

@@ -295,3 +295,17 @@ test('trả nợ vay: chọn Trả lãi thì cả khoản là lãi (không trừ
   const report = monthReport('2026-09', [bank, loan], purposes, [onlyInterest, onlyPrincipal]);
   assert.deepEqual(report.debt, { total: 6_000_000, principal: 3_000_000, interest: 3_000_000 });
 });
+
+// ─────────────────────────── Cho vay (nguồn loại LENT) ───────────────────────────
+
+test('cho vay: chuyển sang khoản LENT là cho vay (họ nợ tăng), họ trả về là giảm, không phải thu nhập', () => {
+  const lent = { id: 'x', name: 'Anh A', kind: 'LENT', openingBalance: 0, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true };
+  const give = tx({ id: 'g', kind: 'TRANSFER', targetSourceId: 'x', amount: 5_000_000 });
+  const back = tx({ id: 'r', kind: 'TRANSFER', sourceId: 'x', targetSourceId: 'b', amount: 2_000_000 });
+  const balances = sourceBalances([bank, lent], [give, back]);
+  assert.equal(balances.get('x').balance, 3_000_000, 'họ còn nợ 3tr');
+  assert.equal(balances.get('b').balance, 10_000_000 - 5_000_000 + 2_000_000);
+  const report = monthReport('2026-09', [bank, lent], purposes, [give, back]);
+  assert.equal(report.lending, 3_000_000, 'cho vay tháng này = 5tr − 2tr trả lại');
+  assert.equal(report.income, 0, 'tiền họ trả không phải lương');
+});

@@ -7,6 +7,7 @@
       <div class="hero-chips mt">
         <span class="chip"><%- include('../../partials/icon', { name: 'wallet' }) %>Tiền có <%= formatMoney(totals.cash) %>đ</span>
         <span class="chip"><%- include('../../partials/icon', { name: 'card' }) %>Đang nợ <%= formatMoney(totals.debt) %>đ</span>
+        <% if (totals.lent) { %><span class="chip"><%- include('../../partials/icon', { name: 'coin' }) %>Cho vay <%= formatMoney(totals.lent) %>đ</span><% } %>
         <% if (linked) { %><span class="chip lime"><%- include('../../partials/icon', { name: 'bolt' }) %>Telegram đã nối</span><% } %>
       </div>
     </div>

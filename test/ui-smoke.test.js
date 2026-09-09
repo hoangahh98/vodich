@@ -738,7 +738,7 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(sources, /name="matchKey"/, 'nguồn phải khai được số tài khoản / 4 số cuối thẻ');
   assert.match(sources, /data-source-kind/, 'form nguồn ẩn/hiện ô theo loại');
   assert.doesNotMatch(sources, /statementDay/, 'ngày sao kê đã bỏ khỏi form theo ý chủ app');
-  assert.match(sources, /còn hạn mức/);
+  assert.match(sources, /Còn hạn mức/, 'hạn mức còn lại phải nằm trong ô');
 
   const recurring = await renderView('household/detail.ejs', householdLocals('recurring'));
   assert.match(recurring, /recurring\/21\/record/, 'link cũ tới mục định kỳ vẫn render được');

@@ -5,14 +5,18 @@ import { oneOf } from '../common/enums';
  * một nguồn, khỏi mỗi nơi tự dịch một kiểu.
  */
 
-/** Nguồn tiền. BANK/CASH giữ số dư; CARD/LOAN giữ DƯ NỢ (tiền ra làm nợ tăng, tiền vào làm nợ giảm). */
-export const SOURCE_KINDS = ['BANK', 'CARD', 'CASH', 'LOAN'] as const;
+/**
+ * Nguồn tiền. BANK/CASH giữ số dư; CARD/LOAN giữ DƯ NỢ (tiền ra làm nợ tăng, tiền vào làm nợ giảm);
+ * LENT là khoản CHO VAY — người khác nợ mình: chuyển tiền sang là cho vay thêm, họ trả về là giảm.
+ */
+export const SOURCE_KINDS = ['BANK', 'CARD', 'CASH', 'LOAN', 'LENT'] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 export const SOURCE_KIND_LABELS: Record<SourceKind, string> = {
   BANK: 'Tài khoản ngân hàng',
   CARD: 'Thẻ tín dụng',
   CASH: 'Tiền mặt',
   LOAN: 'Khoản vay',
+  LENT: 'Cho vay',
 };
 export const isDebtSource = (kind: string) => kind === 'CARD' || kind === 'LOAN';
 

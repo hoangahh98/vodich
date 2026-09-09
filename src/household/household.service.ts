@@ -187,8 +187,9 @@ export class HouseholdService {
       return { ...item, reported, diff: reported ? item.balance - reported.balance : 0 };
     });
     const totals = {
-      cash: balanceList.filter((item) => !['CARD', 'LOAN'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
+      cash: balanceList.filter((item) => ['BANK', 'CASH'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
       debt: balanceList.filter((item) => ['CARD', 'LOAN'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
+      lent: balanceList.filter((item) => item.source.kind === 'LENT').reduce((sum, item) => sum + item.balance, 0),
     };
     // Tháng có dữ liệu để chọn nhanh (thêm tháng đang xem và tháng hiện tại).
     const months = [...new Set([...txRows.map((tx) => tx.month), month, normalizeMonth(null)])].sort().reverse();

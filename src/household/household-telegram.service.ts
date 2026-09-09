@@ -182,9 +182,13 @@ export class HouseholdTelegramService {
     const purpose = /^hp:(\d+):(\d*)$/.exec(data);
     const transfer = /^ht:(\d+):(\d+)(?::([PI]))?$/.exec(data);
     const keep = /^hk:(\d+)$/.exec(data);
+    const repay = /^hr:(\d+):(\d+)$/.exec(data);
     const drop = /^hx:(\d+)$/.exec(data);
     let done = '';
-    if (keep) {
+    if (repay) {
+      const tx = await this.ledger.convertToRepayment(household.id, BigInt(repay[1]), BigInt(repay[2]));
+      if (tx) done = `✓ ${tx.source.name} trả nợ ${formatMoney(Number(tx.amount))}đ → ${tx.targetSource?.name} (không tính là thu nhập)`;
+    } else if (keep) {
       const tx = await this.ledger.setPurpose(household.id, BigInt(keep[1]), null);
       if (tx) done = `✓ Giữ hoàn tiền ${formatMoney(Number(tx.amount))}đ vào ${tx.source.name}`;
     } else if (drop) {
@@ -199,7 +203,7 @@ export class HouseholdTelegramService {
       const tx = await this.ledger.convertToTransfer(household.id, BigInt(transfer[1]), BigInt(transfer[2]), part);
       if (tx) {
         const interest = Number(tx.interest);
-        const note = tx.targetSource?.kind === 'LOAN' ? (interest >= Number(tx.amount) ? ' — trả lãi, dư nợ không đổi' : interest ? ` — lãi ${formatMoney(interest)}đ, gốc ${formatMoney(Number(tx.amount) - interest)}đ` : ' — trả gốc, đã trừ dư nợ') : '';
+        const note = tx.targetSource?.kind === 'LOAN' ? (interest >= Number(tx.amount) ? ' — trả lãi, dư nợ không đổi' : interest ? ` — lãi ${formatMoney(interest)}đ, gốc ${formatMoney(Number(tx.amount) - interest)}đ` : ' — trả gốc, đã trừ dư nợ') : tx.targetSource?.kind === 'LENT' ? ' — cho vay, họ đang nợ thêm số này' : '';
         done = `✓ Chuyển ${formatMoney(Number(tx.amount))}đ · ${tx.source.name} → ${tx.targetSource?.name}${note}`;
       }
     }
@@ -225,18 +229,22 @@ export class HouseholdTelegramService {
       fitting.map((purpose) => ({ text: purpose.name, callback_data: `hp:${transactionId}:${purpose.id}` })),
       2,
     );
-    if (kind === 'EXPENSE' && !['CARD', 'LOAN'].includes(source.kind)) {
-      const debts = sources.filter((item) => ['CARD', 'LOAN'].includes(item.kind) && item.id !== source.id);
+    if (kind === 'EXPENSE' && ['BANK', 'CASH'].includes(source.kind)) {
       const buttons: InlineButton[] = [];
-      for (const item of debts) {
+      for (const item of sources.filter((other) => other.id !== source.id)) {
         if (item.kind === 'CARD') buttons.push({ text: `Trả thẻ ${item.name}`, callback_data: `ht:${transactionId}:${item.id}` });
-        else {
+        else if (item.kind === 'LOAN') {
           // Khoản vay: gốc hay lãi là hai chuyện khác nhau — lãi chỉ mất tiền, gốc mới trừ dư nợ.
           buttons.push({ text: `Trả gốc ${item.name}`, callback_data: `ht:${transactionId}:${item.id}:P` });
           buttons.push({ text: `Trả lãi ${item.name}`, callback_data: `ht:${transactionId}:${item.id}:I` });
-        }
+        } else if (item.kind === 'LENT') buttons.push({ text: `Cho vay: ${item.name}`, callback_data: `ht:${transactionId}:${item.id}` });
       }
       rows.push(...chunk(buttons, 2));
+    }
+    // Tiền vào tài khoản có thể là người ta trả nợ chứ không phải lương.
+    if (kind === 'INCOME' && ['BANK', 'CASH'].includes(source.kind)) {
+      const lent = sources.filter((item) => item.kind === 'LENT');
+      rows.push(...chunk(lent.map((item) => ({ text: `${item.name} trả nợ`, callback_data: `hr:${transactionId}:${item.id}` })), 2));
     }
     return rows;
   }

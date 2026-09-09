@@ -29,7 +29,7 @@
   </section>
   <section class="grid finance-grid mb">
     <div class="metric-card"><span>Tiết kiệm</span><strong><%= formatMoney(report.saving) %>đ</strong><small>Cất đi tháng này</small></div>
-    <div class="metric-card"><span>Dự phòng · Cho vay</span><strong><%= formatMoney(report.reserve + report.lending) %>đ</strong><small>Dự phòng <%= formatMoney(report.reserve) %>đ · cho vay <%= formatMoney(report.lending) %>đ</small></div>
+    <div class="metric-card"><span>Dự phòng · Cho vay</span><strong><%= formatMoney(report.reserve + report.lending) %>đ</strong><small>Dự phòng <%= formatMoney(report.reserve) %>đ · cho vay tháng này <%= formatMoney(report.lending) %>đ<% if (totals.lent) { %> · người khác đang nợ <%= formatMoney(totals.lent) %>đ<% } %></small></div>
   </section>
 
   <% if (pendingExpectations.length) { %>

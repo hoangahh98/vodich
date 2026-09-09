@@ -176,6 +176,17 @@ export function monthReport(month: string, sources: SourceRow[], purposes: Purpo
     }
     if (tx.kind === 'TRANSFER') {
       const targetKind = tx.targetSourceId ? sourceKind.get(tx.targetSourceId) : undefined;
+      // Cho vay: tiền sang khoản LENT là cho vay thêm; từ LENT về là họ trả, trừ khỏi "cho vay" tháng này.
+      if (targetKind === 'LENT') {
+        report.lending += tx.amount;
+        bump(tx.purposeId, tx.amount);
+        continue;
+      }
+      if (sourceKind.get(tx.sourceId) === 'LENT') {
+        report.lending -= tx.amount;
+        bump(tx.purposeId, -tx.amount);
+        continue;
+      }
       if (targetKind === 'CARD') {
         report.cardPayment += tx.amount;
         continue;
