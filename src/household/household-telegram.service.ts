@@ -19,13 +19,18 @@ interface InlineButton {
 }
 
 /**
- * Bot Telegram của module Chi tiêu, nhận qua WEBHOOK (không quét định kỳ):
+ * Bot Telegram của module Chi tiêu:
  *
- *  1. Apps Script trên Gmail của chủ hộ đẩy nguyên văn mail ngân hàng vào một nhóm có bot.
- *  2. Telegram gọi POST /telegram/webhook/<secret> → `handleUpdate()`.
- *  3. Tin đọc được (bank-parsers.ts) → ghi giao dịch qua HouseholdLedgerService (khớp định kỳ,
- *     đoán mục đích) → trả lời kèm hàng nút mục đích. Bấm nút là gán xong, không cần mở web.
- *  4. Tin không đọc được / không khớp nguồn → cất `household_inbox` (UNPARSED) để xử lý tay.
+ *  1. Apps Script trên Gmail của chủ hộ gửi nguyên văn mail ngân hàng THẲNG VÀO APP
+ *     (POST /telegram/ingest/<secret>, kèm id nhóm) → `ingestBankText()`.
+ *     KHÔNG gửi mail vào nhóm bằng token của bot: Telegram không bao giờ đưa tin do chính bot gửi
+ *     về webhook, nên bot sẽ im lặng (đã dính đúng lỗi này 10/9/2026), và nhóm ngập nguyên văn mail.
+ *  2. Tin đọc được (bank-parsers.ts) → ghi giao dịch qua HouseholdLedgerService (khớp định kỳ,
+ *     đoán mục đích, mặc định Chi tiêu) → bot đăng lên nhóm bản TÓM TẮT kèm hàng nút mục đích.
+ *     Bấm nút là gán xong, không cần mở web (callback_query về qua webhook).
+ *  3. Tin không đọc được / không khớp nguồn → cất `household_inbox` (UNPARSED) để xử lý tay.
+ *  4. Người trong nhóm tự dán nội dung mail vào nhóm cũng được: webhook nhận tin của NGƯỜI và đi
+ *     cùng đường `ingestBankText()`.
  *
  * Liên kết nhóm với hộ: ở Cài đặt hộ lấy mã, trong nhóm gõ `/link <mã>`. Một nhóm một hộ.
  * Thiếu TELEGRAM_BOT_TOKEN thì mọi lệnh gửi đi bị bỏ qua (ghi log), phần ghi sổ vẫn chạy.
@@ -60,23 +65,55 @@ export class HouseholdTelegramService {
 
     const household = await this.prisma.household.findFirst({ where: { telegramChatId: chatId } });
     if (!household) return;
+    await this.ingestBankText(household, chatId, BigInt(messageId), text);
+  }
 
-    // Chống xử lý hai lần khi Telegram gửi lại cùng một update.
-    const seen = await this.prisma.householdInbox.findUnique({ where: { chatId_messageId: { chatId, messageId: BigInt(messageId) } } });
+  /**
+   * Cửa vào cho Apps Script (POST /telegram/ingest): `chatId` là id nhóm đã liên kết, dùng để tìm hộ.
+   * Không có message_id của Telegram nên lấy hash nội dung làm khoá chống trùng trong hộp thư; giao
+   * dịch còn được chống trùng lần nữa bằng `externalId` (mã giao dịch ngân hàng).
+   */
+  async ingestFromScript(chatId: string, text: string): Promise<{ ok: boolean; reason?: string }> {
+    const household = await this.prisma.household.findFirst({ where: { telegramChatId: chatId } });
+    if (!household) return { ok: false, reason: 'Nhóm này chưa liên kết hộ nào (gõ /link <mã> trong nhóm trước).' };
+    await this.ingestBankText(household, chatId, textHash(text), text);
+    return { ok: true };
+  }
+
+  /** Đọc một tin ngân hàng, ghi sổ, đăng tóm tắt + nút lên nhóm. Dùng chung cho Apps Script và tin dán tay. */
+  private async ingestBankText(household: Household, chatId: string, messageId: bigint, text: string) {
+    // Chống xử lý hai lần (Telegram gửi lại update, Apps Script chạy lại trên cùng mail).
+    const seen = await this.prisma.householdInbox.findUnique({ where: { chatId_messageId: { chatId, messageId } } });
     if (seen) return;
-    const inbox = await this.prisma.householdInbox.create({ data: { householdId: household.id, chatId, messageId: BigInt(messageId), text } });
+    const inbox = await this.prisma.householdInbox.create({ data: { householdId: household.id, chatId, messageId, text } });
 
     const parsed = parseBankMessage(text);
-    if (!parsed) return this.send(chatId, 'Không đọc được tin này, đã cất vào hộp thư "cần xử lý" trên web.');
+    if (!parsed) return this.send(chatId, `Không đọc được tin ngân hàng này, đã cất vào "Tin Telegram chưa đọc được" trên web.\n${text.trim().slice(0, 200)}`);
 
     const sources = await this.prisma.householdSource.findMany({ where: { householdId: household.id, active: true } });
     const source = pickSource(sources, parsed.bank, parsed.accountKey);
     if (!source) {
-      return this.send(chatId, `Chưa có nguồn tiền nào khớp ${parsed.bank} ${parsed.accountKey ? `(${parsed.accountKey})` : ''}. Vào Nguồn tiền trên web khai số tài khoản / 4 số cuối thẻ rồi gửi lại.`);
+      return this.send(chatId, `Chưa có nguồn tiền nào khớp ${parsed.bank}${parsed.accountKey ? ` (${parsed.accountKey})` : ''}. Vào Nguồn tiền trên web khai số tài khoản / 4 số cuối thẻ rồi gửi lại.`);
     }
+    const when = parsed.occurredAt.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+
+    // Tiền VÀO thẻ tín dụng: nếu vừa ghi trả thẻ đúng số đó từ tài khoản (±3 ngày) thì đây là bản sao
+    // của lần trả — bỏ qua. Không thì là hoàn tiền (Shopee trả lại...): ghi Thu vào thẻ để giảm dư nợ.
     if (parsed.direction === 'IN' && source.kind === 'CARD') {
-      await this.prisma.householdInbox.update({ where: { id: inbox.id }, data: { status: 'IGNORED' } });
-      return this.send(chatId, `Tiền vào thẻ ${source.name} ${formatMoney(parsed.amount)}đ — bỏ qua (trả thẻ đã ghi ở tài khoản trả, hoàn tiền thì sửa tay).`);
+      const windowMs = 3 * 24 * 60 * 60 * 1000;
+      const payment = await this.prisma.householdTransaction.findFirst({
+        where: {
+          householdId: household.id,
+          kind: 'TRANSFER',
+          targetSourceId: source.id,
+          amount: parsed.amount,
+          occurredAt: { gte: new Date(parsed.occurredAt.getTime() - windowMs), lte: new Date(parsed.occurredAt.getTime() + windowMs) },
+        },
+      });
+      if (payment) {
+        await this.prisma.householdInbox.update({ where: { id: inbox.id }, data: { status: 'IGNORED', transactionId: payment.id } });
+        return this.send(chatId, `Thẻ ${source.name} nhận ${formatMoney(parsed.amount)}đ (${when}) — là lần trả thẻ đã ghi, không ghi thêm.`);
+      }
     }
 
     const result = await this.ledger.create(household.id, {
@@ -89,23 +126,29 @@ export class HouseholdTelegramService {
       externalId: parsed.externalId,
       status: 'NEW',
       telegramChatId: chatId,
-      telegramMsgId: BigInt(messageId),
+      telegramMsgId: messageId,
     });
     await this.prisma.householdInbox.update({ where: { id: inbox.id }, data: { status: 'PARSED', transactionId: result.transaction.id } });
-    if (result.duplicate) return this.send(chatId, 'Giao dịch này đã ghi trước đó, bỏ qua.');
+    if (result.duplicate) return;
 
     const purposes = await this.prisma.householdPurpose.findMany({ where: { householdId: household.id, active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
     const tx = result.transaction;
     const purposeName = tx.purposeId ? purposes.find((item) => item.id === tx.purposeId)?.name : '';
+    const refund = tx.kind === 'INCOME' && source.kind === 'CARD';
     const lines = [
-      `${tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${source.name}`,
+      `${refund ? 'Hoàn tiền vào thẻ' : tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${source.name} · ${when}`,
       parsed.description,
     ];
-    if (result.matched) lines.push(`Khớp khoản định kỳ: ${result.matched.recurring.name}${purposeName ? ` → ${purposeName}` : ''}`);
+    if (refund) lines.push('Đã trừ khỏi dư nợ thẻ. Nếu đây là lần trả thẻ thì bấm "Bỏ qua".');
+    else if (result.matched) lines.push(`Khớp khoản định kỳ: ${result.matched.recurring.name}${purposeName ? ` → ${purposeName}` : ''}`);
     else if (result.suggestedPurposeId && purposeName) lines.push(`Đoán mục đích: ${purposeName} (theo lần trước). Bấm nút nếu muốn đổi.`);
     else if (purposeName) lines.push(`Mặc định: ${purposeName}. Bấm nút nếu muốn đổi.`);
     else lines.push('Chọn mục đích:');
-    const keyboard = result.matched ? [] : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source);
+    const keyboard = refund
+      ? [[{ text: 'Giữ (hoàn tiền)', callback_data: `hk:${tx.id}` }, { text: 'Bỏ qua (đã ghi trả thẻ)', callback_data: `hx:${tx.id}` }]]
+      : result.matched
+        ? []
+        : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source);
     await this.send(chatId, lines.join('\n'), keyboard);
   }
 
@@ -117,8 +160,16 @@ export class HouseholdTelegramService {
 
     const purpose = /^hp:(\d+):(\d*)$/.exec(data);
     const transfer = /^ht:(\d+):(\d+)$/.exec(data);
+    const keep = /^hk:(\d+)$/.exec(data);
+    const drop = /^hx:(\d+)$/.exec(data);
     let done = '';
-    if (purpose) {
+    if (keep) {
+      const tx = await this.ledger.setPurpose(household.id, BigInt(keep[1]), null);
+      if (tx) done = `✓ Giữ hoàn tiền ${formatMoney(Number(tx.amount))}đ vào ${tx.source.name}`;
+    } else if (drop) {
+      const removed = await this.ledger.delete(household.id, BigInt(drop[1]));
+      if (removed.count) done = '✓ Đã bỏ, không tính vào sổ';
+    } else if (purpose) {
       const purposeId = purpose[2] ? BigInt(purpose[2]) : null;
       const tx = await this.ledger.setPurpose(household.id, BigInt(purpose[1]), purposeId);
       if (tx) done = `✓ ${tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${tx.source.name} → ${tx.purpose?.name || 'Không mục đích'}`;
@@ -206,3 +257,13 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 export type { Household };
+
+/** Hash 52-bit ổn định của nội dung tin (FNV-1a) — khoá chống trùng khi không có message_id. */
+export function textHash(text: string): bigint {
+  let hash = 0xcbf29ce484222325n;
+  for (const char of String(text || '')) {
+    hash ^= BigInt(char.codePointAt(0) || 0);
+    hash = (hash * 0x100000001b3n) & 0xfffffffffffffn;
+  }
+  return hash;
+}

@@ -133,29 +133,36 @@ và **MSB thẻ tín dụng** (mail biến động số dư); ngân hàng khác 
 
 3. Tạo một nhóm Telegram riêng, thêm bot vào. Trên web: Chi tiêu → hộ → Cài đặt → lấy mã, rồi gõ trong nhóm
    `/link <mã>`.
-4. Đẩy mail vào nhóm bằng Google Apps Script (script.google.com, chạy trên chính Gmail nhận mail ngân hàng),
-   đặt trigger "time-driven, mỗi 5 phút":
+4. Gửi mail vào APP bằng Google Apps Script (script.google.com, chạy trên chính Gmail nhận mail ngân hàng),
+   đặt trigger "time-driven, mỗi 5 phút". Script gửi thẳng vào `/telegram/ingest/<SECRET>`, KHÔNG gửi vào
+   nhóm bằng token bot — Telegram không đưa tin do chính bot gửi về webhook nên bot sẽ im lặng; app tự đăng
+   bản tóm tắt gọn kèm nút lên nhóm:
 
    ```javascript
    // Đẩy mail VPBank / MSB chưa đọc vào nhóm Telegram. Đổi TOKEN và CHAT_ID (id nhóm, số âm).
    const TOKEN = '123456:ABC...';
    const CHAT_ID = '-1001234567890';
-   // Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật (9/2026), kẻo mail OTP/quảng cáo/tiền vào cùng địa chỉ cũng bị đẩy:
+   // Gửi mail VPBank / MSB chưa đọc vào app. Đổi APP_URL (tên miền app), SECRET (TELEGRAM_WEBHOOK_SECRET)
+   // và CHAT_ID (id nhóm bot trả khi gõ /start hoặc /link, số âm).
+   const APP_URL = 'https://<tên miền app>';
+   const SECRET = '<TELEGRAM_WEBHOOK_SECRET>';
+   const CHAT_ID = '-1001234567890';
+   // Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật (9/2026), kẻo mail OTP/quảng cáo cùng địa chỉ cũng bị gửi:
    //   VPBank NEO: vpbankonline@vpb.com.vn, tiêu đề "VPBank thong bao giao dich VPBank NEO thanh cong – Payment successful"
    //   Thẻ MSB:    banking_notify@msb.com.vn, tiêu đề "Biến động thanh toán thẻ tín dụng"
-   // Chỉ lấy một cụm chữ chắc chắn trong tiêu đề (Gmail tìm không phân biệt dấu, bỏ được dấu gạch dài).
-   const QUERY = 'is:unread newer_than:2d ((from:vpbankonline@vpb.com.vn subject:"VPBank NEO thanh cong") OR (from:banking_notify@msb.com.vn subject:"thanh toan the tin dung"))';
+   const QUERY = 'is:unread newer_than:2d ((from:vpbankonline@vpb.com.vn subject:"VPBank NEO thanh cong") OR (from:banking_notify@msb.com.vn subject:"Biến động thanh toán thẻ tín dụng"))';
    function pushBankMails() {
      for (const thread of GmailApp.search(QUERY, 0, 20)) {
        for (const mail of thread.getMessages()) {
          if (!mail.isUnread()) continue;
          const text = mail.getPlainBody().replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').slice(0, 3500);
-         UrlFetchApp.fetch('https://api.telegram.org/bot' + TOKEN + '/sendMessage', {
+         const res = UrlFetchApp.fetch(APP_URL + '/telegram/ingest/' + SECRET, {
            method: 'post',
            contentType: 'application/json',
            payload: JSON.stringify({ chat_id: CHAT_ID, text: text }),
            muteHttpExceptions: true,
          });
+         Logger.log(res.getContentText());
          mail.markRead();
        }
      }
@@ -167,9 +174,11 @@ và **MSB thẻ tín dụng** (mail biến động số dư); ngân hàng khác 
    cùng `TOKEN` và `CHAT_ID`; mỗi script chỉ đọc hộp thư của tài khoản đang chạy nó.
 
 Trong app: nguồn tiền khai **số tài khoản** (VPBank) hoặc **4 số cuối thẻ** (MSB) để tin khớp đúng nguồn. Tin
-không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được". Tiền VÀO thẻ tín dụng bị bỏ qua có chủ ý
+không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được". Tiền VÀO thẻ tín dụng trước đây bị bỏ qua
 (trả thẻ đã ghi ở tài khoản trả; hoàn tiền thì sửa tay). Khoản chi không bấm nút mục đích nào thì mặc định vào
-mục chi tiêu "Khác" và nằm ở danh sách "Cần xem lại" cho tới khi bấm ✓ hoặc đổi mục đích.
+mục chi tiêu "Khác" và nằm ở danh sách "Cần xem lại" cho tới khi bấm ✓ hoặc đổi mục đích. Tiền VÀO thẻ: trùng
+với một lần trả thẻ đã ghi (cùng số, ±3 ngày) thì bỏ qua, còn lại ghi là hoàn tiền (giảm dư nợ) kèm nút
+"Giữ" / "Bỏ qua".
 
 ## Backup / khôi phục dữ liệu
 

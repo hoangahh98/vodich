@@ -3,6 +3,10 @@ import { Public } from '../common/feature.decorator';
 import { HouseholdTelegramService, TelegramUpdate } from './household-telegram.service';
 
 /**
+ * Hai cửa công khai của bot, cùng một bí mật:
+ *  - POST /telegram/webhook/<secret>: Telegram gọi khi có tin nhắn của NGƯỜI hoặc bấm nút.
+ *  - POST /telegram/ingest/<secret>: Apps Script gửi nội dung mail ngân hàng {chat_id, text}.
+ *
  * Webhook Telegram gọi vào — bắt buộc @Public vì Telegram không có phiên đăng nhập. Bảo vệ bằng
  * HAI lớp: bí mật nằm trong đường dẫn (`TELEGRAM_WEBHOOK_SECRET`, chỉ ai đặt webhook mới biết) và
  * header `X-Telegram-Bot-Api-Secret-Token` mà Telegram gửi kèm khi đặt webhook với `secret_token`.
@@ -23,5 +27,21 @@ export class TelegramController {
     if (!expected || secret !== expected || (header && header !== expected)) return { ok: true };
     await this.telegram.handleUpdate(body || {});
     return { ok: true };
+  }
+
+  /**
+   * Apps Script gửi mail vào đây (không gửi vào nhóm bằng token bot — Telegram không đưa tin của
+   * chính bot về webhook). Trả lý do khi sai bí mật/thiếu dữ liệu để người cài script còn biết.
+   */
+  @Post('/telegram/ingest/:secret')
+  @Public()
+  @HttpCode(200)
+  async ingest(@Param('secret') secret: string, @Body() body: { chat_id?: string | number; text?: string }) {
+    const expected = process.env.TELEGRAM_WEBHOOK_SECRET || '';
+    if (!expected || secret !== expected) return { ok: false, reason: 'Sai bí mật' };
+    const chatId = String(body?.chat_id || '').trim();
+    const text = String(body?.text || '').trim();
+    if (!chatId || !text) return { ok: false, reason: 'Thiếu chat_id hoặc text' };
+    return this.telegram.ingestFromScript(chatId, text);
   }
 }

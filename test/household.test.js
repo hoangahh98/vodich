@@ -248,3 +248,27 @@ test('tháng: chuẩn hoá, tháng theo giờ VN, tháng trước / sau', () => 
   assert.equal(previousMonth('2026-01'), '2025-12');
   assert.equal(nextMonth('2026-12'), '2027-01');
 });
+
+// ─────────────────────────── Khoá chống trùng cho tin gửi từ Apps Script ───────────────────────────
+
+const { textHash } = require('../dist/household/household-telegram.service');
+
+test('hash nội dung tin: ổn định, khác nội dung khác hash, vừa BigInt 52-bit', () => {
+  const a = textHash(MSB_MAIL);
+  assert.equal(a, textHash(MSB_MAIL));
+  assert.notEqual(a, textHash(MSB_MAIL.replace('-86,093', '-86,094')));
+  assert.equal(typeof a, 'bigint');
+  assert.ok(a >= 0n && a < 2n ** 52n);
+});
+
+test('mail MSB thật từ Apps Script (dòng trống kép, dấu * markdown): hoàn tiền +172,691 đọc là tiền VÀO thẻ 3065', () => {
+  const real = `Khóa thẻ tạm thời \n\n\n\nKính chào quý khách,\n\n\n\nDear Customer,\n\n\n\nNgân hàng Hàng hải Việt Nam - MSB xin trân trọng *thông báo thông tin biến \nđộng số dư* trên *Thẻ tín dụng MSB* của Quý khách như sau:\n\n\n\nSố Hợp đồng\n\n\n\nContract Number\n\n\n\n011-M-000238374\n\n\n\nSố thẻ tín dụng\n\n\n\nMain Card Number\n\n\n\nxxxx-xxxx-xxxx-3065\n\n\n\nSố tiền thay đổi\n\n\n\nChanged Amount\n\n\n\n+172,691 VND\n\n\n\nNội dung giao dịch\n\n\n\nContent\n\n\n\nShopee\n\n\n\nThời gian giao dịch\n\n\n\nTransaction time \n\n\n\n08/09/2026 09:08\n\n\n\nHạn mức khả dụng\n\n\n\nAvailable Limit\n\n\n\n16,927,825 VND\n\n<https://www.msb.com.vn/joy/home> \n`;
+  const parsed = parseBankMessage(real);
+  assert.ok(parsed);
+  assert.equal(parsed.bank, 'MSB');
+  assert.equal(parsed.direction, 'IN');
+  assert.equal(parsed.amount, 172691);
+  assert.equal(parsed.accountKey, '3065');
+  assert.equal(parsed.description, 'Shopee');
+  assert.equal(parsed.occurredAt.toISOString(), '2026-09-08T02:08:00.000Z');
+});
