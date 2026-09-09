@@ -324,3 +324,42 @@ export function nextMonth(month: string): string {
   const date = new Date(Date.UTC(year, monthIndex, 1));
   return date.toISOString().slice(0, 7);
 }
+
+export interface LendingRow {
+  /** Nội dung giao dịch (thường là tên người vay). */
+  name: string;
+  lent: number;
+  repaid: number;
+  outstanding: number;
+}
+
+/**
+ * Sổ cho vay suy từ giao dịch gắn mục đích loại LENDING: chi = cho vay, thu = họ trả. Gom theo nội dung
+ * (bỏ dấu, chữ thường) để "Anh A" và "anh a" là một người. Chủ app không muốn phải khai thêm nguồn cho
+ * từng người (10/9/2026) — nguồn loại LENT chỉ là cách tuỳ chọn khi muốn theo dõi kỹ một người.
+ */
+export function lendingLedger(purposes: PurposeRow[], transactions: TransactionRow[]): { rows: LendingRow[]; outstanding: number } {
+  const lendingPurposes = new Set(purposes.filter((purpose) => purpose.kind === 'LENDING').map((purpose) => purpose.id));
+  const byKey = new Map<string, LendingRow>();
+  const keyOf = (text: string) =>
+    String(text || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd')
+      .replace(/Đ/g, 'D')
+      .toLowerCase()
+      .replace(/\s+/g, ' ')
+      .trim() || '(khong ghi noi dung)';
+  for (const tx of transactions) {
+    if (!tx.purposeId || !lendingPurposes.has(tx.purposeId)) continue;
+    if (tx.kind !== 'EXPENSE' && tx.kind !== 'INCOME') continue;
+    const key = keyOf(tx.description);
+    const row = byKey.get(key) || { name: tx.description.trim() || '(không ghi nội dung)', lent: 0, repaid: 0, outstanding: 0 };
+    if (tx.kind === 'EXPENSE') row.lent += tx.amount;
+    else row.repaid += tx.amount;
+    row.outstanding = row.lent - row.repaid;
+    byKey.set(key, row);
+  }
+  const rows = [...byKey.values()].sort((a, b) => b.outstanding - a.outstanding || b.lent - a.lent);
+  return { rows, outstanding: rows.reduce((sum, row) => sum + Math.max(0, row.outstanding), 0) };
+}

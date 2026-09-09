@@ -6,7 +6,7 @@ import { clientHouseholdWhere } from '../common/player-scope';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
 import { DEFAULT_PURPOSES, normalizeMonth } from './household-enums';
-import { monthReport, recurringExpectations, sourceBalances } from './household-month';
+import { lendingLedger, monthReport, recurringExpectations, sourceBalances } from './household-month';
 import { toPurposeRow, toRecurringRow, toSourceRow, toTransactionRow } from './household-rows';
 
 /**
@@ -191,6 +191,9 @@ export class HouseholdService {
       debt: balanceList.filter((item) => ['CARD', 'LOAN'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
       lent: balanceList.filter((item) => item.source.kind === 'LENT').reduce((sum, item) => sum + item.balance, 0),
     };
+    // Cho vay ghi bằng mục đích (không cần nguồn riêng) — gom theo nội dung, cộng vào tổng cho vay.
+    const lending = lendingLedger(purposeRows, txRows);
+    totals.lent += lending.outstanding;
     // Tháng có dữ liệu để chọn nhanh (thêm tháng đang xem và tháng hiện tại).
     const months = [...new Set([...txRows.map((tx) => tx.month), month, normalizeMonth(null)])].sort().reverse();
 
@@ -207,6 +210,7 @@ export class HouseholdService {
       balances: balanceList,
       balanceById: Object.fromEntries(balanceList.map((item) => [item.source.id, item])),
       totals,
+      lending,
       report,
       expectations,
       transactions: rows,

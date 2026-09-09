@@ -309,3 +309,21 @@ test('cho vay: chuyển sang khoản LENT là cho vay (họ nợ tăng), họ tr
   assert.equal(report.lending, 3_000_000, 'cho vay tháng này = 5tr − 2tr trả lại');
   assert.equal(report.income, 0, 'tiền họ trả không phải lương');
 });
+
+const { lendingLedger } = require('../dist/household/household-month');
+
+test('sổ cho vay theo mục đích: gom theo nội dung (bỏ dấu, chữ thường), chi = cho vay, thu = trả', () => {
+  const lending = { id: 'p-cv', name: 'Cho vay', kind: 'LENDING', monthlyPlan: 0, active: true };
+  const rows = [
+    tx({ id: '1', purposeId: 'p-cv', amount: 5_000_000, description: 'Anh A' }),
+    tx({ id: '2', purposeId: 'p-cv', amount: 1_000_000, description: 'anh a' }),
+    tx({ id: '3', kind: 'INCOME', purposeId: 'p-cv', amount: 2_000_000, description: 'ANH A' }),
+    tx({ id: '4', purposeId: 'p-cv', amount: 500_000, description: 'Chị B' }),
+    tx({ id: '5', purposeId: 'p-an', amount: 99, description: 'Anh A' }), // không phải cho vay
+  ];
+  const ledger = lendingLedger([...purposes, lending], rows);
+  assert.equal(ledger.rows.length, 2);
+  assert.deepEqual(ledger.rows[0], { name: 'Anh A', lent: 6_000_000, repaid: 2_000_000, outstanding: 4_000_000 });
+  assert.deepEqual(ledger.rows[1], { name: 'Chị B', lent: 500_000, repaid: 0, outstanding: 500_000 });
+  assert.equal(ledger.outstanding, 4_500_000);
+});

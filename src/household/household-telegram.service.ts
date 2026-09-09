@@ -255,6 +255,9 @@ export class HouseholdTelegramService {
     if (kind === 'INCOME' && ['BANK', 'CASH'].includes(source.kind)) {
       const lent = sources.filter((item) => item.kind === 'LENT' && owed(item) > 0);
       rows.push(...chunk(lent.map((item) => ({ text: `${item.name} trả nợ`, callback_data: `hr:${transactionId}:${item.id}` })), 2));
+      // Cho vay ghi bằng mục đích: gán mục đích Cho vay cho khoản thu = họ trả, trừ khỏi sổ cho vay.
+      const lendingPurpose = purposes.find((purpose) => purpose.kind === 'LENDING');
+      if (lendingPurpose) rows.push([{ text: 'Người vay trả nợ', callback_data: `hp:${transactionId}:${lendingPurpose.id}` }]);
     }
     return rows;
   }
