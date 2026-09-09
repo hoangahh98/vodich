@@ -126,7 +126,9 @@ test('chọn nguồn: khớp đuôi số tài khoản / 4 số cuối; một ngu
   assert.equal(pickSource(SOURCES, 'MSB', '3065').id, 3n);
   assert.equal(pickSource(SOURCES, 'MSB', '').id, 3n, 'MSB chỉ có một thẻ');
   assert.equal(pickSource(SOURCES, 'OTHER', '0999').id, 2n, 'ngân hàng khác khớp theo đuôi số tài khoản');
-  assert.equal(pickSource(SOURCES, 'OTHER', '7777'), null, 'hai nguồn "Khác" mà không khớp số nào thì không đoán bừa');
+  assert.equal(pickSource(SOURCES, 'OTHER', '').id, 2n, 'tiền mặt không nhận tin ngân hàng, nguồn "Khác" duy nhất là ngân hàng B');
+  const twoOthers = [...SOURCES, { id: 8n, name: 'Ngân hàng C', kind: 'BANK', bank: 'OTHER', matchKey: '1111' }];
+  assert.equal(pickSource(twoOthers, 'OTHER', '7777'), null, 'hai nguồn "Khác" mà không khớp số nào thì không đoán bừa');
   assert.equal(pickSource([...SOURCES, { id: 5n, name: 'Timo 2', kind: 'BANK', bank: 'TIMO', matchKey: '' }], 'TIMO', ''), null, 'hai Timo không khoá thì mù');
   // Nguồn cho vay / tiền mặt / khoản vay lỡ mang bank = TIMO (ô ẩn vẫn gửi) không được làm bot mù.
   assert.equal(pickSource([...SOURCES, { id: 6n, name: 'Anh A', kind: 'LENT', bank: 'TIMO', matchKey: '' }, { id: 7n, name: 'Vay nhà', kind: 'LOAN', bank: 'TIMO', matchKey: '' }], 'TIMO', '').id, 1n);
