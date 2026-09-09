@@ -272,7 +272,8 @@ export class HouseholdTelegramService {
   ): InlineButton[][] {
     const owed = (item: HouseholdSource) => balances.get(String(item.id))?.balance ?? 0;
     const personCode = (row: LendingRow) => textHash(lendingKey(row.name)).toString(16);
-    const fitting = purposes.filter((purpose) => (kind === 'INCOME' ? purpose.kind === 'INCOME' : purpose.kind !== 'INCOME'));
+    // Mục đích loại Cho vay không thành nút riêng: đã có menu "Cho vay…" chọn đúng người (trùng chữ gây rối).
+    const fitting = purposes.filter((purpose) => (kind === 'INCOME' ? purpose.kind === 'INCOME' : purpose.kind !== 'INCOME' && purpose.kind !== 'LENDING'));
     const rows = chunk(
       fitting.map((purpose) => ({ text: purpose.name, callback_data: `hp:${transactionId}:${purpose.id}` })),
       2,
