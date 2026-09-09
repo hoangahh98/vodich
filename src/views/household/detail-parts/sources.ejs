@@ -14,7 +14,7 @@
       <div data-for="BANK CARD CASH LOAN"><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}" placeholder="Chồng / Vợ"></div>
       <div data-for="BANK CASH"><label>Số dư</label><input class="money-input" name="currentBalance" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="CARD LOAN"><label>Nợ hiện tại</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
-      <div data-for="LENT"><label>Họ đang nợ mình</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
+      <div data-for="LENT"><label>Đã cho vay</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="CARD"><label>Hạn mức thẻ</label><input class="money-input" name="creditLimit" value="${source ? formatMoney(source.creditLimit) : ''}" inputmode="numeric"></div>
       <div data-for="LOAN"><label>Lãi suất %/năm</label><input name="interestRate" value="${source ? Number(source.interestRate) : ''}" placeholder="Ví dụ: 10.5" inputmode="decimal"></div>`;
   %>
@@ -44,7 +44,7 @@
         </div>
         <%# Mọi con số nằm trong ô (chủ app: "mấy cái đang không trong ô thì cho vào ô"). %>
         <div class="grid kv-grid mt">
-          <div class="kv"><span><%= debt ? 'Nợ hiện tại' : lent ? 'Họ đang nợ mình' : 'Số dư' %></span><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong></div>
+          <div class="kv"><span><%= debt ? 'Nợ hiện tại' : lent ? 'Đã cho vay' : 'Số dư' %></span><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong></div>
           <% if (item.source.kind === 'CARD' && item.source.creditLimit) { %><div class="kv"><span>Còn hạn mức</span><strong><%= formatMoney(item.available) %>đ</strong></div><% } %>
           <% if (source.ownerName) { %><div class="kv"><span>Chủ nguồn</span><strong><%= source.ownerName %></strong></div><% } %>
           <% if (Number(source.interestRate)) { %><div class="kv"><span>Lãi suất</span><strong><%= Number(source.interestRate) %>%/năm</strong></div><% } %>
@@ -69,8 +69,7 @@
           <div><h3 class="mb-0"><%= row.name %></h3><span class="badge"><%= labels.source.LENT %></span> <span class="badge">từ giao dịch</span><% if (row.outstanding <= 0) { %><span class="badge">đã trả hết</span><% } %></div>
         </div>
         <div class="grid kv-grid mt">
-          <div class="kv"><span>Họ đang nợ mình</span><strong class="<%= row.outstanding > 0 ? 'text-danger' : '' %>"><%= formatMoney(row.outstanding) %>đ</strong></div>
-          <div class="kv"><span>Đã cho vay</span><strong><%= formatMoney(row.lent) %>đ</strong></div>
+          <div class="kv"><span>Đã cho vay</span><strong class="<%= row.outstanding > 0 ? 'text-danger' : '' %>"><%= formatMoney(row.outstanding) %>đ</strong></div>
           <div class="kv"><span>Đã trả</span><strong><%= formatMoney(row.repaid) %>đ</strong></div>
         </div>
         <% if (isAdmin) { %><p class="muted mt mb-0">Ghi từ giao dịch có mục đích Cho vay, gom theo ô Nội dung. Họ trả: khoản Thu vào tài khoản với mục đích Cho vay, hoặc bấm "Người vay trả nợ" trên Telegram.</p><% } %>
