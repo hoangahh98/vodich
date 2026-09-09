@@ -76,24 +76,33 @@ export class HouseholdTelegramService {
   async ingestFromScript(chatId: string, text: string): Promise<{ ok: boolean; reason?: string }> {
     const household = await this.prisma.household.findFirst({ where: { telegramChatId: chatId } });
     if (!household) return { ok: false, reason: 'Nhóm này chưa liên kết hộ nào (gõ /link <mã> trong nhóm trước).' };
-    await this.ingestBankText(household, chatId, textHash(text), text);
-    return { ok: true };
+    const outcome = await this.ingestBankText(household, chatId, textHash(text), text);
+    return outcome === 'duplicate' ? { ok: true, reason: 'Tin này đã xử lý trước đó, bỏ qua.' } : { ok: true };
   }
 
-  /** Đọc một tin ngân hàng, ghi sổ, đăng tóm tắt + nút lên nhóm. Dùng chung cho Apps Script và tin dán tay. */
-  private async ingestBankText(household: Household, chatId: string, messageId: bigint, text: string) {
-    // Chống xử lý hai lần (Telegram gửi lại update, Apps Script chạy lại trên cùng mail).
+  /**
+   * Đọc một tin ngân hàng, ghi sổ, đăng tóm tắt + nút lên nhóm. Dùng chung cho Apps Script và tin dán tay.
+   * Trả 'duplicate' khi tin đã xử lý và giao dịch của nó vẫn còn; giao dịch đã bị xoá tay thì cho ghi lại
+   * (chủ app xoá nhầm rồi đánh dấu mail chưa đọc để gửi lại — phải ra được giao dịch mới).
+   */
+  private async ingestBankText(household: Household, chatId: string, messageId: bigint, text: string): Promise<'done' | 'duplicate'> {
     const seen = await this.prisma.householdInbox.findUnique({ where: { chatId_messageId: { chatId, messageId } } });
-    if (seen) return;
+    if (seen) {
+      const stillThere = seen.transactionId ? await this.prisma.householdTransaction.count({ where: { id: seen.transactionId, householdId: household.id } }) : 0;
+      if (stillThere || seen.status === 'UNPARSED') return 'duplicate';
+      await this.prisma.householdInbox.delete({ where: { id: seen.id } });
+    }
     const inbox = await this.prisma.householdInbox.create({ data: { householdId: household.id, chatId, messageId, text } });
 
     const parsed = parseBankMessage(text);
-    if (!parsed) return this.send(chatId, `Không đọc được tin ngân hàng này, đã cất vào "Tin Telegram chưa đọc được" trên web.\n${text.trim().slice(0, 200)}`);
+    if (!parsed) {
+      await this.send(chatId, `Không đọc được tin ngân hàng này, đã cất vào "Tin Telegram chưa đọc được" trên web.\n${text.trim().slice(0, 200)}`);
 
     const sources = await this.prisma.householdSource.findMany({ where: { householdId: household.id, active: true } });
     const source = pickSource(sources, parsed.bank, parsed.accountKey);
     if (!source) {
       return this.send(chatId, `Chưa có nguồn tiền nào khớp ${parsed.bank}${parsed.accountKey ? ` (${parsed.accountKey})` : ''}. Vào Nguồn tiền trên web khai số tài khoản / 4 số cuối thẻ rồi gửi lại.`);
+      return 'done';
     }
     const when = parsed.occurredAt.toLocaleString('vi-VN', { timeZone: 'Asia/Ho_Chi_Minh', hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
 
@@ -112,7 +121,8 @@ export class HouseholdTelegramService {
       });
       if (payment) {
         await this.prisma.householdInbox.update({ where: { id: inbox.id }, data: { status: 'IGNORED', transactionId: payment.id } });
-        return this.send(chatId, `Thẻ ${source.name} nhận ${formatMoney(parsed.amount)}đ (${when}) — là lần trả thẻ đã ghi, không ghi thêm.`);
+        await this.send(chatId, `Thẻ ${source.name} nhận ${formatMoney(parsed.amount)}đ (${when}) — là lần trả thẻ đã ghi, không ghi thêm.`);
+        return 'done';
       }
     }
 
@@ -129,7 +139,7 @@ export class HouseholdTelegramService {
       telegramMsgId: messageId,
     });
     await this.prisma.householdInbox.update({ where: { id: inbox.id }, data: { status: 'PARSED', transactionId: result.transaction.id } });
-    if (result.duplicate) return;
+    if (result.duplicate) return 'duplicate';
 
     const purposes = await this.prisma.householdPurpose.findMany({ where: { householdId: household.id, active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
     const tx = result.transaction;
