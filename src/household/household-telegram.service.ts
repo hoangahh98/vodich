@@ -151,6 +151,8 @@ export class HouseholdTelegramService {
     if (result.duplicate) return 'duplicate';
 
     const purposes = await this.prisma.householdPurpose.findMany({ where: { householdId: household.id, active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
+    const allTransactions = await this.prisma.householdTransaction.findMany({ where: { householdId: household.id } });
+    const balances = sourceBalances(sources.map(toSourceRow), allTransactions.map(toTransactionRow));
     const tx = result.transaction;
     const purposeName = tx.purposeId ? purposes.find((item) => item.id === tx.purposeId)?.name : '';
     const refund = tx.kind === 'INCOME' && source.kind === 'CARD';
@@ -165,10 +167,10 @@ export class HouseholdTelegramService {
     else if (purposeName) lines.push(`Mặc định: ${purposeName}. Bấm nút nếu muốn đổi.`);
     else lines.push('Chọn mục đích:');
     const keyboard = refund
-      ? [...this.purposeKeyboard(tx.id, 'EXPENSE', purposes, sources, source), [{ text: 'Bỏ qua (đã ghi trả thẻ)', callback_data: `hx:${tx.id}` }]]
+      ? [...this.purposeKeyboard(tx.id, 'EXPENSE', purposes, sources, source, balances), [{ text: 'Bỏ qua (đã ghi trả thẻ)', callback_data: `hx:${tx.id}` }]]
       : result.matched
         ? []
-        : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source);
+        : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source, balances);
     await this.send(chatId, lines.join('\n'), keyboard);
     return 'done';
   }
@@ -223,7 +225,15 @@ export class HouseholdTelegramService {
   }
 
   /** Hàng nút: mục đích hợp với chiều tiền, cộng thêm "Trả thẻ X / Trả nợ Y" khi chi từ tài khoản. */
-  private purposeKeyboard(transactionId: bigint, kind: string, purposes: HouseholdPurpose[], sources: HouseholdSource[], source: HouseholdSource): InlineButton[][] {
+  private purposeKeyboard(
+    transactionId: bigint,
+    kind: string,
+    purposes: HouseholdPurpose[],
+    sources: HouseholdSource[],
+    source: HouseholdSource,
+    balances: Map<string, { balance: number }>,
+  ): InlineButton[][] {
+    const owed = (item: HouseholdSource) => balances.get(String(item.id))?.balance ?? 0;
     const fitting = purposes.filter((purpose) => (kind === 'INCOME' ? purpose.kind === 'INCOME' : purpose.kind !== 'INCOME'));
     const rows = chunk(
       fitting.map((purpose) => ({ text: purpose.name, callback_data: `hp:${transactionId}:${purpose.id}` })),
@@ -232,8 +242,8 @@ export class HouseholdTelegramService {
     if (kind === 'EXPENSE' && ['BANK', 'CASH'].includes(source.kind)) {
       const buttons: InlineButton[] = [];
       for (const item of sources.filter((other) => other.id !== source.id)) {
-        if (item.kind === 'CARD') buttons.push({ text: `Trả thẻ ${item.name}`, callback_data: `ht:${transactionId}:${item.id}` });
-        else if (item.kind === 'LOAN') {
+        if (item.kind === 'CARD' && owed(item) > 0) buttons.push({ text: `Trả thẻ ${item.name}`, callback_data: `ht:${transactionId}:${item.id}` });
+        else if (item.kind === 'LOAN' && owed(item) > 0) {
           // Khoản vay: gốc hay lãi là hai chuyện khác nhau — lãi chỉ mất tiền, gốc mới trừ dư nợ.
           buttons.push({ text: `Trả gốc ${item.name}`, callback_data: `ht:${transactionId}:${item.id}:P` });
           buttons.push({ text: `Trả lãi ${item.name}`, callback_data: `ht:${transactionId}:${item.id}:I` });
@@ -241,9 +251,9 @@ export class HouseholdTelegramService {
       }
       rows.push(...chunk(buttons, 2));
     }
-    // Tiền vào tài khoản có thể là người ta trả nợ chứ không phải lương.
+    // Tiền vào tài khoản có thể là người ta trả nợ chứ không phải lương — chỉ hiện người CÒN nợ.
     if (kind === 'INCOME' && ['BANK', 'CASH'].includes(source.kind)) {
-      const lent = sources.filter((item) => item.kind === 'LENT');
+      const lent = sources.filter((item) => item.kind === 'LENT' && owed(item) > 0);
       rows.push(...chunk(lent.map((item) => ({ text: `${item.name} trả nợ`, callback_data: `hr:${transactionId}:${item.id}` })), 2));
     }
     return rows;
