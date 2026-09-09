@@ -50,9 +50,12 @@ export class HouseholdTelegramService {
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
     try {
-      if (update.callback_query) return await this.handleCallback(update.callback_query);
+      if (update.callback_query) {
+        await this.handleCallback(update.callback_query);
+        return;
+      }
       const message = update.message || update.channel_post;
-      if (message?.text) return await this.handleMessage(String(message.chat.id), message.message_id, message.text, update.message?.reply_to_message?.text);
+      if (message?.text) await this.handleMessage(String(message.chat.id), message.message_id, message.text, update.message?.reply_to_message?.text);
     } catch (error) {
       // Webhook phải trả 200 kể cả khi lỗi, không thì Telegram gửi lại mãi cùng một tin.
       this.logger.error(`Telegram update lỗi: ${(error as Error).message}`);
@@ -66,8 +69,17 @@ export class HouseholdTelegramService {
     if (asked && trimmed && !trimmed.startsWith('/')) {
       const household = await this.prisma.household.findFirst({ where: { telegramChatId: chatId } });
       if (!household) return;
-      const tx = await this.ledger.setLendingPerson(household.id, BigInt(asked[1]), trimmed.slice(0, 60));
-      return this.send(chatId, tx ? `✓ Cho vay ${trimmed.slice(0, 60)} ${formatMoney(Number(tx.amount))}đ. Lần sau tên này có nút sẵn.` : 'Không tìm thấy khoản chi đó nữa.');
+      const name = trimmed.slice(0, 60);
+      const tx = await this.ledger.setLendingPerson(household.id, BigInt(asked[1]), name);
+      if (!tx) return this.send(chatId, 'Không tìm thấy khoản chi đó nữa.');
+      const done = `${tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${tx.source.name}\n✓ Cho vay ${name}. Lần sau tên này có nút sẵn.`;
+      // Sửa tin tóm tắt cũ (bỏ hàng nút) nếu còn nhớ id; không thì gửi tin mới. Id thật của Telegram nhỏ,
+      // còn hash chống trùng (tin cũ) là số rất lớn — không sửa nhầm.
+      if (tx.telegramMsgId && tx.telegramMsgId < 2_000_000_000n) {
+        const edited = await this.api('editMessageText', { chat_id: chatId, message_id: Number(tx.telegramMsgId), text: done });
+        if (edited) return;
+      }
+      return this.send(chatId, done);
     }
     const link = /^\/link(?:@\w+)?\s+([A-Za-z0-9]{4,})/.exec(trimmed);
     if (link) return this.linkChat(chatId, link[1].toUpperCase());
@@ -181,7 +193,9 @@ export class HouseholdTelegramService {
       : result.matched
         ? []
         : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source, balances, borrowers);
-    await this.send(chatId, lines.join('\n'), keyboard);
+    // Nhớ message_id tin tóm tắt vào giao dịch để về sau còn sửa / bỏ nút (hash chống trùng đã có household_inbox lo).
+    const sent = await this.send(chatId, lines.join('\n'), keyboard);
+    if (sent?.message_id) await this.prisma.householdTransaction.updateMany({ where: { id: tx.id }, data: { telegramMsgId: BigInt(String(sent.message_id)) } });
     return 'done';
   }
 
@@ -365,11 +379,11 @@ export class HouseholdTelegramService {
   }
 
   /** Gọi Bot API bằng fetch có sẵn của Node 20. Không có token = chế độ "chỉ ghi sổ", không trả lời. */
-  private async api(method: string, payload: Record<string, unknown>): Promise<void> {
+  private async api(method: string, payload: Record<string, unknown>): Promise<Record<string, unknown> | null> {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
       this.logger.warn(`Thiếu TELEGRAM_BOT_TOKEN, bỏ qua ${method}`);
-      return;
+      return null;
     }
     try {
       const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
@@ -377,9 +391,15 @@ export class HouseholdTelegramService {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      if (!response.ok) this.logger.warn(`Telegram ${method} trả ${response.status}: ${(await response.text()).slice(0, 200)}`);
+      if (!response.ok) {
+        this.logger.warn(`Telegram ${method} trả ${response.status}: ${(await response.text()).slice(0, 200)}`);
+        return null;
+      }
+      const body = (await response.json()) as { result?: Record<string, unknown> };
+      return body.result || null;
     } catch (error) {
       this.logger.warn(`Telegram ${method} lỗi mạng: ${(error as Error).message}`);
+      return null;
     }
   }
 }

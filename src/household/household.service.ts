@@ -174,13 +174,18 @@ export class HouseholdService {
     const unclassifiedAll = txRows.filter(needsReview).length;
     const unclassifiedTotal = unclassified.reduce((sum, tx) => sum + tx.amount, 0);
     // Số dư ngân hàng báo gần nhất (Timo gửi kèm mỗi giao dịch) để so với số app tính.
+    // Số dư ngân hàng báo thuộc về phía TÀI KHOẢN/THẺ của giao dịch: khoản thu đã đổi thành "Vy trả nợ" (chuyển
+    // từ khoản cho vay về Timo) thì nguồn là Vy, nhưng số dư trong mail vẫn là của Timo (nguồn đích).
     const reportedRows = await this.prisma.householdTransaction.findMany({
       where: { householdId, reportedBalance: { not: null } },
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-      distinct: ['sourceId'],
-      select: { sourceId: true, reportedBalance: true, occurredAt: true },
+      select: { sourceId: true, targetSourceId: true, reportedBalance: true, occurredAt: true },
     });
-    const reportedBySource = new Map(reportedRows.map((row) => [String(row.sourceId), { balance: Number(row.reportedBalance), at: row.occurredAt }]));
+    const reportedBySource = new Map<string, { balance: number; at: Date }>();
+    for (const row of reportedRows) {
+      const mailSide = ['BANK', 'CARD'].includes(sourceKindById.get(String(row.sourceId)) || '') ? String(row.sourceId) : row.targetSourceId ? String(row.targetSourceId) : String(row.sourceId);
+      if (!reportedBySource.has(mailSide)) reportedBySource.set(mailSide, { balance: Number(row.reportedBalance), at: row.occurredAt });
+    }
     const balanceList = sourceRows.map((source) => {
       const item = balances.get(source.id)!;
       const reported = reportedBySource.get(source.id) || null;
