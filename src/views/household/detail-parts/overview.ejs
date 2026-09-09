@@ -1,7 +1,7 @@
 <% if (section === 'overview') { %>
   <% const pendingExpectations = expectations.filter((item) => !item.paid); %>
   <% if (unclassified.length && isAdmin) { %>
-    <section class="alert-lite warn mb"><span><strong><%= unclassified.length %></strong> khoản chi tháng này chưa có mục đích (<%= formatMoney(report.unclassified.total) %>đ). Chọn mục đích ngay bên dưới hoặc bấm nút trên Telegram.</span></section>
+    <section class="alert-lite warn mb"><span><strong><%= unclassified.length %></strong> khoản chi tháng này cần xem lại (<%= formatMoney(typeof unclassifiedTotal !== 'undefined' ? unclassifiedTotal : 0) %>đ): máy tự xếp mục đích, bạn xác nhận hoặc đổi ngay bên dưới.</span></section>
   <% } %>
   <section class="grid finance-grid mb">
     <div class="metric-card green"><span>Thu nhập</span><strong><%= formatMoney(report.income) %>đ</strong><small>Lương và các khoản thu tháng <%= selectedMonth %></small></div>
@@ -55,11 +55,11 @@
 
   <% if (unclassified.length) { %>
     <section class="card-lite mb">
-      <div class="card-hdr red"><span><%- include('../../partials/icon', { name: 'alert' }) %> Chưa phân loại</span><span class="badge badge-dark"><%= unclassified.length %> khoản</span></div>
+      <div class="card-hdr red"><span><%- include('../../partials/icon', { name: 'alert' }) %> Cần xem lại</span><span class="badge badge-dark"><%= unclassified.length %> khoản</span></div>
       <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Ngày</th><th>Nội dung</th><th class="text-right">Tiền</th><th>Mục đích</th></tr></thead><tbody>
         <% unclassified.forEach((tx) => { %>
           <tr><td class="nowrap"><%= fmtDate(tx.occurredAt) %></td><td><strong><%= tx.description || '(không có nội dung)' %></strong><br><span class="muted"><%= tx.sourceName %></span></td><td class="text-right paid-cell"><strong><%= formatMoney(tx.amount) %></strong><span class="muted">đ</span></td><td>
-            <% if (isAdmin) { %><form method="post" action="/household/<%= household.id %>/transactions/<%= tx.id %>/purpose"><input type="hidden" name="month" value="<%= selectedMonth %>"><input type="hidden" name="section" value="overview"><select name="purposeId" data-autosubmit><option value="">Chọn mục đích…</option><% activePurposes.filter((purpose) => purpose.kind !== 'INCOME').forEach((purpose) => { %><option value="<%= purpose.id %>"><%= purpose.name %></option><% }) %></select></form><% } else { %><span class="muted">Chưa chọn</span><% } %>
+            <% if (isAdmin) { %><form class="hh-review" method="post" action="/household/<%= household.id %>/transactions/<%= tx.id %>/purpose"><input type="hidden" name="month" value="<%= selectedMonth %>"><input type="hidden" name="section" value="overview"><select name="purposeId" data-autosubmit><option value="">Chọn mục đích…</option><% activePurposes.filter((purpose) => purpose.kind !== 'INCOME' || purpose.id.toString() === tx.purposeId).forEach((purpose) => { %><option value="<%= purpose.id %>" <%= purpose.id.toString() === tx.purposeId ? 'selected' : '' %>><%= purpose.name %></option><% }) %></select><button class="btn btn-sm btn-success" data-loading-text="…" title="Giữ mục đích này">✓</button></form><% } else { %><span class="muted"><%= tx.purposeName || 'Chưa chọn' %></span><% } %>
           </td></tr>
         <% }) %>
       </tbody></table></div>

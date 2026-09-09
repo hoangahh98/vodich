@@ -158,12 +158,14 @@ và **MSB thẻ tín dụng** (mail biến động số dư); ngân hàng khác 
    }
    ```
 
-   Lấy `CHAT_ID`: gửi một tin bất kỳ trong nhóm rồi mở
-   `https://api.telegram.org/bot<TOKEN>/getUpdates` (chỉ xem được khi CHƯA đặt webhook, nên làm bước này trước bước 2).
+   Lấy `CHAT_ID`: sau khi đặt webhook, gõ `/start` (hoặc `/link <mã>`) trong nhóm — bot trả lời kèm id nhóm (số âm).
+   Dùng HAI Gmail (vợ nhận mail VPBank, chồng nhận mail MSB)? Cài cùng đoạn script này trên CẢ HAI tài khoản Google,
+   cùng `TOKEN` và `CHAT_ID`; mỗi script chỉ đọc hộp thư của tài khoản đang chạy nó.
 
 Trong app: nguồn tiền khai **số tài khoản** (VPBank) hoặc **4 số cuối thẻ** (MSB) để tin khớp đúng nguồn. Tin
 không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được". Tiền VÀO thẻ tín dụng bị bỏ qua có chủ ý
-(trả thẻ đã ghi ở tài khoản trả; hoàn tiền thì sửa tay).
+(trả thẻ đã ghi ở tài khoản trả; hoàn tiền thì sửa tay). Khoản chi không bấm nút mục đích nào thì mặc định vào
+mục chi tiêu "Khác" và nằm ở danh sách "Cần xem lại" cho tới khi bấm ✓ hoặc đổi mục đích.
 
 ## Backup / khôi phục dữ liệu
 

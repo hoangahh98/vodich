@@ -30,12 +30,12 @@
     </section>
   <% } %>
 
-  <div class="grid module-grid">
+  <div class="hh-source-list">
     <% balances.forEach((item) => { const source = sources.find((row) => row.id.toString() === item.source.id); const debt = ['CARD', 'LOAN'].includes(item.source.kind); %>
       <section class="card-lite p hh-source <%= item.source.active ? '' : 'is-muted' %>">
-        <div class="flex between center gap">
+        <div class="hh-source-head">
           <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
-          <div class="text-right"><strong class="hh-balance <%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt ? 'nợ ' : '' %><%= formatMoney(item.balance) %>đ</strong><% if (item.source.kind === 'CARD' && item.source.creditLimit) { %><br><span class="muted">còn hạn mức <%= formatMoney(item.available) %>đ</span><% } %></div>
+          <div class="hh-source-amount"><strong class="hh-balance <%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt ? 'nợ ' : '' %><%= formatMoney(item.balance) %>đ</strong><% if (item.source.kind === 'CARD' && item.source.creditLimit) { %><br><span class="muted">còn hạn mức <%= formatMoney(item.available) %>đ</span><% } %></div>
         </div>
         <div class="grid kv-grid mt">
           <% if (source.ownerName) { %><div class="kv"><span>Chủ nguồn</span><strong><%= source.ownerName %></strong></div><% } %>

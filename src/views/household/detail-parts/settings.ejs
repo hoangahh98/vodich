@@ -16,18 +16,21 @@
   <section class="card-lite p mb">
     <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'target' }) %> Mục đích</h2>
     <p class="muted">Tên tuỳ ý, <strong>loại</strong> quyết định cách tính: chi tiêu, tiết kiệm, trả nợ, dự phòng, cho vay, thu nhập. Kế hoạch tháng để so "đã dùng / kế hoạch".</p>
-    <%# Form sửa từng mục đứng ngoài bảng (form trong <tr> là HTML sai); ô nhập trỏ tới bằng thuộc tính form=. %>
-    <% purposes.forEach((purpose) => { %><form method="post" action="/household/<%= household.id %>/purposes/<%= purpose.id %>" id="purpose-<%= purpose.id %>"></form><% }) %>
-    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Tên</th><th>Loại</th><th class="text-right">Kế hoạch / tháng</th><th></th></tr></thead><tbody>
+    <div class="hh-list">
       <% purposes.forEach((purpose) => { %>
-        <tr class="<%= purpose.active ? '' : 'is-muted' %>">
-          <td><input name="name" form="purpose-<%= purpose.id %>" value="<%= purpose.name %>"></td>
-          <td><select name="kind" form="purpose-<%= purpose.id %>"><% ['LIVING','SAVING','DEBT','RESERVE','LENDING','INCOME'].forEach((kind) => { %><option value="<%= kind %>" <%= purpose.kind === kind ? 'selected' : '' %>><%= labels.purpose[kind] %></option><% }) %></select></td>
-          <td class="text-right"><input class="money-input text-right" name="monthlyPlan" form="purpose-<%= purpose.id %>" value="<%= Number(purpose.monthlyPlan) ? formatMoney(purpose.monthlyPlan) : '' %>" inputmode="numeric"><select name="active" form="purpose-<%= purpose.id %>" class="mt"><option value="on" <%= purpose.active ? 'selected' : '' %>>Đang dùng</option><option value="off" <%= purpose.active ? '' : 'selected' %>>Ẩn</option></select></td>
-          <td class="text-right row-action nowrap"><button class="btn btn-sm btn-primary" form="purpose-<%= purpose.id %>" data-loading-text="…">Lưu</button> <form method="post" action="/household/<%= household.id %>/purposes/<%= purpose.id %>/delete" data-confirm="Xoá mục '<%= purpose.name %>'? Đã có giao dịch thì chỉ ẩn." class="inline-form"><button class="btn btn-sm btn-danger btn-icon" aria-label="Xoá" data-loading-text="…"><%- include('../../partials/icon', { name: 'trash' }) %></button></form></td>
-        </tr>
+        <details class="hh-edit hh-row <%= purpose.active ? '' : 'is-muted' %>">
+          <summary><span class="hh-row-main"><strong><%= purpose.name %></strong><span class="badge"><%= labels.purpose[purpose.kind] %></span><% if (!purpose.active) { %><span class="badge">đã ẩn</span><% } %></span><span class="hh-row-side"><%= Number(purpose.monthlyPlan) ? formatMoney(purpose.monthlyPlan) + 'đ / tháng' : 'Chưa đặt kế hoạch' %></span></summary>
+          <form class="hh-form hh-form-inline" method="post" action="/household/<%= household.id %>/purposes/<%= purpose.id %>">
+            <div><label>Tên</label><input name="name" value="<%= purpose.name %>" required></div>
+            <div><label>Loại</label><select name="kind"><% ['LIVING','SAVING','DEBT','RESERVE','LENDING','INCOME'].forEach((kind) => { %><option value="<%= kind %>" <%= purpose.kind === kind ? 'selected' : '' %>><%= labels.purpose[kind] %></option><% }) %></select></div>
+            <div><label>Kế hoạch / tháng</label><input class="money-input" name="monthlyPlan" value="<%= Number(purpose.monthlyPlan) ? formatMoney(purpose.monthlyPlan) : '' %>" inputmode="numeric"></div>
+            <div><label>Trạng thái</label><select name="active"><option value="on" <%= purpose.active ? 'selected' : '' %>>Đang dùng</option><option value="off" <%= purpose.active ? '' : 'selected' %>>Ẩn</option></select></div>
+            <div class="hh-form-action"><button class="btn btn-sm btn-primary" data-loading-text="…">Lưu</button></div>
+          </form>
+          <form method="post" action="/household/<%= household.id %>/purposes/<%= purpose.id %>/delete" data-confirm="Xoá mục '<%= purpose.name %>'? Đã có giao dịch thì chỉ ẩn."><button class="btn btn-sm btn-danger" data-loading-text="…">Xoá / ẩn</button></form>
+        </details>
       <% }) %>
-    </tbody></table></div>
+    </div>
     <form class="hh-form mt" method="post" action="/household/<%= household.id %>/purposes">
       <div><label>Mục mới</label><input name="name" placeholder="Ví dụ: Hiếu hỉ" required></div>
       <div><label>Loại</label><select name="kind"><% ['LIVING','SAVING','DEBT','RESERVE','LENDING','INCOME'].forEach((kind) => { %><option value="<%= kind %>"><%= labels.purpose[kind] %></option><% }) %></select></div>
@@ -61,12 +64,14 @@
       <% if (!members.length) { %><tr><td colspan="3" class="muted text-center">Chưa có thành viên nào được xem.</td></tr><% } %>
     </tbody></table></div>
     <% if (players.length) { %>
-      <form class="mt" method="post" action="/household/<%= household.id %>/members">
+      <form class="mt" method="post" action="/household/<%= household.id %>/members" data-require-checked="playerIds">
         <label>Thêm người được xem</label>
-        <div class="grid module-grid" data-player-picker>
-          <% players.forEach((player) => { %><label class="option-card"><input type="checkbox" name="playerIds" value="<%= player.id %>"> <span><%= player.displayName %> <small class="muted"><%= player.email %></small></span></label><% }) %>
+        <div class="check-filter mb"><%- include('../../partials/icon', { name: 'search' }) %><input type="search" data-check-filter="householdCandidateList" placeholder="Gõ tên hoặc email để tìm…" autocomplete="off" aria-label="Tìm người"><span class="badge" data-check-filter-count><%= players.length %></span></div>
+        <div class="player-check-list mb" id="householdCandidateList" data-player-picker>
+          <% players.forEach((player) => { %><label><input type="checkbox" name="playerIds" value="<%= player.id %>"><span><strong><%= player.displayName %></strong><small><%= player.email %></small></span></label><% }) %>
+          <div class="muted p" data-check-filter-empty hidden>Không có ai khớp.</div>
         </div>
-        <div class="mt"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Cấp quyền xem</button></div>
+        <button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Cấp quyền xem cho người đã chọn</button>
       </form>
     <% } else { %>
       <p class="muted mt">Chưa có ai để thêm — tạo người ở trang <a href="/players">Thành viên</a> trước.</p>

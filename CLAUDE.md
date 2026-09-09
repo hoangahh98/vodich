@@ -199,7 +199,9 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   mục đích tính vào chi tiêu và đếm ở "chưa phân loại".
 - Mọi giao dịch đi qua `HouseholdLedgerService.create()` (form tay, nút Ghi nhận định kỳ, Telegram) để cùng
   một luật khớp định kỳ (cùng nguồn, lệch ≤ 2%) và đoán mục đích theo lần trước cùng nội dung
-  (`normalizeDescription`).
+  (`normalizeDescription`). Tin tự động (status NEW) không đoán được thì mặc định vào mục chi tiêu "Khác"
+  (`defaultLivingPurpose`) — chủ app: không bấm gì thì cứ là chi tiêu. "Cần xem lại" = chưa có mục đích HOẶC
+  còn NEW; bấm ✓ / đổi mục đích là CONFIRMED.
 - Telegram: webhook `POST /telegram/webhook/:secret` (`telegram.controller.ts`, @Public có trong danh sách
   duyệt của `test/security.test.js`), không quét định kỳ. Mẫu đọc tin ở `bank-parsers.ts` (VPBank NEO, MSB thẻ,
   mẫu chung) — thêm ngân hàng thì thêm parser + test với mail thật. Nút inline `hp:<tx>:<purpose>` gán mục

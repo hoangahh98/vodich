@@ -55,7 +55,7 @@ export class HouseholdTelegramService {
     const link = /^\/link(?:@\w+)?\s+([A-Za-z0-9]{4,})/.exec(trimmed);
     if (link) return this.linkChat(chatId, link[1].toUpperCase());
     if (/^\/(start|help)/.test(trimmed)) {
-      return this.send(chatId, 'Bot chi tiêu Vô địch. Vào Cài đặt của hộ trên web lấy mã rồi gõ: /link <mã>. Sau đó mọi tin ngân hàng đẩy vào nhóm này sẽ tự ghi sổ.');
+      return this.send(chatId, `Bot chi tiêu Vô địch. Vào Cài đặt của hộ trên web lấy mã rồi gõ: /link <mã>. Sau đó mọi tin ngân hàng đẩy vào nhóm này sẽ tự ghi sổ.\nId nhóm này (điền vào Apps Script): ${chatId}`);
     }
 
     const household = await this.prisma.household.findFirst({ where: { telegramChatId: chatId } });
@@ -103,6 +103,7 @@ export class HouseholdTelegramService {
     ];
     if (result.matched) lines.push(`Khớp khoản định kỳ: ${result.matched.recurring.name}${purposeName ? ` → ${purposeName}` : ''}`);
     else if (result.suggestedPurposeId && purposeName) lines.push(`Đoán mục đích: ${purposeName} (theo lần trước). Bấm nút nếu muốn đổi.`);
+    else if (purposeName) lines.push(`Mặc định: ${purposeName}. Bấm nút nếu muốn đổi.`);
     else lines.push('Chọn mục đích:');
     const keyboard = result.matched ? [] : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source);
     await this.send(chatId, lines.join('\n'), keyboard);
@@ -137,7 +138,7 @@ export class HouseholdTelegramService {
     if (!household) return this.send(chatId, 'Mã liên kết không đúng hoặc đã dùng. Lấy mã mới ở Cài đặt hộ trên web.');
     await this.prisma.household.updateMany({ where: { telegramChatId: chatId, id: { not: household.id } }, data: { telegramChatId: null } });
     await this.prisma.household.update({ where: { id: household.id }, data: { telegramChatId: chatId, telegramLinkCode: null } });
-    await this.send(chatId, `Đã liên kết nhóm này với hộ "${household.name}". Tin ngân hàng gửi vào đây sẽ tự ghi sổ.`);
+    await this.send(chatId, `Đã liên kết nhóm này với hộ "${household.name}". Tin ngân hàng gửi vào đây sẽ tự ghi sổ.\nId nhóm này (điền vào Apps Script): ${chatId}`);
   }
 
   /** Hàng nút: mục đích hợp với chiều tiền, cộng thêm "Trả thẻ X / Trả nợ Y" khi chi từ tài khoản. */

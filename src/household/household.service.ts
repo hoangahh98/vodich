@@ -28,7 +28,7 @@ export class HouseholdService {
     if (!households.length) return [];
     const pending = await this.prisma.householdTransaction.groupBy({
       by: ['householdId'],
-      where: { householdId: { in: households.map((item) => item.id) }, kind: 'EXPENSE', purposeId: null },
+      where: { householdId: { in: households.map((item) => item.id) }, kind: 'EXPENSE', OR: [{ purposeId: null }, { status: 'NEW' }] },
       _count: { _all: true },
     });
     const pendingById = new Map(pending.map((item) => [String(item.householdId), item._count._all]));
@@ -163,8 +163,11 @@ export class HouseholdService {
       purposeKind: tx.purposeId ? purposeById.get(tx.purposeId)?.kind || '' : '',
       recurringName: tx.recurringId ? recurringName.get(tx.recurringId) || '' : '',
     }));
-    const unclassified = rows.filter((tx) => tx.kind === 'EXPENSE' && !tx.purposeId);
-    const unclassifiedAll = txRows.filter((tx) => tx.kind === 'EXPENSE' && !tx.purposeId).length;
+    // "Cần xem lại": chưa có mục đích, hoặc máy ghi từ Telegram mà chưa ai xác nhận (status NEW).
+    const needsReview = (tx: { kind: string; purposeId: string | null; status: string }) => tx.kind === 'EXPENSE' && (!tx.purposeId || tx.status === 'NEW');
+    const unclassified = rows.filter(needsReview);
+    const unclassifiedAll = txRows.filter(needsReview).length;
+    const unclassifiedTotal = unclassified.reduce((sum, tx) => sum + tx.amount, 0);
     const balanceList = sourceRows.map((source) => balances.get(source.id)!);
     const totals = {
       cash: balanceList.filter((item) => !['CARD', 'LOAN'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
@@ -191,6 +194,7 @@ export class HouseholdService {
       transactions: rows,
       unclassified,
       unclassifiedAll,
+      unclassifiedTotal,
       months,
       linked: !!household.telegramChatId,
     };

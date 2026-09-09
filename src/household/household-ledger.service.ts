@@ -96,6 +96,11 @@ export class HouseholdLedgerService {
       suggestedPurposeId = await this.suggestPurpose(householdId, data.description || '');
       if (suggestedPurposeId) data.purposeId = suggestedPurposeId;
     }
+    // 3) Tin tự động (NEW) mà vẫn chưa có mục đích: mặc định vào Chi tiêu (mục "Khác" hoặc mục chi tiêu
+    //    đầu tiên) — chủ app: không bấm gì thì cứ tính là chi tiêu, khỏi treo "chưa phân loại".
+    if (!data.purposeId && data.status === 'NEW' && data.kind === 'EXPENSE') {
+      data.purposeId = await this.defaultLivingPurpose(householdId);
+    }
 
     const transaction = await this.prisma.householdTransaction.create({ data });
     return { transaction, matched, suggestedPurposeId, duplicate: false };
@@ -206,6 +211,13 @@ export class HouseholdLedgerService {
       },
     });
     return transaction;
+  }
+
+  /** Mục chi tiêu mặc định: "Khác" nếu có, không thì mục LIVING đầu tiên đang dùng. */
+  async defaultLivingPurpose(householdId: bigint): Promise<bigint | null> {
+    const living = await this.prisma.householdPurpose.findMany({ where: { householdId, kind: 'LIVING', active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
+    const other = living.find((purpose) => /^khác$/i.test(purpose.name.trim()));
+    return (other || living[0])?.id || null;
   }
 
   /** Mục đích của lần gần nhất có cùng nội dung (đã xác nhận). Null nếu chưa từng thấy. */
