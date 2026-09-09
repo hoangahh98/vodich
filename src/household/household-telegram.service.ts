@@ -156,7 +156,8 @@ export class HouseholdTelegramService {
       `${refund ? 'Hoàn tiền vào thẻ' : tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${source.name} · ${when}`,
       parsed.description,
     ];
-    if (parsed.balance !== undefined) lines.push(await this.balanceLine(household.id, source, parsed.balance));
+    const balanceCheck = parsed.balance !== undefined ? await this.balanceCheck(household.id, source, parsed.balance) : null;
+    if (balanceCheck) lines.push(balanceCheck.line);
     if (refund) lines.push('Đã trừ dư nợ thẻ. Chọn mục đích được hoàn (trừ bớt mục đó); nếu đây là lần trả thẻ thì bấm Bỏ qua.');
     else if (result.matched) lines.push(`Khớp khoản định kỳ: ${result.matched.recurring.name}${purposeName ? ` → ${purposeName}` : ''}`);
     else if (result.suggestedPurposeId && purposeName) lines.push(`Đoán mục đích: ${purposeName} (theo lần trước). Bấm nút nếu muốn đổi.`);
@@ -168,6 +169,7 @@ export class HouseholdTelegramService {
         ? []
         : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source);
     await this.send(chatId, lines.join('\n'), keyboard);
+    if (balanceCheck?.alert) await this.send(chatId, balanceCheck.alert);
     return 'done';
   }
 
@@ -243,15 +245,19 @@ export class HouseholdTelegramService {
    * Dòng "Số dư <nguồn>: X · app tính Y" — X là số ngân hàng báo trong mail, Y là số app cộng từ giao dịch.
    * Lệch nghĩa là có khoản chưa vào sổ (tin bị bỏ, ghi tay sai) hoặc số dư đầu khai chưa đúng.
    */
-  private async balanceLine(householdId: bigint, source: HouseholdSource, reported: number): Promise<string> {
+  private async balanceCheck(householdId: bigint, source: HouseholdSource, reported: number): Promise<{ line: string; alert: string | null }> {
     const [sources, transactions] = await Promise.all([
       this.prisma.householdSource.findMany({ where: { householdId } }),
       this.prisma.householdTransaction.findMany({ where: { householdId } }),
     ]);
     const computed = sourceBalances(sources.map(toSourceRow), transactions.map(toTransactionRow)).get(String(source.id))?.balance ?? 0;
     const diff = computed - reported;
-    if (Math.abs(diff) < 1) return `Số dư ${source.name}: ${formatMoney(reported)}đ · app tính khớp`;
-    return `Số dư ${source.name}: ${formatMoney(reported)}đ · app tính ${formatMoney(computed)}đ (lệch ${diff > 0 ? '+' : '−'}${formatMoney(Math.abs(diff))}đ — có khoản chưa vào sổ hoặc số dư đầu chưa đúng)`;
+    if (Math.abs(diff) < 1) return { line: `Số dư ${source.name}: ${formatMoney(reported)}đ · app tính khớp`, alert: null };
+    // Lệch thì ngoài dòng tóm tắt còn một tin cảnh báo riêng, gửi ngay sau (chủ app yêu cầu báo ngay).
+    return {
+      line: `Số dư ${source.name}: ${formatMoney(reported)}đ · app tính ${formatMoney(computed)}đ`,
+      alert: `⚠️ LỆCH SỐ DƯ ${source.name}: ngân hàng báo ${formatMoney(reported)}đ, app tính ${formatMoney(computed)}đ (app ${diff > 0 ? 'thừa' : 'thiếu'} ${formatMoney(Math.abs(diff))}đ). Có khoản chưa vào sổ hoặc số dư đầu khai chưa đúng — vào Nguồn tiền / Giao dịch kiểm lại.`,
+    };
   }
 
   private send(chatId: string, text: string, keyboard: InlineButton[][] = []) {
