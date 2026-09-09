@@ -11,7 +11,7 @@ import { toPurposeRow, toSourceRow, toTransactionRow } from './household-rows';
 /** Phần của một update Telegram mà ta dùng. Bot API gửi nhiều hơn nhưng không cần khai hết. */
 export interface TelegramUpdate {
   update_id?: number;
-  message?: { message_id: number; text?: string; chat: { id: number | string; type?: string }; from?: { id: number } };
+  message?: { message_id: number; text?: string; chat: { id: number | string; type?: string }; from?: { id: number }; reply_to_message?: { text?: string } };
   channel_post?: { message_id: number; text?: string; chat: { id: number | string; type?: string } };
   callback_query?: { id: string; data?: string; message?: { message_id: number; chat: { id: number | string }; text?: string } };
 }
@@ -52,15 +52,23 @@ export class HouseholdTelegramService {
     try {
       if (update.callback_query) return await this.handleCallback(update.callback_query);
       const message = update.message || update.channel_post;
-      if (message?.text) return await this.handleMessage(String(message.chat.id), message.message_id, message.text);
+      if (message?.text) return await this.handleMessage(String(message.chat.id), message.message_id, message.text, update.message?.reply_to_message?.text);
     } catch (error) {
       // Webhook phải trả 200 kể cả khi lỗi, không thì Telegram gửi lại mãi cùng một tin.
       this.logger.error(`Telegram update lỗi: ${(error as Error).message}`);
     }
   }
 
-  private async handleMessage(chatId: string, messageId: number, text: string) {
+  private async handleMessage(chatId: string, messageId: number, text: string, replyTo?: string) {
     const trimmed = text.trim();
+    // Người dùng trả lời câu hỏi "Gõ tên người vay cho khoản chi #<id>" của bot → gán tên đó.
+    const asked = /khoản chi #(\d+)/.exec(replyTo || '');
+    if (asked && trimmed && !trimmed.startsWith('/')) {
+      const household = await this.prisma.household.findFirst({ where: { telegramChatId: chatId } });
+      if (!household) return;
+      const tx = await this.ledger.setLendingPerson(household.id, BigInt(asked[1]), trimmed.slice(0, 60));
+      return this.send(chatId, tx ? `✓ Cho vay ${trimmed.slice(0, 60)} ${formatMoney(Number(tx.amount))}đ. Lần sau tên này có nút sẵn.` : 'Không tìm thấy khoản chi đó nữa.');
+    }
     const link = /^\/link(?:@\w+)?\s+([A-Za-z0-9]{4,})/.exec(trimmed);
     if (link) return this.linkChat(chatId, link[1].toUpperCase());
     if (/^\/(start|help)/.test(trimmed)) {
@@ -189,7 +197,23 @@ export class HouseholdTelegramService {
     const repay = /^hr:(\d+):(\d+)$/.exec(data);
     const person = /^h([lb]):(\d+):([0-9a-f]+)$/.exec(data);
     const drop = /^hx:(\d+)$/.exec(data);
+    const menu = /^h([mqn]):(\d+)$/.exec(data);
     let done = '';
+    if (menu) {
+      const txId = BigInt(menu[2]);
+      if (menu[1] === 'n') {
+        // Hỏi tên bằng ForceReply: người dùng bấm trả lời tin này và gõ tên, handleMessage bắt lại theo "#id".
+        await this.answer(query.id, 'Gõ tên người vay');
+        await this.api('sendMessage', { chat_id: chatId, text: `Gõ tên người vay cho khoản chi #${txId} (trả lời tin này):`, reply_markup: { force_reply: true, selective: true } });
+        return;
+      }
+      const keyboards = await this.keyboardFor(household.id, txId);
+      await this.answer(query.id, keyboards ? '' : 'Không tìm thấy giao dịch');
+      if (keyboards && query.message) {
+        await this.api('editMessageReplyMarkup', { chat_id: chatId, message_id: query.message.message_id, reply_markup: { inline_keyboard: menu[1] === 'm' ? keyboards.menu : keyboards.full } });
+      }
+      return;
+    }
     if (person) {
       // Tìm lại người theo mã băm tên trong sổ cho vay hiện tại.
       const [purposes, transactions] = await Promise.all([
@@ -261,25 +285,54 @@ export class HouseholdTelegramService {
           // Khoản vay: gốc hay lãi là hai chuyện khác nhau — lãi chỉ mất tiền, gốc mới trừ dư nợ.
           buttons.push({ text: `Trả gốc ${item.name}`, callback_data: `ht:${transactionId}:${item.id}:P` });
           buttons.push({ text: `Trả lãi ${item.name}`, callback_data: `ht:${transactionId}:${item.id}:I` });
-        } else if (item.kind === 'LENT') buttons.push({ text: `Cho vay: ${item.name}`, callback_data: `ht:${transactionId}:${item.id}` });
+        }
       }
-      // Người vay trong sổ (ghi bằng mục đích): cho vay thêm cho đúng người, khỏi lên web sửa tên.
-      for (const row of borrowers) buttons.push({ text: `Cho vay: ${row.name}`, callback_data: `hl:${transactionId}:${personCode(row)}` });
       rows.push(...chunk(buttons, 2));
+      // Cho vay: một nút mở menu tên (nguồn Cho vay + tên trong sổ + Điền tên mới), thay vì liệt kê hết.
+      rows.push([{ text: 'Cho vay…', callback_data: `hm:${transactionId}` }]);
     }
     // Tiền vào tài khoản có thể là người ta trả nợ chứ không phải lương — chỉ hiện người CÒN nợ.
     if (kind === 'INCOME' && ['BANK', 'CASH'].includes(source.kind)) {
       const lent = sources.filter((item) => item.kind === 'LENT' && owed(item) > 0);
       rows.push(...chunk(lent.map((item) => ({ text: `${item.name} trả nợ`, callback_data: `hr:${transactionId}:${item.id}` })), 2));
-      // Người vay trong sổ còn nợ → "Sơn trả nợ"; không có ai thì mới hiện nút chung.
+      // Người vay trong sổ còn nợ → "Sơn trả nợ". Chủ app: trả nợ chỉ hiện đúng những người đang vay.
       const owing = borrowers.filter((row) => row.outstanding > 0);
-      if (owing.length) rows.push(...chunk(owing.map((row) => ({ text: `${row.name} trả nợ`, callback_data: `hb:${transactionId}:${personCode(row)}` })), 2));
-      else {
-        const lendingPurpose = purposes.find((purpose) => purpose.kind === 'LENDING');
-        if (lendingPurpose) rows.push([{ text: 'Người vay trả nợ', callback_data: `hp:${transactionId}:${lendingPurpose.id}` }]);
-      }
+      rows.push(...chunk(owing.map((row) => ({ text: `${row.name} trả nợ`, callback_data: `hb:${transactionId}:${personCode(row)}` })), 2));
     }
     return rows;
+  }
+
+  /** Menu "Cho vay…": tên từ nguồn loại Cho vay và từ sổ cho vay, thêm "Điền tên mới" và "Quay lại". */
+  private lendingMenu(transactionId: bigint, sources: HouseholdSource[], borrowers: LendingRow[]): InlineButton[][] {
+    const personCode = (row: LendingRow) => textHash(lendingKey(row.name)).toString(16);
+    const names: InlineButton[] = [];
+    const seen = new Set<string>();
+    for (const item of sources.filter((source) => source.kind === 'LENT')) {
+      names.push({ text: item.name, callback_data: `ht:${transactionId}:${item.id}` });
+      seen.add(lendingKey(item.name));
+    }
+    for (const row of borrowers) {
+      if (seen.has(lendingKey(row.name))) continue;
+      names.push({ text: row.name, callback_data: `hl:${transactionId}:${personCode(row)}` });
+    }
+    return [...chunk(names, 2), [{ text: '✏️ Điền tên mới', callback_data: `hn:${transactionId}` }, { text: '← Quay lại', callback_data: `hq:${transactionId}` }]];
+  }
+
+  /** Dựng lại bàn phím đầy đủ cho một giao dịch (khi bấm Quay lại từ menu). */
+  private async keyboardFor(householdId: bigint, transactionId: bigint): Promise<{ menu: InlineButton[][]; full: InlineButton[][] } | null> {
+    const tx = await this.prisma.householdTransaction.findFirst({ where: { id: transactionId, householdId }, include: { source: true } });
+    if (!tx) return null;
+    const [purposes, sources, transactions] = await Promise.all([
+      this.prisma.householdPurpose.findMany({ where: { householdId, active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
+      this.prisma.householdSource.findMany({ where: { householdId, active: true } }),
+      this.prisma.householdTransaction.findMany({ where: { householdId } }),
+    ]);
+    const balances = sourceBalances(sources.map(toSourceRow), transactions.map(toTransactionRow));
+    const borrowers = lendingLedger(purposes.map(toPurposeRow), transactions.map(toTransactionRow)).rows;
+    return {
+      menu: this.lendingMenu(transactionId, sources, borrowers),
+      full: this.purposeKeyboard(transactionId, tx.kind, purposes, sources, tx.source, balances, borrowers),
+    };
   }
 
   /**
