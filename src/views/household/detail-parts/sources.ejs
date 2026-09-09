@@ -36,18 +36,6 @@
     </section>
   <% } %>
 
-  <% if (typeof lending !== 'undefined' && lending.rows.length) { %>
-    <section class="card-lite mb">
-      <div class="card-hdr green"><span><%- include('../../partials/icon', { name: 'coin' }) %> Cho vay (từ giao dịch có mục đích Cho vay)</span><span class="badge badge-dark">còn nợ <%= formatMoney(lending.outstanding) %>đ</span></div>
-      <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Người / nội dung</th><th class="text-right">Đã cho vay</th><th class="text-right">Đã trả</th><th class="text-right">Còn nợ</th></tr></thead><tbody>
-        <% lending.rows.forEach((row) => { %>
-          <tr><td><strong><%= row.name %></strong></td><td class="text-right"><%= formatMoney(row.lent) %>đ</td><td class="text-right"><%= formatMoney(row.repaid) %>đ</td><td class="text-right paid-cell"><strong class="<%= row.outstanding > 0 ? 'text-danger' : '' %>"><%= formatMoney(row.outstanding) %></strong><span class="muted">đ</span></td></tr>
-        <% }) %>
-      </tbody></table></div>
-      <p class="muted p">Gom theo nội dung giao dịch: ghi tên người vay ở ô Nội dung để các lần cho vay / trả nợ của cùng một người về một dòng. Họ trả thì ghi khoản Thu vào tài khoản với mục đích Cho vay (trên Telegram có nút "Người vay trả nợ").</p>
-    </section>
-  <% } %>
-
   <div class="hh-source-list">
     <% balances.forEach((item) => { const source = sources.find((row) => row.id.toString() === item.source.id); const debt = ['CARD', 'LOAN'].includes(item.source.kind); const lent = item.source.kind === 'LENT'; %>
       <section class="card-lite p hh-source <%= item.source.active ? '' : 'is-muted' %>">
@@ -72,6 +60,20 @@
             <form method="post" action="/household/<%= household.id %>/sources/<%= source.id %>/delete" data-confirm="Xoá nguồn '<%= source.name %>'? Nguồn đã có giao dịch sẽ chỉ bị ẩn."><button class="btn btn-sm btn-danger" data-loading-text="…">Xoá / ẩn</button></form>
           </details>
         <% } %>
+      </section>
+    <% }) %>
+    <%# Cho vay ghi bằng giao dịch (mục đích Cho vay), gom theo nội dung — hiện cùng kiểu thẻ với nguồn khai tay. %>
+    <% (typeof lending !== 'undefined' ? lending.rows : []).forEach((row) => { %>
+      <section class="card-lite p hh-source <%= row.outstanding > 0 ? '' : 'is-muted' %>">
+        <div class="hh-source-head">
+          <div><h3 class="mb-0"><%= row.name %></h3><span class="badge"><%= labels.source.LENT %></span> <span class="badge">từ giao dịch</span><% if (row.outstanding <= 0) { %><span class="badge">đã trả hết</span><% } %></div>
+        </div>
+        <div class="grid kv-grid mt">
+          <div class="kv"><span>Họ đang nợ mình</span><strong class="<%= row.outstanding > 0 ? 'text-danger' : '' %>"><%= formatMoney(row.outstanding) %>đ</strong></div>
+          <div class="kv"><span>Đã cho vay</span><strong><%= formatMoney(row.lent) %>đ</strong></div>
+          <div class="kv"><span>Đã trả</span><strong><%= formatMoney(row.repaid) %>đ</strong></div>
+        </div>
+        <% if (isAdmin) { %><p class="muted mt mb-0">Ghi từ giao dịch có mục đích Cho vay, gom theo ô Nội dung. Họ trả: khoản Thu vào tài khoản với mục đích Cho vay, hoặc bấm "Người vay trả nợ" trên Telegram.</p><% } %>
       </section>
     <% }) %>
   </div>
