@@ -3,15 +3,17 @@
     // Ô nào hiện tuỳ loại nguồn (household.js đọc data-for): tài khoản → ngân hàng, số TK, chủ, số dư đầu;
     // thẻ → thêm hạn mức; khoản vay → không ngân hàng/hạn mức, có lãi suất; tiền mặt → chủ + số dư đầu.
     // Ngày sao kê / đến hạn đã bỏ khỏi form theo ý chủ app (cột vẫn còn trong DB, không dùng).
-    const sourceForm = (source) => `
+    // Ô số dư / nợ nhập số HIỆN TẠI (chủ app: khỏi nhập số dư đầu rồi so lệch). Server tự suy số đầu kỳ
+    // = số hiện tại trừ/cộng dòng tiền đã ghi. `current` là số app đang tính cho nguồn đó (form sửa).
+    const sourceForm = (source, current) => `
       <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: Timo, Thẻ MSB" required></div>
       <div><label>Loại</label><select name="kind" data-source-kind>${['BANK','CARD','CASH','LOAN'].map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${labels.source[kind]}</option>`).join('')}</select></div>
       <div data-for="BANK CARD"><label>Ngân hàng</label><select name="bank">${['TIMO','MSB','OTHER'].map((bank) => `<option value="${bank}" ${(source ? source.bank : 'TIMO') === bank ? 'selected' : ''}>${labels.bank[bank]}</option>`).join('')}</select></div>
       <div data-for="BANK"><label>Số tài khoản</label><input name="matchKey" value="${source ? source.matchKey : ''}" placeholder="Chỉ cần khi có nhiều tài khoản cùng ngân hàng" inputmode="numeric" data-match-key></div>
       <div data-for="CARD"><label>4 số cuối thẻ</label><input value="${source ? source.matchKey : ''}" placeholder="3065" inputmode="numeric" maxlength="4" data-match-key></div>
       <div><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}" placeholder="Chồng / Vợ"></div>
-      <div data-for="BANK CASH"><label>Số dư đầu</label><input class="money-input" name="openingBalance" value="${source ? formatMoney(source.openingBalance) : ''}" inputmode="numeric" data-opening></div>
-      <div data-for="CARD LOAN"><label>Dư nợ đầu</label><input class="money-input" value="${source ? formatMoney(source.openingBalance) : ''}" inputmode="numeric" data-opening></div>
+      <div data-for="BANK CASH"><label>Số dư</label><input class="money-input" name="currentBalance" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
+      <div data-for="CARD LOAN"><label>Nợ hiện tại</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="CARD"><label>Hạn mức thẻ</label><input class="money-input" name="creditLimit" value="${source ? formatMoney(source.creditLimit) : ''}" inputmode="numeric"></div>
       <div data-for="LOAN"><label>Lãi suất %/năm</label><input name="interestRate" value="${source ? Number(source.interestRate) : ''}" placeholder="Ví dụ: 10.5" inputmode="decimal"></div>`;
   %>
@@ -26,7 +28,7 @@
     <section class="card-lite p mb">
       <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'plus' }) %> Thêm nguồn</h2>
       <form class="hh-form" method="post" action="/household/<%= household.id %>/sources" data-source-form>
-        <%- sourceForm(null) %>
+        <%- sourceForm(null, 0) %>
         <div class="hh-form-action"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm nguồn</button></div>
       </form>
       <p class="muted mt">Thẻ tín dụng: quẹt thẻ là chi tiêu ngay lúc quẹt; trả thẻ ghi là <strong>Chuyển nguồn</strong> từ tài khoản sang thẻ, không tính chi lần hai. Khoản vay: trả nợ ghi Chuyển nguồn sang khoản vay, phần lãi ghi ở ô "Trong đó lãi".</p>
@@ -38,17 +40,16 @@
       <section class="card-lite p hh-source <%= item.source.active ? '' : 'is-muted' %>">
         <div class="hh-source-head">
           <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
-          <div class="hh-source-amount"><strong class="hh-balance <%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt ? 'nợ ' : '' %><%= formatMoney(item.balance) %>đ</strong><% if (item.source.kind === 'CARD' && item.source.creditLimit) { %><br><span class="muted">còn hạn mức <%= formatMoney(item.available) %>đ</span><% } %><% if (item.reported) { %><br><span class="<%= Math.abs(item.diff) < 1 ? 'muted' : 'text-danger' %>">Ngân hàng báo <%= formatMoney(item.reported.balance) %>đ (<%= fmtDateTime(item.reported.at) %>)<%= Math.abs(item.diff) < 1 ? ' · khớp' : ' · lệch ' + (item.diff > 0 ? '+' : '−') + formatMoney(Math.abs(item.diff)) + 'đ' %></span><% } %></div>
+          <div class="hh-source-amount"><strong class="hh-balance <%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt ? 'nợ ' : '' %><%= formatMoney(item.balance) %>đ</strong><% if (item.source.kind === 'CARD' && item.source.creditLimit) { %><br><span class="muted">còn hạn mức <%= formatMoney(item.available) %>đ</span><% } %><% if (item.reported) { %><br><span class="muted">Theo ngân hàng báo lúc <%= fmtDateTime(item.reported.at) %></span><% } %></div>
         </div>
         <div class="grid kv-grid mt">
           <% if (source.ownerName) { %><div class="kv"><span>Chủ nguồn</span><strong><%= source.ownerName %></strong></div><% } %>
           <% if (Number(source.interestRate)) { %><div class="kv"><span>Lãi suất</span><strong><%= Number(source.interestRate) %>%/năm</strong></div><% } %>
-          <div class="kv"><span><%= debt ? 'Dư nợ đầu' : 'Số dư đầu' %></span><strong><%= formatMoney(source.openingBalance) %>đ</strong></div>
         </div>
         <% if (isAdmin) { %>
           <details class="hh-edit mt"><summary class="btn btn-sm"><%- include('../../partials/icon', { name: 'edit' }) %> Sửa nguồn</summary>
             <form class="hh-form hh-form-inline" method="post" action="/household/<%= household.id %>/sources/<%= source.id %>" data-source-form>
-              <%- sourceForm(source) %>
+              <%- sourceForm(source, item.balance) %>
               <div><label>Trạng thái</label><select name="active"><option value="on" <%= source.active ? 'selected' : '' %>>Đang dùng</option><option value="off" <%= source.active ? '' : 'selected' %>>Ẩn</option></select></div>
               <div class="hh-form-action"><button class="btn btn-sm btn-primary" data-loading-text="…">Lưu</button></div>
             </form>

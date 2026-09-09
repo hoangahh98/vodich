@@ -3,6 +3,7 @@ import { Household, HouseholdPurpose, HouseholdSource } from '@prisma/client';
 import { formatMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
 import { parseBankMessage } from './bank-parsers';
+import { HouseholdConfigService } from './household-config.service';
 import { HouseholdLedgerService } from './household-ledger.service';
 import { sourceBalances } from './household-month';
 import { toSourceRow, toTransactionRow } from './household-rows';
@@ -44,6 +45,7 @@ export class HouseholdTelegramService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly ledger: HouseholdLedgerService,
+    private readonly config: HouseholdConfigService,
   ) {}
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
@@ -156,8 +158,7 @@ export class HouseholdTelegramService {
       `${refund ? 'Hoàn tiền vào thẻ' : tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${source.name} · ${when}`,
       parsed.description,
     ];
-    const balanceCheck = parsed.balance !== undefined ? await this.balanceCheck(household.id, source, parsed.balance) : null;
-    if (balanceCheck) lines.push(balanceCheck.line);
+    if (parsed.balance !== undefined) lines.push(await this.syncBalance(household.id, source, parsed.balance));
     if (refund) lines.push('Đã trừ dư nợ thẻ. Chọn mục đích được hoàn (trừ bớt mục đó); nếu đây là lần trả thẻ thì bấm Bỏ qua.');
     else if (result.matched) lines.push(`Khớp khoản định kỳ: ${result.matched.recurring.name}${purposeName ? ` → ${purposeName}` : ''}`);
     else if (result.suggestedPurposeId && purposeName) lines.push(`Đoán mục đích: ${purposeName} (theo lần trước). Bấm nút nếu muốn đổi.`);
@@ -169,7 +170,6 @@ export class HouseholdTelegramService {
         ? []
         : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source);
     await this.send(chatId, lines.join('\n'), keyboard);
-    if (balanceCheck?.alert) await this.send(chatId, balanceCheck.alert);
     return 'done';
   }
 
@@ -242,22 +242,21 @@ export class HouseholdTelegramService {
   }
 
   /**
-   * Dòng "Số dư <nguồn>: X · app tính Y" — X là số ngân hàng báo trong mail, Y là số app cộng từ giao dịch.
-   * Lệch nghĩa là có khoản chưa vào sổ (tin bị bỏ, ghi tay sai) hoặc số dư đầu khai chưa đúng.
+   * Ngân hàng báo số dư sau giao dịch (Timo) thì lấy số ấy làm CHUẨN: căn lại số đầu kỳ của nguồn sao cho
+   * app tính ra đúng số ngân hàng — chủ app không muốn nhập số dư đầu rồi ngồi so lệch (10/9/2026). Có
+   * lệch thì nói trong dòng tóm tắt (thường là khoản ghi tay sai hoặc tin bị bỏ) chứ không báo động riêng.
    */
-  private async balanceCheck(householdId: bigint, source: HouseholdSource, reported: number): Promise<{ line: string; alert: string | null }> {
+  private async syncBalance(householdId: bigint, source: HouseholdSource, reported: number): Promise<string> {
     const [sources, transactions] = await Promise.all([
       this.prisma.householdSource.findMany({ where: { householdId } }),
       this.prisma.householdTransaction.findMany({ where: { householdId } }),
     ]);
     const computed = sourceBalances(sources.map(toSourceRow), transactions.map(toTransactionRow)).get(String(source.id))?.balance ?? 0;
     const diff = computed - reported;
-    if (Math.abs(diff) < 1) return { line: `Số dư ${source.name}: ${formatMoney(reported)}đ · app tính khớp`, alert: null };
-    // Lệch thì ngoài dòng tóm tắt còn một tin cảnh báo riêng, gửi ngay sau (chủ app yêu cầu báo ngay).
-    return {
-      line: `Số dư ${source.name}: ${formatMoney(reported)}đ · app tính ${formatMoney(computed)}đ`,
-      alert: `⚠️ LỆCH SỐ DƯ ${source.name}: ngân hàng báo ${formatMoney(reported)}đ, app tính ${formatMoney(computed)}đ (app ${diff > 0 ? 'thừa' : 'thiếu'} ${formatMoney(Math.abs(diff))}đ). Có khoản chưa vào sổ hoặc số dư đầu khai chưa đúng — vào Nguồn tiền / Giao dịch kiểm lại.`,
-    };
+    if (Math.abs(diff) < 1) return `Số dư ${source.name}: ${formatMoney(reported)}đ`;
+    const opening = await this.config.openingFor(householdId, source.id, source.kind, reported);
+    await this.prisma.householdSource.updateMany({ where: { id: source.id, householdId }, data: { openingBalance: opening } });
+    return `Số dư ${source.name}: ${formatMoney(reported)}đ (app đang ${diff > 0 ? 'thừa' : 'thiếu'} ${formatMoney(Math.abs(diff))}đ, đã căn lại theo ngân hàng)`;
   }
 
   private send(chatId: string, text: string, keyboard: InlineButton[][] = []) {

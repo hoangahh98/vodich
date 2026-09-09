@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { parseMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
-import { normalizeBank, normalizeInterestMode, normalizeMonth, normalizePurposeKind, normalizeSourceKind, normalizeTxKind } from './household-enums';
+import { isDebtSource, normalizeBank, normalizeInterestMode, normalizeMonth, normalizePurposeKind, normalizeSourceKind, normalizeTxKind } from './household-enums';
+import { sourceBalances } from './household-month';
+import { toSourceRow, toTransactionRow } from './household-rows';
 
 type Form = Record<string, string | undefined>;
 
@@ -26,7 +28,6 @@ export class HouseholdConfigService {
       bank: normalizeBank(form.bank),
       matchKey: text(form.matchKey, 40).replace(/\s+/g, ''),
       ownerName: text(form.ownerName),
-      openingBalance: parseMoney(form.openingBalance),
       creditLimit: parseMoney(form.creditLimit),
       interestRate: Math.max(0, Number.parseFloat(String(form.interestRate || '0').replace(',', '.')) || 0),
       statementDay: clampDay(form.statementDay),
@@ -34,12 +35,36 @@ export class HouseholdConfigService {
     };
   }
 
+  /** Nguồn mới chưa có giao dịch: số hiện tại nhập vào chính là số đầu kỳ. */
   createSource(householdId: bigint, form: Form) {
-    return this.prisma.householdSource.create({ data: { householdId, ...this.sourceData(form) } });
+    return this.prisma.householdSource.create({ data: { householdId, ...this.sourceData(form), openingBalance: parseMoney(form.currentBalance) } });
   }
 
-  updateSource(householdId: bigint, sourceId: bigint, form: Form) {
-    return this.prisma.householdSource.updateMany({ where: { id: sourceId, householdId }, data: { ...this.sourceData(form), active: form.active !== 'off' } });
+  /**
+   * Sửa nguồn: ô "Số dư / Nợ hiện tại" là số HIỆN TẠI (chủ app nhìn app hoặc ngân hàng rồi gõ), app tự
+   * suy số đầu kỳ sao cho cộng với dòng tiền đã ghi ra đúng số ấy. Không nhập gì thì giữ nguyên.
+   */
+  async updateSource(householdId: bigint, sourceId: bigint, form: Form) {
+    const data: Record<string, unknown> = { ...this.sourceData(form), active: form.active !== 'off' };
+    const wanted = String(form.currentBalance || '').trim();
+    if (wanted) data.openingBalance = await this.openingFor(householdId, sourceId, String(data.kind), parseMoney(wanted));
+    return this.prisma.householdSource.updateMany({ where: { id: sourceId, householdId }, data });
+  }
+
+  /**
+   * Số đầu kỳ để số hiện tại của nguồn bằng `current`: BANK/CASH có current = opening + dòng tiền,
+   * CARD/LOAN có nợ = opening − dòng tiền. Dùng chung cho form sửa nguồn và cho Timo báo số dư.
+   */
+  async openingFor(householdId: bigint, sourceId: bigint, kind: string, current: number): Promise<number> {
+    const [source, transactions] = await Promise.all([
+      this.prisma.householdSource.findFirst({ where: { id: sourceId, householdId } }),
+      this.prisma.householdTransaction.findMany({ where: { householdId, OR: [{ sourceId }, { targetSourceId: sourceId }] } }),
+    ]);
+    if (!source) return current;
+    const zeroOpening = { ...toSourceRow(source), kind, openingBalance: 0 };
+    const flow = sourceBalances([zeroOpening], transactions.map(toTransactionRow)).get(String(sourceId))?.balance ?? 0;
+    // flow đã mang dấu theo loại: BANK → +dòng tiền, CARD/LOAN → −dòng tiền. current = opening + flow.
+    return isDebtSource(kind) ? current - flow : current - flow;
   }
 
   /** Nguồn có giao dịch thì chỉ ẩn (active = false) để số cũ không mất; chưa có thì xoá hẳn. */

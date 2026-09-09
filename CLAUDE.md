@@ -193,6 +193,9 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 | `household_recurring` | Khoản định kỳ khai một lần; `interest_mode = FROM_RATE` → lãi = dư nợ đầu tháng × lãi suất / 12. |
 | `household_inbox` | Tin Telegram thô; UNPARSED để xử lý tay. |
 
+- Số dư: `opening_balance` là số ĐẦU KỲ nhưng người dùng không nhập nó — form nguồn nhận số HIỆN TẠI và
+  `HouseholdConfigService.openingFor` suy ngược; mail Timo báo số dư thì `syncBalance` căn lại theo ngân hàng
+  (chủ app 10/9/2026: khỏi so lệch). Đừng thêm lại ô "số dư đầu".
 - Toán ở `household-month.ts` (thuần, có test `test/household.test.js`): `sourceBalances`, `monthReport`,
   `recurringExpectations`, `matchRecurring`. **Luật chủ app chốt 9/9/2026**: quẹt thẻ là chi tiêu lúc quẹt,
   trả thẻ chỉ là chuyển nguồn; trả nợ vay tính vào "dùng" cả gốc lẫn lãi, gốc trừ dư nợ; giao dịch chưa có
