@@ -1,16 +1,19 @@
 <% if (section === 'sources') { %>
   <%
+    // Ô nào hiện tuỳ loại nguồn (household.js đọc data-for): tài khoản → ngân hàng, số TK, chủ, số dư đầu;
+    // thẻ → thêm hạn mức; khoản vay → không ngân hàng/hạn mức, có lãi suất; tiền mặt → chủ + số dư đầu.
+    // Ngày sao kê / đến hạn đã bỏ khỏi form theo ý chủ app (cột vẫn còn trong DB, không dùng).
     const sourceForm = (source) => `
       <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: VPBank Diện, Thẻ MSB" required></div>
-      <div><label>Loại</label><select name="kind">${['BANK','CARD','CASH','LOAN'].map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${labels.source[kind]}</option>`).join('')}</select></div>
-      <div><label>Ngân hàng (mẫu đọc tin)</label><select name="bank">${['VPBANK','MSB','OTHER'].map((bank) => `<option value="${bank}" ${(source ? source.bank : 'VPBANK') === bank ? 'selected' : ''}>${labels.bank[bank]}</option>`).join('')}</select></div>
-      <div><label>Số tài khoản / 4 số cuối thẻ</label><input name="matchKey" value="${source ? source.matchKey : ''}" placeholder="0382079196 hoặc 3065"><small class="field-hint">Để khớp tin ngân hàng với đúng nguồn.</small></div>
+      <div><label>Loại</label><select name="kind" data-source-kind>${['BANK','CARD','CASH','LOAN'].map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${labels.source[kind]}</option>`).join('')}</select></div>
+      <div data-for="BANK CARD"><label>Ngân hàng</label><select name="bank">${['VPBANK','MSB','OTHER'].map((bank) => `<option value="${bank}" ${(source ? source.bank : 'VPBANK') === bank ? 'selected' : ''}>${labels.bank[bank]}</option>`).join('')}</select></div>
+      <div data-for="BANK"><label>Số tài khoản</label><input name="matchKey" value="${source ? source.matchKey : ''}" placeholder="0382079196" inputmode="numeric" data-match-key></div>
+      <div data-for="CARD"><label>4 số cuối thẻ</label><input value="${source ? source.matchKey : ''}" placeholder="3065" inputmode="numeric" maxlength="4" data-match-key></div>
       <div><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}" placeholder="Chồng / Vợ"></div>
-      <div><label>Số dư đầu (dư nợ đầu với thẻ / vay)</label><input class="money-input" name="openingBalance" value="${source ? formatMoney(source.openingBalance) : ''}" inputmode="numeric"></div>
-      <div><label>Hạn mức thẻ</label><input class="money-input" name="creditLimit" value="${source ? formatMoney(source.creditLimit) : ''}" inputmode="numeric"></div>
-      <div><label>Lãi suất %/năm</label><input name="interestRate" value="${source ? Number(source.interestRate) : ''}" placeholder="Ví dụ: 10.5" inputmode="decimal"></div>
-      <div><label>Ngày sao kê</label><input type="number" name="statementDay" min="0" max="31" value="${source ? source.statementDay : ''}"></div>
-      <div><label>Ngày đến hạn</label><input type="number" name="dueDay" min="0" max="31" value="${source ? source.dueDay : ''}"></div>`;
+      <div data-for="BANK CASH"><label>Số dư đầu</label><input class="money-input" name="openingBalance" value="${source ? formatMoney(source.openingBalance) : ''}" inputmode="numeric" data-opening></div>
+      <div data-for="CARD LOAN"><label>Dư nợ đầu</label><input class="money-input" value="${source ? formatMoney(source.openingBalance) : ''}" inputmode="numeric" data-opening></div>
+      <div data-for="CARD"><label>Hạn mức thẻ</label><input class="money-input" name="creditLimit" value="${source ? formatMoney(source.creditLimit) : ''}" inputmode="numeric"></div>
+      <div data-for="LOAN"><label>Lãi suất %/năm</label><input name="interestRate" value="${source ? Number(source.interestRate) : ''}" placeholder="Ví dụ: 10.5" inputmode="decimal"></div>`;
   %>
   <section class="card-lite p mb">
     <div class="section-heading">
@@ -22,7 +25,7 @@
   <% if (isAdmin) { %>
     <section class="card-lite p mb">
       <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'plus' }) %> Thêm nguồn</h2>
-      <form class="hh-form" method="post" action="/household/<%= household.id %>/sources">
+      <form class="hh-form" method="post" action="/household/<%= household.id %>/sources" data-source-form>
         <%- sourceForm(null) %>
         <div class="hh-form-action"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm nguồn</button></div>
       </form>
@@ -40,13 +43,11 @@
         <div class="grid kv-grid mt">
           <% if (source.ownerName) { %><div class="kv"><span>Chủ nguồn</span><strong><%= source.ownerName %></strong></div><% } %>
           <% if (Number(source.interestRate)) { %><div class="kv"><span>Lãi suất</span><strong><%= Number(source.interestRate) %>%/năm</strong></div><% } %>
-          <% if (source.statementDay) { %><div class="kv"><span>Sao kê</span><strong>ngày <%= source.statementDay %></strong></div><% } %>
-          <% if (source.dueDay) { %><div class="kv"><span>Đến hạn</span><strong>ngày <%= source.dueDay %></strong></div><% } %>
           <div class="kv"><span><%= debt ? 'Dư nợ đầu' : 'Số dư đầu' %></span><strong><%= formatMoney(source.openingBalance) %>đ</strong></div>
         </div>
         <% if (isAdmin) { %>
           <details class="hh-edit mt"><summary class="btn btn-sm"><%- include('../../partials/icon', { name: 'edit' }) %> Sửa nguồn</summary>
-            <form class="hh-form hh-form-inline" method="post" action="/household/<%= household.id %>/sources/<%= source.id %>">
+            <form class="hh-form hh-form-inline" method="post" action="/household/<%= household.id %>/sources/<%= source.id %>" data-source-form>
               <%- sourceForm(source) %>
               <div><label>Trạng thái</label><select name="active"><option value="on" <%= source.active ? 'selected' : '' %>>Đang dùng</option><option value="off" <%= source.active ? '' : 'selected' %>>Ẩn</option></select></div>
               <div class="hh-form-action"><button class="btn btn-sm btn-primary" data-loading-text="…">Lưu</button></div>

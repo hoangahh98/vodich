@@ -12,6 +12,27 @@
     });
   };
   document.querySelectorAll('[data-tx-form]').forEach(sync);
+
+  // Form nguồn tiền: ô nào mang data-for="BANK CARD" chỉ hiện khi loại nằm trong danh sách. Hai cặp ô
+  // cùng ý nghĩa (Số dư đầu / Dư nợ đầu → openingBalance; Số tài khoản / 4 số cuối thẻ → matchKey) chỉ
+  // ô đang hiện mới mang name, để form không gửi hai giá trị cùng tên.
+  const syncSource = (form) => {
+    const kind = form.querySelector('[data-source-kind]');
+    if (!kind) return;
+    form.querySelectorAll('[data-for]').forEach((box) => {
+      const shown = box.dataset.for.split(' ').includes(kind.value);
+      box.hidden = !shown;
+      const opening = box.querySelector('[data-opening]');
+      if (opening) opening.name = shown ? 'openingBalance' : '';
+      const key = box.querySelector('[data-match-key]');
+      if (key) key.name = shown ? 'matchKey' : '';
+    });
+  };
+  document.querySelectorAll('[data-source-form]').forEach(syncSource);
+  document.addEventListener('change', (event) => {
+    const kind = event.target instanceof Element ? event.target.closest('[data-source-kind]') : null;
+    if (kind && kind.form) syncSource(kind.form);
+  });
   document.addEventListener('change', (event) => {
     const kind = event.target instanceof Element ? event.target.closest('[data-tx-kind]') : null;
     if (kind && kind.form) sync(kind.form);
