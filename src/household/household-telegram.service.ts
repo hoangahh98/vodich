@@ -153,6 +153,7 @@ export class HouseholdTelegramService {
       `${refund ? 'Hoàn tiền vào thẻ' : tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${source.name} · ${when}`,
       parsed.description,
     ];
+    if (parsed.balance !== undefined) lines.push(`Số dư ${source.name}: ${formatMoney(parsed.balance)}đ`);
     if (refund) lines.push('Đã trừ dư nợ thẻ. Chọn mục đích được hoàn (trừ bớt mục đó); nếu đây là lần trả thẻ thì bấm Bỏ qua.');
     else if (result.matched) lines.push(`Khớp khoản định kỳ: ${result.matched.recurring.name}${purposeName ? ` → ${purposeName}` : ''}`);
     else if (result.suggestedPurposeId && purposeName) lines.push(`Đoán mục đích: ${purposeName} (theo lần trước). Bấm nút nếu muốn đổi.`);

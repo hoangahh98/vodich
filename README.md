@@ -120,8 +120,9 @@ Xem [docs/bao-mat.md](docs/bao-mat.md) cho mô hình phân quyền đầy đủ.
 ## Chi tiêu gia đình: bot Telegram
 
 Luồng: mail ngân hàng → (Apps Script trên Gmail) → nhóm Telegram có bot → (webhook) → app ghi giao dịch
-→ bot trả lời kèm nút chọn mục đích. Mẫu đọc tin có sẵn cho **VPBank NEO** (mail giao dịch thành công)
-và **MSB thẻ tín dụng** (mail biến động số dư); ngân hàng khác đọc theo mẫu chung "±số tiền VND".
+→ bot trả lời kèm nút chọn mục đích. Mẫu đọc tin có sẵn cho **Timo** (mail "Thông báo thay đổi số dư tài
+khoản", cả tăng lẫn giảm, kèm số dư hiện tại) và **MSB thẻ tín dụng** (mail biến động số dư); ngân hàng khác
+đọc theo mẫu chung "±số tiền VND". VPBank đã bỏ (10/9/2026): tiền về nhà đi hết qua Timo.
 
 1. Tạo bot với @BotFather, lấy token → `TELEGRAM_BOT_TOKEN`. Tắt privacy mode của bot
    (`/setprivacy` → Disable) để bot đọc được tin trong nhóm.
@@ -139,18 +140,17 @@ và **MSB thẻ tín dụng** (mail biến động số dư); ngân hàng khác 
    bản tóm tắt gọn kèm nút lên nhóm:
 
    ```javascript
-   // Đẩy mail VPBank / MSB chưa đọc vào nhóm Telegram. Đổi TOKEN và CHAT_ID (id nhóm, số âm).
    const TOKEN = '123456:ABC...';
    const CHAT_ID = '-1001234567890';
-   // Gửi mail VPBank / MSB chưa đọc vào app. Đổi APP_URL (tên miền app), SECRET (TELEGRAM_WEBHOOK_SECRET)
+   // Gửi mail Timo / MSB chưa đọc vào app. Đổi APP_URL (tên miền app), SECRET (TELEGRAM_WEBHOOK_SECRET)
    // và CHAT_ID (id nhóm bot trả khi gõ /start hoặc /link, số âm).
    const APP_URL = 'https://<tên miền app>';
    const SECRET = '<TELEGRAM_WEBHOOK_SECRET>';
    const CHAT_ID = '-1001234567890';
    // Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật (9/2026), kẻo mail OTP/quảng cáo cùng địa chỉ cũng bị gửi:
-   //   VPBank NEO: vpbankonline@vpb.com.vn, tiêu đề "VPBank thong bao giao dich VPBank NEO thanh cong – Payment successful"
-   //   Thẻ MSB:    banking_notify@msb.com.vn, tiêu đề "Biến động thanh toán thẻ tín dụng"
-   const QUERY = 'is:unread newer_than:2d ((from:vpbankonline@vpb.com.vn subject:"VPBank NEO thanh cong") OR (from:banking_notify@msb.com.vn subject:"Biến động thanh toán thẻ tín dụng"))';
+   //   Timo:    support@timo.vn, tiêu đề "Thông báo thay đổi số dư tài khoản"
+   //   Thẻ MSB: banking_notify@msb.com.vn, tiêu đề "Biến động thanh toán thẻ tín dụng"
+   const QUERY = 'is:unread newer_than:2d ((from:support@timo.vn subject:"Thông báo thay đổi số dư tài khoản") OR (from:banking_notify@msb.com.vn subject:"Biến động thanh toán thẻ tín dụng"))';
    function pushBankMails() {
      for (const thread of GmailApp.search(QUERY, 0, 20)) {
        for (const mail of thread.getMessages()) {
@@ -170,10 +170,10 @@ và **MSB thẻ tín dụng** (mail biến động số dư); ngân hàng khác 
    ```
 
    Lấy `CHAT_ID`: sau khi đặt webhook, gõ `/start` (hoặc `/link <mã>`) trong nhóm — bot trả lời kèm id nhóm (số âm).
-   Dùng HAI Gmail (vợ nhận mail VPBank, chồng nhận mail MSB)? Cài cùng đoạn script này trên CẢ HAI tài khoản Google,
+   Dùng HAI Gmail (mỗi người nhận mail ngân hàng của mình)? Cài cùng đoạn script này trên CẢ HAI tài khoản Google,
    cùng `TOKEN` và `CHAT_ID`; mỗi script chỉ đọc hộp thư của tài khoản đang chạy nó.
 
-Trong app: nguồn tiền khai **số tài khoản** (VPBank) hoặc **4 số cuối thẻ** (MSB) để tin khớp đúng nguồn. Tin
+Trong app: nguồn Timo để trống số tài khoản (mail Timo không ghi số), thẻ MSB khai **4 số cuối thẻ** để tin khớp đúng nguồn. Tin
 không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được". Tiền VÀO thẻ tín dụng trước đây bị bỏ qua
 (trả thẻ đã ghi ở tài khoản trả; hoàn tiền thì sửa tay). Khoản chi không bấm nút mục đích nào thì mặc định vào
 mục chi tiêu "Khác" và nằm ở danh sách "Cần xem lại" cho tới khi bấm ✓ hoặc đổi mục đích. Tiền VÀO thẻ: trùng

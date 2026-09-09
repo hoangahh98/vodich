@@ -4,10 +4,10 @@
     // thẻ → thêm hạn mức; khoản vay → không ngân hàng/hạn mức, có lãi suất; tiền mặt → chủ + số dư đầu.
     // Ngày sao kê / đến hạn đã bỏ khỏi form theo ý chủ app (cột vẫn còn trong DB, không dùng).
     const sourceForm = (source) => `
-      <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: VPBank Diện, Thẻ MSB" required></div>
+      <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: Timo, Thẻ MSB" required></div>
       <div><label>Loại</label><select name="kind" data-source-kind>${['BANK','CARD','CASH','LOAN'].map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${labels.source[kind]}</option>`).join('')}</select></div>
-      <div data-for="BANK CARD"><label>Ngân hàng</label><select name="bank">${['VPBANK','MSB','OTHER'].map((bank) => `<option value="${bank}" ${(source ? source.bank : 'VPBANK') === bank ? 'selected' : ''}>${labels.bank[bank]}</option>`).join('')}</select></div>
-      <div data-for="BANK"><label>Số tài khoản</label><input name="matchKey" value="${source ? source.matchKey : ''}" placeholder="0382079196" inputmode="numeric" data-match-key></div>
+      <div data-for="BANK CARD"><label>Ngân hàng</label><select name="bank">${['TIMO','MSB','OTHER'].map((bank) => `<option value="${bank}" ${(source ? source.bank : 'TIMO') === bank ? 'selected' : ''}>${labels.bank[bank]}</option>`).join('')}</select></div>
+      <div data-for="BANK"><label>Số tài khoản (Timo để trống)</label><input name="matchKey" value="${source ? source.matchKey : ''}" placeholder="Chỉ cần khi có nhiều tài khoản cùng ngân hàng" inputmode="numeric" data-match-key></div>
       <div data-for="CARD"><label>4 số cuối thẻ</label><input value="${source ? source.matchKey : ''}" placeholder="3065" inputmode="numeric" maxlength="4" data-match-key></div>
       <div><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}" placeholder="Chồng / Vợ"></div>
       <div data-for="BANK CASH"><label>Số dư đầu</label><input class="money-input" name="openingBalance" value="${source ? formatMoney(source.openingBalance) : ''}" inputmode="numeric" data-opening></div>

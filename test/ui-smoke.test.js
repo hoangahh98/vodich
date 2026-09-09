@@ -665,10 +665,10 @@ function householdLocals(section, over = {}) {
     source: { BANK: 'Tài khoản ngân hàng', CARD: 'Thẻ tín dụng', CASH: 'Tiền mặt', LOAN: 'Khoản vay' },
     purpose: { LIVING: 'Chi tiêu', SAVING: 'Tiết kiệm', DEBT: 'Trả nợ', RESERVE: 'Dự phòng', LENDING: 'Cho vay', INCOME: 'Thu nhập' },
     tx: { EXPENSE: 'Chi', INCOME: 'Thu', TRANSFER: 'Chuyển' },
-    bank: { VPBANK: 'VPBank', MSB: 'MSB', OTHER: 'Khác' },
+    bank: { TIMO: 'Timo', MSB: 'MSB', OTHER: 'Khác' },
   };
   const sources = [
-    { id: 1n, name: 'VPBank Diện', kind: 'BANK', bank: 'VPBANK', matchKey: '0382079196', ownerName: 'Vợ', openingBalance: 10000000, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true },
+    { id: 1n, name: 'Timo', kind: 'BANK', bank: 'TIMO', matchKey: '', ownerName: 'Cả nhà', openingBalance: 10000000, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true },
     { id: 2n, name: 'Thẻ MSB', kind: 'CARD', bank: 'MSB', matchKey: '3065', ownerName: '', openingBalance: 0, creditLimit: 20000000, interestRate: 0, statementDay: 20, dueDay: 5, active: true },
   ];
   const purposes = [
@@ -682,7 +682,7 @@ function householdLocals(section, over = {}) {
   ];
   const transactions = [
     { id: '31', kind: 'EXPENSE', sourceId: '2', targetSourceId: null, purposeId: null, recurringId: null, amount: 86093, interest: 0, month: '2026-09', status: 'NEW', occurredAt: new Date('2026-09-07T11:22:00Z'), description: 'Shopee', sourceName: 'Thẻ MSB', targetName: '', purposeName: '', purposeKind: '', recurringName: '' },
-    { id: '32', kind: 'INCOME', sourceId: '1', targetSourceId: null, purposeId: '11', recurringId: null, amount: 30000000, interest: 0, month: '2026-09', status: 'CONFIRMED', occurredAt: new Date('2026-09-05T03:00:00Z'), description: 'Lương', sourceName: 'VPBank Diện', targetName: '', purposeName: 'Lương vợ', purposeKind: 'INCOME', recurringName: '' },
+    { id: '32', kind: 'INCOME', sourceId: '1', targetSourceId: null, purposeId: '11', recurringId: null, amount: 30000000, interest: 0, month: '2026-09', status: 'CONFIRMED', occurredAt: new Date('2026-09-05T03:00:00Z'), description: 'Lương', sourceName: 'Timo', targetName: '', purposeName: 'Lương vợ', purposeKind: 'INCOME', recurringName: '' },
   ];
   return {
     ...common,

@@ -17,8 +17,8 @@ export const SOURCE_KIND_LABELS: Record<SourceKind, string> = {
 export const isDebtSource = (kind: string) => kind === 'CARD' || kind === 'LOAN';
 
 /** Ngân hàng có mẫu đọc tin Telegram. OTHER = đọc theo mẫu chung (số tiền kèm dấu + VND). */
-export const BANKS = ['VPBANK', 'MSB', 'OTHER'] as const;
-export const BANK_LABELS: Record<(typeof BANKS)[number], string> = { VPBANK: 'VPBank', MSB: 'MSB', OTHER: 'Khác' };
+export const BANKS = ['TIMO', 'MSB', 'OTHER'] as const;
+export const BANK_LABELS: Record<(typeof BANKS)[number], string> = { TIMO: 'Timo', MSB: 'MSB', OTHER: 'Khác' };
 
 /**
  * Loại mục đích — luật báo cáo đi theo loại, tên mục thì hộ tự đặt:

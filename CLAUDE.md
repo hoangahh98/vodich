@@ -205,8 +205,8 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 - Telegram: Apps Script gửi mail vào `POST /telegram/ingest/:secret` (KHÔNG gửi vào nhóm bằng token bot —
   Telegram không đưa tin của chính bot về webhook, bot im lặng, đã dính 10/9/2026); webhook
   `POST /telegram/webhook/:secret` chỉ nhận tin của người và callback nút (`telegram.controller.ts`, @Public
-  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Mẫu đọc tin ở `bank-parsers.ts` (VPBank NEO, MSB thẻ,
-  mẫu chung) — thêm ngân hàng thì thêm parser + test với mail thật. Nút inline `hp:<tx>:<purpose>` gán mục
+  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Mẫu đọc tin ở `bank-parsers.ts` (Timo tài khoản — kèm số dư hiện tại, MSB thẻ,
+  mẫu chung; VPBank đã gỡ 10/9/2026 vì tiền về nhà đi hết qua Timo) — thêm ngân hàng thì thêm parser + test với mail thật. Nút inline `hp:<tx>:<purpose>` gán mục
   đích, `ht:<tx>:<source>` đổi khoản chi thành trả thẻ/trả nợ. Liên kết nhóm bằng `/link <mã>`.
 - Quyền: `@FeatureAccess('HOUSEHOLD')`; admin theo `ownedOrSharedWhere`, thành viên trong nhà là CLIENT qua
   `player_household_access` (`clientHouseholdWhere`). Mỗi admin tạo được nhiều hộ.

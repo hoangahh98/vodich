@@ -1,22 +1,24 @@
 /**
  * Đọc tin biến động số dư ngân hàng (nội dung mail được Apps Script đẩy sang Telegram) thành
  * một giao dịch thô. THUẦN LOGIC, không đụng DB, để test được bằng đúng hai mail mẫu chủ app
- * đưa (VPBank NEO chuyển tiền và MSB thẻ tín dụng, 9/2026).
+ * đưa (Timo tài khoản chi tiêu và MSB thẻ tín dụng, 9/2026; VPBank đã bỏ theo ý chủ app 10/9).
  *
  * Mail HTML khi lấy plain text ra thường thành từng dòng: nhãn tiếng Việt, nhãn tiếng Anh, rồi
  * giá trị — hoặc nhãn và giá trị cùng dòng. Mọi regex vì thế đều cho phép nhãn tiếng Anh xen
  * giữa (`(?:Transaction code)?`) và xuống dòng tuỳ ý (`[\s:]*`).
  */
 
-export type ParsedBank = 'VPBANK' | 'MSB' | 'OTHER';
+export type ParsedBank = 'TIMO' | 'MSB' | 'OTHER';
 
 export interface ParsedBankMessage {
   bank: ParsedBank;
   /** OUT = tiền ra khỏi nguồn (chi/quẹt thẻ), IN = tiền vào. */
   direction: 'OUT' | 'IN';
   amount: number;
-  /** Số tài khoản (VPBank) hoặc 4 số cuối thẻ (MSB) để khớp với `household_source.match_key`. */
+  /** 4 số cuối thẻ (MSB) để khớp với `household_source.match_key`; Timo không có, để rỗng. */
   accountKey: string;
+  /** Số dư sau giao dịch nếu ngân hàng báo (Timo) — chỉ để nhắc trong tin tóm tắt, không ghi sổ. */
+  balance?: number;
   description: string;
   occurredAt: Date;
   /** Mã giao dịch ngân hàng, hoặc mã tự dựng khi ngân hàng không cho — chống ghi trùng. */
@@ -53,29 +55,32 @@ export function parseVnDateTime(raw: string | null | undefined): Date | null {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-/** Mail VPBank NEO "giao dịch thành công": có mã giao dịch, tài khoản thanh toán, số tiền thanh toán. */
-export function parseVpbank(text: string): ParsedBankMessage | null {
-  if (!/vpbank/i.test(text)) return null;
-  const amountRaw = field(text, 'Số tiền thanh toán', 'Debit Amount', '[\\d.,]+') || field(text, 'Số tiền', 'Amount', '[+-]?\\s*[\\d.,]+');
-  const amount = parseVndAmount(amountRaw);
+/**
+ * Mail Timo (BVBank) "Thông báo thay đổi số dư tài khoản" — mọi biến động của tài khoản Spend
+ * đều một dòng: "Tài khoản Spend Account vừa tăng 50.000 VND vào 09/09/2026 16:37. Số dư hiện tại:
+ * 50.000 VND." rồi "Mô tả: ...". Tăng = tiền vào (lương về), giảm = tiền ra. Số dư hiện tại kèm về
+ * để bot nhắc luôn trong tin tóm tắt. Không có mã giao dịch nên mã chống trùng tự dựng từ chiều,
+ * giờ, số tiền và mô tả.
+ */
+export function parseTimo(text: string): ParsedBankMessage | null {
+  if (!/timo/i.test(text)) return null;
+  const move = /vừa\s+(tăng|giảm)\s+([\d.,]+)\s*VND\s+vào\s+(\d{1,2}\/\d{1,2}\/\d{4}(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?)/i.exec(text);
+  if (!move) return null;
+  const amount = parseVndAmount(move[2]);
   if (!amount) return null;
-  const code = field(text, 'Mã giao dịch', 'Transaction code', '[A-Z0-9]{6,}') || '';
-  const account = field(text, 'Tài khoản thanh toán', 'Debit Account', '\\d{6,}') || field(text, 'Tài khoản', 'Account', '\\d{6,}') || '';
-  const when = parseVnDateTime(field(text, 'Ngày, giờ giao dịch', 'Transaction date, time', '[\\d/]+(?:\\s+[\\d:]+)?') || field(text, 'Thời gian', 'Time', '[\\d/]+(?:\\s+[\\d:]+)?'));
-  const service = field(text, 'Dịch vụ thanh toán', 'Billing Category', '[^\\n]+');
-  const biller = field(text, 'Nhà cung cấp', 'Biller', '[^\\n]+');
-  const content = field(text, 'Nội dung', 'Content', '[^\\n]+');
-  const description = [service, biller, content].filter(Boolean).join(' · ') || 'VPBank';
-  const direction: 'OUT' | 'IN' = /ghi có|nhận tiền|\+\s*[\d.,]+/i.test(amountRaw || '') || /ghi có|nhận được/i.test(text) ? 'IN' : 'OUT';
-  const occurredAt = when || new Date();
+  const direction: 'OUT' | 'IN' = /giảm/i.test(move[1]) ? 'OUT' : 'IN';
+  const occurredAt = parseVnDateTime(move[3]) || new Date();
+  const balanceRaw = /Số dư hiện tại:\s*([\d.,]+)\s*VND/i.exec(text);
+  const description = (/Mô tả:\s*([^\n]+)/i.exec(text)?.[1] || 'Timo').trim().replace(/\.+$/, '');
   return {
-    bank: 'VPBANK',
+    bank: 'TIMO',
     direction,
     amount,
-    accountKey: account,
+    accountKey: '',
     description: description.slice(0, 255),
     occurredAt,
-    externalId: code ? `vpbank:${code}` : `vpbank:${account}:${occurredAt.toISOString()}:${amount}`,
+    balance: balanceRaw ? parseVndAmount(balanceRaw[1]) : undefined,
+    externalId: `timo:${direction}:${occurredAt.toISOString()}:${amount}:${description.toLowerCase().slice(0, 40)}`,
   };
 }
 
@@ -128,5 +133,5 @@ export function parseGeneric(text: string): ParsedBankMessage | null {
 /** Thử lần lượt từng mẫu; null = không đọc được, cất vào hộp thư để xử lý tay. */
 export function parseBankMessage(text: string): ParsedBankMessage | null {
   const normalized = String(text || '').replace(/\r/g, '');
-  return parseVpbank(normalized) || parseMsb(normalized) || parseGeneric(normalized);
+  return parseTimo(normalized) || parseMsb(normalized) || parseGeneric(normalized);
 }

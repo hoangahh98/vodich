@@ -9,34 +9,21 @@ const { monthOf, normalizeMonth } = require('../dist/household/household-enums')
 
 // ─────────────────────────── Đọc tin ngân hàng (hai mail mẫu chủ app đưa 9/2026) ───────────────────────────
 
-/** Mail VPBank NEO khi Apps Script lấy plain text: nhãn Việt, nhãn Anh, giá trị mỗi thứ một dòng. */
-const VPBANK_MAIL = `Kính gửi Khách hàng: NGUYEN THI DIEN
-Dear Mr/Ms
-Ngân hàng Việt Nam Thịnh Vượng - VPBank xin trân trọng thông báo thông tin giao dịch Quý khách vừa thực hiện thành công qua dịch vụ VPBank NEO của VPBank như sau:
-Mã giao dịch:
-Transaction code
-FT26250798502426
-Ngày, giờ giao dịch:
-Transaction date, time
-06/09/2026 17:06:00
-Tài khoản thanh toán:
-Debit Account
-0382079196
-Số tiền thanh toán:
-Debit Amount
-650,000.00
-Dịch vụ thanh toán:
-Billing Category
-Thanh toán QRPay
-Nhà cung cấp:
-Biller
-VNPay
-Mã hóa đơn thanh toán:
-Customer's code
-Số tiền phí:
-Fee Amount
-0.00
-Cám ơn Quý khách đã sử dụng dịch vụ của Ngân hàng VPBank!`;
+/** Hai mail Timo "Thông báo thay đổi số dư tài khoản" (chủ app chụp 9/9/2026), plain text từ Apps Script. */
+const TIMO_IN = `NGUYEN KHAC HOANG ANH thân mến,
+
+Tài khoản Spend Account vừa tăng 50.000 VND vào 09/09/2026 16:37. Số dư hiện tại: 50.000 VND.
+
+Mô tả: NGUYEN KHAC HOANG ANH chuyen tien.
+
+Cảm ơn Quý khách đã sử dụng dịch vụ Timo Digital Bank by BVBank!`;
+const TIMO_OUT = `NGUYEN KHAC HOANG ANH thân mến,
+
+Tài khoản Spend Account vừa giảm 30.000 VND vào 09/09/2026 16:39. Số dư hiện tại: 20.000 VND.
+
+Mô tả: Nguyen Khac Hoang Anh chuyen tien tu Timo.
+
+Cảm ơn Quý khách đã sử dụng dịch vụ Timo Digital Bank by BVBank!`;
 
 const MSB_MAIL = `Ngân hàng Hàng hải Việt Nam - MSB xin trân trọng thông báo thông tin biến động số dư trên Thẻ tín dụng MSB của Quý khách như sau:
 Vietnam Maritime Commercial Joint Stock Bank - MSB is pleased to inform that the transaction in your credit card as below:
@@ -75,25 +62,26 @@ test('giờ Việt Nam dd/mm/yyyy hh:mm[:ss] → Date đúng múi +07', () => {
   assert.equal(parseVnDateTime('không phải ngày'), null);
 });
 
-test('mail VPBank NEO: mã giao dịch, tài khoản, số tiền, thời gian, nội dung', () => {
-  const parsed = parseBankMessage(VPBANK_MAIL);
+test('mail Timo tiền vào: tăng = IN, số tiền chấm nghìn, giờ VN, số dư hiện tại, mô tả bỏ dấu chấm cuối', () => {
+  const parsed = parseBankMessage(TIMO_IN);
   assert.ok(parsed, 'phải đọc được');
-  assert.equal(parsed.bank, 'VPBANK');
-  assert.equal(parsed.direction, 'OUT');
-  assert.equal(parsed.amount, 650000);
-  assert.equal(parsed.accountKey, '0382079196');
-  assert.equal(parsed.externalId, 'vpbank:FT26250798502426');
-  assert.equal(parsed.occurredAt.toISOString(), '2026-09-06T10:06:00.000Z');
-  assert.match(parsed.description, /QRPay/);
-  assert.match(parsed.description, /VNPay/);
+  assert.equal(parsed.bank, 'TIMO');
+  assert.equal(parsed.direction, 'IN');
+  assert.equal(parsed.amount, 50000);
+  assert.equal(parsed.balance, 50000);
+  assert.equal(parsed.accountKey, '');
+  assert.equal(parsed.description, 'NGUYEN KHAC HOANG ANH chuyen tien');
+  assert.equal(parsed.occurredAt.toISOString(), '2026-09-09T09:37:00.000Z');
 });
 
-test('mail VPBank dạng nhãn và giá trị cùng dòng cũng đọc được', () => {
-  const inline = 'VPBank thông báo\nMã giao dịch: FT990001\nNgày, giờ giao dịch: 01/10/2026 08:00:00\nTài khoản thanh toán: 0382079196\nSố tiền thanh toán: 1,200,000.00\nDịch vụ thanh toán: Chuyển tiền';
-  const parsed = parseBankMessage(inline);
-  assert.equal(parsed.amount, 1200000);
-  assert.equal(parsed.externalId, 'vpbank:FT990001');
-  assert.equal(parsed.accountKey, '0382079196');
+test('mail Timo tiền ra: giảm = OUT, mã chống trùng ổn định và khác nhau giữa hai tin', () => {
+  const parsed = parseBankMessage(TIMO_OUT);
+  assert.equal(parsed.direction, 'OUT');
+  assert.equal(parsed.amount, 30000);
+  assert.equal(parsed.balance, 20000);
+  assert.equal(parsed.description, 'Nguyen Khac Hoang Anh chuyen tien tu Timo');
+  assert.equal(parsed.externalId, parseBankMessage(TIMO_OUT).externalId);
+  assert.notEqual(parsed.externalId, parseBankMessage(TIMO_IN).externalId);
 });
 
 test('mail MSB thẻ tín dụng: 4 số cuối thẻ, số tiền âm = quẹt thẻ, nội dung, thời gian', () => {
@@ -127,19 +115,19 @@ test('ngân hàng khác: mẫu chung bắt số tiền có dấu kèm VND và 4 
 // ─────────────────────────── Khớp nguồn ───────────────────────────
 
 const SOURCES = [
-  { id: 1n, name: 'VPBank Diện', kind: 'BANK', bank: 'VPBANK', matchKey: '0382079196' },
-  { id: 2n, name: 'VPBank Mạnh', kind: 'BANK', bank: 'VPBANK', matchKey: '0999' },
+  { id: 1n, name: 'Timo', kind: 'BANK', bank: 'TIMO', matchKey: '' },
+  { id: 2n, name: 'Ngân hàng B', kind: 'BANK', bank: 'OTHER', matchKey: '0999' },
   { id: 3n, name: 'Thẻ MSB', kind: 'CARD', bank: 'MSB', matchKey: '3065' },
   { id: 4n, name: 'Tiền mặt', kind: 'CASH', bank: 'OTHER', matchKey: '' },
 ];
 
 test('chọn nguồn: khớp đuôi số tài khoản / 4 số cuối; một nguồn duy nhất của ngân hàng thì lấy luôn; mù thì null', () => {
-  assert.equal(pickSource(SOURCES, 'VPBANK', '0382079196').id, 1n);
-  assert.equal(pickSource(SOURCES, 'VPBANK', '9196').id, 1n, 'tin chỉ có 4 số cuối vẫn khớp');
+  assert.equal(pickSource(SOURCES, 'TIMO', '').id, 1n, 'Timo không có số tài khoản trong mail, một nguồn Timo là lấy luôn');
   assert.equal(pickSource(SOURCES, 'MSB', '3065').id, 3n);
   assert.equal(pickSource(SOURCES, 'MSB', '').id, 3n, 'MSB chỉ có một thẻ');
-  assert.equal(pickSource(SOURCES, 'VPBANK', '7777'), null, 'hai tài khoản VPBank mà không khớp số nào thì không đoán bừa');
-  assert.equal(pickSource(SOURCES, 'OTHER', '').id, 4n);
+  assert.equal(pickSource(SOURCES, 'OTHER', '0999').id, 2n, 'ngân hàng khác khớp theo đuôi số tài khoản');
+  assert.equal(pickSource(SOURCES, 'OTHER', '7777'), null, 'hai nguồn "Khác" mà không khớp số nào thì không đoán bừa');
+  assert.equal(pickSource([...SOURCES, { id: 5n, name: 'Timo 2', kind: 'BANK', bank: 'TIMO', matchKey: '' }], 'TIMO', ''), null, 'hai Timo không khoá thì mù');
 });
 
 test('mô tả chuẩn hoá để đoán mục đích: bỏ dấu, số, ký tự lạ', () => {
