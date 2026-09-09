@@ -10,9 +10,12 @@
  * người đó nằm dưới kim — chứ không phải quay ngẫu nhiên rồi đọc xem trúng ai. Làm ngược lại
  * là vòng quay tự bốc theo luật riêng, lệch hẳn với nút "Chia trận" ở server.
  *
- * Một đội cần hai người nên mỗi lượt quay HAI lần: lần đầu bốc trong nhóm bên trái (ví dụ
- * "Trình A"), lần sau bốc trong nhóm bên phải ("Trình D"). Rule không phân trình thì cả hai
- * lần đều quay trên cùng một danh sách, lần sau đã bỏ người vừa trúng ra.
+ * Thi ĐÔI: một đội cần hai người nên mỗi lượt quay HAI lần: lần đầu bốc trong nhóm bên trái
+ * (ví dụ "Trình A"), lần sau bốc trong nhóm bên phải ("Trình D"). Rule không phân trình thì cả
+ * hai lần đều quay trên cùng một danh sách, lần sau đã bỏ người vừa trúng ra.
+ * Thi ĐƠN (`data-play-type="SINGLES"`): mỗi lượt quay MỘT lần, bốc một người.
+ * Đánh bảng (`data-group-count` > 1): bốc tới đâu xếp bảng tới đó — đội 1 vào A, đội 2 vào B,
+ * ... quay vòng, khớp `splitGroups` ở server — và gửi kèm `group_i` để server xếp đúng bảng đã hiện.
  *
  * Kết quả gửi về đúng endpoint ghép cặp thủ công đã có sẵn
  * (POST /tournaments/:id/manual-schedule), không cần route riêng.
@@ -34,6 +37,13 @@
     players = [];
   }
   const rule = modal.dataset.rule === 'RANDOM' ? 'RANDOM' : 'BY_SKILL';
+  const singles = modal.dataset.playType === 'SINGLES';
+  const groupCount = Math.max(1, Number.parseInt(modal.dataset.groupCount || '1', 10) || 1);
+  /** Ô người trong một lượt: đôi hai ô, đơn một ô. */
+  const SLOTS = singles ? [0] : [0, 1];
+  const groupLetter = (index) => String.fromCharCode(65 + (index % groupCount));
+  /** Đội đủ người mới có bảng: đội đôi mới có một người thì server ghép nốt rồi tự rải bảng. */
+  const groupOfTeam = (team, index) => (groupCount > 1 && team.every(Boolean) ? groupLetter(index) : '');
 
   const wheel = wheelKit.attach(modal.querySelector('[data-spin-wheel]'), { spinMs: 3400 });
   const poolBox = modal.querySelector('[data-spin-pool]');
@@ -68,7 +78,7 @@
 
   const STORAGE_KEY = `vodich.spin.${modal.dataset.tournamentId || '0'}`;
   /** Danh sách VĐV/rule đổi (thêm người, rút người) thì bản nháp cũ không còn đúng nữa. */
-  const fingerprint = `${rule}|${players.map((player) => `${player.name}:${player.skill}`).join(',')}`;
+  const fingerprint = `${rule}|${singles ? 'SINGLES' : 'DOUBLES'}|${groupCount}|${players.map((player) => `${player.name}:${player.skill}`).join(',')}`;
 
   /**
    * Bộ bốc ngẫu nhiên CÓ HẠT GIỐNG (mulberry32) tiêm vào `createDraw` thay cho `Math.random`.
@@ -114,14 +124,18 @@
   }
 
   function renderPicked(picked) {
-    pickedBox.innerHTML = [0, 1]
+    pickedBox.innerHTML = SLOTS
       .map((slot) => `<span class="spin-slot ${picked[slot] ? 'filled' : ''}">${escapeHtml(picked[slot] || '?')}</span>`)
       .join('<span class="spin-plus">+</span>');
   }
 
   function renderResults() {
     resultsBox.innerHTML = teams
-      .map(([first, second]) => `<li>${escapeHtml(first)} <span class="spin-vs">+</span> ${escapeHtml(second || pairing.WAITING_PARTNER)}</li>`)
+      .map(([first, second], index) => {
+        const names = singles ? escapeHtml(first) : `${escapeHtml(first)} <span class="spin-vs">+</span> ${escapeHtml(second || pairing.WAITING_PARTNER)}`;
+        const group = groupOfTeam([first, singles ? first : second], index);
+        return `<li>${names}${group ? ` <span class="spin-group">Bảng ${group}</span>` : ''}</li>`;
+      })
       .join('');
     totalBox.textContent = String(teams.length);
   }
@@ -146,7 +160,7 @@
     setBusy(true);
 
     const picked = ['', ''];
-    for (const slot of [0, 1]) {
+    for (const slot of SLOTS) {
       const names = result.sources[slot];
       poolBox.textContent = result.labels[slot];
       wheel.render(names);
@@ -201,7 +215,14 @@
     wheel.render(teams.map((_, index) => `Đội ${index + 1}`));
     countInput.value = String(teams.length);
     inputsBox.innerHTML = teams
-      .map(([first, second], index) => `<input type="hidden" name="teamA_${index + 1}" value="${escapeHtml(first)}"><input type="hidden" name="teamB_${index + 1}" value="${escapeHtml(second)}">`)
+      .map(([first, second], index) => {
+        const group = groupOfTeam([first, singles ? first : second], index);
+        return (
+          `<input type="hidden" name="teamA_${index + 1}" value="${escapeHtml(first)}">` +
+          (singles ? '' : `<input type="hidden" name="teamB_${index + 1}" value="${escapeHtml(second)}">`) +
+          (group ? `<input type="hidden" name="group_${index + 1}" value="${group}">` : '')
+        );
+      })
       .join('');
     form.classList.remove('hidden');
   }
@@ -214,7 +235,7 @@
   /** Dựng lượt bốc từ một hạt giống, quay lại `replay` lượt đầu để về đúng trạng thái cũ. */
   function start(nextSeed, replay) {
     seed = nextSeed >>> 0;
-    draw = pairing.createDraw(players, rule, seededPick(seed));
+    draw = singles ? pairing.createSinglesDraw(players, seededPick(seed)) : pairing.createDraw(players, rule, seededPick(seed));
     teams = [];
     spinning = false;
     for (let index = 0; index < replay; index++) {
@@ -237,10 +258,15 @@
     else finish();
   }
 
-  const ruleHint = () =>
-    rule === 'RANDOM'
-      ? 'Không phân trình: cả hai lượt quay đều bốc trong cùng một danh sách.'
-      : 'Phân trình: mỗi đội quay hai lần, mỗi lần một mức trình được ghép với nhau.';
+  const groupHint = () => (groupCount > 1 ? ` Bốc tới đâu xếp bảng tới đó: đội 1 vào bảng A, đội 2 vào bảng B, ... (${groupCount} bảng).` : '');
+  const ruleHint = () => {
+    if (singles) return `Thi đơn: mỗi lượt quay bốc một người, thứ tự bốc là thứ tự đội.${groupHint()}`;
+    return (
+      (rule === 'RANDOM'
+        ? 'Không phân trình: cả hai lượt quay đều bốc trong cùng một danh sách.'
+        : 'Phân trình: mỗi đội quay hai lần, mỗi lần một mức trình được ghép với nhau.') + groupHint()
+    );
+  };
 
   function reset() {
     clearState();

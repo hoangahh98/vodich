@@ -182,3 +182,31 @@ test('vòng quay: ô thứ hai đã bỏ người vừa trúng ô thứ nhất r
   assert.ok(!step.sources[1].includes(step.team[0]), 'người đã trúng ô 1 vẫn còn trên ô 2');
   assert.ok(step.sources[1].includes(step.team[1]), 'người trúng ô 2 phải nằm trong danh sách ô 2');
 });
+
+// ───────── Thi đơn: mỗi lượt quay một người ─────────
+
+test('vòng quay thi đơn: mỗi lượt bốc đúng một người, không ai bị bốc hai lần hay bị bỏ rơi', () => {
+  const players = spinPlayers({ A: 3, C: 4 });
+  const draw = pairing.createSinglesDraw(players);
+  const preview = plain(draw.preview());
+  assert.equal(preview.sources.length, 1, 'thi đơn chỉ có một ô quay');
+  assert.equal(preview.sources[0].length, players.length);
+  const first = plain(draw.next());
+  assert.equal(first.team.length, 1, 'mỗi lượt chỉ ra một tên');
+  assert.equal(first.sources[0].length, players.length, 'ô quay lượt đầu phải đủ mọi người');
+  const rest = plain(draw.drawAll());
+  const names = [first.team[0], ...rest.map((team) => team[0])];
+  assert.equal(names.length, players.length);
+  assert.equal(new Set(names).size, players.length);
+  assert.equal(draw.leftoverName(), '', 'thi đơn không có ai lẻ');
+  assert.equal(draw.next(), null);
+});
+
+test('vòng quay thi đơn: bộ chọn tất định cho ra thứ tự tất định (để lưu nháp quay lại đúng)', () => {
+  const players = spinPlayers({ B: 5 });
+  const pick = () => 0;
+  const once = plain(pairing.createSinglesDraw(players, pick).drawAll());
+  const twice = plain(pairing.createSinglesDraw(players, pick).drawAll());
+  assert.deepEqual(once, twice);
+  assert.deepEqual(once.map((team) => team[0]), players.map((player) => player.name));
+});

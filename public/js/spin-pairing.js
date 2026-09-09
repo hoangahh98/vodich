@@ -15,6 +15,9 @@
  *   - Lẻ đúng một người cả giải thì để trống chỗ bạn đánh cặp.
  *
  * Rule 'RANDOM' bỏ qua toàn bộ phần trên: một rổ duy nhất, bốc lần lượt từng cặp.
+ *
+ * Giải ĐƠN (`createSinglesDraw`) không có chuyện ghép: mỗi lượt quay bốc đúng một người, thứ tự
+ * bốc là thứ tự đội (đánh bảng thì đội 1 vào A, đội 2 vào B, ... như `splitGroups` ở server).
  */
 (() => {
   const WAITING_PARTNER = 'Chờ thành viên';
@@ -149,7 +152,38 @@
     };
   }
 
-  const api = { WAITING_PARTNER, createDraw };
+  /**
+   * Lượt bốc cho giải ĐƠN: cùng giao diện next/preview/leftoverName/drawAll với `createDraw`
+   * để spin-draw.js dùng chung, nhưng mỗi lượt chỉ có MỘT ô quay và `team` chỉ có một tên.
+   */
+  function createSinglesDraw(players, pickIndex) {
+    const pool = (players || []).map((player) => player.name);
+    const choose = typeof pickIndex === 'function' ? pickIndex : (size) => Math.floor(Math.random() * size);
+    const label = () => (pool.length ? 'Còn ' + pool.length + ' người' : 'Đã bốc xong');
+    return {
+      next() {
+        if (!pool.length) return null;
+        const names = [...pool];
+        const labels = [label()];
+        const name = pool.splice(choose(pool.length), 1)[0];
+        return { labels, sources: [names], team: [name] };
+      },
+      preview() {
+        return pool.length ? { labels: [label()], sources: [[...pool]] } : null;
+      },
+      /** Đơn thì không có ai "lẻ": mỗi người là một đội trọn vẹn. */
+      leftoverName() {
+        return '';
+      },
+      drawAll() {
+        const teams = [];
+        for (let team = this.next(); team; team = this.next()) teams.push(team.team);
+        return teams;
+      },
+    };
+  }
+
+  const api = { WAITING_PARTNER, createDraw, createSinglesDraw };
   if (typeof window !== 'undefined') window.VodichSpinPairing = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

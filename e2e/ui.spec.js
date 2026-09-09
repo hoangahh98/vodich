@@ -240,23 +240,10 @@ test('scoreboard moves serving highlight from hand one to hand two after team B 
   await expect(page.locator('[data-match-court-slot="A1"]')).toHaveClass(/serving/);
 });
 
-/**
- * Vòng quay chia trận chạy thật trong trình duyệt.
- *
- * Bộ test node ở test/ chỉ kiểm được LUẬT bốc và HÌNH HỌC bánh xe; chỗ này kiểm phần còn lại:
- * ba file JS có nạp đúng thứ tự không, bấm nút có ăn không, bánh xe có thật sự xoay không, và
- * kết quả có đổ ra form gửi về /manual-schedule không.
- */
-test('vòng quay chia trận quay thật rồi chốt được danh sách đội', async ({ page }) => {
-  const players = [
-    { name: 'An', skill: 'A' },
-    { name: 'Bao', skill: 'A' },
-    { name: 'Dung', skill: 'D' },
-    { name: 'Duy', skill: 'D' },
-  ];
-  await page.setContent(`
+/** Khung modal vòng quay tối giản, đúng các móc `data-spin-*` mà spin-draw.js cần. */
+const spinModalHtml = (players, extraAttrs = '') => `
     <button type="button" data-spin-open>Vòng quay</button>
-    <div class="score-modal hidden" data-spin-modal data-players='${JSON.stringify(players)}' data-rule="BY_SKILL">
+    <div class="score-modal hidden" data-spin-modal data-players='${JSON.stringify(players)}' data-rule="BY_SKILL" ${extraAttrs}>
       <div class="score-modal-panel"><div class="score-modal-body">
         <small data-spin-hint></small>
         <div class="wheel-stage">
@@ -279,7 +266,23 @@ test('vòng quay chia trận quay thật rồi chốt được danh sách đội
         </form>
       </div></div>
     </div>
-  `);
+`;
+
+/**
+ * Vòng quay chia trận chạy thật trong trình duyệt.
+ *
+ * Bộ test node ở test/ chỉ kiểm được LUẬT bốc và HÌNH HỌC bánh xe; chỗ này kiểm phần còn lại:
+ * ba file JS có nạp đúng thứ tự không, bấm nút có ăn không, bánh xe có thật sự xoay không, và
+ * kết quả có đổ ra form gửi về /manual-schedule không.
+ */
+test('vòng quay chia trận quay thật rồi chốt được danh sách đội', async ({ page }) => {
+  const players = [
+    { name: 'An', skill: 'A' },
+    { name: 'Bao', skill: 'A' },
+    { name: 'Dung', skill: 'D' },
+    { name: 'Duy', skill: 'D' },
+  ];
+  await page.setContent(spinModalHtml(players));
   await page.addStyleTag({ path: path.join(root, 'public/css/app.css') });
   await page.addScriptTag({ path: path.join(root, 'public/js/spin-pairing.js') });
   await page.addScriptTag({ path: path.join(root, 'public/js/wheel.js') });
@@ -319,6 +322,42 @@ test('vòng quay chia trận quay thật rồi chốt được danh sách đội
   await page.locator('[data-spin-reset]').click();
   await expect(page.locator('[data-spin-results] li')).toHaveCount(0);
   await expect(page.locator('[data-spin-form]')).toHaveClass(/hidden/);
+});
+
+/** Thi đơn + đánh bảng: mỗi lượt một ô quay, bốc tới đâu xếp bảng tới đó và gửi kèm group_i. */
+test('vòng quay thi đơn bốc từng người, xếp bảng luân phiên và gửi kèm bảng', async ({ page }) => {
+  const players = [
+    { name: 'An', skill: 'A' },
+    { name: 'Bao', skill: 'B' },
+    { name: 'Dung', skill: 'C' },
+    { name: 'Duy', skill: 'D' },
+  ];
+  await page.setContent(spinModalHtml(players, 'data-play-type="SINGLES" data-group-count="2"'));
+  await page.addStyleTag({ path: path.join(root, 'public/css/app.css') });
+  await page.addScriptTag({ path: path.join(root, 'public/js/spin-pairing.js') });
+  await page.addScriptTag({ path: path.join(root, 'public/js/wheel.js') });
+  await page.addScriptTag({ path: path.join(root, 'public/js/spin-draw.js') });
+
+  await page.locator('[data-spin-open]').click();
+  await expect(page.locator('[data-spin-modal]')).not.toHaveClass(/hidden/);
+  // Thi đơn: một ô quay duy nhất, bánh xe đủ cả 4 người.
+  await expect(page.locator('[data-spin-pool]')).toHaveText('Còn 4 người');
+  await expect(page.locator('.wheel-svg path')).toHaveCount(4);
+  await expect(page.locator('[data-spin-picked] .spin-slot')).toHaveCount(1);
+
+  await page.locator('[data-spin-once]').click();
+  await expect(page.locator('[data-spin-results] li')).toHaveCount(1, { timeout: 20000 });
+  await expect(page.locator('[data-spin-results] li').first()).toContainText('Bảng A');
+  await expect(page.locator('[data-spin-pool]')).toHaveText('Còn 3 người');
+
+  await page.locator('[data-spin-all]').click();
+  await expect(page.locator('[data-spin-results] li')).toHaveCount(4);
+  await expect(page.locator('[data-spin-results] .spin-group')).toHaveText(['Bảng A', 'Bảng B', 'Bảng A', 'Bảng B']);
+  await expect(page.locator('[data-spin-count]')).toHaveValue('4');
+  const inputs = await page.locator('[data-spin-inputs] input').evaluateAll((list) => list.map((input) => [input.name, input.value]));
+  expect(inputs.filter(([name]) => name.startsWith('teamB_'))).toHaveLength(0);
+  expect(inputs.filter(([name]) => name.startsWith('teamA_')).map(([, value]) => value).sort()).toEqual(['An', 'Bao', 'Dung', 'Duy']);
+  expect(inputs.filter(([name]) => name.startsWith('group_')).map(([, value]) => value)).toEqual(['A', 'B', 'A', 'B']);
 });
 
 /** Vòng quay đứng riêng ở /vong-quay — bốc tên thuần, có tuỳ chọn bốc xong thì bỏ tên đó ra. */

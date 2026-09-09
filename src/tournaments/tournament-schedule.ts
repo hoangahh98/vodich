@@ -15,6 +15,13 @@ export type MatchCreate = {
 
 type RegisteredPlayer = TournamentRegistration & { player: { displayName: string } | null };
 
+/**
+ * Một đội do ban tổ chức chốt tay: tên đội (đôi là `"An / Bình"`, đơn là tên người) và bảng
+ * muốn xếp vào (chữ cái `A`, `B`, ... — rỗng/null là để máy tự rải). Bảng chỉ có nghĩa với thể
+ * thức đánh bảng; hai thể thức kia bỏ qua.
+ */
+export type ManualTeam = { name: string; group?: string | null };
+
 /** Tên vòng của thể thức Đôi xoay vòng (Americano). */
 export const AMERICANO_STAGE = 'Xoay vòng';
 
@@ -44,17 +51,23 @@ export class TournamentScheduleBuilder {
       tournament.playType === 'DOUBLES'
         ? shuffle(buildDoublesTeams(registrations, rule))
         : shuffle(registrations.map(displayRegistrationName));
-    return this.fromTeams(tournament, teams);
-  }
-
-  fromManualPairs(tournament: Tournament, pairNames: string[]): MatchCreate[] {
     return this.fromTeams(
       tournament,
-      pairNames.map((name) => name.trim()).filter(Boolean),
+      teams.map((name) => ({ name })),
     );
   }
 
-  private fromTeams(tournament: Tournament, teams: string[]): MatchCreate[] {
+  /** Đội đã chốt tay (có thể kèm bảng). Vẫn nhận mảng tên trơn cho nơi gọi cũ. */
+  fromManualPairs(tournament: Tournament, teams: (string | ManualTeam)[]): MatchCreate[] {
+    return this.fromTeams(
+      tournament,
+      teams
+        .map((team) => (typeof team === 'string' ? { name: team.trim() } : { name: team.name.trim(), group: team.group || null }))
+        .filter((team) => team.name),
+    );
+  }
+
+  private fromTeams(tournament: Tournament, teams: ManualTeam[]): MatchCreate[] {
     const groupMatches = buildGroupMatches(tournament, teams);
     const knockout = tournament.format === 'GROUP_KNOCKOUT' ? buildKnockout(tournament) : [];
     return [...groupMatches, ...knockout];
@@ -114,6 +127,22 @@ export function completeManualTeams(manualTeams: string[], registrations: Regist
   // Người bị bỏ ra khỏi mọi đội cố định — kể cả người đứng lẻ trong một ô ghép dở.
   const loose = registrations.filter((reg) => !taken.has(displayRegistrationName(reg)));
   return [...fixed, ...buildDoublesTeams(loose, rule)];
+}
+
+/**
+ * Giải ĐƠN chọn đội thủ công: mỗi "đội" là một người, ban tổ chức chỉ chốt những ai muốn cố
+ * định (thứ tự, hoặc bảng nếu đánh bảng), người chưa được chọn xếp nốt phía sau theo thứ tự
+ * ngẫu nhiên — không ai biến mất khỏi lịch. Tên lạ (không có trong danh sách đăng ký) bị bỏ.
+ */
+export function completeManualSingles(manualNames: string[], registrations: RegisteredPlayer[]): string[] {
+  const everyone = registrations.map(displayRegistrationName);
+  const known = new Set(everyone);
+  const chosen: string[] = [];
+  for (const name of manualNames) {
+    if (known.has(name) && !chosen.includes(name)) chosen.push(name);
+  }
+  const taken = new Set(chosen);
+  return [...chosen, ...shuffle(everyone.filter((name) => !taken.has(name)))];
 }
 
 /**
@@ -243,12 +272,13 @@ export function americanoRoundCount(playerCount: number): number {
  *                 + một yếu, người mạnh thứ i lần lượt đi với người yếu thứ i, i+1, ...
  *  - `RANDOM`   — xáo rồi cắt đôi: mỗi người có n/2 bạn đánh chung ngẫu nhiên.
  *
- * MỘT VÒNG = n/2 cặp, mỗi người đúng MỘT cặp (chủ app chốt sau khi cân ba cách). Số cặp lẻ
- * (10, 14 người) thì mỗi vòng ghép được (n/2 − 1)/2 trận, còn một CẶP CHỜ: cặp chờ vòng này đánh
- * với cặp chờ vòng sau, trận ấy xếp cuối vòng sau. 14 người → 7 vòng: vòng lẻ 3 trận + 1 cặp chờ,
- * vòng chẵn 3 trận + trận của hai cặp chờ = 24 trận, 12 người đủ 7 trận, 2 người 6 trận (cặp chờ
- * vòng cuối không còn ai để đánh cùng — tổng số cặp lẻ). Lẻ người thì bên yếu có một chỗ trống,
- * người mạnh rơi vào chỗ trống ấy nghỉ vòng đó.
+ * MỘT VÒNG = n/2 cặp, mỗi người đúng MỘT cặp, và AI CŨNG ĐÁNH ĐÚNG BẰNG NHAU (chủ app chốt
+ * 9/2026). Số cặp chẵn (12, 16 người) thì vòng nào cũng đủ mặt: mỗi người đánh n/2 trận. Số cặp
+ * lẻ (10, 14 người) thì mỗi vòng một CẶP NGHỈ, chọn sao cho ai cũng nghỉ đúng một lần: mỗi người
+ * đánh n/2 − 1 trận. 14 người → 7 vòng × 3 trận = 21 trận, mỗi người 6 trận; 12 người → 6 vòng
+ * × 3 = 18 trận, mỗi người 6; 16 người → 8 vòng × 4 = 32 trận, mỗi người 8. Đừng cho cặp nghỉ đánh
+ * bù với cặp nghỉ vòng sau: kiểu đó 12 người được 7 trận còn 2 người chỉ 6 — chủ app đã bác.
+ * Lẻ người thì bên yếu có một chỗ trống, người mạnh rơi vào chỗ trống ấy nghỉ vòng đó.
  */
 export function buildAmericanoMatches(tournament: Tournament, registrations: RegisteredPlayer[], rule: PairingRule): MatchCreate[] {
   const players: AmericanoPlayer[] = registrations.map((reg, index) => ({
@@ -295,28 +325,29 @@ function americanoSides(players: AmericanoPlayer[], rule: PairingRule): [America
  * với đủ mọi người bên kia đúng một lần. Ghép trên CHỈ SỐ chứ không trên tên: hai VĐV trùng
  * tên hiển thị vẫn phải là hai người.
  *
- * Số cặp trong vòng lẻ thì một cặp CHỜ: chọn cặp có tổng số lần chờ ít nhất để ai cũng chờ đúng
- * một lần (nhờ thế các cặp chờ rời nhau). Cặp chờ đánh với cặp chờ của vòng kế tiếp, trận ấy
- * nằm cuối vòng kế tiếp. Cặp chờ nào không ghép được (vòng cuối, hoặc dính người khi lẻ người)
- * dồn sang vòng phụ sau cùng; tối đa một cặp bị dư hẳn.
+ * Số cặp trong vòng lẻ thì một cặp NGHỈ: chọn cặp có tổng số lần nghỉ ít nhất, nhờ thế với số
+ * cặp lẻ (n/2 lẻ) mỗi người nghỉ đúng một lần và cả giải ai cũng đánh n/2 − 1 trận. Cặp nghỉ
+ * KHÔNG đánh bù ở vòng khác — đánh bù là có người hơn người khác một trận.
+ *
+ * Lẻ người thì bên mạnh dư một người, và mỗi người bên mạnh sẽ đúng một lần rơi vào chỗ trống
+ * (không có bạn) — tính sẵn lần nghỉ ấy vào sổ NGAY TỪ ĐẦU, kẻo chọn cặp nghỉ theo sổ mới đếm
+ * tới đâu tính tới đó thì có người vừa nghỉ vì không bạn vừa bị bốc nghỉ cặp hai lần (11 người
+ * từng ra một người 3 trận trong khi người khác 5).
  */
 function americanoRounds(players: AmericanoPlayer[], rule: PairingRule): [AmericanoPair, AmericanoPair][][] {
   const [strong, weak] = americanoSides(players, rule);
   const size = strong.length;
   const rests = new Map<number, number>(players.map((player) => [player.index, 0]));
   const rest = (player: AmericanoPlayer) => rests.set(player.index, (rests.get(player.index) || 0) + 1);
+  if (weak.length < size) strong.forEach(rest);
   const rounds: [AmericanoPair, AmericanoPair][][] = [];
-  const leftovers: AmericanoPair[] = [];
-  let waiting: AmericanoPair | null = null;
 
   for (let roundIndex = 0; roundIndex < size; roundIndex++) {
     const pairs: AmericanoPair[] = [];
     strong.forEach((first, index) => {
       const second = weak[(index + roundIndex) % size];
       if (second) pairs.push(makePair(first, second));
-      else rest(first);
     });
-    const round: [AmericanoPair, AmericanoPair][] = [];
     if (pairs.length % 2) {
       let restingIndex = 0;
       let fewest = Number.POSITIVE_INFINITY;
@@ -327,57 +358,12 @@ function americanoRounds(players: AmericanoPlayer[], rule: PairingRule): [Americ
           restingIndex = index;
         }
       });
-      const [current] = pairs.splice(restingIndex, 1);
-      rest(current.first);
-      rest(current.second);
-      round.push(...toMatches(pairs, rule));
-      if (waiting && disjointPairs(waiting, current)) {
-        round.push([waiting, current]);
-        waiting = null;
-      } else {
-        if (waiting) leftovers.push(waiting);
-        waiting = current;
-      }
-    } else {
-      round.push(...toMatches(pairs, rule));
+      const [resting] = pairs.splice(restingIndex, 1);
+      rest(resting.first);
+      rest(resting.second);
     }
+    const round = toMatches(pairs, rule);
     if (round.length) rounds.push(round);
-  }
-  if (waiting) leftovers.push(waiting);
-  rounds.push(...extraRounds(leftovers, rule));
-  return rounds;
-}
-
-function disjointPairs(a: AmericanoPair, b: AmericanoPair): boolean {
-  const people = new Set([a.first.index, a.second.index]);
-  return !people.has(b.first.index) && !people.has(b.second.index);
-}
-
-/**
- * Vòng phụ cho các cặp chờ chưa ghép được: mỗi vòng bốc ra những cặp không dùng chung người rồi
- * ghép thành trận, lặp tới khi không còn bốc nổi hai cặp rời nhau. Cặp cuối cùng còn dư là giới
- * hạn số học (tổng số cặp lẻ), không phải lỗi.
- */
-function extraRounds(pairs: AmericanoPair[], rule: PairingRule): [AmericanoPair, AmericanoPair][][] {
-  const rounds: [AmericanoPair, AmericanoPair][][] = [];
-  let pool = pairs;
-  while (pool.length > 1) {
-    const used = new Set<number>();
-    const picked: AmericanoPair[] = [];
-    const rest: AmericanoPair[] = [];
-    for (const pair of pool) {
-      if (used.has(pair.first.index) || used.has(pair.second.index)) {
-        rest.push(pair);
-        continue;
-      }
-      used.add(pair.first.index);
-      used.add(pair.second.index);
-      picked.push(pair);
-    }
-    if (picked.length < 2) break;
-    if (picked.length % 2) rest.push(picked.pop() as AmericanoPair);
-    rounds.push(toMatches(picked, rule));
-    pool = rest;
   }
   return rounds;
 }
@@ -402,12 +388,13 @@ function pairName(pair: AmericanoPair): string {
   return formatTeamName(pair.first.name, pair.second.name);
 }
 
-function buildGroupMatches(tournament: Tournament, teams: string[]): MatchCreate[] {
+function buildGroupMatches(tournament: Tournament, teams: ManualTeam[]): MatchCreate[] {
   const stage = tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng' : 'Vòng tròn';
-  const groups = tournament.format === 'GROUP_KNOCKOUT' ? splitGroups(teams, groupCountFor(tournament, teams.length)) : [teams];
+  const groups =
+    tournament.format === 'GROUP_KNOCKOUT' ? splitGroups(teams, groupCountFor(tournament, teams.length)) : [teams.map((team) => team.name)];
   const matches: MatchCreate[] = [];
   const groupRounds = groups.map((groupTeams, groupIndex) => {
-    const groupName = String.fromCharCode('A'.charCodeAt(0) + groupIndex);
+    const groupName = groupLetter(groupIndex);
     return roundRobinRounds(groupTeams).map((roundMatches) =>
       roundMatches.map(([teamA, teamB]) => ({ tournamentId: tournament.id, teamA, teamB, stage, groupName })),
     );
@@ -470,14 +457,47 @@ function stageMatches(tournament: Tournament, stage: string, round: number, team
   return matches;
 }
 
-function groupCountFor(tournament: Tournament, teamCount: number) {
+/** Tên bảng theo thứ tự: 0 → A, 1 → B, ... Dùng chung cho lịch, form ghép tay và vòng quay. */
+export function groupLetter(index: number): string {
+  return String.fromCharCode('A'.charCodeAt(0) + index);
+}
+
+/** Ngược lại của `groupLetter`: 'A' → 0, 'b' → 1; chữ rỗng/lạ → -1. */
+export function groupIndexOf(letter: string | null | undefined): number {
+  const normalized = String(letter || '').trim().toUpperCase();
+  return /^[A-Z]$/.test(normalized) ? normalized.charCodeAt(0) - 'A'.charCodeAt(0) : -1;
+}
+
+/**
+ * Số bảng của thể thức đánh bảng: đủ để chọn ra số đội vào vòng trong (2 đội/bảng), nhưng không
+ * quá nửa số đội (mỗi bảng ít nhất 2 đội). Form ghép tay và vòng quay cũng dùng hàm này để
+ * vẽ đúng số bảng mà "Chia trận" sẽ tạo.
+ */
+export function groupCountFor(tournament: Pick<Tournament, 'format' | 'knockoutQualifierCount'>, teamCount: number) {
   if (tournament.format !== 'GROUP_KNOCKOUT') return 1;
   return Math.min(Math.max(1, Math.ceil(tournament.knockoutQualifierCount / 2)), Math.max(1, Math.floor(teamCount / 2)));
 }
 
-function splitGroups(teams: string[], groupCount: number) {
+/**
+ * Chia đội vào bảng. Đội đã CHỌN BẢNG (ghép tay / vòng quay) vào đúng bảng ấy; đội để máy xếp
+ * thì lần lượt rơi vào bảng đang ít đội nhất (bằng nhau thì bảng đứng trước) — không chọn gì
+ * cả thì ra đúng kiểu rải A, B, A, B như trước. Bảng vượt quá số bảng hiện có coi như chưa chọn.
+ */
+function splitGroups(teams: ManualTeam[], groupCount: number): string[][] {
   const groups = Array.from({ length: groupCount }, () => [] as string[]);
-  teams.forEach((team, index) => groups[index % groupCount].push(team));
+  const loose: string[] = [];
+  for (const team of teams) {
+    const index = groupIndexOf(team.group);
+    if (index >= 0 && index < groupCount) groups[index].push(team.name);
+    else loose.push(team.name);
+  }
+  for (const name of loose) {
+    let target = 0;
+    groups.forEach((group, index) => {
+      if (group.length < groups[target].length) target = index;
+    });
+    groups[target].push(name);
+  }
   return groups;
 }
 

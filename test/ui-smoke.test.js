@@ -201,6 +201,36 @@ test('vòng quay chia trận có mặt và mang theo danh sách vận động vi
   assert.doesNotMatch(html, /<script>[^<]*data-players/, 'không được nhúng dữ liệu bằng script inline');
 });
 
+test('thi đơn vẫn có chọn đội thủ công và vòng quay; đánh bảng có ô chọn bảng', async () => {
+  const locals = tournamentLocals('schedule');
+  const registration = (id, name) => ({ ...locals.registrations[0], id: BigInt(id), playerId: BigInt(id), player: { id: BigInt(id), displayName: name, email: `${id}@test` } });
+  locals.registrations = ['An', 'Bình', 'Cường', 'Dũng', 'Em', 'Phúc', 'Giang', 'Hà'].map((name, index) => registration(index + 1, name));
+  locals.tournament = { ...locals.tournament, playType: 'SINGLES', knockoutQualifierCount: 4 };
+  // Các phần con nhận locals qua `detailContext` (xem detail.ejs) nên phải ghi vào đó.
+  locals.detailContext = { ...locals.detailContext, manualGroupCount: 2 };
+  const html = await renderView('tournaments/detail.ejs', locals);
+
+  assert.match(html, /Chọn đội thủ công/, 'thi đơn cũng phải chọn được đội thủ công');
+  assert.match(html, /name="teamA_8"/, 'thi đơn: mỗi người một ô');
+  assert.doesNotMatch(html, /name="teamB_1"/, 'thi đơn không có ô thành viên 2');
+  assert.match(html, /name="group_1"/, 'đánh bảng phải có ô chọn bảng cho từng đội');
+  assert.match(html, /<option value="B">B<\/option>/, 'ô bảng phải liệt kê đủ số bảng');
+  assert.match(html, /data-spin-open/, 'thi đơn cũng phải có vòng quay');
+  assert.match(html, /data-play-type="SINGLES"/);
+  assert.match(html, /data-group-count="2"/);
+
+  // Vòng tròn thi đôi: có ghép tay, không có ô bảng.
+  const roundRobin = tournamentLocals('schedule');
+  roundRobin.registrations = locals.registrations;
+  roundRobin.tournament = { ...roundRobin.tournament, format: 'ROUND_ROBIN' };
+  roundRobin.detailContext = { ...roundRobin.detailContext, manualGroupCount: 1 };
+  const rrHtml = await renderView('tournaments/detail.ejs', roundRobin);
+  assert.match(rrHtml, /Ghép đội thủ công/);
+  assert.match(rrHtml, /name="teamB_4"/);
+  assert.doesNotMatch(rrHtml, /name="group_1"/, 'vòng tròn không có bảng');
+  assert.match(rrHtml, /data-spin-open/);
+});
+
 test('vòng quay không hiện ở thể thức đôi xoay vòng (đội tự đổi mỗi vòng)', async () => {
   const locals = tournamentLocals('schedule');
   locals.tournament = { ...locals.tournament, format: 'AMERICANO' };
@@ -208,6 +238,7 @@ test('vòng quay không hiện ở thể thức đôi xoay vòng (đội tự đ
 
   assert.doesNotMatch(html, /data-spin-open/);
   assert.doesNotMatch(html, /data-spin-modal/);
+  assert.doesNotMatch(html, /thủ công/, 'đôi xoay vòng không có ghép đội thủ công');
 });
 
 test('tournament create form only asks for info; prize settings live in Cài đặt', async () => {

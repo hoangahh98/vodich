@@ -78,14 +78,16 @@ Socket.IO cho tỉ số trực tiếp, deploy trên Render.
 - Americano (luật chủ app chốt 9/2026, `buildAmericanoMatches`): chia người làm **hai bên**
   (`americanoSides`), vòng r ghép người bên A thứ i với người bên B thứ (i+r) mod n/2 → n/2 vòng,
   mỗi người đi với đủ người bên kia đúng một lần và **không bao giờ** ghép cùng bên. `BY_SKILL` =
-  bên mạnh / bên yếu (sắp theo trình rồi cắt đôi), `RANDOM` = xáo rồi cắt đôi. Lẻ cặp trong vòng
-  thì một cặp nghỉ, chọn cặp nghỉ ít nhất để ai cũng nghỉ đều. 10 người → 10 trận, 8 → 8, 12 → 18.
-  **Một vòng = n/2 cặp, mỗi người đúng một cặp** (chủ app chốt sau khi cân ba cách, 9/2026). Số
-  cặp lẻ (10, 14 người) thì một CẶP CHỜ mỗi vòng; cặp chờ đánh với cặp chờ vòng kế tiếp, trận ấy
-  xếp cuối vòng kế tiếp. 14 người → 7 vòng (vòng lẻ 3 trận + chờ, vòng chẵn 3 + 1) = 24 trận,
-  10 → 5 vòng = 12 trận. Cặp chờ vòng cuối (hoặc dính người khi lẻ người) dồn vòng phụ
-  `extraRounds`, tối đa một cặp dư hẳn. Đừng quay lại kiểu "vòng quay n-1 vòng + giới hạn (n-2)/2",
-  cũng đừng "cho mượn" cặp để ai đó đánh hai trận trong vòng lẻ — chủ app đã bác cả hai.
+  bên mạnh / bên yếu (sắp theo trình rồi cắt đôi), `RANDOM` = xáo rồi cắt đôi.
+  **Một vòng = n/2 cặp, mỗi người đúng một cặp, và ai cũng đánh đúng bằng nhau** (chủ app chốt lại
+  9/9/2026): số cặp chẵn (12, 16 người) thì vòng nào cũng đủ mặt, mỗi người n/2 trận; số cặp lẻ
+  (10, 14 người) thì mỗi vòng một **cặp nghỉ** (chọn cặp có tổng số lần nghỉ ít nhất → ai cũng nghỉ
+  đúng một lần), mỗi người n/2 − 1 trận. 14 người → 7 vòng × 3 = 21 trận, mỗi người 6; 12 → 18
+  trận, mỗi người 6; 16 → 32 trận, mỗi người 8; 10 → 10 trận, mỗi người 4. Cặp nghỉ **không đánh
+  bù** ở vòng khác — kiểu "cặp chờ đánh với cặp chờ vòng sau" từng cho 12 người 7 trận còn 2 người
+  6, chủ app đã bác; "vòng quay n-1 vòng" và "cho mượn cặp" cũng đã bác từ trước. Lẻ người thì bên
+  mạnh dư một người, mỗi người bên mạnh rơi vào chỗ trống đúng một lần — lần nghỉ ấy được ghi sổ
+  ngay từ đầu để việc chọn cặp nghỉ không dồn thêm lên họ (11 người từng ra một người 3 trận).
 - Luôn xáo trước khi sắp theo trình để bấm "Chia trận" lần sau ra kèo khác (người cùng trình đổi
   chỗ) — trước đây xếp thẳng theo thứ tự đăng ký nên bấm mười lần ra một kiểu, người dùng tưởng
   nút hỏng.
@@ -154,12 +156,25 @@ mất số cũ). `req.session.flash` được LocalsMiddleware đưa ra `flash` 
 từ tiền so với lệ phí trong `TournamentPaymentService` — không còn ô tích ✓/✕, có nút "Tất cả đã
 đóng" (`markAllPaid`). Đừng đọc `paid_amount` như "mức phải đóng" nữa.
 
-### Ghép đội thủ công
+### Chọn đội thủ công và chọn bảng
 
-`completeManualTeams` (`tournament-schedule.ts`): chỉ đội chọn **đủ hai người** mới là đội cố
-định, ai chưa được xếp thì máy ghép nốt theo `pairingRule` của giải. Ô mới chọn một người coi
-như chưa ghép — trước đây nó thành "đội" một người đi đánh đôi, còn người không được chọn thì
-biến mất hẳn khỏi lịch.
+Có ở vòng tròn và đánh bảng, **cả thi đôi lẫn thi đơn** (chủ app yêu cầu 9/9/2026); đôi xoay vòng
+không có vì cặp đổi mỗi vòng. Form (`schedule-parts/manual-pairs.ejs`) và vòng quay đều gửi về
+`POST /tournaments/:id/manual-schedule` dạng `teamA_i` / `teamB_i` (đôi) và `group_i` (bảng, tuỳ
+chọn); controller đọc thành `ManualTeam { name, group }`.
+
+- Đôi: `completeManualTeams` — chỉ đội chọn **đủ hai người** mới là đội cố định, ai chưa được xếp
+  thì máy ghép nốt theo `pairingRule`. Ô mới chọn một người coi như chưa ghép — trước đây nó thành
+  "đội" một người đi đánh đôi, còn người không được chọn thì biến mất hẳn khỏi lịch.
+- Đơn: `completeManualSingles` — người đã chọn đứng trước theo thứ tự, người còn lại xếp nốt phía
+  sau (xáo); trước đây thi đơn gửi tên nào là chỉ có tên đó, người không được chọn mất khỏi lịch.
+- Bảng: `splitGroups` xếp đội đã chọn bảng vào đúng bảng, đội "Tự xếp" rơi vào bảng đang ít đội
+  nhất (không chọn gì thì ra A, B, A, B như cũ). Số bảng để vẽ form/vòng quay là `manualGroupCount`
+  trong view model (`groupCountFor` với số đội ước tính: đôi lấy ceil(n/2) vì người lẻ vẫn thành
+  đội "Chờ thành viên"), server tính lại với số đội thật — bảng vượt quá số bảng coi như chưa chọn.
+- Vòng quay thi đơn dùng `createSinglesDraw` (mỗi lượt một ô, bốc một người); đánh bảng thì bốc tới
+  đâu xếp bảng tới đó (đội 1 → A, đội 2 → B, ...) và hiện nhãn bảng ngay trong danh sách đã bốc.
+  Bản nháp `localStorage` có loại đấu + số bảng trong fingerprint nên đổi cấu hình là nháp cũ bỏ.
 
 Ngoài ra có **vòng quay bốc tên đứng riêng** ở `/vong-quay` (`src/views/wheel.ejs` +
 `public/js/wheel-of-names.js`), đặt cạnh `/score-reader`: chỉ cần đăng nhập, không thuộc module

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { Tournament } from '@prisma/client';
 import { CurrentUser } from '../types';
-import { isKnockoutStage } from './tournament-schedule';
+import { groupCountFor, isKnockoutStage } from './tournament-schedule';
 
 type RegistrationLike = {
   player?: { displayName?: string | null; email?: string | null } | null;
@@ -44,10 +44,16 @@ export class TournamentDetailViewModelBuilder {
         .filter(Boolean) as string[],
     );
 
+    // Số bảng mà "Chia trận" sẽ tạo với số người hiện có — form ghép tay và vòng quay vẽ đúng
+    // chừng ấy ô bảng. Đôi lẻ người vẫn thành một đội "Chờ thành viên" nên đếm theo ceil.
+    const estimatedTeamCount = tournament.playType === 'DOUBLES' ? Math.ceil(registrations.length / 2) : registrations.length;
+    const manualGroupCount = groupCountFor(tournament, estimatedTeamCount);
+
     return {
       currentEmail,
       externalLink,
       isKnockoutStage,
+      manualGroupCount,
       isMine: (name: string) => [...myNames].some((myName) => String(name || '').includes(myName)),
       manualPrize,
       missingFee: registrations.reduce((sum, registration) => sum + Math.max(0, minimumFee - Number(registration.paidAmount || 0)), 0),

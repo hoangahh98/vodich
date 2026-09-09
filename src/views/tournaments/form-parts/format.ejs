@@ -1,14 +1,14 @@
 <section class="form-section">
   <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'puzzle' }) %> Thể thức thi đấu</h2>
   <div class="row mb">
-    <div class="col-12"><label>Loại đấu</label><select name="playType"><option value="DOUBLES" <%= (tournament?.playType || 'DOUBLES') === 'DOUBLES' ? 'selected' : '' %>>Thi đôi</option><option value="SINGLES" <%= tournament?.playType === 'SINGLES' ? 'selected' : '' %>>Thi đơn</option></select><span class="field-hint">Ghép đội thủ công và vòng quay chỉ có khi thi đôi.</span></div>
+    <div class="col-12"><label>Loại đấu</label><select name="playType"><option value="DOUBLES" <%= (tournament?.playType || 'DOUBLES') === 'DOUBLES' ? 'selected' : '' %>>Thi đôi</option><option value="SINGLES" <%= tournament?.playType === 'SINGLES' ? 'selected' : '' %>>Thi đơn</option></select><span class="field-hint">Vòng tròn và đánh bảng đều chọn được đội thủ công hoặc bốc bằng vòng quay, thi đôi lẫn thi đơn.</span></div>
   </div>
   <div class="segmented segmented-3">
     <label><input type="radio" name="format" value="ROUND_ROBIN" <%= (tournament?.format || 'ROUND_ROBIN') === 'ROUND_ROBIN' ? 'checked' : '' %>> Vòng tròn</label>
     <label><input type="radio" name="format" value="GROUP_KNOCKOUT" <%= tournament?.format === 'GROUP_KNOCKOUT' ? 'checked' : '' %>> Đánh bảng + vòng trong</label>
     <label><input type="radio" name="format" value="AMERICANO" <%= tournament?.format === 'AMERICANO' ? 'checked' : '' %>> Đôi xoay vòng</label>
   </div>
-  <p class="muted mt" id="americanoNote">Đôi xoay vòng: chia hai bên, mỗi người lần lượt đánh chung đội với từng người bên kia (phân trình: bên mạnh đi với bên yếu; không phân trình: xáo ngẫu nhiên). Xếp hạng theo từng cá nhân. Luôn là đánh đôi.</p>
+  <p class="muted mt" id="americanoNote">Đôi xoay vòng: chia hai bên, mỗi người lần lượt đánh chung đội với từng người bên kia (phân trình: bên mạnh đi với bên yếu; không phân trình: xáo ngẫu nhiên). Số cặp mỗi vòng lẻ (10, 14 người) thì mỗi vòng một cặp nghỉ, ai cũng nghỉ đúng một lần để số trận bằng nhau. Xếp hạng theo từng cá nhân. Luôn là đánh đôi, không ghép đội thủ công.</p>
   <div id="knockoutQualifierField" class="mt" data-expected-players="<%= tournament?.expectedPlayers || 10 %>">
     <input type="hidden" name="knockoutQualifierCount" id="knockoutQualifierCount" value="<%= tournament?.knockoutQualifierCount || 2 %>">
     <div class="knockout-option-grid">

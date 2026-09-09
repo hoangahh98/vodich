@@ -8,6 +8,7 @@ import { TournamentKnockoutService } from './tournament-knockout.service';
 import { TournamentPaymentService } from './tournament-payment.service';
 import { TournamentRegistrationService } from './tournament-registration.service';
 import { TournamentScheduleService } from './tournament-schedule.service';
+import { ManualTeam } from './tournament-schedule';
 
 @Injectable()
 export class TournamentService {
@@ -112,8 +113,8 @@ export class TournamentService {
     return this.schedule.generateSchedule(tournamentId);
   }
 
-  generateManualSchedule(tournamentId: bigint, pairNames: string[]) {
-    return this.schedule.generateManualSchedule(tournamentId, pairNames);
+  generateManualSchedule(tournamentId: bigint, manualTeams: ManualTeam[]) {
+    return this.schedule.generateManualSchedule(tournamentId, manualTeams);
   }
 
   groupBoards(tournamentId: bigint) {

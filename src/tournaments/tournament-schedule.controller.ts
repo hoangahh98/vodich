@@ -5,6 +5,7 @@ import { requireFeature } from '../common/controller-utils';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
 import { MatchGateway } from './match.gateway';
 import { formatTeamName } from './team-name';
+import { ManualTeam, groupIndexOf, groupLetter } from './tournament-schedule';
 import { TournamentService } from './tournament.service';
 
 // Mọi route ở đây đều là thao tác ghi của admin, nên khai thẳng ở class (xem docs/bao-mat.md).
@@ -42,9 +43,13 @@ function forbidden(res: Response) {
   return res.status(403).render('error', { message: 'Không có quyền' });
 }
 
-function normalizeManualTeams(body: Record<string, string>) {
+/**
+ * Đọc form ghép tay / vòng quay: `teamA_i` (+ `teamB_i` khi thi đôi) là người, `group_i` là bảng
+ * (tuỳ chọn, chỉ thể thức đánh bảng dùng). Tên trùng giữa các ô thì ô sau bị bỏ.
+ */
+function normalizeManualTeams(body: Record<string, string>): ManualTeam[] {
   const pairCount = Math.max(0, Number(body.pairCount || 0));
-  const teams: string[] = [];
+  const teams: ManualTeam[] = [];
   const usedNames = new Set<string>();
   for (let index = 1; index <= pairCount; index++) {
     const a = String(body[`teamA_${index}`] || '').trim();
@@ -52,9 +57,11 @@ function normalizeManualTeams(body: Record<string, string>) {
     if ((a && usedNames.has(a)) || (b && usedNames.has(b)) || (a && b && a === b)) continue;
     if (a) usedNames.add(a);
     if (b) usedNames.add(b);
-    if (a && b) teams.push(formatTeamName(a, b));
-    else if (a) teams.push(a);
-    else if (b) teams.push(b);
+    const groupIndex = groupIndexOf(body[`group_${index}`]);
+    const group = groupIndex >= 0 ? groupLetter(groupIndex) : null;
+    if (a && b) teams.push({ name: formatTeamName(a, b), group });
+    else if (a) teams.push({ name: a, group });
+    else if (b) teams.push({ name: b, group });
   }
   return teams;
 }
