@@ -155,8 +155,23 @@ export function monthReport(month: string, sources: SourceRow[], purposes: Purpo
   for (const tx of transactions.filter((item) => item.month === month)) {
     const kind = tx.purposeId ? purposeById.get(tx.purposeId)?.kind : undefined;
     if (tx.kind === 'INCOME') {
-      report.income += tx.amount;
-      bump(tx.purposeId, tx.amount);
+      // Tiền vào mà gắn mục đích CHI (hoặc vào thẻ tín dụng chưa gắn gì) là HOÀN TIỀN: trừ bớt mục
+      // đã chi chứ không phải thu nhập — Shopee trả lại 172k không làm lương tăng.
+      const refund = (kind && kind !== 'INCOME') || (!tx.purposeId && sourceKind.get(tx.sourceId) === 'CARD');
+      if (!refund) {
+        report.income += tx.amount;
+        bump(tx.purposeId, tx.amount);
+        continue;
+      }
+      bump(tx.purposeId, -tx.amount);
+      if (kind === 'SAVING') report.saving -= tx.amount;
+      else if (kind === 'RESERVE') report.reserve -= tx.amount;
+      else if (kind === 'LENDING') report.lending -= tx.amount;
+      else if (kind === 'DEBT') {
+        report.debt.total -= tx.amount;
+        report.debt.interest -= tx.amount;
+      } else report.living -= tx.amount;
+      if (sourceKind.get(tx.sourceId) === 'CARD') report.cardSpending -= tx.amount;
       continue;
     }
     if (tx.kind === 'TRANSFER') {

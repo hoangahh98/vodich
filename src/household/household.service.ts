@@ -153,18 +153,23 @@ export class HouseholdService {
     const expectations = recurringExpectations(month, recurringRows, balancesAtStart, monthTransactions);
 
     const sourceName = new Map(sources.map((source) => [String(source.id), source.name]));
+    const sourceKindById = new Map(sources.map((source) => [String(source.id), source.kind]));
     const purposeById = new Map(purposes.map((purpose) => [String(purpose.id), purpose]));
     const recurringName = new Map(recurrings.map((recurring) => [String(recurring.id), recurring.name]));
     const rows = monthTransactions.map((tx) => ({
       ...tx,
       sourceName: sourceName.get(tx.sourceId) || '?',
+      sourceKind: sourceKindById.get(tx.sourceId) || 'BANK',
+      // Tiền vào thẻ tín dụng là hoàn tiền → chọn mục đích CHI như khoản chi; tiền vào tài khoản là thu nhập.
+      refund: tx.kind === 'INCOME' && sourceKindById.get(tx.sourceId) === 'CARD',
       targetName: tx.targetSourceId ? sourceName.get(tx.targetSourceId) || '?' : '',
       purposeName: tx.purposeId ? purposeById.get(tx.purposeId)?.name || '' : '',
       purposeKind: tx.purposeId ? purposeById.get(tx.purposeId)?.kind || '' : '',
       recurringName: tx.recurringId ? recurringName.get(tx.recurringId) || '' : '',
     }));
     // "Cần xem lại": chưa có mục đích, hoặc máy ghi từ Telegram mà chưa ai xác nhận (status NEW).
-    const needsReview = (tx: { kind: string; purposeId: string | null; status: string }) => tx.kind === 'EXPENSE' && (!tx.purposeId || tx.status === 'NEW');
+    const needsReview = (tx: { kind: string; purposeId: string | null; status: string; sourceId: string }) =>
+      (tx.kind === 'EXPENSE' || (tx.kind === 'INCOME' && sourceKindById.get(tx.sourceId) === 'CARD')) && (!tx.purposeId || tx.status === 'NEW');
     const unclassified = rows.filter(needsReview);
     const unclassifiedAll = txRows.filter(needsReview).length;
     const unclassifiedTotal = unclassified.reduce((sum, tx) => sum + tx.amount, 0);

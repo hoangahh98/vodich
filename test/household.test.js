@@ -272,3 +272,19 @@ test('mail MSB thật từ Apps Script (dòng trống kép, dấu * markdown): h
   assert.equal(parsed.description, 'Shopee');
   assert.equal(parsed.occurredAt.toISOString(), '2026-09-08T02:08:00.000Z');
 });
+
+test('hoàn tiền: tiền vào gắn mục đích chi (hoặc vào thẻ chưa gắn gì) trừ bớt mục đó, không thành thu nhập', () => {
+  const refunds = [
+    ...SEPTEMBER,
+    tx({ id: 'r1', kind: 'INCOME', sourceId: 'c', purposeId: 'p-an', amount: 172_691 }), // Shopee hoàn vào thẻ, gắn Ăn uống
+    tx({ id: 'r2', kind: 'INCOME', sourceId: 'c', purposeId: null, amount: 10_000 }), // hoàn vào thẻ chưa gắn gì
+  ];
+  const base = monthReport('2026-09', [bank, card, loan], purposes, SEPTEMBER);
+  const report = monthReport('2026-09', [bank, card, loan], purposes, refunds);
+  assert.equal(report.income, base.income, 'hoàn tiền không phải lương');
+  assert.equal(report.living, base.living - 172_691 - 10_000);
+  assert.equal(report.cardSpending, base.cardSpending - 172_691 - 10_000);
+  assert.equal(report.byPurpose.find((row) => row.purpose.id === 'p-an').actual, 2_086_093 - 172_691);
+  // Dư nợ thẻ giảm đúng số hoàn.
+  assert.equal(sourceBalances([bank, card, loan], refunds).get('c').balance, -172_691 - 10_000);
+});

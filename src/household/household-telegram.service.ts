@@ -139,13 +139,13 @@ export class HouseholdTelegramService {
       `${refund ? 'Hoàn tiền vào thẻ' : tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${source.name} · ${when}`,
       parsed.description,
     ];
-    if (refund) lines.push('Đã trừ khỏi dư nợ thẻ. Nếu đây là lần trả thẻ thì bấm "Bỏ qua".');
+    if (refund) lines.push('Đã trừ dư nợ thẻ. Chọn mục đích được hoàn (trừ bớt mục đó); nếu đây là lần trả thẻ thì bấm Bỏ qua.');
     else if (result.matched) lines.push(`Khớp khoản định kỳ: ${result.matched.recurring.name}${purposeName ? ` → ${purposeName}` : ''}`);
     else if (result.suggestedPurposeId && purposeName) lines.push(`Đoán mục đích: ${purposeName} (theo lần trước). Bấm nút nếu muốn đổi.`);
     else if (purposeName) lines.push(`Mặc định: ${purposeName}. Bấm nút nếu muốn đổi.`);
     else lines.push('Chọn mục đích:');
     const keyboard = refund
-      ? [[{ text: 'Giữ (hoàn tiền)', callback_data: `hk:${tx.id}` }, { text: 'Bỏ qua (đã ghi trả thẻ)', callback_data: `hx:${tx.id}` }]]
+      ? [...this.purposeKeyboard(tx.id, 'EXPENSE', purposes, sources, source), [{ text: 'Bỏ qua (đã ghi trả thẻ)', callback_data: `hx:${tx.id}` }]]
       : result.matched
         ? []
         : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source);
@@ -172,7 +172,7 @@ export class HouseholdTelegramService {
     } else if (purpose) {
       const purposeId = purpose[2] ? BigInt(purpose[2]) : null;
       const tx = await this.ledger.setPurpose(household.id, BigInt(purpose[1]), purposeId);
-      if (tx) done = `✓ ${tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${tx.source.name} → ${tx.purpose?.name || 'Không mục đích'}`;
+      if (tx) done = `✓ ${tx.kind === 'INCOME' ? (tx.source.kind === 'CARD' ? 'Hoàn' : 'Thu') : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${tx.source.name} → ${tx.purpose?.name || 'Không mục đích'}`;
     } else if (transfer) {
       const tx = await this.ledger.convertToTransfer(household.id, BigInt(transfer[1]), BigInt(transfer[2]));
       if (tx) done = `✓ Chuyển ${formatMoney(Number(tx.amount))}đ · ${tx.source.name} → ${tx.targetSource?.name}${Number(tx.interest) ? ` (lãi ${formatMoney(Number(tx.interest))}đ)` : ''}`;
