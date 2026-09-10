@@ -97,6 +97,19 @@ test('mail MSB thẻ tín dụng: 4 số cuối thẻ, số tiền âm = quẹt 
   assert.equal(parsed.externalId, parseBankMessage(MSB_MAIL).externalId);
 });
 
+test('mã chống trùng kèm số dư / hạn mức: hai giao dịch giống hệt trong cùng một phút không bị gộp', () => {
+  // Mail MSB chỉ ghi giờ tới PHÚT. Hai lần trả thẻ 1.000đ trong cùng một phút chỉ khác nhau ở hạn mức khả
+  // dụng sau giao dịch — thiếu nó trong mã chống trùng là khoản thứ hai bị bỏ (chủ app phát hiện 10/9/2026).
+  const lan1 = parseBankMessage(MSB_PAYMENT);
+  const lan2 = parseBankMessage(MSB_PAYMENT.replace('19,913,907 VND', '19,914,907 VND'));
+  assert.notEqual(lan1.externalId, lan2.externalId);
+  assert.match(lan1.externalId, /:19913907$/);
+  // Mail Timo cũng vậy: cùng số tiền, cùng phút, cùng mô tả nhưng số dư khác nhau.
+  const timo1 = parseBankMessage(TIMO_IN);
+  const timo2 = parseBankMessage(TIMO_IN.replace('Số dư hiện tại: 50.000 VND', 'Số dư hiện tại: 100.000 VND'));
+  assert.notEqual(timo1.externalId, timo2.externalId);
+});
+
 test('mail MSB kèm hạn mức khả dụng — mail KHÔNG có hạn mức tổng nên app không suy ra dư nợ từ đây', () => {
   assert.equal(parseBankMessage(MSB_MAIL).availableLimit, 16_927_825);
   assert.equal(parseBankMessage(TIMO_IN).availableLimit, undefined, 'mail tài khoản không có hạn mức');

@@ -87,7 +87,8 @@ export function parseTimo(text: string): ParsedBankMessage | null {
     description: description.slice(0, 255),
     occurredAt,
     balance: balanceRaw ? parseVndAmount(balanceRaw[1]) : undefined,
-    externalId: `timo:${direction}:${occurredAt.toISOString()}:${amount}:${description.toLowerCase().slice(0, 40)}`,
+    // Kèm số dư sau giao dịch để hai lần chuyển giống hệt nhau trong cùng một phút không bị gộp làm một.
+    externalId: `timo:${direction}:${occurredAt.toISOString()}:${amount}:${description.toLowerCase().slice(0, 40)}${balanceRaw ? `:${parseVndAmount(balanceRaw[1])}` : ''}`,
   };
 }
 
@@ -129,7 +130,9 @@ export function parseMsb(text: string): ParsedBankMessage | null {
     occurredAt,
     availableLimit: availableLimit || undefined,
     cardEvent,
-    externalId: `msb:${card}:${occurredAt.toISOString()}:${direction}:${amount}`,
+    // Mã chống trùng có kèm HẠN MỨC KHẢ DỤNG: mail MSB chỉ ghi giờ tới phút, hai giao dịch giống hệt nhau
+    // trong cùng một phút (hai lần trả thẻ 1.000đ) mà thiếu nó là bị coi là một, mất một khoản.
+    externalId: `msb:${card}:${occurredAt.toISOString()}:${direction}:${amount}${availableLimit ? `:${availableLimit}` : ''}`,
   };
 }
 
