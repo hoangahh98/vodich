@@ -36,12 +36,15 @@ export class TelegramController {
   @Post('/telegram/ingest/:secret')
   @Public()
   @HttpCode(200)
-  async ingest(@Param('secret') secret: string, @Body() body: { chat_id?: string | number; text?: string }) {
+  async ingest(@Param('secret') secret: string, @Body() body: { chat_id?: string | number; text?: string; mail_id?: string }) {
     const expected = process.env.TELEGRAM_WEBHOOK_SECRET || '';
     if (!expected || secret !== expected) return { ok: false, reason: 'Sai bí mật' };
     const chatId = String(body?.chat_id || '').trim();
     const text = String(body?.text || '').trim();
     if (!chatId || !text) return { ok: false, reason: 'Thiếu chat_id hoặc text' };
-    return this.telegram.ingestFromScript(chatId, text);
+    // `mail_id` = id tin của Gmail. MSB gửi HAI mail giống hệt nhau từng chữ cho hai giao dịch khác nhau
+    // (chủ app gặp 10/9/2026: hai lần trả 1.000đ cùng phút, cùng hạn mức khả dụng) — chỉ id tin mới phân
+    // biệt được. Script cũ không gửi id thì vẫn chạy như trước (chống trùng theo nội dung).
+    return this.telegram.ingestFromScript(chatId, text, String(body?.mail_id || '').trim());
   }
 }

@@ -190,7 +190,9 @@ tiền về nhà đi hết qua Timo.
          const res = UrlFetchApp.fetch(APP_URL + '/telegram/ingest/' + SECRET, {
            method: 'post',
            contentType: 'application/json',
-           payload: JSON.stringify({ chat_id: CHAT_ID, text: text }),
+           // Gửi kèm id tin Gmail: MSB có khi gửi HAI mail giống hệt nhau từng chữ cho hai giao dịch khác
+           // nhau, chỉ id tin mới phân biệt được. Gửi lại cùng một mail vẫn cùng id nên không sinh trùng.
+           payload: JSON.stringify({ chat_id: CHAT_ID, text: text, mail_id: id }),
            muteHttpExceptions: true,
          });
          Logger.log(res.getResponseCode() + ' ' + res.getContentText());
@@ -208,6 +210,10 @@ tiền về nhà đi hết qua Timo.
      props.setProperty(DONE_KEY, done.slice(-DONE_KEEP).join(','));
    }
    ```
+
+   **Đừng xoá thuộc tính `vodich_da_gui` trong Script Properties rồi chạy lại** khi sổ đang có dữ liệu: mọi
+   mail sẽ được gửi lại và app ghi thành giao dịch mới (mã chống trùng nay đi theo id tin). Muốn nạp lại cả
+   tháng thì xoá giao dịch của tháng đó trên web trước.
 
    Lấy `CHAT_ID`: sau khi đặt webhook, gõ `/start` (hoặc `/link <mã>`) trong nhóm — bot trả lời kèm id nhóm (số âm).
    Dùng HAI Gmail (mỗi người nhận mail ngân hàng của mình)? Cài cùng đoạn script này trên CẢ HAI tài khoản Google,

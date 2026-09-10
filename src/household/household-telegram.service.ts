@@ -95,10 +95,12 @@ export class HouseholdTelegramService {
    * Không có message_id của Telegram nên lấy hash nội dung làm khoá chống trùng trong hộp thư; giao
    * dịch còn được chống trùng lần nữa bằng `externalId` (mã giao dịch ngân hàng).
    */
-  async ingestFromScript(chatId: string, text: string): Promise<{ ok: boolean; reason?: string }> {
+  async ingestFromScript(chatId: string, text: string, mailId = ''): Promise<{ ok: boolean; reason?: string }> {
     const household = await this.prisma.household.findFirst({ where: { telegramChatId: chatId } });
     if (!household) return { ok: false, reason: 'Nhóm này chưa liên kết hộ nào (gõ /link <mã> trong nhóm trước).' };
-    const outcome = await this.ingestBankText(household, chatId, textHash(text), text);
+    // Khoá chống trùng: id tin Gmail nếu script gửi kèm (hai mail giống hệt nhau vẫn là hai tin khác nhau),
+    // không thì hash nội dung như trước.
+    const outcome = await this.ingestBankText(household, chatId, textHash(mailId || text), text, mailId);
     if (outcome === 'duplicate') return { ok: true, reason: 'Tin này đã xử lý trước đó, bỏ qua.' };
     // ok = false → Apps Script CHƯA gắn nhãn "đã gửi", lần chạy sau gửi lại và bot đăng bù tin tóm tắt.
     if (outcome === 'unsent') return { ok: false, reason: 'Đã ghi sổ nhưng chưa đăng được tin lên nhóm Telegram — sẽ thử lại.' };
@@ -111,7 +113,7 @@ export class HouseholdTelegramService {
    * (chủ app xoá nhầm rồi gửi lại mail — phải ra được giao dịch mới). Trả 'unsent' khi đã ghi sổ nhưng
    * KHÔNG đăng được tin lên nhóm, để bên gọi biết mà gửi lại lần sau.
    */
-  private async ingestBankText(household: Household, chatId: string, messageId: bigint, text: string): Promise<'done' | 'duplicate' | 'unsent'> {
+  private async ingestBankText(household: Household, chatId: string, messageId: bigint, text: string, mailId = ''): Promise<'done' | 'duplicate' | 'unsent'> {
     const seen = await this.prisma.householdInbox.findUnique({ where: { chatId_messageId: { chatId, messageId } } });
     if (seen) {
       const stillThere = seen.transactionId ? await this.prisma.householdTransaction.count({ where: { id: seen.transactionId, householdId: household.id } }) : 0;
@@ -163,7 +165,9 @@ export class HouseholdTelegramService {
       occurredAt: parsed.occurredAt,
       description: parsed.description,
       rawText: text,
-      externalId: parsed.externalId,
+      // Hai mail giống hệt nhau của hai giao dịch thật chỉ khác nhau ở id tin Gmail — không kèm vào mã
+      // chống trùng thì khoản thứ hai bị coi là ghi trùng và mất luôn.
+      externalId: mailId ? `${parsed.externalId}:m${textHash(mailId)}` : parsed.externalId,
       // Tiền vào thẻ (mail "Biến động thanh toán") bot không hỏi gì nên coi như đã xong luôn, khỏi treo ở
       // "Cần xem lại" mãi — khoản chi thì vẫn NEW để chủ app liếc qua rồi bấm ✓ hoặc đổi mục đích.
       status: parsed.direction === 'IN' && source.kind === 'CARD' ? 'CONFIRMED' : 'NEW',

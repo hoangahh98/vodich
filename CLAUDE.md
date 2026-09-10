@@ -253,9 +253,12 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   thẻ tín dụng" = hoàn tiền / mình trả nợ thẻ (mail này có thể không mang dấu +/− nên PHẢI đọc theo tiêu đề;
   bot chỉ báo một dòng "Hoàn tiền vào thẻ … của …", không hỏi mục đích). Mẫu đọc tin ở `bank-parsers.ts` (Timo tài khoản — kèm số dư hiện tại, MSB thẻ — kèm hạn mức khả dụng
   SAU giao dịch,
-  mẫu chung; VPBank đã gỡ 10/9/2026 vì tiền về nhà đi hết qua Timo) — thêm ngân hàng thì thêm parser + test với mail thật. Mã chống trùng (`external_id`) PHẢI kèm số dư / hạn mức khả dụng
-  sau giao dịch: mail chỉ ghi giờ tới PHÚT nên hai giao dịch giống hệt nhau trong cùng một phút (hai lần trả
-  thẻ 1.000đ) mà thiếu nó là bị gộp làm một, mất một khoản (chủ app bắt được 10/9/2026). Nút inline `hp:<tx>:<purpose>` gán mục
+  mẫu chung; VPBank đã gỡ 10/9/2026 vì tiền về nhà đi hết qua Timo) — thêm ngân hàng thì thêm parser + test với mail thật. Mã chống trùng (`external_id`) kèm số dư / hạn mức khả dụng
+  sau giao dịch VÀ id tin Gmail (`mail_id` script gửi kèm): mail chỉ ghi giờ tới PHÚT, và MSB có khi gửi HAI
+  mail **giống hệt nhau từng chữ** (cùng số tiền, cùng phút, cùng hạn mức khả dụng) cho hai giao dịch khác
+  nhau — chủ app bắt được 10/9/2026, hai lần trả thẻ 1.000đ. Chỉ id tin Gmail mới tách được, nên khoá hộp thư
+  (`household_inbox.message_id`) cũng lấy hash của id tin khi có. Hệ quả: **đừng xoá `vodich_da_gui` trong
+  Script Properties rồi chạy lại** khi sổ đang có dữ liệu — mọi mail gửi lại sẽ thành giao dịch mới. Nút inline `hp:<tx>:<purpose>` gán mục
   đích, `ht:<tx>:<source>` đổi khoản chi thành trả thẻ/trả nợ. Liên kết nhóm bằng `/link <mã>`.
 - **Telegram chặn gửi dồn ~20 tin/phút vào một nhóm.** Gửi cả loạt mail một lần (lần đầu cài Apps Script,
   hay dồn mail mấy ngày) là tin thứ 21 trở đi ăn 429 — đã dính 9/9/2026: 20 tin lên nhóm, 3 khoản sau vào sổ
