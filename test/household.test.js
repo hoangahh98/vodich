@@ -318,6 +318,29 @@ test('thẻ thông: quẹt thẻ A thì mail thẻ B báo hạn mức đã trừ
   assert.equal(rieng[0].diff, 5_000);
 });
 
+test('thẻ chính / thẻ phụ: thẻ phụ báo hạn mức riêng nó, thẻ chính báo hạn mức cả cụm', () => {
+  // Luật MSB đo được 10/9/2026: trả tiền vào THẺ PHỤ thì hạn mức thẻ phụ VÀ thẻ chính cùng tăng; trả vào
+  // THẺ CHÍNH thì chỉ thẻ chính tăng. App không bắt khai thẻ nào chính — thử cả hai cách, lấy cách khớp.
+  const chinh = { ...card, id: 'ch', name: 'Thẻ chính', limitGroup: 'gA', creditLimit: 0 };
+  const phu = { ...card, id: 'ph', name: 'Thẻ phụ', limitGroup: 'gA', creditLimit: 0 };
+  const rows = [
+    tx({ id: '101', sourceId: 'ph', amount: 100_000, occurredAt: new Date('2026-09-01T03:00:00Z') }),
+    tx({ id: '102', sourceId: 'ch', amount: 200_000, occurredAt: new Date('2026-09-02T03:00:00Z') }),
+    tx({ id: '103', kind: 'INCOME', sourceId: 'ph', amount: 30_000, occurredAt: new Date('2026-09-03T03:00:00Z') }),
+    tx({ id: '104', kind: 'INCOME', sourceId: 'ch', amount: 50_000, occurredAt: new Date('2026-09-04T03:00:00Z') }),
+  ];
+  const windows = new Map([
+    // Thẻ phụ: 5.000.000 rồi trả 30.000 vào chính nó → 5.030.000. Khoản quẹt 200.000 của thẻ chính ở giữa
+    // KHÔNG đụng tới hạn mức thẻ phụ.
+    ['ph', { first: { value: 5_000_000, at: rows[0].occurredAt, txId: '101' }, last: { value: 5_030_000, at: rows[2].occurredAt, txId: '103' } }],
+    // Thẻ chính: 20.000.000 rồi cộng CẢ hai khoản trả (30.000 vào thẻ phụ + 50.000 vào chính nó).
+    ['ch', { first: { value: 20_000_000, at: rows[1].occurredAt, txId: '102' }, last: { value: 20_080_000, at: rows[3].occurredAt, txId: '104' } }],
+  ]);
+  const checked = reconcileSources([chinh, phu], rows, new Map(), windows);
+  assert.equal(checked.find((item) => item.source.id === 'ph').diff, 0, 'thẻ phụ chỉ so với giao dịch của chính nó');
+  assert.equal(checked.find((item) => item.source.id === 'ch').diff, 0, 'thẻ chính so với giao dịch cả cụm');
+});
+
 // ─────────────────────────── Khoản định kỳ ───────────────────────────
 
 const recurringLoan = { id: 'r1', name: 'Trả góp nhà', kind: 'TRANSFER', sourceId: 'b', targetSourceId: 'l', purposeId: 'p-no', amount: 5_000_000, interestMode: 'FROM_RATE', dayOfMonth: 5, startMonth: '2026-01', endMonth: null, active: true };

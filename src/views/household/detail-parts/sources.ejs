@@ -12,7 +12,9 @@
     // Thẻ thông = hai thẻ dùng chung một hạn mức (quẹt thẻ này là hạn mức thẻ kia cũng giảm). Khai bằng
     // cách chọn thẻ kia; server cho cả hai cùng mã nhóm. Không phải khai hạn mức, chỉ khai "chung với ai".
     const cardList = sources.filter((item) => item.kind === 'CARD');
-    const twinOf = (source) => (source && source.limitGroup ? cardList.find((item) => item.limitGroup === source.limitGroup && item.id.toString() !== source.id.toString()) : null);
+    // Cả CỤM chứ không phải một thẻ: khai "thông với 3065" cho hai thẻ phụ là ba thẻ vào chung một cụm.
+    const twinsOf = (source) => (source && source.limitGroup ? cardList.filter((item) => item.limitGroup === source.limitGroup && item.id.toString() !== source.id.toString()) : []);
+    const twinOf = (source) => twinsOf(source)[0] || null;
     const sourceForm = (source, current) => `
       <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: Timo, Thẻ MSB" required></div>
       <div><label>Loại</label><select name="kind" data-source-kind>${kindOptions.map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${labels.source[kind]}</option>`).join('')}</select></div>
@@ -25,7 +27,7 @@
       <div data-for="CARD"><label>Thẻ thông (chung hạn mức)</label><select name="limitGroupWith"><option value="">— Thẻ riêng —</option>${cardList
         .filter((item) => !source || item.id.toString() !== source.id.toString())
         .map((item) => `<option value="${item.id}" ${twinOf(source) && twinOf(source).id === item.id ? 'selected' : ''}>${esc(item.name)}</option>`)
-        .join('')}</select><small class="field-hint">Chọn thẻ kia nếu quẹt thẻ này thì hạn mức thẻ kia cũng giảm — khỏi bị báo lệch. Hai thẻ khác hạn mức nhau vẫn chọn được.</small></div>
+        .join('')}</select><small class="field-hint">${twinsOf(source).length ? 'Đang chung cụm với: ' + twinsOf(source).map((item) => esc(item.name)).join(', ') + '. ' : ''}Chọn một thẻ bất kỳ trong cụm là vào chung cả cụm — thẻ chính không phải khai lại. App tự nhận ra thẻ nào báo hạn mức riêng, thẻ nào báo hạn mức cả cụm.</small></div>
       <div data-for="CARD" class="hh-form-wide"><label>Hạn mức và dư nợ</label><div class="field-static">Hạn mức còn lấy theo mail ngân hàng gần nhất; phần đã quẹt chưa trả cộng từ giao dịch${source ? ' — đang là ' + formatMoney(current) + 'đ' : ''}</div></div>
       <div data-for="LOAN"><label>Nợ hiện tại</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="LENT"><label>Đã cho vay</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
@@ -53,7 +55,7 @@
     <% balances.forEach((item) => { const source = sources.find((row) => row.id.toString() === item.source.id); const debt = ['CARD', 'LOAN'].includes(item.source.kind); const lent = item.source.kind === 'LENT'; %>
       <section class="card-lite p hh-source <%= item.source.active ? '' : 'is-muted' %>">
         <div class="hh-source-head">
-          <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (['BANK', 'CARD'].includes(item.source.kind) && source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% const twin = twinOf(source); %><% if (twin) { %><span class="badge">thẻ thông với <%= twin.name %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
+          <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (['BANK', 'CARD'].includes(item.source.kind) && source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% const twins = twinsOf(source); const twin = twins[0] || null; %><% if (twins.length) { %><span class="badge">thẻ thông với <%= twins.map((item) => item.name).join(', ') %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
         </div>
         <%# Mọi con số nằm trong ô (chủ app: "mấy cái đang không trong ô thì cho vào ô"). %>
         <div class="grid kv-grid mt">

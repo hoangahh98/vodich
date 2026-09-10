@@ -207,10 +207,12 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   `diff` đo từ mail đầu tới mail gần nhất (khả dụng phải giảm đúng bằng phần dư nợ sổ ghi tăng). Mail KHÔNG có
   hạn mức TỔNG nên đừng suy dư nợ từ hạn mức. Hai chuyện phải nhớ khi đối chiếu hạn mức (soi dữ liệu thật
   10/9/2026):
-  1. **Thẻ thông của MSB không đối xứng**: thẻ CHÍNH báo hạn mức của cả cụm (quẹt thẻ phụ cũng làm nó tụt),
-     thẻ PHỤ báo hạn mức riêng nó (quẹt thẻ khác không ảnh hưởng). Không bắt chủ app khai chính/phụ —
-     `reconcileSources` thử cả hai cách rồi lấy cách khớp hơn. Bỏ bước này là thẻ phụ báo lệch oan cả trăm
-     nghìn (thẻ 8867 từng báo lệch 748.922đ).
+  1. **Thẻ thông của MSB không đối xứng** (chủ app xác nhận 10/9/2026): trả tiền vào THẺ PHỤ thì hạn mức thẻ
+     phụ và thẻ CHÍNH cùng tăng; trả vào thẻ chính thì chỉ thẻ chính tăng. Tức thẻ chính báo hạn mức cả cụm,
+     thẻ phụ báo hạn mức riêng nó. Cặp thẻ đối xứng (hai thẻ của vợ) thì thẻ nào cũng báo cả cụm. Không bắt
+     chủ app khai chính/phụ — `reconcileSources` thử cả hai cách rồi lấy cách khớp hơn (test "thẻ chính /
+     thẻ phụ" khoá lại). Bỏ bước này là thẻ phụ báo lệch oan cả trăm nghìn (8867 từng lệch 748.922đ).
+     `limit_group` là CỤM, không phải cặp: khai "thông với 3065" cho hai thẻ phụ là cả ba vào chung cụm.
   2. Hạn mức khả dụng **không nhúc nhích đúng từng đồng**: hoàn tiền vào hạn mức chậm vài ngày, khoản giữ
      chốt lệch vài trăm đồng mỗi giao dịch (103đ, 375đ, 1.917đ, dồn 12 giao dịch thành 3.020đ). Ngưỡng bỏ
      qua vì thế đi theo số giao dịch: `cardDiffTolerance(n) = max(2.000đ, 500đ × n)`. "Đã quẹt chưa trả" trả hết là **về 0** — KHÔNG có "trả dư"
