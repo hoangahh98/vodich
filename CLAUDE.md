@@ -206,6 +206,13 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   gì cũng sai): dư nợ cộng từ giao dịch quẹt/trả, thẻ chỉ hiện "hạn mức khả dụng" theo mail gần nhất, và
   `diff` đo từ mail đầu tới mail gần nhất (khả dụng phải giảm đúng bằng phần dư nợ sổ ghi tăng). Mail KHÔNG có
   hạn mức TỔNG nên đừng suy dư nợ từ hạn mức.
+- **Thẻ thông** (`household_source.limit_group`, chủ app 10/9/2026): hai thẻ dùng chung một hạn mức thì quẹt
+  thẻ A xong, mail của thẻ B báo hạn mức khả dụng đã trừ luôn khoản của A — tính riêng từng thẻ là báo lệch
+  oan. Khai bằng ô "Thẻ thông (chung hạn mức)" ở form nguồn (chọn thẻ kia, **không** khai số hạn mức);
+  `HouseholdConfigService.limitGroupFor` cho cả hai thẻ cùng mã `g<id>`, `limitGroupKey` gom nhóm và phần
+  quẹt trong `reconcileSources` cộng cả nhóm. Chỉ so phần CHÊNH giữa hai lần ngân hàng báo nên **hai thẻ
+  khác hạn mức nhau vẫn đúng**. Chưa khai mà lệch đúng bằng tiền quẹt của một thẻ khác thì bot Telegram mách
+  "hai thẻ này có vẻ thẻ thông" thay vì bắt đi tìm giao dịch thiếu.
 - Toán ở `household-month.ts` (thuần, có test `test/household.test.js`): `sourceBalances`, `monthReport`,
   `recurringExpectations`, `matchRecurring`. **Luật chủ app chốt 9/9/2026**: quẹt thẻ là chi tiêu lúc quẹt,
   trả thẻ chỉ là chuyển nguồn; trả nợ vay tính vào "dùng" cả gốc lẫn lãi, gốc trừ dư nợ; giao dịch chưa có

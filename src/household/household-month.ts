@@ -9,6 +9,8 @@ export interface SourceRow {
   id: string;
   name: string;
   kind: string;
+  /** Nhóm thẻ thông (dùng chung hạn mức). Rỗng = thẻ đứng riêng. */
+  limitGroup: string;
   openingBalance: number;
   creditLimit: number;
   interestRate: number;
@@ -110,6 +112,12 @@ export interface SourceCheck extends SourceBalance {
   anchored: boolean;
 }
 
+/**
+ * Khoá nhóm hạn mức của một thẻ: thẻ thông thì cả nhóm cùng mã `limitGroup`, thẻ riêng thì lấy mã riêng
+ * theo id (không dùng thẳng id để thẻ vừa bỏ nhóm không rơi trúng mã cũ của nhóm).
+ */
+export const limitGroupKey = (source: SourceRow) => source.limitGroup || `one:${source.id}`;
+
 /** Dòng tiền của một nguồn trong khoảng (from, to]: bỏ mốc `from`, tính cả mốc `to`. */
 function flowBetween(source: SourceRow, transactions: TransactionRow[], from: BankMark | null, to: BankMark | null): number {
   const inRange = transactions.filter((tx) => {
@@ -128,7 +136,9 @@ function flowBetween(source: SourceRow, transactions: TransactionRow[], from: Ba
  *    giao dịch còn thiếu bằng tay (tự bù là mất dấu khoản thiếu, tiền thật còn lại thành sai).
  *  - Thẻ tín dụng: mail MSB chỉ có HẠN MỨC KHẢ DỤNG, không có hạn mức tổng nên không suy ra được dư nợ.
  *    Dư nợ vẫn cộng từ giao dịch; `diff` đo từ mail đầu tới mail gần nhất, khả dụng phải giảm đúng bằng
- *    phần dư nợ sổ ghi tăng.
+ *    phần dư nợ sổ ghi tăng — tính trên CẢ NHÓM THẺ THÔNG (`limitGroup`), vì quẹt thẻ A thì hạn mức
+ *    khả dụng báo trong mail của thẻ B cũng đã trừ khoản ấy rồi. Hai thẻ thông khác hạn mức nhau vẫn
+ *    đúng: mức khả dụng mỗi thẻ khác nhau nhưng CHÊNH giữa hai lần báo thì bằng nhau.
  */
 export function reconcileSources(
   sources: SourceRow[],
@@ -137,6 +147,11 @@ export function reconcileSources(
   availableWindows: Map<string, { first: BankMark; last: BankMark }>,
 ): SourceCheck[] {
   const balances = sourceBalances(sources, transactions);
+  const cardsByGroup = new Map<string, SourceRow[]>();
+  for (const source of sources.filter((item) => item.kind === 'CARD')) {
+    const key = limitGroupKey(source);
+    cardsByGroup.set(key, [...(cardsByGroup.get(key) || []), source]);
+  }
   return sources.map((source) => {
     const item = balances.get(source.id)!;
     const reported = balanceMarks.get(source.id) || null;
@@ -147,7 +162,8 @@ export function reconcileSources(
     }
     let diff = 0;
     if (window && window.first.txId !== window.last.txId) {
-      const spent = flowBetween(source, transactions, window.first, window.last);
+      const pool = cardsByGroup.get(limitGroupKey(source)) || [source];
+      const spent = pool.reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last), 0);
       diff = Math.round(window.first.value - spent - window.last.value);
     }
     return { ...item, reported: null, reportedAvailable: window ? window.last : null, diff, anchored: false };

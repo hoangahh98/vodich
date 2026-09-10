@@ -4,7 +4,7 @@ import { formatMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
 import { ParsedBankMessage, parseBankMessage } from './bank-parsers';
 import { HouseholdLedgerService } from './household-ledger.service';
-import { LendingRow, lendingKey, lendingLedger, sourceBalances } from './household-month';
+import { LendingRow, SourceRow, lendingKey, lendingLedger, limitGroupKey, sourceBalances } from './household-month';
 import { toPurposeRow, toSourceRow, toTransactionRow } from './household-rows';
 
 /** Phần của một update Telegram mà ta dùng. Bot API gửi nhiều hơn nhưng không cần khai hết. */
@@ -360,6 +360,10 @@ export class HouseholdTelegramService {
    * tài khoản thì chưa có gì để so — lấy luôn số ấy làm mốc (suy ngược số đầu kỳ), vì tài khoản Timo
    * không khai số dư bằng tay. Thẻ tín dụng không lấy mốc: mail chỉ có hạn mức khả dụng, không có hạn
    * mức tổng nên không suy ra được dư nợ.
+   *
+   * THẺ THÔNG (`limitGroup`): quẹt thẻ A thì hạn mức khả dụng báo trong mail của thẻ B cũng đã trừ khoản
+   * ấy, nên phần quẹt tính trên CẢ NHÓM. Chưa khai nhóm mà lệch đúng bằng tiền quẹt của một thẻ khác thì
+   * bot mách "hai thẻ này có vẻ thẻ thông" thay vì bắt đi tìm giao dịch thiếu.
    */
   private async bankCheck(householdId: bigint, source: HouseholdSource, parsed: ParsedBankMessage, transactionId: bigint): Promise<string> {
     const card = source.kind === 'CARD';
@@ -367,35 +371,46 @@ export class HouseholdTelegramService {
     if (reported === undefined) return '';
     const label = card ? `Hạn mức khả dụng ${source.name}` : `Số dư ${source.name}`;
     const mailSide = { OR: [{ sourceId: source.id }, { targetSourceId: source.id }] };
-    const [previous, transactions] = await Promise.all([
+    const [previous, transactions, cards] = await Promise.all([
       this.prisma.householdTransaction.findFirst({
         where: { householdId, id: { not: transactionId }, ...(card ? { reportedAvailable: { not: null } } : { reportedBalance: { not: null } }), ...mailSide },
         orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
       }),
       this.prisma.householdTransaction.findMany({ where: { householdId } }),
+      card ? this.prisma.householdSource.findMany({ where: { householdId, kind: 'CARD' } }) : Promise.resolve([]),
     ]);
     const rows = transactions.map(toTransactionRow);
-    const zeroSource = { ...toSourceRow(source), openingBalance: 0 };
-    const flowBetween = (from: { at: Date; id: bigint } | null, to: { at: Date; id: bigint }) => {
+    const self = toSourceRow(source);
+    const flowBetween = (item: SourceRow, from: { at: Date; id: bigint } | null, to: { at: Date; id: bigint }) => {
       const inRange = rows.filter((tx) => {
         const afterFrom = !from || tx.occurredAt > from.at || (tx.occurredAt.getTime() === from.at.getTime() && BigInt(tx.id) > from.id);
         const beforeTo = tx.occurredAt < to.at || (tx.occurredAt.getTime() === to.at.getTime() && BigInt(tx.id) <= to.id);
         return afterFrom && beforeTo;
       });
-      return sourceBalances([zeroSource], inRange).get(String(source.id))?.balance ?? 0;
+      return sourceBalances([{ ...item, openingBalance: 0 }], inRange).get(item.id)?.balance ?? 0;
     };
     const now = { at: parsed.occurredAt, id: transactionId };
     if (!previous) {
       if (card) return `${label}: ${formatMoney(reported)}đ`;
       // Số đầu kỳ sao cho tới đúng giao dịch này sổ ra số ngân hàng báo — chỉ làm MỘT LẦN, mail sau chỉ so.
-      await this.prisma.householdSource.updateMany({ where: { id: source.id, householdId }, data: { openingBalance: reported - flowBetween(null, now) } });
+      await this.prisma.householdSource.updateMany({ where: { id: source.id, householdId }, data: { openingBalance: reported - flowBetween(self, null, now) } });
       return `${label}: ${formatMoney(reported)}đ (lấy làm mốc cho sổ)`;
     }
     const base = Number(card ? previous.reportedAvailable : previous.reportedBalance);
-    const flow = flowBetween({ at: previous.occurredAt, id: previous.id }, now);
+    const from = { at: previous.occurredAt, id: previous.id };
+    // Thẻ thông: hạn mức khả dụng trong mail đã trừ tiền quẹt của CẢ NHÓM, nên cộng dòng tiền cả nhóm.
+    const cardRows = cards.map(toSourceRow);
+    const pool = cardRows.filter((item) => limitGroupKey(item) === limitGroupKey(self));
+    const flow = card ? (pool.length ? pool : [self]).reduce((sum, item) => sum + flowBetween(item, from, now), 0) : flowBetween(self, from, now);
     // Tài khoản: số dư = mốc + dòng tiền sau mốc. Thẻ: dư nợ tăng bao nhiêu thì khả dụng giảm bấy nhiêu.
     const diff = Math.round((card ? base - flow : base + flow) - reported);
     if (!diff) return `${label}: ${formatMoney(reported)}đ`;
+    // Lệch đúng bằng tiền quẹt của một thẻ khác ngoài nhóm → gần như chắc chắn hai thẻ thông nhau.
+    const twin = cardRows.find((item) => item.id !== self.id && limitGroupKey(item) !== limitGroupKey(self) && Math.round(flowBetween(item, from, now)) === diff);
+    if (twin) {
+      return `${label}: ${formatMoney(reported)}đ
+⚠ Lệch ${formatMoney(Math.abs(diff))}đ, đúng bằng tiền quẹt thẻ ${twin.name} — hai thẻ này có vẻ THẺ THÔNG (dùng chung hạn mức). Vào Nguồn tiền sửa thẻ ${source.name}, chọn "Dùng chung hạn mức với ${twin.name}" là hết báo lệch.`;
+    }
     const missing = card ? (diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ') : diff > 0 ? 'khoản chi' : 'khoản thu';
     return `${label}: ${formatMoney(reported)}đ
 ⚠ Sổ lệch ${formatMoney(Math.abs(diff))}đ so với ngân hàng — thiếu ${missing} chưa ghi. Vào web thêm giao dịch tay (app không tự bù nữa).`;

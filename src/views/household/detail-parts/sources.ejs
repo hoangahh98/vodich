@@ -8,6 +8,11 @@
     // Ô số dư / nợ nhập số HIỆN TẠI (chủ app: khỏi nhập số dư đầu rồi so lệch). Server tự suy số đầu kỳ
     // = số hiện tại trừ/cộng dòng tiền đã ghi. `current` là số app đang tính cho nguồn đó (form sửa).
     const kindOptions = Object.keys(labels.source);
+    const esc = (value) => String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+    // Thẻ thông = hai thẻ dùng chung một hạn mức (quẹt thẻ này là hạn mức thẻ kia cũng giảm). Khai bằng
+    // cách chọn thẻ kia; server cho cả hai cùng mã nhóm. Không phải khai hạn mức, chỉ khai "chung với ai".
+    const cardList = sources.filter((item) => item.kind === 'CARD');
+    const twinOf = (source) => (source && source.limitGroup ? cardList.find((item) => item.limitGroup === source.limitGroup && item.id.toString() !== source.id.toString()) : null);
     const sourceForm = (source, current) => `
       <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: Timo, Thẻ MSB" required></div>
       <div><label>Loại</label><select name="kind" data-source-kind>${kindOptions.map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${labels.source[kind]}</option>`).join('')}</select></div>
@@ -17,6 +22,10 @@
       <div data-for="BANK CARD CASH SAVING INVEST LOAN"><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}" placeholder="Chồng / Vợ"></div>
       <div data-for="BANK CASH SAVING INVEST" data-balance-box><label>Số dư</label><input class="money-input" name="currentBalance" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="BANK" data-timo-note hidden><label>Số dư</label><div class="field-static">Tự lấy từ mail Timo gần nhất${source ? ': ' + formatMoney(current) + 'đ' : ''}</div></div>
+      <div data-for="CARD"><label>Thẻ thông (chung hạn mức)</label><select name="limitGroupWith"><option value="">— Thẻ riêng —</option>${cardList
+        .filter((item) => !source || item.id.toString() !== source.id.toString())
+        .map((item) => `<option value="${item.id}" ${twinOf(source) && twinOf(source).id === item.id ? 'selected' : ''}>${esc(item.name)}</option>`)
+        .join('')}</select><small class="field-hint">Chọn thẻ kia nếu quẹt thẻ này thì hạn mức thẻ kia cũng giảm — khỏi bị báo lệch. Hai thẻ khác hạn mức nhau vẫn chọn được.</small></div>
       <div data-for="CARD" class="hh-form-wide"><label>Dư nợ và hạn mức</label><div class="field-static">Nợ cộng từ giao dịch quẹt / trả thẻ; hạn mức khả dụng lấy theo mail ngân hàng gần nhất${source ? ' — đang nợ ' + formatMoney(current) + 'đ' : ''}</div></div>
       <div data-for="LOAN"><label>Nợ hiện tại</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="LENT"><label>Đã cho vay</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
@@ -44,7 +53,7 @@
     <% balances.forEach((item) => { const source = sources.find((row) => row.id.toString() === item.source.id); const debt = ['CARD', 'LOAN'].includes(item.source.kind); const lent = item.source.kind === 'LENT'; %>
       <section class="card-lite p hh-source <%= item.source.active ? '' : 'is-muted' %>">
         <div class="hh-source-head">
-          <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (['BANK', 'CARD'].includes(item.source.kind) && source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
+          <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (['BANK', 'CARD'].includes(item.source.kind) && source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% const twin = twinOf(source); %><% if (twin) { %><span class="badge">thẻ thông với <%= twin.name %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
         </div>
         <%# Mọi con số nằm trong ô (chủ app: "mấy cái đang không trong ô thì cho vào ô"). %>
         <div class="grid kv-grid mt">
@@ -57,7 +66,7 @@
         </div>
         <%# Sổ lệch số ngân hàng = thiếu giao dịch. App KHÔNG tự bù (chủ app 10/9/2026) — nhắc để thêm tay. %>
         <% if (item.diff) { %>
-          <div class="alert-lite warn mt"><span>Sổ lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng — thiếu <%= item.source.kind === 'CARD' ? (item.diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ') : item.diff > 0 ? 'khoản chi' : 'khoản thu' %> chưa ghi. <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.</span></div>
+          <div class="alert-lite warn mt"><span>Sổ lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng — thiếu <%= item.source.kind === 'CARD' ? (item.diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ') : item.diff > 0 ? 'khoản chi' : 'khoản thu' %> chưa ghi. <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.<% if (item.source.kind === 'CARD' && !twin) { %> Hoặc thẻ này dùng chung hạn mức với thẻ khác — bấm <strong>Sửa nguồn</strong> rồi chọn <strong>Thẻ thông</strong>.<% } %></span></div>
         <% } %>
         <% if (isAdmin) { %>
           <details class="hh-edit mt"><summary class="btn btn-sm"><%- include('../../partials/icon', { name: 'edit' }) %> Sửa nguồn</summary>

@@ -251,6 +251,26 @@ test('thẻ tín dụng: dư nợ vẫn cộng từ giao dịch, hạn mức kh�
   assert.equal(reconcileSources([card], rows, new Map(), lech)[0].diff, 100_000);
 });
 
+test('thẻ thông: quẹt thẻ A thì mail thẻ B báo hạn mức đã trừ cả hai — cùng nhóm thì không báo lệch', () => {
+  // Hai thẻ dùng chung hạn mức nhưng KHÁC hạn mức nhau (A 20tr, B 30tr) — chỉ so phần chênh nên vẫn đúng.
+  const cardA = { ...card, id: 'ca', name: 'Thẻ A', limitGroup: 'g1', creditLimit: 20_000_000 };
+  const cardB = { ...card, id: 'cb', name: 'Thẻ B', limitGroup: 'g1', creditLimit: 30_000_000 };
+  const rows = [
+    tx({ id: '51', sourceId: 'ca', amount: 1_000, occurredAt: new Date('2026-09-06T03:00:00Z') }),
+    tx({ id: '52', sourceId: 'cb', amount: 5_000, occurredAt: new Date('2026-09-07T03:00:00Z') }),
+    tx({ id: '53', sourceId: 'ca', amount: 2_000, occurredAt: new Date('2026-09-08T03:00:00Z') }),
+  ];
+  // Mail của thẻ A: lần đầu còn 19.999.000, lần sau còn 19.992.000 (đã trừ cả 5.000 quẹt ở thẻ B).
+  const windows = new Map([
+    ['ca', { first: { value: 19_999_000, at: rows[0].occurredAt, txId: '51' }, last: { value: 19_992_000, at: rows[2].occurredAt, txId: '53' } }],
+  ]);
+  const [checkedA] = reconcileSources([cardA, cardB], rows, new Map(), windows);
+  assert.equal(checkedA.diff, 0, 'cùng nhóm thẻ thông thì cộng tiền quẹt của cả nhóm → khớp');
+  // Khai thiếu nhóm là đúng cảnh chủ app sợ: lệch đúng bằng khoản quẹt ở thẻ kia.
+  const rieng = reconcileSources([{ ...cardA, limitGroup: '' }, { ...cardB, limitGroup: '' }], rows, new Map(), windows);
+  assert.equal(rieng[0].diff, 5_000);
+});
+
 // ─────────────────────────── Khoản định kỳ ───────────────────────────
 
 const recurringLoan = { id: 'r1', name: 'Trả góp nhà', kind: 'TRANSFER', sourceId: 'b', targetSourceId: 'l', purposeId: 'p-no', amount: 5_000_000, interestMode: 'FROM_RATE', dayOfMonth: 5, startMonth: '2026-01', endMonth: null, active: true };

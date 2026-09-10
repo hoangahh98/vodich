@@ -669,7 +669,8 @@ function householdLocals(section, over = {}) {
   };
   const sources = [
     { id: 1n, name: 'Timo', kind: 'BANK', bank: 'TIMO', matchKey: '', ownerName: 'Cả nhà', openingBalance: 10000000, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true },
-    { id: 2n, name: 'Thẻ MSB', kind: 'CARD', bank: 'MSB', matchKey: '3065', ownerName: '', openingBalance: 0, creditLimit: 20000000, interestRate: 0, statementDay: 20, dueDay: 5, active: true },
+    { id: 2n, name: 'Thẻ MSB', kind: 'CARD', bank: 'MSB', matchKey: '3065', ownerName: '', openingBalance: 0, creditLimit: 20000000, interestRate: 0, statementDay: 20, dueDay: 5, active: true, limitGroup: 'g2' },
+    { id: 3n, name: 'Thẻ MSB phụ', kind: 'CARD', bank: 'MSB', matchKey: '7788', ownerName: 'Vợ', openingBalance: 0, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true, limitGroup: 'g2' },
   ];
   const purposes = [
     { id: 11n, name: 'Lương vợ', kind: 'INCOME', monthlyPlan: 0, active: true },
@@ -681,6 +682,7 @@ function householdLocals(section, over = {}) {
   const balances = [
     { source: { ...sources[0], id: '1' }, balance: 9850000, available: 0, reported: { value: 9850000, at: new Date('2026-09-05T03:00:00Z'), txId: '32' }, reportedAvailable: null, diff: 150000, anchored: true },
     { source: { ...sources[1], id: '2' }, balance: 86093, available: 0, reported: null, reportedAvailable: { value: 16927825, at: new Date('2026-09-07T11:22:00Z'), txId: '31' }, diff: 0, anchored: false },
+    { source: { ...sources[2], id: '3' }, balance: 0, available: 0, reported: null, reportedAvailable: null, diff: 0, anchored: false },
   ];
   const transactions = [
     { id: '31', kind: 'EXPENSE', sourceId: '2', targetSourceId: null, purposeId: null, recurringId: null, amount: 86093, interest: 0, month: '2026-09', status: 'NEW', occurredAt: new Date('2026-09-07T11:22:00Z'), description: 'Shopee', sourceName: 'Thẻ MSB', targetName: '', purposeName: '', purposeKind: '', recurringName: '' },
@@ -744,6 +746,8 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(sources, /Hạn mức khả dụng/, 'thẻ hiện hạn mức khả dụng ngân hàng báo, không hiện hạn mức tổng');
   assert.doesNotMatch(sources, /name="creditLimit"/, 'hạn mức thẻ không còn khai tay (thẻ thông dùng chung hạn mức)');
   assert.match(sources, /<option value="INVEST"/, 'loại nguồn có Đầu tư và Tiết kiệm');
+  assert.match(sources, /name="limitGroupWith"/, 'thẻ tín dụng khai được thẻ thông (chung hạn mức)');
+  assert.match(sources, /thẻ thông với Thẻ MSB phụ/, 'thẻ đã khai chung hạn mức thì hiện huy hiệu');
   assert.match(sources, /Sổ lệch/, 'nguồn lệch với ngân hàng phải nhắc thêm giao dịch tay');
   assert.match(overview, /lệch/, 'Tổng quan cũng nhắc nguồn đang lệch với ngân hàng');
 

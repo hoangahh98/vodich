@@ -481,6 +481,9 @@ model HouseholdSource {
   /// Số tài khoản hoặc 4 số cuối thẻ để khớp tin ngân hàng.
   matchKey       String   @default("") @map("match_key") @db.VarChar(40)
   ownerName      String   @default("") @map("owner_name") @db.VarChar(120)
+  /// Nhóm THẺ THÔNG: các thẻ dùng chung một hạn mức mang cùng mã này (dạng `g<id thẻ gốc>`).
+  /// Rỗng = thẻ riêng. Quẹt thẻ nào cũng trừ vào hạn mức khả dụng của cả nhóm.
+  limitGroup     String   @default("") @map("limit_group") @db.VarChar(40)
   openingBalance Decimal  @default(0) @map("opening_balance") @db.Decimal(14, 2)
   creditLimit    Decimal  @default(0) @map("credit_limit") @db.Decimal(14, 2)
   /// Lãi suất %/năm (LOAN, CARD). 0 = không lãi.

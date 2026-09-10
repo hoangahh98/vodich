@@ -40,9 +40,27 @@ export class HouseholdConfigService {
     };
   }
 
+  /**
+   * Thẻ thông (hai thẻ dùng chung một hạn mức): chọn "dùng chung hạn mức với thẻ X" thì cả hai thẻ mang
+   * CÙNG mã nhóm, để phần đối chiếu hạn mức khả dụng cộng tiền quẹt của cả nhóm — quẹt thẻ A thì mail của
+   * thẻ B cũng báo hạn mức đã trừ khoản ấy (chủ app 10/9/2026). Hai thẻ khác hạn mức nhau vẫn dùng được:
+   * chỉ so phần CHÊNH giữa hai lần ngân hàng báo. Chọn "thẻ riêng" thì bỏ mã của chính thẻ này.
+   */
+  private async limitGroupFor(householdId: bigint, form: Form, selfId: bigint | null): Promise<string> {
+    const otherId = await this.ownSourceId(householdId, form.limitGroupWith);
+    if (!otherId || (selfId && otherId === selfId)) return '';
+    const other = await this.prisma.householdSource.findFirst({ where: { id: otherId, householdId, kind: 'CARD' } });
+    if (!other) return '';
+    const key = other.limitGroup || `g${other.id}`;
+    if (!other.limitGroup) await this.prisma.householdSource.updateMany({ where: { id: otherId, householdId }, data: { limitGroup: key } });
+    return key;
+  }
+
   /** Nguồn mới chưa có giao dịch: số hiện tại nhập vào chính là số đầu kỳ. */
-  createSource(householdId: bigint, form: Form) {
-    return this.prisma.householdSource.create({ data: { householdId, ...this.sourceData(form), openingBalance: parseMoney(form.currentBalance) } });
+  async createSource(householdId: bigint, form: Form) {
+    const data = this.sourceData(form);
+    const limitGroup = data.kind === 'CARD' ? await this.limitGroupFor(householdId, form, null) : '';
+    return this.prisma.householdSource.create({ data: { householdId, ...data, limitGroup, openingBalance: parseMoney(form.currentBalance) } });
   }
 
   /**
@@ -51,6 +69,7 @@ export class HouseholdConfigService {
    */
   async updateSource(householdId: bigint, sourceId: bigint, form: Form) {
     const data: Record<string, unknown> = { ...this.sourceData(form), active: form.active !== 'off' };
+    data.limitGroup = data.kind === 'CARD' ? await this.limitGroupFor(householdId, form, sourceId) : '';
     const wanted = String(form.currentBalance || '').trim();
     if (wanted) data.openingBalance = await this.openingFor(householdId, sourceId, String(data.kind), parseMoney(wanted));
     return this.prisma.householdSource.updateMany({ where: { id: sourceId, householdId }, data });
