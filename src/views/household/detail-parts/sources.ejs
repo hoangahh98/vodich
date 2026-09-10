@@ -26,7 +26,7 @@
         .filter((item) => !source || item.id.toString() !== source.id.toString())
         .map((item) => `<option value="${item.id}" ${twinOf(source) && twinOf(source).id === item.id ? 'selected' : ''}>${esc(item.name)}</option>`)
         .join('')}</select><small class="field-hint">Chọn thẻ kia nếu quẹt thẻ này thì hạn mức thẻ kia cũng giảm — khỏi bị báo lệch. Hai thẻ khác hạn mức nhau vẫn chọn được.</small></div>
-      <div data-for="CARD" class="hh-form-wide"><label>Dư nợ và hạn mức</label><div class="field-static">Nợ cộng từ giao dịch quẹt / trả thẻ; hạn mức khả dụng lấy theo mail ngân hàng gần nhất${source ? ' — đang nợ ' + formatMoney(current) + 'đ' : ''}</div></div>
+      <div data-for="CARD" class="hh-form-wide"><label>Hạn mức và dư nợ</label><div class="field-static">Hạn mức còn lấy theo mail ngân hàng gần nhất; phần đã quẹt chưa trả cộng từ giao dịch${source ? ' — đang là ' + formatMoney(current) + 'đ' : ''}</div></div>
       <div data-for="LOAN"><label>Nợ hiện tại</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="LENT"><label>Đã cho vay</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="LOAN"><label>Lãi suất %/năm</label><input name="interestRate" value="${source ? Number(source.interestRate) : ''}" placeholder="Ví dụ: 10.5" inputmode="decimal"></div>`;
@@ -57,9 +57,14 @@
         </div>
         <%# Mọi con số nằm trong ô (chủ app: "mấy cái đang không trong ô thì cho vào ô"). %>
         <div class="grid kv-grid mt">
-          <div class="kv"><span><%= debt ? 'Nợ hiện tại' : lent ? 'Đã cho vay' : 'Số dư' %></span><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong></div>
-          <%# Thẻ tín dụng: mail chỉ báo hạn mức KHẢ DỤNG (mail không có hạn mức tổng) — hiện đúng số ngân hàng báo. %>
-          <% if (item.reportedAvailable) { %><div class="kv"><span>Hạn mức khả dụng</span><strong><%= formatMoney(item.reportedAvailable.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reportedAvailable.at) %></small></strong></div><% } %>
+          <%# Thẻ tín dụng: ô đầu là HẠN MỨC CÒN ngân hàng báo (số thật, mail nào cũng có). Con số cộng từ sổ
+              chỉ là "đã quẹt chưa trả" — không có hạn mức tổng thì nó không phải dư nợ thật của thẻ. %>
+          <% if (item.source.kind === 'CARD') { %>
+            <div class="kv"><span>Hạn mức còn</span><strong><% if (item.reportedAvailable) { %><%= formatMoney(item.reportedAvailable.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reportedAvailable.at) %></small><% } else { %>—<br><small class="muted">chờ mail ngân hàng</small><% } %></strong></div>
+            <div class="kv"><span>Đã quẹt chưa trả</span><strong class="<%= item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong></div>
+          <% } else { %>
+            <div class="kv"><span><%= debt ? 'Nợ hiện tại' : lent ? 'Đã cho vay' : 'Số dư' %></span><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong></div>
+          <% } %>
           <% if (source.ownerName) { %><div class="kv"><span>Chủ nguồn</span><strong><%= source.ownerName %></strong></div><% } %>
           <% if (Number(source.interestRate)) { %><div class="kv"><span>Lãi suất</span><strong><%= Number(source.interestRate) %>%/năm</strong></div><% } %>
           <% if (item.reported) { %><div class="kv"><span>Ngân hàng báo</span><strong><%= formatMoney(item.reported.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reported.at) %></small></strong></div><% } %>

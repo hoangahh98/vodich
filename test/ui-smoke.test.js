@@ -743,7 +743,8 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(sources, /name="matchKey"/, 'nguồn phải khai được số tài khoản / 4 số cuối thẻ');
   assert.match(sources, /data-source-kind/, 'form nguồn ẩn/hiện ô theo loại');
   assert.doesNotMatch(sources, /statementDay/, 'ngày sao kê đã bỏ khỏi form theo ý chủ app');
-  assert.match(sources, /Hạn mức khả dụng/, 'thẻ hiện hạn mức khả dụng ngân hàng báo, không hiện hạn mức tổng');
+  assert.match(sources, /Hạn mức còn/, 'ô đầu của thẻ tín dụng là hạn mức còn ngân hàng báo, không phải nợ hiện tại');
+  assert.match(sources, /Đã quẹt chưa trả/, 'số cộng từ sổ của thẻ gọi đúng tên: đã quẹt chưa trả');
   assert.doesNotMatch(sources, /name="creditLimit"/, 'hạn mức thẻ không còn khai tay (thẻ thông dùng chung hạn mức)');
   assert.match(sources, /<option value="INVEST"/, 'loại nguồn có Đầu tư và Tiết kiệm');
   assert.match(sources, /name="limitGroupWith"/, 'thẻ tín dụng khai được thẻ thông (chung hạn mức)');
