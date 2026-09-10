@@ -171,9 +171,12 @@ export class HouseholdService {
       purposeKind: tx.purposeId ? purposeById.get(tx.purposeId)?.kind || '' : '',
       recurringName: tx.recurringId ? recurringName.get(tx.recurringId) || '' : '',
     }));
-    // "Cần xem lại": chưa có mục đích, hoặc máy ghi từ Telegram mà chưa ai xác nhận (status NEW).
-    const needsReview = (tx: { kind: string; purposeId: string | null; status: string; sourceId: string }) =>
-      (tx.kind === 'EXPENSE' || (tx.kind === 'INCOME' && sourceKindById.get(tx.sourceId) === 'CARD')) && (!tx.purposeId || tx.status === 'NEW');
+    // "Cần xem lại": khoản CHI chưa có mục đích, hoặc máy ghi từ Telegram mà chưa ai xác nhận (status NEW).
+    // Tiền vào thẻ (hoàn tiền / trả thẻ) KHÔNG cần mục đích — chỉ hỏi khi máy ghi mà chưa ai liếc qua.
+    const needsReview = (tx: { kind: string; purposeId: string | null; status: string; sourceId: string }) => {
+      if (tx.kind === 'INCOME') return sourceKindById.get(tx.sourceId) === 'CARD' && tx.status === 'NEW';
+      return tx.kind === 'EXPENSE' && (!tx.purposeId || tx.status === 'NEW');
+    };
     const unclassified = rows.filter(needsReview);
     const unclassifiedAll = txRows.filter(needsReview).length;
     const unclassifiedTotal = unclassified.reduce((sum, tx) => sum + tx.amount, 0);

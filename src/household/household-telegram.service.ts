@@ -164,7 +164,9 @@ export class HouseholdTelegramService {
       description: parsed.description,
       rawText: text,
       externalId: parsed.externalId,
-      status: 'NEW',
+      // Tiền vào thẻ (mail "Biến động thanh toán") bot không hỏi gì nên coi như đã xong luôn, khỏi treo ở
+      // "Cần xem lại" mãi — khoản chi thì vẫn NEW để chủ app liếc qua rồi bấm ✓ hoặc đổi mục đích.
+      status: parsed.direction === 'IN' && source.kind === 'CARD' ? 'CONFIRMED' : 'NEW',
       telegramChatId: chatId,
       telegramMsgId: messageId,
       reportedBalance: parsed.balance ?? null,
@@ -437,8 +439,15 @@ export class HouseholdTelegramService {
     return this.api('answerCallbackQuery', { callback_query_id: callbackId, text });
   }
 
-  /** Gọi Bot API bằng fetch có sẵn của Node 20. Không có token = chế độ "chỉ ghi sổ", không trả lời. */
-  private async api(method: string, payload: Record<string, unknown>): Promise<Record<string, unknown> | null> {
+  /**
+   * Gọi Bot API bằng fetch có sẵn của Node 20. Không có token = chế độ "chỉ ghi sổ", không trả lời.
+   *
+   * Telegram chặn gửi dồn vào một nhóm ở khoảng 20 tin/phút: gửi cả loạt mail một lần là tin thứ 21 trở đi
+   * bị 429 kèm `retry_after`. Đã dính đúng 9/9/2026 — 20 tin đầu lên nhóm, 3 khoản sau vào sổ mà không có
+   * tin nào để bấm. Gặp 429 thì ĐỢI rồi gửi lại; hết lượt vẫn hỏng thì trả null, `ingestBankText` báo
+   * 'unsent' để Apps Script gửi lại lần sau và bot đăng bù.
+   */
+  private async api(method: string, payload: Record<string, unknown>, attempt = 0): Promise<Record<string, unknown> | null> {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     if (!token) {
       this.logger.warn(`Thiếu TELEGRAM_BOT_TOKEN, bỏ qua ${method}`);
@@ -451,7 +460,15 @@ export class HouseholdTelegramService {
         body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        this.logger.warn(`Telegram ${method} trả ${response.status}: ${(await response.text()).slice(0, 200)}`);
+        const body = (await response.text()).slice(0, 300);
+        const retryAfter = Number(/"retry_after":\s*(\d+)/.exec(body)?.[1] || 0);
+        // Đợi tối đa 30s/lần và 2 lần: lâu hơn thì để lần script chạy sau đăng bù, khỏi treo request.
+        if (response.status === 429 && retryAfter > 0 && retryAfter <= 30 && attempt < 2) {
+          this.logger.warn(`Telegram ${method} bị chặn gửi dồn, đợi ${retryAfter}s rồi gửi lại`);
+          await new Promise((resolve) => setTimeout(resolve, (retryAfter + 1) * 1000));
+          return this.api(method, payload, attempt + 1);
+        }
+        this.logger.warn(`Telegram ${method} trả ${response.status}: ${body.slice(0, 200)}`);
         return null;
       }
       const body = (await response.json()) as { result?: Record<string, unknown> };

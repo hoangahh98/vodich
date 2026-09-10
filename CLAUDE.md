@@ -235,6 +235,10 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   SAU giao dịch,
   mẫu chung; VPBank đã gỡ 10/9/2026 vì tiền về nhà đi hết qua Timo) — thêm ngân hàng thì thêm parser + test với mail thật. Nút inline `hp:<tx>:<purpose>` gán mục
   đích, `ht:<tx>:<source>` đổi khoản chi thành trả thẻ/trả nợ. Liên kết nhóm bằng `/link <mã>`.
+- **Telegram chặn gửi dồn ~20 tin/phút vào một nhóm.** Gửi cả loạt mail một lần (lần đầu cài Apps Script,
+  hay dồn mail mấy ngày) là tin thứ 21 trở đi ăn 429 — đã dính 9/9/2026: 20 tin lên nhóm, 3 khoản sau vào sổ
+  mà không có tin nào để bấm. `api()` gặp 429 thì đợi `retry_after` rồi gửi lại (tối đa 2 lần, mỗi lần ≤ 30s),
+  hết lượt thì để cơ chế đăng bù bên dưới lo. Đừng gỡ.
 - **Ghi sổ được mà đăng tin lên nhóm hỏng** (mất token, bot bị đá khỏi nhóm) từng để lại khoản "cần xem lại"
   mà trên Telegram không có gì bấm (chủ app 10/9/2026). Nay `ingestBankText` trả `'unsent'`, `ingestFromScript`
   trả `ok: false` → Apps Script chưa gắn nhãn nên gửi lại, và lần gửi lại tuy TRÙNG giao dịch vẫn đăng bù tin
