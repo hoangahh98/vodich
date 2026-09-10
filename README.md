@@ -151,20 +151,27 @@ tiền về nhà đi hết qua Timo.
    // bỏ sót tin. Gửi lại cùng một mail không sinh giao dịch trùng — app chống trùng bằng nội dung tin
    // và mã giao dịch của ngân hàng.
    const LABEL_NAME = 'vodich-da-gui';
-   // Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật, kẻo mail OTP/quảng cáo cùng địa chỉ cũng bị gửi. Thẻ MSB có HAI
-   // tiêu đề, phải lấy CẢ HAI:
+   // Quét từ NGÀY ĐẦU THÁNG HIỆN TẠI tới giờ (Gmail `after:` tính cả ngày đó) — sổ đi theo tháng nên
+   // mail cũ hơn tháng này không cần ghi nữa. Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật, kẻo mail OTP/quảng cáo
+   // cùng địa chỉ cũng bị gửi. Thẻ MSB có HAI tiêu đề, phải lấy CẢ HAI:
    //   Timo:    support@timo.vn        — "Thông báo thay đổi số dư tài khoản"
    //   Thẻ MSB: banking_notify@msb.com.vn — "Biến động chi tiêu thẻ tín dụng" (quẹt tiêu)
    //                                     — "Biến động thanh toán thẻ tín dụng" (hoàn tiền / trả nợ thẻ)
-   const QUERY = 'newer_than:3d -label:"' + LABEL_NAME + '" ('
-     + '(from:support@timo.vn subject:"Thông báo thay đổi số dư tài khoản")'
-     + ' OR (from:banking_notify@msb.com.vn (subject:"Biến động chi tiêu thẻ tín dụng"'
-     + ' OR subject:"Biến động thanh toán thẻ tín dụng"))'
-     + ')';
+   function buildQuery() {
+     const now = new Date();
+     const dauThang = new Date(now.getFullYear(), now.getMonth(), 1);
+     const from = Utilities.formatDate(dauThang, Session.getScriptTimeZone(), 'yyyy/MM/dd');
+     return 'after:' + from + ' -label:"' + LABEL_NAME + '" ('
+       + '(from:support@timo.vn subject:"Thông báo thay đổi số dư tài khoản")'
+       + ' OR (from:banking_notify@msb.com.vn (subject:"Biến động chi tiêu thẻ tín dụng"'
+       + ' OR subject:"Biến động thanh toán thẻ tín dụng"))'
+       + ')';
+   }
 
    function pushBankMails() {
      const label = GmailApp.getUserLabelByName(LABEL_NAME) || GmailApp.createLabel(LABEL_NAME);
-     for (const thread of GmailApp.search(QUERY, 0, 20)) {
+     // Mỗi lượt tối đa 50 luồng; còn dư thì lượt chạy sau (5 phút) lấy nốt.
+     for (const thread of GmailApp.search(buildQuery(), 0, 50)) {
        let ok = true;
        for (const mail of thread.getMessages()) {
          // Gửi kèm TIÊU ĐỀ: app đọc tiêu đề mới biết mail thẻ là quẹt tiêu hay thanh toán.

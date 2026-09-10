@@ -228,7 +228,7 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 - Telegram: Apps Script gửi mail vào `POST /telegram/ingest/:secret` (KHÔNG gửi vào nhóm bằng token bot —
   Telegram không đưa tin của chính bot về webhook, bot im lặng, đã dính 10/9/2026); webhook
   `POST /telegram/webhook/:secret` chỉ nhận tin của người và callback nút (`telegram.controller.ts`, @Public
-  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Apps Script đánh dấu mail
+  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Apps Script quét mail **từ ngày đầu tháng hiện tại tới giờ** (`after:`, chủ app chốt 10/9/2026) và đánh dấu mail
   đã gửi bằng NHÃN Gmail (`vodich-da-gui`) chứ không dùng `is:unread` + `markRead` — lỡ tay mở mail là bot bỏ
   sót (chủ app 10/9/2026); gửi lại cùng một mail không sinh giao dịch trùng nên nhãn là đủ. Script gửi kèm
   TIÊU ĐỀ mail vì thẻ MSB có hai tiêu đề: "Biến động chi tiêu thẻ tín dụng" = quẹt tiêu, "Biến động thanh toán
