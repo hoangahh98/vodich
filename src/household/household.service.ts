@@ -8,6 +8,7 @@ import { CurrentUser } from '../types';
 import { DEFAULT_PURPOSES, isSavedSource, isSpendableSource, normalizeMonth } from './household-enums';
 import { BankMark, lendingLedger, monthReport, reconcileSources, recurringExpectations, sourceBalances } from './household-month';
 import { toPurposeRow, toRecurringRow, toSourceRow, toTransactionRow } from './household-rows';
+import { isTelegramMessageId } from './household-telegram.service';
 
 /**
  * Hộ chi tiêu: tạo/sửa/xoá, phạm vi admin (chủ hoặc được chia sẻ — `ownedOrSharedWhere`), quyền
@@ -155,8 +156,12 @@ export class HouseholdService {
     const sourceKindById = new Map(sources.map((source) => [String(source.id), source.kind]));
     const purposeById = new Map(purposes.map((purpose) => [String(purpose.id), purpose]));
     const recurringName = new Map(recurrings.map((recurring) => [String(recurring.id), recurring.name]));
+    // Giao dịch ghi từ mail nhưng tin tóm tắt CHƯA lên được nhóm Telegram: `telegram_msg_id` vẫn là hash
+    // nội dung mail chứ không phải id tin thật. Không có gì để bấm trên Telegram nên phải nói ra ở web.
+    const telegramMsgById = new Map(transactions.map((tx) => [String(tx.id), tx.telegramMsgId]));
     const rows = monthTransactions.map((tx) => ({
       ...tx,
+      telegramPending: (telegramMsgById.get(tx.id) ?? null) !== null && !isTelegramMessageId(telegramMsgById.get(tx.id) ?? null),
       sourceName: sourceName.get(tx.sourceId) || '?',
       sourceKind: sourceKindById.get(tx.sourceId) || 'BANK',
       // Tiền vào thẻ tín dụng là hoàn tiền → chọn mục đích CHI như khoản chi; tiền vào tài khoản là thu nhập.

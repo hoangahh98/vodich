@@ -99,15 +99,19 @@ export class HouseholdTelegramService {
     const household = await this.prisma.household.findFirst({ where: { telegramChatId: chatId } });
     if (!household) return { ok: false, reason: 'Nhóm này chưa liên kết hộ nào (gõ /link <mã> trong nhóm trước).' };
     const outcome = await this.ingestBankText(household, chatId, textHash(text), text);
-    return outcome === 'duplicate' ? { ok: true, reason: 'Tin này đã xử lý trước đó, bỏ qua.' } : { ok: true };
+    if (outcome === 'duplicate') return { ok: true, reason: 'Tin này đã xử lý trước đó, bỏ qua.' };
+    // ok = false → Apps Script CHƯA gắn nhãn "đã gửi", lần chạy sau gửi lại và bot đăng bù tin tóm tắt.
+    if (outcome === 'unsent') return { ok: false, reason: 'Đã ghi sổ nhưng chưa đăng được tin lên nhóm Telegram — sẽ thử lại.' };
+    return { ok: true };
   }
 
   /**
    * Đọc một tin ngân hàng, ghi sổ, đăng tóm tắt + nút lên nhóm. Dùng chung cho Apps Script và tin dán tay.
    * Trả 'duplicate' khi tin đã xử lý và giao dịch của nó vẫn còn; giao dịch đã bị xoá tay thì cho ghi lại
-   * (chủ app xoá nhầm rồi đánh dấu mail chưa đọc để gửi lại — phải ra được giao dịch mới).
+   * (chủ app xoá nhầm rồi gửi lại mail — phải ra được giao dịch mới). Trả 'unsent' khi đã ghi sổ nhưng
+   * KHÔNG đăng được tin lên nhóm, để bên gọi biết mà gửi lại lần sau.
    */
-  private async ingestBankText(household: Household, chatId: string, messageId: bigint, text: string): Promise<'done' | 'duplicate'> {
+  private async ingestBankText(household: Household, chatId: string, messageId: bigint, text: string): Promise<'done' | 'duplicate' | 'unsent'> {
     const seen = await this.prisma.householdInbox.findUnique({ where: { chatId_messageId: { chatId, messageId } } });
     if (seen) {
       const stillThere = seen.transactionId ? await this.prisma.householdTransaction.count({ where: { id: seen.transactionId, householdId: household.id } }) : 0;
@@ -167,7 +171,11 @@ export class HouseholdTelegramService {
       reportedAvailable: parsed.availableLimit ?? null,
     });
     await this.prisma.householdInbox.update({ where: { id: inbox.id }, data: { status: 'PARSED', transactionId: result.transaction.id } });
-    if (result.duplicate) return 'duplicate';
+    // Ghi trùng thì thôi — TRỪ KHI tin tóm tắt chưa bao giờ lên được nhóm (mất TELEGRAM_BOT_TOKEN, bot bị
+    // đá khỏi nhóm, Telegram lỗi). Lúc ấy sổ có khoản "cần xem lại" mà trên Telegram không có gì để bấm,
+    // nên đăng bù (chủ app gặp đúng cảnh này 10/9/2026). Id tin thật của Telegram nhỏ, còn giá trị đặt lúc
+    // ghi sổ là hash nội dung — số rất lớn, nhìn là biết chưa đăng.
+    if (result.duplicate && isTelegramMessageId(result.transaction.telegramMsgId)) return 'duplicate';
 
     const purposes = await this.prisma.householdPurpose.findMany({ where: { householdId: household.id, active: true }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] });
     const allTransactions = await this.prisma.householdTransaction.findMany({ where: { householdId: household.id } });
@@ -197,7 +205,8 @@ export class HouseholdTelegramService {
     const keyboard = refund || result.matched ? [] : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source, balances, borrowers);
     // Nhớ message_id tin tóm tắt vào giao dịch để về sau còn sửa / bỏ nút (hash chống trùng đã có household_inbox lo).
     const sent = await this.send(chatId, lines.join('\n'), keyboard);
-    if (sent?.message_id) await this.prisma.householdTransaction.updateMany({ where: { id: tx.id }, data: { telegramMsgId: BigInt(String(sent.message_id)) } });
+    if (!sent?.message_id) return 'unsent';
+    await this.prisma.householdTransaction.updateMany({ where: { id: tx.id }, data: { telegramMsgId: BigInt(String(sent.message_id)) } });
     return 'done';
   }
 
@@ -477,6 +486,12 @@ function chunk<T>(items: T[], size: number): T[][] {
 }
 
 export type { Household };
+
+/**
+ * `telegram_msg_id` đang giữ id TIN THẬT của Telegram (đã đăng lên nhóm) hay chỉ là hash nội dung mail
+ * đặt tạm lúc ghi sổ (chưa đăng được)? Id thật của Telegram nhỏ, hash là số 52-bit rất lớn.
+ */
+export const isTelegramMessageId = (value: bigint | null) => value !== null && value < 2_000_000_000n;
 
 /** Hash 52-bit ổn định của nội dung tin (FNV-1a) — khoá chống trùng khi không có message_id. */
 export function textHash(text: string): bigint {

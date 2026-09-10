@@ -235,6 +235,11 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   SAU giao dịch,
   mẫu chung; VPBank đã gỡ 10/9/2026 vì tiền về nhà đi hết qua Timo) — thêm ngân hàng thì thêm parser + test với mail thật. Nút inline `hp:<tx>:<purpose>` gán mục
   đích, `ht:<tx>:<source>` đổi khoản chi thành trả thẻ/trả nợ. Liên kết nhóm bằng `/link <mã>`.
+- **Ghi sổ được mà đăng tin lên nhóm hỏng** (mất token, bot bị đá khỏi nhóm) từng để lại khoản "cần xem lại"
+  mà trên Telegram không có gì bấm (chủ app 10/9/2026). Nay `ingestBankText` trả `'unsent'`, `ingestFromScript`
+  trả `ok: false` → Apps Script chưa gắn nhãn nên gửi lại, và lần gửi lại tuy TRÙNG giao dịch vẫn đăng bù tin
+  tóm tắt (`isTelegramMessageId`: `telegram_msg_id` còn là hash nội dung = chưa từng đăng). Web cũng ghi rõ
+  dưới dòng giao dịch vì sao nó còn "cần xem lại": chưa xác nhận / chưa lên được Telegram / chưa chọn mục đích.
 - Quyền: `@FeatureAccess('HOUSEHOLD')`; admin theo `ownedOrSharedWhere`, thành viên trong nhà là CLIENT qua
   `player_household_access` (`clientHouseholdWhere`). Mỗi admin tạo được nhiều hộ.
 - View `src/views/household/` cùng khuôn trang đội; form trong bảng dùng thuộc tính `form=` trỏ tới form rỗng

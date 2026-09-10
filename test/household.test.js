@@ -4,7 +4,7 @@ const test = require('node:test');
 const { parseBankMessage, parseVndAmount, parseVnDateTime } = require('../dist/household/bank-parsers');
 const { matchRecurring, monthReport, nextMonth, previousMonth, reconcileSources, recurringExpectations, sourceBalances } = require('../dist/household/household-month');
 const { normalizeDescription } = require('../dist/household/household-rows');
-const { pickSource } = require('../dist/household/household-telegram.service');
+const { isTelegramMessageId, pickSource, textHash } = require('../dist/household/household-telegram.service');
 const { monthOf, normalizeMonth } = require('../dist/household/household-enums');
 
 // ─────────────────────────── Đọc tin ngân hàng (hai mail mẫu chủ app đưa 9/2026) ───────────────────────────
@@ -178,6 +178,12 @@ test('chọn nguồn: khớp đuôi số tài khoản / 4 số cuối; một ngu
   assert.equal(pickSource([...SOURCES, { id: 5n, name: 'Timo 2', kind: 'BANK', bank: 'TIMO', matchKey: '' }], 'TIMO', ''), null, 'hai Timo không khoá thì mù');
   // Nguồn cho vay / tiền mặt / khoản vay lỡ mang bank = TIMO (ô ẩn vẫn gửi) không được làm bot mù.
   assert.equal(pickSource([...SOURCES, { id: 6n, name: 'Anh A', kind: 'LENT', bank: 'TIMO', matchKey: '' }, { id: 7n, name: 'Vay nhà', kind: 'LOAN', bank: 'TIMO', matchKey: '' }], 'TIMO', '').id, 1n);
+});
+
+test('phân biệt id tin Telegram thật với hash nội dung mail (giao dịch chưa đăng được lên nhóm)', () => {
+  assert.equal(isTelegramMessageId(1234n), true, 'id tin thật của Telegram là số nhỏ');
+  assert.equal(isTelegramMessageId(null), false, 'ghi tay, không đi qua Telegram');
+  assert.equal(isTelegramMessageId(textHash('mail ngân hàng nào đó')), false, 'hash 52-bit = chưa đăng được');
 });
 
 test('mô tả chuẩn hoá để đoán mục đích: bỏ dấu, số, ký tự lạ', () => {
@@ -366,7 +372,6 @@ test('tháng: chuẩn hoá, tháng theo giờ VN, tháng trước / sau', () => 
 
 // ─────────────────────────── Khoá chống trùng cho tin gửi từ Apps Script ───────────────────────────
 
-const { textHash } = require('../dist/household/household-telegram.service');
 
 test('hash nội dung tin: ổn định, khác nội dung khác hash, vừa BigInt 52-bit', () => {
   const a = textHash(MSB_MAIL);

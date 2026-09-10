@@ -177,7 +177,12 @@ tiền về nhà đi hết qua Timo.
            muteHttpExceptions: true,
          });
          Logger.log(res.getResponseCode() + ' ' + res.getContentText());
-         if (res.getResponseCode() >= 300) ok = false; // gửi lỗi thì chưa gắn nhãn, lần chạy sau gửi lại
+         // App LUÔN trả HTTP 200, phải soi cờ ok trong JSON: ok=false là sai bí mật, nhóm chưa liên kết,
+         // hoặc đã ghi sổ mà chưa đăng được tin lên nhóm → CHƯA gắn nhãn, lần chạy sau gửi lại và bot
+         // đăng bù. Gửi lại không sinh giao dịch trùng.
+         let body = {};
+         try { body = JSON.parse(res.getContentText()); } catch (err) { body = {}; }
+         if (res.getResponseCode() >= 300 || body.ok !== true) ok = false;
        }
        if (ok) thread.addLabel(label);
      }
