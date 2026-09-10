@@ -300,8 +300,8 @@ test('thẻ tín dụng: dư nợ vẫn cộng từ giao dịch, hạn mức kh�
 
 test('thẻ thông: quẹt thẻ A thì mail thẻ B báo hạn mức đã trừ cả hai — cùng nhóm thì không báo lệch', () => {
   // Hai thẻ dùng chung hạn mức nhưng KHÁC hạn mức nhau (A 20tr, B 30tr) — chỉ so phần chênh nên vẫn đúng.
-  const cardA = { ...card, id: 'ca', name: 'Thẻ A', limitGroup: 'g1', creditLimit: 20_000_000 };
-  const cardB = { ...card, id: 'cb', name: 'Thẻ B', limitGroup: 'g1', creditLimit: 30_000_000 };
+  const cardA = { ...card, id: 'ca', name: 'Thẻ A', limitSharesWith: 'cb', creditLimit: 20_000_000 };
+  const cardB = { ...card, id: 'cb', name: 'Thẻ B', limitSharesWith: 'ca', creditLimit: 30_000_000 };
   const rows = [
     tx({ id: '51', sourceId: 'ca', amount: 1_000, occurredAt: new Date('2026-09-06T03:00:00Z') }),
     tx({ id: '52', sourceId: 'cb', amount: 5_000, occurredAt: new Date('2026-09-07T03:00:00Z') }),
@@ -314,16 +314,16 @@ test('thẻ thông: quẹt thẻ A thì mail thẻ B báo hạn mức đã trừ
   const [checkedA] = reconcileSources([cardA, cardB], rows, new Map(), windows);
   assert.equal(checkedA.diff, 0, 'cùng nhóm thẻ thông thì cộng tiền quẹt của cả nhóm → khớp');
   // Khai thiếu nhóm là đúng cảnh chủ app sợ: lệch đúng bằng khoản quẹt ở thẻ kia.
-  const rieng = reconcileSources([{ ...cardA, limitGroup: '' }, { ...cardB, limitGroup: '' }], rows, new Map(), windows);
+  const rieng = reconcileSources([{ ...cardA, limitSharesWith: null }, { ...cardB, limitSharesWith: null }], rows, new Map(), windows);
   assert.equal(rieng[0].diff, 5_000);
 });
 
-test('thẻ thông không đối xứng: thẻ riêng chỉ tính giao dịch của nó, thẻ ăn theo tính cả cụm', () => {
-  // Luật MSB chủ app chốt 10/9/2026: mỗi thẻ 4768 / 8867 có hạn mức RIÊNG, trả vào thẻ nào chỉ thẻ đó
-  // tăng; riêng thẻ 3065 ĂN THEO cả hai thẻ kia. Ba thẻ hạn mức khác nhau vẫn đúng vì chỉ so CHÊNH giữa
-  // hai lần báo của cùng một thẻ. App không bắt khai thẻ nào kiểu nào — thử cả hai cách, lấy cách khớp.
-  const antheo = { ...card, id: 'ch', name: 'Thẻ ăn theo', limitGroup: 'gA', creditLimit: 0 };
-  const rieng = { ...card, id: 'ph', name: 'Thẻ hạn mức riêng', limitGroup: 'gA', creditLimit: 0 };
+test('thẻ thông có hướng: thẻ trỏ đi tính riêng nó, thẻ được trỏ tới ăn theo cả hai', () => {
+  // Luật chủ app chốt 10/9/2026: thẻ 4768 và 8867 mỗi thẻ hạn mức RIÊNG, trả vào thẻ nào chỉ thẻ đó tăng,
+  // nhưng cả hai đều khai thẻ thông = 3065 nên 3065 ăn theo cả hai; 3065 không khai gì. Ba thẻ hạn mức
+  // khác nhau vẫn đúng vì chỉ so CHÊNH giữa hai lần báo của cùng một thẻ.
+  const antheo = { ...card, id: 'ch', name: 'Thẻ ăn theo', limitSharesWith: null, creditLimit: 0 };
+  const rieng = { ...card, id: 'ph', name: 'Thẻ hạn mức riêng', limitSharesWith: 'ch', creditLimit: 0 };
   const rows = [
     tx({ id: '101', sourceId: 'ph', amount: 100_000, occurredAt: new Date('2026-09-01T03:00:00Z') }),
     tx({ id: '102', sourceId: 'ch', amount: 200_000, occurredAt: new Date('2026-09-02T03:00:00Z') }),
@@ -338,8 +338,11 @@ test('thẻ thông không đối xứng: thẻ riêng chỉ tính giao dịch c�
     ['ch', { first: { value: 20_000_000, at: rows[1].occurredAt, txId: '102' }, last: { value: 20_080_000, at: rows[3].occurredAt, txId: '104' } }],
   ]);
   const checked = reconcileSources([antheo, rieng], rows, new Map(), windows);
-  assert.equal(checked.find((item) => item.source.id === 'ph').diff, 0, 'thẻ hạn mức riêng chỉ so với giao dịch của chính nó');
-  assert.equal(checked.find((item) => item.source.id === 'ch').diff, 0, 'thẻ ăn theo so với giao dịch cả cụm');
+  assert.equal(checked.find((item) => item.source.id === 'ph').diff, 0, 'thẻ trỏ đi chỉ so với giao dịch của chính nó');
+  assert.equal(checked.find((item) => item.source.id === 'ch').diff, 0, 'thẻ được trỏ tới so với giao dịch cả hai thẻ');
+  // Quên khai thẻ thông là thẻ ăn theo báo lệch đúng phần thẻ kia trả (30.000đ, dấu âm = sổ thiếu tiền vào).
+  const quenKhai = reconcileSources([antheo, { ...rieng, limitSharesWith: null }], rows, new Map(), windows);
+  assert.equal(quenKhai.find((item) => item.source.id === 'ch').diff, -30_000);
 });
 
 // ─────────────────────────── Khoản định kỳ ───────────────────────────

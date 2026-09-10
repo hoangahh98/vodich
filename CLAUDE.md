@@ -207,14 +207,15 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   `diff` đo từ mail đầu tới mail gần nhất (khả dụng phải giảm đúng bằng phần dư nợ sổ ghi tăng). Mail KHÔNG có
   hạn mức TỔNG nên đừng suy dư nợ từ hạn mức. Hai chuyện phải nhớ khi đối chiếu hạn mức (soi dữ liệu thật
   10/9/2026):
-  1. **Thẻ thông của MSB không đối xứng** (chủ app chốt 10/9/2026): thẻ 4768 và 8867 mỗi thẻ có hạn mức
-     RIÊNG — trả tiền vào thẻ nào chỉ thẻ đó tăng; riêng thẻ 3065 ĂN THEO cả hai thẻ kia (chúng tiêu là nó
-     tụt). Hai thẻ của vợ thì đối xứng, thẻ nào cũng ăn theo thẻ kia. **Ba thẻ hạn mức khác nhau vẫn đúng**
-     vì chỉ so CHÊNH giữa hai lần ngân hàng báo của CÙNG một thẻ, không bao giờ so số tuyệt đối giữa các
-     thẻ. Không bắt chủ app khai thẻ nào kiểu nào — `reconcileSources` thử cả hai cách (chỉ giao dịch của
-     thẻ đó / giao dịch cả cụm) rồi lấy cách khớp hơn; test "thẻ thông không đối xứng" khoá lại. Bỏ bước
-     này là thẻ hạn mức riêng báo lệch oan cả trăm nghìn (8867 từng lệch 748.922đ). `limit_group` là CỤM
-     chứ không phải cặp: khai "thông với 3065" cho hai thẻ kia là cả ba vào chung cụm.
+  1. **Thẻ thông là quan hệ CÓ HƯỚNG** (`household_source.limit_shares_with`, chủ app chốt 10/9/2026):
+     khai "thẻ thông của thẻ A là B" nghĩa là giao dịch của A cũng làm đổi hạn mức khả dụng của B. Thực tế
+     nhà chủ app: 4768 → 3065 và 8867 → 3065 (mỗi thẻ hạn mức riêng, trả vào thẻ nào chỉ thẻ đó tăng, nhưng
+     3065 ăn theo cả hai), **3065 để trống**; hai thẻ của vợ thông nhau nên khai TRỎ LẪN NHAU. App không tự
+     khai hộ chiều ngược lại — chiều nào có thật chỉ chủ app biết. Đối chiếu: hạn mức của thẻ X đổi theo
+     giao dịch của chính X và của mọi thẻ trỏ về X (`affectsLimitOf`); test "thẻ thông có hướng" khoá lại.
+     **Hạn mức mỗi thẻ một khác vẫn đúng** vì chỉ so CHÊNH giữa hai lần ngân hàng báo của CÙNG một thẻ,
+     không bao giờ so số tuyệt đối giữa các thẻ. Cộng nhầm cả cụm cho thẻ hạn mức riêng là báo lệch oan cả
+     trăm nghìn (8867 từng lệch 748.922đ).
   2. Hạn mức khả dụng **không nhúc nhích đúng từng đồng**: hoàn tiền vào hạn mức chậm vài ngày, khoản giữ
      chốt lệch vài trăm đồng mỗi giao dịch (103đ, 375đ, 1.917đ, dồn 12 giao dịch thành 3.020đ). Ngưỡng bỏ
      qua vì thế đi theo số giao dịch: `cardDiffTolerance(n) = max(2.000đ, 500đ × n)`. "Đã quẹt chưa trả" trả hết là **về 0** — KHÔNG có "trả dư"

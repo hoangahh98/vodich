@@ -4,7 +4,7 @@ import { formatMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
 import { ParsedBankMessage, parseBankMessage } from './bank-parsers';
 import { HouseholdLedgerService } from './household-ledger.service';
-import { LendingRow, SourceRow, cardDiffTolerance, lendingKey, lendingLedger, limitGroupKey, sourceBalances } from './household-month';
+import { LendingRow, SourceRow, affectsLimitOf, cardDiffTolerance, lendingKey, lendingLedger, sourceBalances } from './household-month';
 import { toPurposeRow, toSourceRow, toTransactionRow } from './household-rows';
 
 /** Phần của một update Telegram mà ta dùng. Bot API gửi nhiều hơn nhưng không cần khai hết. */
@@ -412,21 +412,18 @@ export class HouseholdTelegramService {
     }
     const base = Number(card ? previous.reportedAvailable : previous.reportedBalance);
     const from = { at: previous.occurredAt, id: previous.id };
-    // Thẻ: có thẻ báo hạn mức RIÊNG nó, có thẻ ĂN THEO cả cụm thẻ thông (MSB, chủ app 10/9/2026) — thử
-    // cả hai rồi lấy cách khớp hơn, khỏi bắt chủ app khai thẻ nào kiểu nào.
+    // Hạn mức khả dụng của thẻ này đổi theo giao dịch của CHÍNH NÓ và của mọi thẻ khai thẻ thông là nó.
     const cardRows = cards.map(toSourceRow);
-    const pool = cardRows.filter((item) => limitGroupKey(item) === limitGroupKey(self));
-    const own = flowBetween(self, from, now);
-    const groupFlow = (pool.length ? pool : [self]).reduce((sum, item) => sum + flowBetween(item, from, now).flow, 0);
-    const groupCount = (pool.length ? pool : [self]).reduce((sum, item) => sum + flowBetween(item, from, now).count, 0);
-    const diffOwn = Math.round(base - own.flow - reported);
-    const diffGroup = Math.round(base - groupFlow - reported);
+    const feeding = cardRows.filter((item) => affectsLimitOf(item, self));
+    const moves = (feeding.length ? feeding : [self]).map((item) => flowBetween(item, from, now));
+    const flow = moves.reduce((sum, item) => sum + item.flow, 0);
+    const count = moves.reduce((sum, item) => sum + item.count, 0);
     // Tài khoản: số dư = mốc + dòng tiền sau mốc. Thẻ: dư nợ tăng bao nhiêu thì khả dụng giảm bấy nhiêu.
-    let diff = card ? (Math.abs(diffOwn) < Math.abs(diffGroup) ? diffOwn : diffGroup) : Math.round(base + own.flow - reported);
-    if (card && Math.abs(diff) <= cardDiffTolerance(groupCount)) diff = 0;
+    let diff = Math.round((card ? base - flow : base + flowBetween(self, from, now).flow) - reported);
+    if (card && Math.abs(diff) <= cardDiffTolerance(count)) diff = 0;
     if (!diff) return `${label}: ${formatMoney(reported)}đ`;
     // Lệch đúng bằng tiền quẹt của một thẻ khác ngoài nhóm → gần như chắc chắn hai thẻ thông nhau.
-    const twin = cardRows.find((item) => item.id !== self.id && limitGroupKey(item) !== limitGroupKey(self) && Math.round(flowBetween(item, from, now).flow) === diff);
+    const twin = cardRows.find((item) => item.id !== self.id && !affectsLimitOf(item, self) && Math.round(flowBetween(item, from, now).flow) === diff);
     if (twin) {
       return `${label}: ${formatMoney(reported)}đ
 ⚠ Lệch ${formatMoney(Math.abs(diff))}đ, đúng bằng tiền quẹt thẻ ${twin.name} — hai thẻ này có vẻ THẺ THÔNG (dùng chung hạn mức). Vào Nguồn tiền sửa thẻ ${source.name}, chọn "Dùng chung hạn mức với ${twin.name}" là hết báo lệch.`;

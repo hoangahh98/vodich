@@ -669,8 +669,8 @@ function householdLocals(section, over = {}) {
   };
   const sources = [
     { id: 1n, name: 'Timo', kind: 'BANK', bank: 'TIMO', matchKey: '', ownerName: 'Cả nhà', openingBalance: 10000000, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true },
-    { id: 2n, name: 'Thẻ MSB', kind: 'CARD', bank: 'MSB', matchKey: '3065', ownerName: '', openingBalance: 0, creditLimit: 20000000, interestRate: 0, statementDay: 20, dueDay: 5, active: true, limitGroup: 'g2' },
-    { id: 3n, name: 'Thẻ MSB phụ', kind: 'CARD', bank: 'MSB', matchKey: '7788', ownerName: 'Vợ', openingBalance: 0, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true, limitGroup: 'g2' },
+    { id: 2n, name: 'Thẻ MSB', kind: 'CARD', bank: 'MSB', matchKey: '3065', ownerName: '', openingBalance: 0, creditLimit: 20000000, interestRate: 0, statementDay: 20, dueDay: 5, active: true, limitSharesWith: 3n },
+    { id: 3n, name: 'Thẻ MSB phụ', kind: 'CARD', bank: 'MSB', matchKey: '7788', ownerName: 'Vợ', openingBalance: 0, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true, limitSharesWith: null },
   ];
   const purposes = [
     { id: 11n, name: 'Lương vợ', kind: 'INCOME', monthlyPlan: 0, active: true },
@@ -750,8 +750,9 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(sources, /Đã quẹt chưa trả/, 'số cộng từ sổ của thẻ gọi đúng tên: đã quẹt chưa trả');
   assert.doesNotMatch(sources, /name="creditLimit"/, 'hạn mức thẻ không còn khai tay (thẻ thông dùng chung hạn mức)');
   assert.match(sources, /<option value="INVEST"/, 'loại nguồn có Đầu tư và Tiết kiệm');
-  assert.match(sources, /name="limitGroupWith"/, 'thẻ tín dụng khai được thẻ thông (chung hạn mức)');
-  assert.match(sources, /thẻ thông với Thẻ MSB phụ/, 'thẻ đã khai chung hạn mức thì hiện huy hiệu');
+  assert.match(sources, /name="limitSharesWith"/, 'thẻ tín dụng khai được thẻ thông');
+  assert.match(sources, /thông sang Thẻ MSB phụ/, 'thẻ đã khai thẻ thông thì hiện huy hiệu chiều đi');
+  assert.match(sources, /ăn theo Thẻ MSB/, 'thẻ được trỏ tới hiện huy hiệu ăn theo');
   assert.match(sources, /Sổ lệch/, 'nguồn lệch với ngân hàng phải nhắc thêm giao dịch tay');
   assert.match(overview, /lệch/, 'Tổng quan cũng nhắc nguồn đang lệch với ngân hàng');
 

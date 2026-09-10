@@ -9,8 +9,8 @@ export interface SourceRow {
   id: string;
   name: string;
   kind: string;
-  /** Nhóm thẻ thông (dùng chung hạn mức). Rỗng = thẻ đứng riêng. */
-  limitGroup: string;
+  /** Thẻ thông: id thẻ mà giao dịch của thẻ NÀY cũng làm đổi hạn mức. Null = không thẻ nào ăn theo. */
+  limitSharesWith: string | null;
   openingBalance: number;
   creditLimit: number;
   interestRate: number;
@@ -120,10 +120,12 @@ export interface SourceCheck extends SourceBalance {
 }
 
 /**
- * Khoá nhóm hạn mức của một thẻ: thẻ thông thì cả nhóm cùng mã `limitGroup`, thẻ riêng thì lấy mã riêng
- * theo id (không dùng thẳng id để thẻ vừa bỏ nhóm không rơi trúng mã cũ của nhóm).
+ * Giao dịch của `card` có làm đổi hạn mức khả dụng của `target` không: luôn đúng với chính nó, và đúng khi
+ * `card` khai thẻ thông là `target`. Quan hệ CÓ HƯỚNG (chủ app 10/9/2026): thẻ 4768 và 8867 mỗi thẻ hạn
+ * mức riêng nhưng đều trỏ về 3065 nên 3065 ăn theo cả hai, còn 4768 không ăn theo 8867. Hai thẻ thông nhau
+ * (hai thẻ của vợ) thì trỏ lẫn nhau.
  */
-export const limitGroupKey = (source: SourceRow) => source.limitGroup || `one:${source.id}`;
+export const affectsLimitOf = (card: SourceRow, target: SourceRow) => card.id === target.id || card.limitSharesWith === target.id;
 
 /** Dòng tiền của một nguồn trong khoảng (from, to]: bỏ mốc `from`, tính cả mốc `to`. `count` = số giao dịch. */
 function flowBetween(source: SourceRow, transactions: TransactionRow[], from: BankMark | null, to: BankMark | null): { flow: number; count: number } {
@@ -155,11 +157,7 @@ export function reconcileSources(
   availableWindows: Map<string, { first: BankMark; last: BankMark }>,
 ): SourceCheck[] {
   const balances = sourceBalances(sources, transactions);
-  const cardsByGroup = new Map<string, SourceRow[]>();
-  for (const source of sources.filter((item) => item.kind === 'CARD')) {
-    const key = limitGroupKey(source);
-    cardsByGroup.set(key, [...(cardsByGroup.get(key) || []), source]);
-  }
+  const cards = sources.filter((item) => item.kind === 'CARD');
   return sources.map((source) => {
     const item = balances.get(source.id)!;
     const reported = balanceMarks.get(source.id) || null;
@@ -170,17 +168,14 @@ export function reconcileSources(
     }
     let diff = 0;
     if (window && window.first.txId !== window.last.txId) {
-      // Thẻ thông của MSB KHÔNG đối xứng (chủ app 10/9/2026): có thẻ báo hạn mức RIÊNG nó (quẹt/trả thẻ
-      // khác không đụng tới), có thẻ ĂN THEO cả cụm (mọi thẻ trong cụm tiêu là nó tụt). Hạn mức mỗi thẻ
-      // một khác cũng không sao: chỉ so CHÊNH giữa hai lần báo của CÙNG một thẻ, không so số tuyệt đối
-      // giữa các thẻ. Không bắt chủ app khai thẻ nào kiểu nào — thử cả hai cách rồi lấy cách khớp hơn.
-      const pool = cardsByGroup.get(limitGroupKey(source)) || [source];
-      const group = pool.reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last).flow, 0);
-      const own = flowBetween(source, transactions, window.first, window.last);
-      const diffGroup = Math.round(window.first.value - group - window.last.value);
-      const diffOwn = Math.round(window.first.value - own.flow - window.last.value);
-      diff = Math.abs(diffOwn) < Math.abs(diffGroup) ? diffOwn : diffGroup;
-      const count = pool.reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last).count, 0);
+      // Hạn mức khả dụng của thẻ này đổi theo giao dịch của CHÍNH NÓ và của mọi thẻ khai thẻ thông là nó.
+      // Hạn mức mỗi thẻ một khác không sao: chỉ so CHÊNH giữa hai lần báo của CÙNG một thẻ, không bao giờ
+      // so số tuyệt đối giữa các thẻ.
+      const feeding = cards.filter((card) => affectsLimitOf(card, source));
+      const moves = feeding.map((card) => flowBetween(card, transactions, window.first, window.last));
+      const spent = moves.reduce((sum, item) => sum + item.flow, 0);
+      const count = moves.reduce((sum, item) => sum + item.count, 0);
+      diff = Math.round(window.first.value - spent - window.last.value);
       if (Math.abs(diff) <= cardDiffTolerance(count)) diff = 0;
     }
     return { ...item, reported: null, reportedAvailable: window ? window.last : null, diff, anchored: false };

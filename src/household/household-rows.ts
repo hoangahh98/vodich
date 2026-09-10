@@ -7,7 +7,7 @@ export const toSourceRow = (source: HouseholdSource): SourceRow => ({
   id: String(source.id),
   name: source.name,
   kind: source.kind,
-  limitGroup: source.limitGroup,
+  limitSharesWith: source.limitSharesWith ? String(source.limitSharesWith) : null,
   openingBalance: Number(source.openingBalance),
   creditLimit: Number(source.creditLimit),
   interestRate: Number(source.interestRate),

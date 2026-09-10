@@ -12,9 +12,10 @@
     // Thẻ thông = hai thẻ dùng chung một hạn mức (quẹt thẻ này là hạn mức thẻ kia cũng giảm). Khai bằng
     // cách chọn thẻ kia; server cho cả hai cùng mã nhóm. Không phải khai hạn mức, chỉ khai "chung với ai".
     const cardList = sources.filter((item) => item.kind === 'CARD');
-    // Cả CỤM chứ không phải một thẻ: khai "thông với 3065" cho hai thẻ phụ là ba thẻ vào chung một cụm.
-    const twinsOf = (source) => (source && source.limitGroup ? cardList.filter((item) => item.limitGroup === source.limitGroup && item.id.toString() !== source.id.toString()) : []);
-    const twinOf = (source) => twinsOf(source)[0] || null;
+    // Thẻ thông CÓ HƯỚNG: `limitSharesWith` = thẻ mà giao dịch của thẻ này cũng làm đổi hạn mức của nó.
+    // `feeders` = mấy thẻ đang trỏ VỀ thẻ này (thẻ này ăn theo chúng).
+    const sharesWith = (source) => (source && source.limitSharesWith ? cardList.find((item) => item.id.toString() === source.limitSharesWith.toString()) : null);
+    const feedersOf = (source) => (source ? cardList.filter((item) => item.limitSharesWith && item.limitSharesWith.toString() === source.id.toString()) : []);
     const sourceForm = (source, current) => `
       <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: Timo, Thẻ MSB" required></div>
       <div><label>Loại</label><select name="kind" data-source-kind>${kindOptions.map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${labels.source[kind]}</option>`).join('')}</select></div>
@@ -24,10 +25,10 @@
       <div data-for="BANK CARD CASH SAVING INVEST LOAN"><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}" placeholder="Chồng / Vợ"></div>
       <div data-for="BANK CASH SAVING INVEST" data-balance-box><label>Số dư</label><input class="money-input" name="currentBalance" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="BANK" data-timo-note hidden><label>Số dư</label><div class="field-static">Tự lấy từ mail Timo gần nhất${source ? ': ' + formatMoney(current) + 'đ' : ''}</div></div>
-      <div data-for="CARD"><label>Thẻ thông (chung hạn mức)</label><select name="limitGroupWith"><option value="">— Thẻ riêng —</option>${cardList
+      <div data-for="CARD"><label>Thẻ thông của thẻ này</label><select name="limitSharesWith"><option value="">— Không có —</option>${cardList
         .filter((item) => !source || item.id.toString() !== source.id.toString())
-        .map((item) => `<option value="${item.id}" ${twinOf(source) && twinOf(source).id === item.id ? 'selected' : ''}>${esc(item.name)}</option>`)
-        .join('')}</select><small class="field-hint">${twinsOf(source).length ? 'Đang chung cụm với: ' + twinsOf(source).map((item) => esc(item.name)).join(', ') + '. ' : ''}Chọn một thẻ bất kỳ trong cụm là vào chung cả cụm, không phải khai đi khai lại. Hạn mức mỗi thẻ một khác cũng không sao — app tự nhận ra thẻ nào báo hạn mức riêng, thẻ nào ăn theo cả cụm.</small></div>
+        .map((item) => `<option value="${item.id}" ${sharesWith(source) && sharesWith(source).id === item.id ? 'selected' : ''}>${esc(item.name)}</option>`)
+        .join('')}</select><small class="field-hint">Chọn thẻ mà <strong>quẹt / trả thẻ này thì hạn mức thẻ đó cũng đổi theo</strong>. Thẻ ăn theo (thẻ nhìn thấy hạn mức của thẻ khác) thì để trống. Hai thẻ thông nhau thì khai ở CẢ HAI thẻ, mỗi thẻ trỏ về thẻ kia. Hạn mức mỗi thẻ một khác không sao.${feedersOf(source).length ? ' Đang có ăn theo: ' + feedersOf(source).map((item) => esc(item.name)).join(', ') + '.' : ''}</small></div>
       <div data-for="CARD" class="hh-form-wide"><label>Hạn mức và dư nợ</label><div class="field-static">Hạn mức còn lấy theo mail ngân hàng gần nhất; phần đã quẹt chưa trả cộng từ giao dịch${source ? ' — đang là ' + formatMoney(current) + 'đ' : ''}</div></div>
       <div data-for="LOAN"><label>Nợ hiện tại</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="LENT"><label>Đã cho vay</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
@@ -55,7 +56,7 @@
     <% balances.forEach((item) => { const source = sources.find((row) => row.id.toString() === item.source.id); const debt = ['CARD', 'LOAN'].includes(item.source.kind); const lent = item.source.kind === 'LENT'; %>
       <section class="card-lite p hh-source <%= item.source.active ? '' : 'is-muted' %>">
         <div class="hh-source-head">
-          <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (['BANK', 'CARD'].includes(item.source.kind) && source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% const twins = twinsOf(source); const twin = twins[0] || null; %><% if (twins.length) { %><span class="badge">thẻ thông với <%= twins.map((item) => item.name).join(', ') %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
+          <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (['BANK', 'CARD'].includes(item.source.kind) && source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% const twin = sharesWith(source); const feeders = feedersOf(source); %><% if (twin) { %><span class="badge">thông sang <%= twin.name %></span><% } %><% if (feeders.length) { %><span class="badge">ăn theo <%= feeders.map((item) => item.name).join(', ') %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
         </div>
         <%# Mọi con số nằm trong ô (chủ app: "mấy cái đang không trong ô thì cho vào ô"). %>
         <div class="grid kv-grid mt">
