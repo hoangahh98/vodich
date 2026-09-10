@@ -216,9 +216,12 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
      **Hạn mức mỗi thẻ một khác vẫn đúng** vì chỉ so CHÊNH giữa hai lần ngân hàng báo của CÙNG một thẻ,
      không bao giờ so số tuyệt đối giữa các thẻ. Cộng nhầm cả cụm cho thẻ hạn mức riêng là báo lệch oan cả
      trăm nghìn (8867 từng lệch 748.922đ).
-  2. Hạn mức khả dụng **không nhúc nhích đúng từng đồng**: hoàn tiền vào hạn mức chậm vài ngày, khoản giữ
-     chốt lệch vài trăm đồng mỗi giao dịch (103đ, 375đ, 1.917đ, dồn 12 giao dịch thành 3.020đ). Ngưỡng bỏ
-     qua vì thế đi theo số giao dịch: `cardDiffTolerance(n) = max(2.000đ, 500đ × n)`. "Đã quẹt chưa trả" trả hết là **về 0** — KHÔNG có "trả dư"
+  2. **KHÔNG có ngưỡng bỏ qua** — lệch bao nhiêu báo bấy nhiêu (chủ app chốt 10/9/2026: phải khớp từng đồng,
+     lệch thẻ nào thì tự tra soát thẻ đó). Từng có `cardDiffTolerance` bỏ qua lệch nhỏ, đã gỡ. Biết trước hai
+     nguồn lệch để khỏi hoảng: **hoàn tiền vào lại hạn mức chậm cả ngày** (mail hoàn tiền báo hạn mức y
+     nguyên, hôm sau mới cộng — nhìn hai mail liên tiếp là thấy bù nhau), và **mail ngân hàng không gửi**
+     (thực tế 10/9/2026 có khoản trả thẻ không có mail). Ngoài ra vài bước một-giao-dịch vẫn lệch trăm đồng
+     (quẹt 180.000 mà hạn mức tụt 180.148) — chưa giải thích được, cứ để nó báo. "Đã quẹt chưa trả" trả hết là **về 0** — KHÔNG có "trả dư"
   (trả thẻ chỉ là trả nợ thẻ); xuống dưới 0 nghĩa là sổ thiếu khoản quẹt, kẹp hiển thị về 0 và báo phần
   thiếu, tổng "Nợ thẻ" cũng kẹp từng thẻ về 0 để thẻ thiếu không ăn bớt nợ thẻ khác.
 - **Thẻ thông** (`household_source.limit_group`, chủ app 10/9/2026): hai thẻ dùng chung một hạn mức thì quẹt

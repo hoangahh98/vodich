@@ -94,13 +94,6 @@ export function sourceBalances(sources: SourceRow[], transactions: TransactionRo
   return result;
 }
 
-/**
- * Ngưỡng bỏ qua khi so hạn mức khả dụng: ngân hàng chốt lệch vài trăm đồng MỖI giao dịch (khoản giữ chốt
- * lại, làm tròn) nên cửa sổ càng nhiều giao dịch càng lệch nhiều — thực tế 10/9/2026: 103đ, 375đ, 1.917đ,
- * và 3.020đ sau 12 giao dịch. Dưới ngưỡng coi như khớp.
- */
-export const cardDiffTolerance = (transactionCount: number) => Math.max(2000, 500 * transactionCount);
-
 /** Một lần ngân hàng báo số: giá trị, lúc nào, kèm id giao dịch mang tin đó (để so thứ tự). */
 export interface BankMark {
   value: number;
@@ -127,15 +120,14 @@ export interface SourceCheck extends SourceBalance {
  */
 export const affectsLimitOf = (card: SourceRow, target: SourceRow) => card.id === target.id || card.limitSharesWith === target.id;
 
-/** Dòng tiền của một nguồn trong khoảng (from, to]: bỏ mốc `from`, tính cả mốc `to`. `count` = số giao dịch. */
-function flowBetween(source: SourceRow, transactions: TransactionRow[], from: BankMark | null, to: BankMark | null): { flow: number; count: number } {
+/** Dòng tiền của một nguồn trong khoảng (from, to]: bỏ mốc `from`, tính cả mốc `to`. */
+function flowBetween(source: SourceRow, transactions: TransactionRow[], from: BankMark | null, to: BankMark | null): number {
   const inRange = transactions.filter((tx) => {
     const afterFrom = !from || tx.occurredAt > from.at || (tx.occurredAt.getTime() === from.at.getTime() && BigInt(tx.id) > BigInt(from.txId));
     const beforeTo = !to || tx.occurredAt < to.at || (tx.occurredAt.getTime() === to.at.getTime() && BigInt(tx.id) <= BigInt(to.txId));
     return afterFrom && beforeTo;
   });
-  const mine = inRange.filter((tx) => tx.sourceId === source.id || tx.targetSourceId === source.id);
-  return { flow: sourceBalances([{ ...source, openingBalance: 0 }], mine).get(source.id)?.balance ?? 0, count: mine.length };
+  return sourceBalances([{ ...source, openingBalance: 0 }], inRange).get(source.id)?.balance ?? 0;
 }
 
 /**
@@ -163,20 +155,17 @@ export function reconcileSources(
     const reported = balanceMarks.get(source.id) || null;
     const window = availableWindows.get(source.id) || null;
     if (reported) {
-      const balance = reported.value + flowBetween(source, transactions, reported, null).flow;
+      const balance = reported.value + flowBetween(source, transactions, reported, null);
       return { ...item, balance, reported, reportedAvailable: window ? window.last : null, diff: Math.round(item.balance - balance), anchored: true };
     }
     let diff = 0;
     if (window && window.first.txId !== window.last.txId) {
       // Hạn mức khả dụng của thẻ này đổi theo giao dịch của CHÍNH NÓ và của mọi thẻ khai thẻ thông là nó.
       // Hạn mức mỗi thẻ một khác không sao: chỉ so CHÊNH giữa hai lần báo của CÙNG một thẻ, không bao giờ
-      // so số tuyệt đối giữa các thẻ.
-      const feeding = cards.filter((card) => affectsLimitOf(card, source));
-      const moves = feeding.map((card) => flowBetween(card, transactions, window.first, window.last));
-      const spent = moves.reduce((sum, item) => sum + item.flow, 0);
-      const count = moves.reduce((sum, item) => sum + item.count, 0);
+      // so số tuyệt đối giữa các thẻ. Lệch bao nhiêu báo bấy nhiêu, KHÔNG có ngưỡng bỏ qua (chủ app
+      // 10/9/2026: phải khớp từng đồng, lệch thẻ nào thì tra soát thẻ đó).
+      const spent = cards.filter((card) => affectsLimitOf(card, source)).reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last), 0);
       diff = Math.round(window.first.value - spent - window.last.value);
-      if (Math.abs(diff) <= cardDiffTolerance(count)) diff = 0;
     }
     return { ...item, reported: null, reportedAvailable: window ? window.last : null, diff, anchored: false };
   });

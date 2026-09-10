@@ -4,7 +4,7 @@ import { formatMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
 import { ParsedBankMessage, parseBankMessage } from './bank-parsers';
 import { HouseholdLedgerService } from './household-ledger.service';
-import { LendingRow, SourceRow, affectsLimitOf, cardDiffTolerance, lendingKey, lendingLedger, sourceBalances } from './household-month';
+import { LendingRow, SourceRow, affectsLimitOf, lendingKey, lendingLedger, sourceBalances } from './household-month';
 import { toPurposeRow, toSourceRow, toTransactionRow } from './household-rows';
 
 /** Phần của một update Telegram mà ta dùng. Bot API gửi nhiều hơn nhưng không cần khai hết. */
@@ -400,14 +400,13 @@ export class HouseholdTelegramService {
         const beforeTo = tx.occurredAt < to.at || (tx.occurredAt.getTime() === to.at.getTime() && BigInt(tx.id) <= to.id);
         return afterFrom && beforeTo;
       });
-      const mine = inRange.filter((tx) => tx.sourceId === item.id || tx.targetSourceId === item.id);
-      return { flow: sourceBalances([{ ...item, openingBalance: 0 }], mine).get(item.id)?.balance ?? 0, count: mine.length };
+      return sourceBalances([{ ...item, openingBalance: 0 }], inRange).get(item.id)?.balance ?? 0;
     };
     const now = { at: parsed.occurredAt, id: transactionId };
     if (!previous) {
       if (card) return `${label}: ${formatMoney(reported)}đ`;
       // Số đầu kỳ sao cho tới đúng giao dịch này sổ ra số ngân hàng báo — chỉ làm MỘT LẦN, mail sau chỉ so.
-      await this.prisma.householdSource.updateMany({ where: { id: source.id, householdId }, data: { openingBalance: reported - flowBetween(self, null, now).flow } });
+      await this.prisma.householdSource.updateMany({ where: { id: source.id, householdId }, data: { openingBalance: reported - flowBetween(self, null, now) } });
       return `${label}: ${formatMoney(reported)}đ (lấy làm mốc cho sổ)`;
     }
     const base = Number(card ? previous.reportedAvailable : previous.reportedBalance);
@@ -415,15 +414,13 @@ export class HouseholdTelegramService {
     // Hạn mức khả dụng của thẻ này đổi theo giao dịch của CHÍNH NÓ và của mọi thẻ khai thẻ thông là nó.
     const cardRows = cards.map(toSourceRow);
     const feeding = cardRows.filter((item) => affectsLimitOf(item, self));
-    const moves = (feeding.length ? feeding : [self]).map((item) => flowBetween(item, from, now));
-    const flow = moves.reduce((sum, item) => sum + item.flow, 0);
-    const count = moves.reduce((sum, item) => sum + item.count, 0);
+    const flow = (feeding.length ? feeding : [self]).reduce((sum, item) => sum + flowBetween(item, from, now), 0);
     // Tài khoản: số dư = mốc + dòng tiền sau mốc. Thẻ: dư nợ tăng bao nhiêu thì khả dụng giảm bấy nhiêu.
-    let diff = Math.round((card ? base - flow : base + flowBetween(self, from, now).flow) - reported);
-    if (card && Math.abs(diff) <= cardDiffTolerance(count)) diff = 0;
+    // Lệch bao nhiêu báo bấy nhiêu, không có ngưỡng bỏ qua (chủ app 10/9/2026: phải khớp từng đồng).
+    const diff = Math.round((card ? base - flow : base + flowBetween(self, from, now)) - reported);
     if (!diff) return `${label}: ${formatMoney(reported)}đ`;
     // Lệch đúng bằng tiền quẹt của một thẻ khác ngoài nhóm → gần như chắc chắn hai thẻ thông nhau.
-    const twin = cardRows.find((item) => item.id !== self.id && !affectsLimitOf(item, self) && Math.round(flowBetween(item, from, now).flow) === diff);
+    const twin = cardRows.find((item) => item.id !== self.id && !affectsLimitOf(item, self) && Math.round(flowBetween(item, from, now)) === diff);
     if (twin) {
       return `${label}: ${formatMoney(reported)}đ
 ⚠ Lệch ${formatMoney(Math.abs(diff))}đ, đúng bằng tiền quẹt thẻ ${twin.name} — hai thẻ này có vẻ THẺ THÔNG (dùng chung hạn mức). Vào Nguồn tiền sửa thẻ ${source.name}, chọn "Dùng chung hạn mức với ${twin.name}" là hết báo lệch.`;
