@@ -19,6 +19,8 @@ export interface ParsedBankMessage {
   accountKey: string;
   /** Số dư sau giao dịch nếu ngân hàng báo (Timo) — chỉ để nhắc trong tin tóm tắt, không ghi sổ. */
   balance?: number;
+  /** Hạn mức KHẢ DỤNG còn lại của thẻ tín dụng nếu mail báo (MSB). Không phải hạn mức tổng. */
+  availableLimit?: number;
   description: string;
   occurredAt: Date;
   /** Mã giao dịch ngân hàng, hoặc mã tự dựng khi ngân hàng không cho — chống ghi trùng. */
@@ -84,7 +86,12 @@ export function parseTimo(text: string): ParsedBankMessage | null {
   };
 }
 
-/** Mail MSB "biến động số dư trên Thẻ tín dụng": số thẻ che, số tiền thay đổi có dấu, nội dung, thời gian. */
+/**
+ * Mail MSB "biến động số dư trên Thẻ tín dụng": số thẻ che, số tiền thay đổi có dấu, nội dung, thời gian
+ * và HẠN MỨC KHẢ DỤNG còn lại. Mail KHÔNG có hạn mức tổng của thẻ nên app không suy ra dư nợ từ đây
+ * (chủ app 10/9/2026: thẻ thông dùng chung hạn mức, khai hạn mức tổng thì loằng ngoằng) — mức khả dụng
+ * chỉ để hiện lên thẻ và để bắt lệch khi sổ thiếu giao dịch.
+ */
 export function parseMsb(text: string): ParsedBankMessage | null {
   if (!/\bMSB\b|Hàng hải/i.test(text)) return null;
   const amountRaw = field(text, 'Số tiền thay đổi', 'Changed Amount', '[+-]?\\s*[\\d.,]+\\s*(?:VND)?');
@@ -96,6 +103,8 @@ export function parseMsb(text: string): ParsedBankMessage | null {
   const when = parseVnDateTime(field(text, 'Thời gian giao dịch', 'Transaction time', '[\\d/]+(?:\\s+[\\d:]+)?'));
   const occurredAt = when || new Date();
   const direction: 'OUT' | 'IN' = /^\s*-/.test(amountRaw || '') ? 'OUT' : /^\s*\+/.test(amountRaw || '') ? 'IN' : 'OUT';
+  const availableRaw = field(text, 'Hạn mức khả dụng', 'Available Limit', '[0-9.,]+[ ]*(?:VND)?');
+  const availableLimit = parseVndAmount(availableRaw);
   return {
     bank: 'MSB',
     direction,
@@ -103,6 +112,7 @@ export function parseMsb(text: string): ParsedBankMessage | null {
     accountKey: card,
     description: content.slice(0, 255),
     occurredAt,
+    availableLimit: availableLimit || undefined,
     externalId: `msb:${card}:${occurredAt.toISOString()}:${direction}:${amount}`,
   };
 }

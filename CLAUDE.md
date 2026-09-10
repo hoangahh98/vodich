@@ -187,19 +187,30 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 
 | Bảng | Vai trò |
 |---|---|
-| `household_source` | Nguồn tiền: BANK/CASH giữ số dư, CARD/LOAN giữ DƯ NỢ. `match_key` = số TK / 4 số cuối thẻ để khớp tin. |
+| `household_source` | Nguồn tiền: BANK/CASH/SAVING/INVEST giữ số dư, CARD/LOAN giữ DƯ NỢ, LENT là cho vay. `match_key` = số TK / 4 số cuối thẻ để khớp tin. |
 | `household_purpose` | Mục đích tự đặt; `kind` (LIVING/SAVING/DEBT/RESERVE/LENDING/INCOME) quyết định luật báo cáo. |
 | `household_transaction` | EXPENSE / INCOME / TRANSFER. TRANSFER sang LOAN = trả nợ (`interest` là lãi), sang CARD = trả thẻ. `external_id` chống ghi trùng. |
 | `household_recurring` | Khoản định kỳ khai một lần; `interest_mode = FROM_RATE` → lãi = dư nợ đầu tháng × lãi suất / 12. |
 | `household_inbox` | Tin Telegram thô; UNPARSED để xử lý tay. |
 
 - Số dư: `opening_balance` là số ĐẦU KỲ nhưng người dùng không nhập nó — form nguồn nhận số HIỆN TẠI và
-  `HouseholdConfigService.openingFor` suy ngược; mail Timo báo số dư thì `syncBalance` căn lại theo ngân hàng
-  (chủ app 10/9/2026: khỏi so lệch). Đừng thêm lại ô "số dư đầu".
+  `HouseholdConfigService.openingFor` suy ngược. Đừng thêm lại ô "số dư đầu".
+- **Đối chiếu với ngân hàng (chủ app chốt 10/9/2026), `reconcileSources` trong `household-month.ts`**: mail
+  Timo báo SỐ DƯ tài khoản, mail MSB báo HẠN MỨC KHẢ DỤNG của thẻ (lưu ở `reported_balance` /
+  `reported_available` của từng giao dịch). Tài khoản thì NGÂN HÀNG THẮNG: số dư = số trong mail gần nhất +
+  giao dịch ghi sau mail đó. Sổ ra số khác thì `diff` khác 0 và app **báo lệch** (thẻ nguồn + Tổng quan + tin
+  Telegram) để chủ app thêm giao dịch còn thiếu bằng tay — **không** tự căn lại `opening_balance` như bản cũ
+  (`syncBalance` đã bỏ: tự bù là mất dấu khoản thiếu, số tiền thật còn lại thành sai). Ngoại lệ duy nhất: mail
+  ĐẦU TIÊN của một tài khoản được lấy làm mốc (suy ngược số đầu kỳ) vì tài khoản Timo không khai số dư tay.
+- Thẻ tín dụng **không khai hạn mức lẫn dư nợ** (chủ app 10/9/2026: thẻ thông dùng chung hạn mức, khai kiểu
+  gì cũng sai): dư nợ cộng từ giao dịch quẹt/trả, thẻ chỉ hiện "hạn mức khả dụng" theo mail gần nhất, và
+  `diff` đo từ mail đầu tới mail gần nhất (khả dụng phải giảm đúng bằng phần dư nợ sổ ghi tăng). Mail KHÔNG có
+  hạn mức TỔNG nên đừng suy dư nợ từ hạn mức.
 - Toán ở `household-month.ts` (thuần, có test `test/household.test.js`): `sourceBalances`, `monthReport`,
   `recurringExpectations`, `matchRecurring`. **Luật chủ app chốt 9/9/2026**: quẹt thẻ là chi tiêu lúc quẹt,
   trả thẻ chỉ là chuyển nguồn; trả nợ vay tính vào "dùng" cả gốc lẫn lãi, gốc trừ dư nợ; giao dịch chưa có
-  mục đích tính vào chi tiêu và đếm ở "chưa phân loại".
+  mục đích tính vào chi tiêu và đếm ở "chưa phân loại"; chuyển tiền sang nguồn Tiết kiệm / Đầu tư là "cất đi"
+  (vào `saving`) kể cả khi không gắn mục đích, rút về thì trừ lại.
 - Mọi giao dịch đi qua `HouseholdLedgerService.create()` (form tay, nút Ghi nhận định kỳ, Telegram) để cùng
   một luật khớp định kỳ (cùng nguồn, lệch ≤ 2%) và đoán mục đích theo lần trước cùng nội dung
   (`normalizeDescription`). Tin tự động (status NEW) không đoán được thì mặc định vào mục chi tiêu "Khác"
@@ -208,7 +219,7 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 - Telegram: Apps Script gửi mail vào `POST /telegram/ingest/:secret` (KHÔNG gửi vào nhóm bằng token bot —
   Telegram không đưa tin của chính bot về webhook, bot im lặng, đã dính 10/9/2026); webhook
   `POST /telegram/webhook/:secret` chỉ nhận tin của người và callback nút (`telegram.controller.ts`, @Public
-  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Mẫu đọc tin ở `bank-parsers.ts` (Timo tài khoản — kèm số dư hiện tại, MSB thẻ,
+  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Mẫu đọc tin ở `bank-parsers.ts` (Timo tài khoản — kèm số dư hiện tại, MSB thẻ — kèm hạn mức khả dụng,
   mẫu chung; VPBank đã gỡ 10/9/2026 vì tiền về nhà đi hết qua Timo) — thêm ngân hàng thì thêm parser + test với mail thật. Nút inline `hp:<tx>:<purpose>` gán mục
   đích, `ht:<tx>:<source>` đổi khoản chi thành trả thẻ/trả nợ. Liên kết nhóm bằng `/link <mã>`.
 - Quyền: `@FeatureAccess('HOUSEHOLD')`; admin theo `ownedOrSharedWhere`, thành viên trong nhà là CLIENT qua

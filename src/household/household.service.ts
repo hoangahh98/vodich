@@ -5,8 +5,8 @@ import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere, isRootAdmin, ownedOrShare
 import { clientHouseholdWhere } from '../common/player-scope';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
-import { DEFAULT_PURPOSES, normalizeMonth } from './household-enums';
-import { lendingLedger, monthReport, recurringExpectations, sourceBalances } from './household-month';
+import { DEFAULT_PURPOSES, isSavedSource, isSpendableSource, normalizeMonth } from './household-enums';
+import { BankMark, lendingLedger, monthReport, reconcileSources, recurringExpectations, sourceBalances } from './household-month';
 import { toPurposeRow, toRecurringRow, toSourceRow, toTransactionRow } from './household-rows';
 
 /**
@@ -143,7 +143,6 @@ export class HouseholdService {
     const purposeRows = purposes.map(toPurposeRow);
     const txRows = transactions.map(toTransactionRow);
     const recurringRows = recurrings.map(toRecurringRow);
-    const balances = sourceBalances(sourceRows, txRows);
     const balancesAtStart = sourceBalances(
       sourceRows,
       txRows.filter((tx) => tx.month < month),
@@ -173,32 +172,33 @@ export class HouseholdService {
     const unclassified = rows.filter(needsReview);
     const unclassifiedAll = txRows.filter(needsReview).length;
     const unclassifiedTotal = unclassified.reduce((sum, tx) => sum + tx.amount, 0);
-    // Số dư ngân hàng báo gần nhất (Timo gửi kèm mỗi giao dịch) để so với số app tính.
-    // Số dư ngân hàng báo thuộc về phía TÀI KHOẢN/THẺ của giao dịch: khoản thu đã đổi thành "Vy trả nợ" (chuyển
-    // từ khoản cho vay về Timo) thì nguồn là Vy, nhưng số dư trong mail vẫn là của Timo (nguồn đích).
+    // Số ngân hàng báo kèm mỗi giao dịch: Timo báo SỐ DƯ tài khoản, MSB báo HẠN MỨC KHẢ DỤNG của thẻ.
+    // Số ấy thuộc về phía TÀI KHOẢN/THẺ của giao dịch: khoản thu đã đổi thành "Vy trả nợ" (chuyển từ khoản
+    // cho vay về Timo) thì nguồn là Vy, nhưng số dư trong mail vẫn là của Timo (nguồn đích).
     const reportedRows = await this.prisma.householdTransaction.findMany({
-      where: { householdId, reportedBalance: { not: null } },
+      where: { householdId, OR: [{ reportedBalance: { not: null } }, { reportedAvailable: { not: null } }] },
       orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-      select: { id: true, sourceId: true, targetSourceId: true, reportedBalance: true, occurredAt: true },
+      select: { id: true, sourceId: true, targetSourceId: true, reportedBalance: true, reportedAvailable: true, occurredAt: true },
     });
-    const reportedBySource = new Map<string, { balance: number; at: Date; txId: string }>();
+    const balanceMarks = new Map<string, BankMark>();
+    const availableWindows = new Map<string, { first: BankMark; last: BankMark }>();
     for (const row of reportedRows) {
+      // Danh sách đang xếp MỚI → CŨ: lần đầu gặp một nguồn là mail gần nhất, lần cuối là mail cũ nhất.
       const mailSide = ['BANK', 'CARD'].includes(sourceKindById.get(String(row.sourceId)) || '') ? String(row.sourceId) : row.targetSourceId ? String(row.targetSourceId) : String(row.sourceId);
-      if (!reportedBySource.has(mailSide)) reportedBySource.set(mailSide, { balance: Number(row.reportedBalance), at: row.occurredAt, txId: String(row.id) });
+      const mark = (value: number): BankMark => ({ value, at: row.occurredAt, txId: String(row.id) });
+      if (row.reportedBalance !== null && !balanceMarks.has(mailSide)) balanceMarks.set(mailSide, mark(Number(row.reportedBalance)));
+      if (row.reportedAvailable !== null) {
+        const current = availableWindows.get(mailSide);
+        const last = current ? current.last : mark(Number(row.reportedAvailable));
+        availableWindows.set(mailSide, { first: mark(Number(row.reportedAvailable)), last });
+      }
     }
-    // Nguồn có mail báo số dư thì NGÂN HÀNG THẮNG: số dư = số trong mail gần nhất + các giao dịch phát sinh
-    // SAU mail đó. Khoản bị xoá/thiếu trước mốc mail không làm lệch được nữa (chủ app 10/9/2026: "mail báo
-    // còn 20k thì phải lấy 20k từ đây").
-    const balanceList = sourceRows.map((source) => {
-      const item = balances.get(source.id)!;
-      const reported = reportedBySource.get(source.id) || null;
-      if (!reported) return { ...item, reported, diff: 0, anchored: false };
-      const after = txRows.filter((tx) => tx.occurredAt > reported.at || (tx.occurredAt.getTime() === reported.at.getTime() && BigInt(tx.id) > BigInt(reported.txId)));
-      const flowAfter = sourceBalances([{ ...source, openingBalance: 0 }], after).get(source.id)?.balance ?? 0;
-      return { ...item, balance: reported.balance + flowAfter, reported, diff: item.balance - (reported.balance + flowAfter), anchored: true };
-    });
+    const balanceList = reconcileSources(sourceRows, txRows, balanceMarks, availableWindows);
+    // Nguồn lệch với ngân hàng → nhắc ngay trên trang để chủ app thêm giao dịch còn thiếu bằng tay.
+    const mismatches = balanceList.filter((item) => item.diff !== 0 && (item.reported || item.reportedAvailable));
     const totals = {
-      cash: balanceList.filter((item) => ['BANK', 'CASH'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
+      cash: balanceList.filter((item) => isSpendableSource(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
+      saved: balanceList.filter((item) => isSavedSource(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
       debt: balanceList.filter((item) => ['CARD', 'LOAN'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
       lent: balanceList.filter((item) => item.source.kind === 'LENT').reduce((sum, item) => sum + item.balance, 0),
     };
@@ -219,6 +219,7 @@ export class HouseholdService {
       members: household.playerAccess,
       inbox,
       balances: balanceList,
+      mismatches,
       balanceById: Object.fromEntries(balanceList.map((item) => [item.source.id, item])),
       totals,
       lending,

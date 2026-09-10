@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const { parseBankMessage, parseVndAmount, parseVnDateTime } = require('../dist/household/bank-parsers');
-const { matchRecurring, monthReport, nextMonth, previousMonth, recurringExpectations, sourceBalances } = require('../dist/household/household-month');
+const { matchRecurring, monthReport, nextMonth, previousMonth, reconcileSources, recurringExpectations, sourceBalances } = require('../dist/household/household-month');
 const { normalizeDescription } = require('../dist/household/household-rows');
 const { pickSource } = require('../dist/household/household-telegram.service');
 const { monthOf, normalizeMonth } = require('../dist/household/household-enums');
@@ -97,6 +97,11 @@ test('mail MSB thẻ tín dụng: 4 số cuối thẻ, số tiền âm = quẹt 
   assert.equal(parsed.externalId, parseBankMessage(MSB_MAIL).externalId);
 });
 
+test('mail MSB kèm hạn mức khả dụng — mail KHÔNG có hạn mức tổng nên app không suy ra dư nợ từ đây', () => {
+  assert.equal(parseBankMessage(MSB_MAIL).availableLimit, 16_927_825);
+  assert.equal(parseBankMessage(TIMO_IN).availableLimit, undefined, 'mail tài khoản không có hạn mức');
+});
+
 test('mail MSB số tiền dương là tiền vào thẻ (hoàn / trả thẻ)', () => {
   const parsed = parseBankMessage(MSB_MAIL.replace('-86,093 VND', '+5,000,000 VND'));
   assert.equal(parsed.direction, 'IN');
@@ -187,6 +192,63 @@ test('báo cáo tháng: quẹt thẻ tính một lần lúc quẹt, trả thẻ 
   assert.equal(eating.plan, 5_000_000);
   // Giao dịch tháng khác không lọt vào.
   assert.equal(monthReport('2026-10', [bank, card, loan], purposes, SEPTEMBER).income, 0);
+});
+
+// ─────────────────────────── Nguồn Tiết kiệm / Đầu tư ───────────────────────────
+
+const savingSource = { id: 'tk', name: 'Sổ tiết kiệm', kind: 'SAVING', openingBalance: 20_000_000, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true };
+const investSource = { id: 'dt', name: 'Chứng khoán', kind: 'INVEST', openingBalance: 5_000_000, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true };
+
+test('nguồn Tiết kiệm / Đầu tư: giữ số dư như tài khoản, chuyển sang là cất đi, rút về thì trừ lại', () => {
+  const moves = [
+    tx({ id: 's1', kind: 'TRANSFER', targetSourceId: 'tk', amount: 4_000_000 }), // cất vào sổ tiết kiệm
+    tx({ id: 's2', kind: 'TRANSFER', targetSourceId: 'dt', amount: 1_000_000 }), // mua chứng khoán
+    tx({ id: 's3', kind: 'TRANSFER', sourceId: 'dt', targetSourceId: 'b', amount: 500_000 }), // bán, tiền về tài khoản
+  ];
+  const sources = [bank, savingSource, investSource];
+  const balances = sourceBalances(sources, moves);
+  assert.equal(balances.get('tk').balance, 24_000_000, 'tiết kiệm cộng thêm như tài khoản, không phải dư nợ');
+  assert.equal(balances.get('dt').balance, 5_500_000);
+  assert.equal(balances.get('b').balance, 10_000_000 - 4_000_000 - 1_000_000 + 500_000);
+  const report = monthReport('2026-09', sources, purposes, moves);
+  assert.equal(report.saving, 4_000_000 + 1_000_000 - 500_000, 'cất đi tính vào tiết kiệm kể cả khi không gắn mục đích, rút về thì trừ');
+  assert.equal(report.living, 0, 'chuyển sang nguồn để dành không phải chi tiêu');
+});
+
+// ─────────────────────────── Đối chiếu với số ngân hàng báo ───────────────────────────
+
+test('tài khoản: mail báo số dư thì ngân hàng thắng, sổ lệch bao nhiêu thì báo bấy nhiêu (không tự bù)', () => {
+  const at = new Date('2026-09-05T03:00:00Z');
+  const rows = [
+    tx({ id: '1', kind: 'INCOME', purposeId: 'p-luong', amount: 30_000_000, occurredAt: at }),
+    tx({ id: '2', purposeId: 'p-an', amount: 2_000_000, occurredAt: new Date('2026-09-08T03:00:00Z') }),
+  ];
+  // Mail lúc nhận lương báo còn 39tr, sổ tính ra 40tr → sổ đang thừa 1tr (có khoản chi chưa ghi).
+  const marks = new Map([['b', { value: 39_000_000, at, txId: '1' }]]);
+  const [item] = reconcileSources([bank], rows, marks, new Map());
+  assert.equal(item.balance, 39_000_000 - 2_000_000, 'số dư = số trong mail + giao dịch ghi sau mail');
+  assert.equal(item.diff, 1_000_000, 'lệch = sổ − ngân hàng, dương là sổ thiếu khoản chi');
+  assert.equal(item.anchored, true);
+  // Không có mail nào thì cứ cộng từ sổ và không báo lệch.
+  const [plain] = reconcileSources([bank], rows, new Map(), new Map());
+  assert.equal(plain.balance, 10_000_000 + 30_000_000 - 2_000_000);
+  assert.deepEqual([plain.diff, plain.anchored, plain.reported], [0, false, null]);
+});
+
+test('thẻ tín dụng: dư nợ vẫn cộng từ giao dịch, hạn mức khả dụng chỉ để bắt lệch giữa hai mail', () => {
+  const first = { value: 17_000_000, at: new Date('2026-09-06T03:00:00Z'), txId: '41' };
+  const rows = [
+    tx({ id: '41', sourceId: 'c', purposeId: 'p-an', amount: 200_000, occurredAt: first.at }),
+    tx({ id: '42', sourceId: 'c', purposeId: 'p-an', amount: 86_093, occurredAt: new Date('2026-09-07T11:22:00Z') }),
+  ];
+  const khop = new Map([['c', { first, last: { value: 17_000_000 - 86_093, at: rows[1].occurredAt, txId: '42' } }]]);
+  const [ok] = reconcileSources([card], rows, new Map(), khop);
+  assert.equal(ok.balance, 286_093, 'dư nợ cộng từ giao dịch, không suy từ hạn mức');
+  assert.equal(ok.reportedAvailable.value, 16_913_907, 'thẻ hiện đúng hạn mức khả dụng mail gần nhất');
+  assert.equal(ok.diff, 0, 'khả dụng giảm đúng bằng phần quẹt đã ghi → không lệch');
+  // Mail sau báo khả dụng thấp hơn 100k so với sổ → có khoản quẹt chưa ghi.
+  const lech = new Map([['c', { first, last: { value: 17_000_000 - 86_093 - 100_000, at: rows[1].occurredAt, txId: '42' } }]]);
+  assert.equal(reconcileSources([card], rows, new Map(), lech)[0].diff, 100_000);
 });
 
 // ─────────────────────────── Khoản định kỳ ───────────────────────────

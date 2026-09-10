@@ -1,5 +1,9 @@
 <% if (section === 'overview') { %>
   <% const pendingExpectations = expectations.filter((item) => !item.paid); %>
+  <%# Ngân hàng báo số khác sổ = có giao dịch chưa ghi. App không tự bù, nhắc chủ app thêm tay. %>
+  <% (typeof mismatches !== 'undefined' ? mismatches : []).forEach((item) => { %>
+    <section class="alert-lite warn mb"><span><strong><%= item.source.name %></strong> lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng — thiếu <%= item.source.kind === 'CARD' ? (item.diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ') : item.diff > 0 ? 'khoản chi' : 'khoản thu' %> chưa ghi.<% if (isAdmin) { %> <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.<% } %></span></section>
+  <% }) %>
   <% if (unclassified.length && isAdmin) { %>
     <section class="alert-lite warn mb"><span><strong><%= unclassified.length %></strong> khoản chi tháng này cần xem lại (<%= formatMoney(typeof unclassifiedTotal !== 'undefined' ? unclassifiedTotal : 0) %>đ): máy tự xếp mục đích, bạn xác nhận hoặc đổi ngay bên dưới.</span></section>
   <% } %>
@@ -28,7 +32,7 @@
     </details>
   </section>
   <section class="grid finance-grid mb">
-    <div class="metric-card"><span>Tiết kiệm</span><strong><%= formatMoney(report.saving) %>đ</strong><small>Cất đi tháng này</small></div>
+    <div class="metric-card"><span>Tiết kiệm</span><strong><%= formatMoney(report.saving) %>đ</strong><small>Cất đi tháng này<% if (totals.saved) { %> · đang để dành <%= formatMoney(totals.saved) %>đ<% } %></small></div>
     <div class="metric-card"><span>Dự phòng · Cho vay</span><strong><%= formatMoney(report.reserve + report.lending) %>đ</strong><small>Dự phòng <%= formatMoney(report.reserve) %>đ · cho vay tháng này <%= formatMoney(report.lending) %>đ<% if (totals.lent) { %> · người khác đang nợ <%= formatMoney(totals.lent) %>đ<% } %></small></div>
   </section>
 
@@ -47,7 +51,7 @@
     <div class="card-hdr blue"><span><%- include('../../partials/icon', { name: 'card' }) %> Nguồn tiền</span><span class="badge badge-dark"><%= balances.filter((item) => item.source.active).length %> nguồn</span></div>
     <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Nguồn</th><th>Loại</th><th class="text-right">Số dư / dư nợ</th></tr></thead><tbody>
       <% balances.filter((item) => item.source.active).forEach((item) => { const debt = ['CARD', 'LOAN'].includes(item.source.kind); %>
-        <tr><td><strong><%= item.source.name %></strong></td><td><span class="badge"><%= labels.source[item.source.kind] %></span></td><td class="text-right paid-cell"><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt && item.balance > 0 ? 'nợ ' : '' %><%= formatMoney(item.balance) %></strong><span class="muted">đ</span><% if (item.source.kind === 'CARD' && item.source.creditLimit) { %><br><span class="muted">còn hạn mức <%= formatMoney(item.available) %>đ</span><% } %><% if (item.reported) { %><br><span class="muted">theo ngân hàng báo</span><% } %></td></tr>
+        <tr><td><strong><%= item.source.name %></strong></td><td><span class="badge"><%= labels.source[item.source.kind] %></span></td><td class="text-right paid-cell"><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt && item.balance > 0 ? 'nợ ' : '' %><%= formatMoney(item.balance) %></strong><span class="muted">đ</span><% if (item.reportedAvailable) { %><br><span class="muted">khả dụng <%= formatMoney(item.reportedAvailable.value) %>đ</span><% } %><% if (item.reported) { %><br><span class="muted">theo ngân hàng báo</span><% } %></td></tr>
       <% }) %>
       <% if (!balances.length) { %><tr><td colspan="3" class="muted text-center">Chưa khai nguồn tiền. <% if (isAdmin) { %><a href="/household/<%= household.id %>/sources">Khai ngay</a>.<% } %></td></tr><% } %>
     </tbody></table></div>

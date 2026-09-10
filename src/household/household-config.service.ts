@@ -32,7 +32,8 @@ export class HouseholdConfigService {
       bank: receivesMail ? normalizeBank(form.bank) : 'OTHER',
       matchKey: receivesMail ? text(form.matchKey, 40).replace(/\s+/g, '') : '',
       ownerName: text(form.ownerName),
-      creditLimit: parseMoney(form.creditLimit),
+      // Hạn mức thẻ KHÔNG còn khai tay (chủ app 10/9/2026: thẻ thông dùng chung hạn mức, khai kiểu gì cũng
+      // sai) — thẻ chỉ hiện "hạn mức khả dụng" ngân hàng báo trong mail gần nhất, dư nợ cộng từ giao dịch.
       interestRate: Math.max(0, Number.parseFloat(String(form.interestRate || '0').replace(',', '.')) || 0),
       statementDay: clampDay(form.statementDay),
       dueDay: clampDay(form.dueDay),

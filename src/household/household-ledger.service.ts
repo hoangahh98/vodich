@@ -23,6 +23,8 @@ export interface TransactionInput {
   telegramMsgId?: bigint | null;
   /** Số dư ngân hàng báo sau giao dịch (nếu mail có). */
   reportedBalance?: number | null;
+  /** Hạn mức khả dụng của thẻ sau giao dịch (nếu mail có). */
+  reportedAvailable?: number | null;
 }
 
 export interface CreateResult {
@@ -71,6 +73,7 @@ export class HouseholdLedgerService {
       telegramChatId: input.telegramChatId || null,
       telegramMsgId: input.telegramMsgId || null,
       reportedBalance: input.reportedBalance ?? null,
+      reportedAvailable: input.reportedAvailable ?? null,
     };
 
     // 1) Khớp khoản định kỳ đang chờ trong tháng: trúng thì mượn luôn mục đích, loại, nguồn đích, lãi.

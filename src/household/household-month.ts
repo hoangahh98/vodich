@@ -1,4 +1,4 @@
-import { isDebtSource } from './household-enums';
+import { isDebtSource, isSavedSource } from './household-enums';
 
 /**
  * Toán của module Chi tiêu — THUẦN, nhận mảng thuần (id đã về chuỗi, tiền đã về số) để test được
@@ -85,9 +85,73 @@ export function sourceBalances(sources: SourceRow[], transactions: TransactionRo
   for (const source of sources) {
     const flow = net.get(source.id) || 0;
     const balance = isDebtSource(source.kind) ? source.openingBalance - flow : source.openingBalance + flow;
-    result.set(source.id, { source, balance, available: source.kind === 'CARD' ? source.creditLimit - balance : 0 });
+    // Hạn mức thẻ không còn khai tay nên `available` chỉ có nghĩa với thẻ cũ còn số hạn mức trong DB;
+    // thẻ mới hiện "hạn mức khả dụng" ngân hàng báo trong mail (xem `reconcileSources`).
+    result.set(source.id, { source, balance, available: source.kind === 'CARD' && source.creditLimit ? source.creditLimit - balance : 0 });
   }
   return result;
+}
+
+/** Một lần ngân hàng báo số: giá trị, lúc nào, kèm id giao dịch mang tin đó (để so thứ tự). */
+export interface BankMark {
+  value: number;
+  at: Date;
+  txId: string;
+}
+
+export interface SourceCheck extends SourceBalance {
+  /** Số dư ngân hàng báo gần nhất (mail Timo). Null = ngân hàng chưa báo lần nào. */
+  reported: BankMark | null;
+  /** Hạn mức khả dụng ngân hàng báo gần nhất (mail thẻ MSB). */
+  reportedAvailable: BankMark | null;
+  /** Sổ − ngân hàng. Khác 0 = sổ thiếu (hoặc thừa) giao dịch, phải thêm tay. */
+  diff: number;
+  /** Số dư đang hiện lấy theo mail ngân hàng (true) hay chỉ cộng từ sổ (false). */
+  anchored: boolean;
+}
+
+/** Dòng tiền của một nguồn trong khoảng (from, to]: bỏ mốc `from`, tính cả mốc `to`. */
+function flowBetween(source: SourceRow, transactions: TransactionRow[], from: BankMark | null, to: BankMark | null): number {
+  const inRange = transactions.filter((tx) => {
+    const afterFrom = !from || tx.occurredAt > from.at || (tx.occurredAt.getTime() === from.at.getTime() && BigInt(tx.id) > BigInt(from.txId));
+    const beforeTo = !to || tx.occurredAt < to.at || (tx.occurredAt.getTime() === to.at.getTime() && BigInt(tx.id) <= BigInt(to.txId));
+    return afterFrom && beforeTo;
+  });
+  return sourceBalances([{ ...source, openingBalance: 0 }], inRange).get(source.id)?.balance ?? 0;
+}
+
+/**
+ * Số dư từng nguồn có đối chiếu với số ngân hàng báo trong mail (luật chủ app 10/9/2026):
+ *
+ *  - Tài khoản: mail Timo báo số dư → NGÂN HÀNG THẮNG, số dư = số trong mail gần nhất + giao dịch ghi
+ *    sau mail đó. Sổ tính ra khác số ấy thì `diff` khác 0 — app KHÔNG tự bù, chỉ báo để chủ app thêm
+ *    giao dịch còn thiếu bằng tay (tự bù là mất dấu khoản thiếu, tiền thật còn lại thành sai).
+ *  - Thẻ tín dụng: mail MSB chỉ có HẠN MỨC KHẢ DỤNG, không có hạn mức tổng nên không suy ra được dư nợ.
+ *    Dư nợ vẫn cộng từ giao dịch; `diff` đo từ mail đầu tới mail gần nhất, khả dụng phải giảm đúng bằng
+ *    phần dư nợ sổ ghi tăng.
+ */
+export function reconcileSources(
+  sources: SourceRow[],
+  transactions: TransactionRow[],
+  balanceMarks: Map<string, BankMark>,
+  availableWindows: Map<string, { first: BankMark; last: BankMark }>,
+): SourceCheck[] {
+  const balances = sourceBalances(sources, transactions);
+  return sources.map((source) => {
+    const item = balances.get(source.id)!;
+    const reported = balanceMarks.get(source.id) || null;
+    const window = availableWindows.get(source.id) || null;
+    if (reported) {
+      const balance = reported.value + flowBetween(source, transactions, reported, null);
+      return { ...item, balance, reported, reportedAvailable: window ? window.last : null, diff: Math.round(item.balance - balance), anchored: true };
+    }
+    let diff = 0;
+    if (window && window.first.txId !== window.last.txId) {
+      const spent = flowBetween(source, transactions, window.first, window.last);
+      diff = Math.round(window.first.value - spent - window.last.value);
+    }
+    return { ...item, reported: null, reportedAvailable: window ? window.last : null, diff, anchored: false };
+  });
 }
 
 export interface PurposeActual {
@@ -199,11 +263,19 @@ export function monthReport(month: string, sources: SourceRow[], purposes: Purpo
         continue;
       }
       // Chuyển sang tài khoản/tiền mặt khác: nếu gắn mục đích tiết kiệm/dự phòng/cho vay thì tính
-      // như khoản ấy (cất tiền sang sổ tiết kiệm), còn không thì chỉ là đảo tiền trong túi.
+      // như khoản ấy (cất tiền sang sổ tiết kiệm), còn không thì chỉ là đảo tiền trong túi. Nguồn
+      // đích là Tiết kiệm / Đầu tư thì tự tính là cất đi kể cả khi không gắn mục đích.
       if (kind === 'SAVING') report.saving += tx.amount;
       else if (kind === 'RESERVE') report.reserve += tx.amount;
       else if (kind === 'LENDING') report.lending += tx.amount;
-      else continue;
+      else if (isSavedSource(targetKind || '')) {
+        report.saving += tx.amount;
+        continue;
+      } else if (isSavedSource(sourceKind.get(tx.sourceId) || '')) {
+        // Rút sổ tiết kiệm / bán khoản đầu tư về tài khoản: trừ bớt phần đã cất trong tháng.
+        report.saving -= tx.amount;
+        continue;
+      } else continue;
       bump(tx.purposeId, tx.amount);
       continue;
     }

@@ -392,13 +392,17 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--i
 select { -webkit-appearance: none; appearance: none; padding-right: 36px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2314161c' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
 textarea { line-height: 1.5; resize: vertical; }
 input[type="checkbox"], input[type="radio"] { width: 20px; height: 20px; min-height: 20px; padding: 0; margin: 0; accent-color: var(--ink); }
-input[type="date"], input[type="month"] {
+input[type="date"], input[type="month"], input[type="datetime-local"] {
   -webkit-appearance: none; -moz-appearance: none; appearance: none;
   width: 100%; min-width: 0; max-width: 100%;
   height: 46px; line-height: 22px; padding: 10px 12px; font-size: 15px;
 }
 input[type="date"]::-webkit-date-and-time-value,
-input[type="month"]::-webkit-date-and-time-value { text-align: left; }
+input[type="month"]::-webkit-date-and-time-value,
+input[type="datetime-local"]::-webkit-date-and-time-value { text-align: left; }
+/* Chrome vẽ phần chỉnh sửa ngày-giờ theo bề rộng NỘI DUNG, không co theo ô cha, nên trong ô hẹp
+   (form sửa giao dịch nằm trong bảng) chữ tràn hẳn ra ngoài viền. Ép nó co lại và giấu phần thừa. */
+input[type="datetime-local"]::-webkit-datetime-edit { min-width: 0; overflow: hidden; }
 label { font-weight: 600; display: block; margin-bottom: 6px; font-size: 13.5px; color: var(--ink); }
 .row { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; }
 .col-12 { grid-column: span 12; } .col-6 { grid-column: span 6; } .col-4 { grid-column: span 4; } .col-3 { grid-column: span 3; } .col-2 { grid-column: span 2; }
@@ -1065,6 +1069,8 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .hh-form .hh-form-wide { grid-column: 1 / -1; }
 .hh-form .hh-form-action { display: flex; align-items: end; }
 .hh-form-inline { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); }
+/* Ô "Thời điểm" rộng hơn ô khác một chút: trong form sửa (nằm trong bảng, cột hẹp) cho ăn cả hàng. */
+.hh-form-inline .hh-field-time { grid-column: 1 / -1; }
 .hh-edit > summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
 .hh-edit > summary::-webkit-details-marker { display: none; }
 .hh-edit > form + form { margin-top: 8px; }
@@ -1086,7 +1092,7 @@ select.is-warn { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-sof
 .tab-count { margin-left: 4px; font-style: normal; font-size: 11px; font-weight: 800; background: var(--danger); color: #fff; border-radius: 999px; padding: 1px 6px; }
 .member-list td input, .member-list td select { min-height: 38px; padding: 6px 10px; font-size: 14px; }
 .member-list td select.mt { margin-top: 6px; }
-@media (max-width: 640px) { .hh-form { grid-template-columns: 1fr 1fr; } .hh-form .hh-form-wide, .hh-form .hh-form-action { grid-column: 1 / -1; } }
+@media (max-width: 640px) { .hh-form { grid-template-columns: 1fr 1fr; } .hh-form .hh-form-wide, .hh-form .hh-form-action, .hh-form .hh-field-time { grid-column: 1 / -1; } }
 .hh-list { display: grid; gap: 8px; }
 .hh-row { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm); background: #fff; }
 .hh-row > summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; width: 100%; }

@@ -6,19 +6,27 @@ import { oneOf } from '../common/enums';
  */
 
 /**
- * Nguồn tiền. BANK/CASH giữ số dư; CARD/LOAN giữ DƯ NỢ (tiền ra làm nợ tăng, tiền vào làm nợ giảm);
- * LENT là khoản CHO VAY — người khác nợ mình: chuyển tiền sang là cho vay thêm, họ trả về là giảm.
+ * Nguồn tiền. BANK/CASH/SAVING/INVEST giữ số dư; CARD/LOAN giữ DƯ NỢ (tiền ra làm nợ tăng, tiền vào
+ * làm nợ giảm); LENT là khoản CHO VAY — người khác nợ mình: chuyển tiền sang là cho vay thêm, họ trả
+ * về là giảm. SAVING (sổ tiết kiệm) và INVEST (chứng khoán, vàng, quỹ...) vẫn là tiền của mình nhưng
+ * để riêng: chuyển tiền sang đó tính là "cất đi" chứ không phải đảo tiền trong túi.
  */
-export const SOURCE_KINDS = ['BANK', 'CARD', 'CASH', 'LOAN', 'LENT'] as const;
+export const SOURCE_KINDS = ['BANK', 'CARD', 'CASH', 'SAVING', 'INVEST', 'LOAN', 'LENT'] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 export const SOURCE_KIND_LABELS: Record<SourceKind, string> = {
   BANK: 'Tài khoản ngân hàng',
   CARD: 'Thẻ tín dụng',
   CASH: 'Tiền mặt',
+  SAVING: 'Tiết kiệm',
+  INVEST: 'Đầu tư',
   LOAN: 'Khoản vay',
   LENT: 'Cho vay',
 };
 export const isDebtSource = (kind: string) => kind === 'CARD' || kind === 'LOAN';
+/** Nguồn giữ tiền của mình nhưng để riêng — chuyển sang đây là cất đi, không phải tiêu. */
+export const isSavedSource = (kind: string) => kind === 'SAVING' || kind === 'INVEST';
+/** Nguồn tiêu được ngay (số dư vào ô "Có"). */
+export const isSpendableSource = (kind: string) => kind === 'BANK' || kind === 'CASH';
 
 /** Ngân hàng có mẫu đọc tin Telegram. OTHER = đọc theo mẫu chung (số tiền kèm dấu + VND). */
 export const BANKS = ['TIMO', 'MSB', 'OTHER'] as const;

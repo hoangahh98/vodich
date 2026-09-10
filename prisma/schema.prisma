@@ -536,6 +536,8 @@ model HouseholdTransaction {
   interest       Decimal   @default(0) @db.Decimal(14, 2)
   /// Số dư ngân hàng báo NGAY SAU giao dịch này (Timo có). Chỉ để so với số app tính, không tham gia tính.
   reportedBalance Decimal? @map("reported_balance") @db.Decimal(14, 2)
+  /// Hạn mức KHẢ DỤNG của thẻ ngay sau giao dịch này (MSB có). Không phải hạn mức tổng, không suy ra dư nợ.
+  reportedAvailable Decimal? @map("reported_available") @db.Decimal(14, 2)
   occurredAt     DateTime  @map("occurred_at")
   month          String    @db.VarChar(7)
   description    String    @default("") @db.VarChar(255)
