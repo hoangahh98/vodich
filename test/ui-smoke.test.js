@@ -704,7 +704,7 @@ function householdLocals(section, over = {}) {
     inbox: [{ id: 1n, text: 'Tin lạ\nkhông đọc được', receivedAt: new Date() }],
     balances,
     balanceById: Object.fromEntries(balances.map((item) => [item.source.id, item])),
-    totals: { cash: 9850000, saved: 0, debt: 86093, lent: 0 },
+    totals: { cash: 9850000, saving: 3000000, invest: 1500000, saved: 4500000, cardDebt: 86093, debt: 86093, lent: 0 },
     mismatches: balances.filter((item) => item.diff),
     report: { month: '2026-09', income: 30000000, living: 86093, saving: 0, reserve: 0, lending: 0, debt: { total: 0, principal: 0, interest: 0 }, cardPayment: 0, used: 86093, free: 29913907, unclassified: { count: 1, total: 86093 }, byPurpose: [{ purpose: { id: '12', name: 'Ăn uống', kind: 'LIVING', monthlyPlan: 5000000, active: true }, actual: 0, plan: 5000000, count: 0 }], cardSpending: 86093 },
     expectations: [{ recurring: { ...recurrings[0], id: '21', sourceId: '1' }, expected: 2000000, principal: 2000000, interest: 0, dueDate: new Date('2026-09-10T05:00:00Z'), transaction: null, paid: false, overdue: false }],
@@ -729,6 +729,9 @@ test('chi tiêu: trang danh sách hộ có form tạo cho admin và thẻ hộ',
 test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', async () => {
   const overview = await renderView('household/detail.ejs', householdLocals('overview'));
   assert.match(overview, /Còn tự do/);
+  assert.match(overview, /Tiết kiệm 3000000đ/, 'đầu trang có ô tiết kiệm');
+  assert.match(overview, /Đầu tư 1500000đ/, 'đầu trang có ô đầu tư');
+  assert.match(overview, /Nợ thẻ 86093đ/, 'đầu trang có ô nợ thẻ = tổng đã quẹt chưa trả');
   assert.match(overview, /Khoản định kỳ chưa ghi nhận/);
   assert.match(overview, /transactions\/31\/purpose/, 'khoản chưa phân loại phải chọn được mục đích ngay ở Tổng quan');
   assert.match(overview, /\/js\/household\.js/);

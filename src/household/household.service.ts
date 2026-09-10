@@ -196,11 +196,16 @@ export class HouseholdService {
     const balanceList = reconcileSources(sourceRows, txRows, balanceMarks, availableWindows);
     // Nguồn lệch với ngân hàng → nhắc ngay trên trang để chủ app thêm giao dịch còn thiếu bằng tay.
     const mismatches = balanceList.filter((item) => item.diff !== 0 && (item.reported || item.reportedAvailable));
+    const sumOf = (match: (kind: string) => boolean) => balanceList.filter((item) => match(item.source.kind)).reduce((sum, item) => sum + item.balance, 0);
     const totals = {
-      cash: balanceList.filter((item) => isSpendableSource(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
-      saved: balanceList.filter((item) => isSavedSource(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
-      debt: balanceList.filter((item) => ['CARD', 'LOAN'].includes(item.source.kind)).reduce((sum, item) => sum + item.balance, 0),
-      lent: balanceList.filter((item) => item.source.kind === 'LENT').reduce((sum, item) => sum + item.balance, 0),
+      cash: sumOf(isSpendableSource),
+      saving: sumOf((kind) => kind === 'SAVING'),
+      invest: sumOf((kind) => kind === 'INVEST'),
+      saved: sumOf(isSavedSource),
+      /** Đã quẹt chưa trả của mọi thẻ tín dụng (không có hạn mức tổng nên đây không phải dư nợ ngân hàng). */
+      cardDebt: sumOf((kind) => kind === 'CARD'),
+      debt: sumOf((kind) => ['CARD', 'LOAN'].includes(kind)),
+      lent: sumOf((kind) => kind === 'LENT'),
     };
     // Cho vay ghi bằng mục đích (không cần nguồn riêng) — gom theo nội dung, cộng vào tổng cho vay.
     const lending = lendingLedger(purposeRows, txRows);
