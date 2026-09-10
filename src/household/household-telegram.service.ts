@@ -4,7 +4,7 @@ import { formatMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
 import { ParsedBankMessage, parseBankMessage } from './bank-parsers';
 import { HouseholdLedgerService } from './household-ledger.service';
-import { LendingRow, SourceRow, lendingKey, lendingLedger, limitGroupKey, sourceBalances } from './household-month';
+import { LendingRow, SourceRow, cardDiffTolerance, lendingKey, lendingLedger, limitGroupKey, sourceBalances } from './household-month';
 import { toPurposeRow, toSourceRow, toTransactionRow } from './household-rows';
 
 /** Phần của một update Telegram mà ta dùng. Bot API gửi nhiều hơn nhưng không cần khai hết. */
@@ -400,26 +400,33 @@ export class HouseholdTelegramService {
         const beforeTo = tx.occurredAt < to.at || (tx.occurredAt.getTime() === to.at.getTime() && BigInt(tx.id) <= to.id);
         return afterFrom && beforeTo;
       });
-      return sourceBalances([{ ...item, openingBalance: 0 }], inRange).get(item.id)?.balance ?? 0;
+      const mine = inRange.filter((tx) => tx.sourceId === item.id || tx.targetSourceId === item.id);
+      return { flow: sourceBalances([{ ...item, openingBalance: 0 }], mine).get(item.id)?.balance ?? 0, count: mine.length };
     };
     const now = { at: parsed.occurredAt, id: transactionId };
     if (!previous) {
       if (card) return `${label}: ${formatMoney(reported)}đ`;
       // Số đầu kỳ sao cho tới đúng giao dịch này sổ ra số ngân hàng báo — chỉ làm MỘT LẦN, mail sau chỉ so.
-      await this.prisma.householdSource.updateMany({ where: { id: source.id, householdId }, data: { openingBalance: reported - flowBetween(self, null, now) } });
+      await this.prisma.householdSource.updateMany({ where: { id: source.id, householdId }, data: { openingBalance: reported - flowBetween(self, null, now).flow } });
       return `${label}: ${formatMoney(reported)}đ (lấy làm mốc cho sổ)`;
     }
     const base = Number(card ? previous.reportedAvailable : previous.reportedBalance);
     const from = { at: previous.occurredAt, id: previous.id };
-    // Thẻ thông: hạn mức khả dụng trong mail đã trừ tiền quẹt của CẢ NHÓM, nên cộng dòng tiền cả nhóm.
+    // Thẻ: thẻ CHÍNH báo hạn mức cả cụm thẻ thông, thẻ PHỤ báo hạn mức riêng nó (MSB, soi dữ liệu thật
+    // 10/9/2026) — thử cả hai rồi lấy cách khớp hơn, khỏi bắt chủ app khai thẻ nào chính thẻ nào phụ.
     const cardRows = cards.map(toSourceRow);
     const pool = cardRows.filter((item) => limitGroupKey(item) === limitGroupKey(self));
-    const flow = card ? (pool.length ? pool : [self]).reduce((sum, item) => sum + flowBetween(item, from, now), 0) : flowBetween(self, from, now);
+    const own = flowBetween(self, from, now);
+    const groupFlow = (pool.length ? pool : [self]).reduce((sum, item) => sum + flowBetween(item, from, now).flow, 0);
+    const groupCount = (pool.length ? pool : [self]).reduce((sum, item) => sum + flowBetween(item, from, now).count, 0);
+    const diffOwn = Math.round(base - own.flow - reported);
+    const diffGroup = Math.round(base - groupFlow - reported);
     // Tài khoản: số dư = mốc + dòng tiền sau mốc. Thẻ: dư nợ tăng bao nhiêu thì khả dụng giảm bấy nhiêu.
-    const diff = Math.round((card ? base - flow : base + flow) - reported);
+    let diff = card ? (Math.abs(diffOwn) < Math.abs(diffGroup) ? diffOwn : diffGroup) : Math.round(base + own.flow - reported);
+    if (card && Math.abs(diff) <= cardDiffTolerance(groupCount)) diff = 0;
     if (!diff) return `${label}: ${formatMoney(reported)}đ`;
     // Lệch đúng bằng tiền quẹt của một thẻ khác ngoài nhóm → gần như chắc chắn hai thẻ thông nhau.
-    const twin = cardRows.find((item) => item.id !== self.id && limitGroupKey(item) !== limitGroupKey(self) && Math.round(flowBetween(item, from, now)) === diff);
+    const twin = cardRows.find((item) => item.id !== self.id && limitGroupKey(item) !== limitGroupKey(self) && Math.round(flowBetween(item, from, now).flow) === diff);
     if (twin) {
       return `${label}: ${formatMoney(reported)}đ
 ⚠ Lệch ${formatMoney(Math.abs(diff))}đ, đúng bằng tiền quẹt thẻ ${twin.name} — hai thẻ này có vẻ THẺ THÔNG (dùng chung hạn mức). Vào Nguồn tiền sửa thẻ ${source.name}, chọn "Dùng chung hạn mức với ${twin.name}" là hết báo lệch.`;

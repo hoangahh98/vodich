@@ -205,9 +205,15 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 - Thẻ tín dụng **không khai hạn mức lẫn dư nợ** (chủ app 10/9/2026: thẻ thông dùng chung hạn mức, khai kiểu
   gì cũng sai): dư nợ cộng từ giao dịch quẹt/trả, thẻ chỉ hiện "hạn mức khả dụng" theo mail gần nhất, và
   `diff` đo từ mail đầu tới mail gần nhất (khả dụng phải giảm đúng bằng phần dư nợ sổ ghi tăng). Mail KHÔNG có
-  hạn mức TỔNG nên đừng suy dư nợ từ hạn mức. Hạn mức khả dụng KHÔNG nhúc nhích đúng từng đồng theo giao dịch
-  (hoàn tiền vào hạn mức chậm vài ngày, khoản giữ chốt lệch vài trăm đồng — thực tế 10/9/2026 cả hai nhóm thẻ
-  lệch đúng 103đ) nên lệch dưới `CARD_DIFF_TOLERANCE` (1.000đ) coi như khớp. "Đã quẹt chưa trả" trả hết là **về 0** — KHÔNG có "trả dư"
+  hạn mức TỔNG nên đừng suy dư nợ từ hạn mức. Hai chuyện phải nhớ khi đối chiếu hạn mức (soi dữ liệu thật
+  10/9/2026):
+  1. **Thẻ thông của MSB không đối xứng**: thẻ CHÍNH báo hạn mức của cả cụm (quẹt thẻ phụ cũng làm nó tụt),
+     thẻ PHỤ báo hạn mức riêng nó (quẹt thẻ khác không ảnh hưởng). Không bắt chủ app khai chính/phụ —
+     `reconcileSources` thử cả hai cách rồi lấy cách khớp hơn. Bỏ bước này là thẻ phụ báo lệch oan cả trăm
+     nghìn (thẻ 8867 từng báo lệch 748.922đ).
+  2. Hạn mức khả dụng **không nhúc nhích đúng từng đồng**: hoàn tiền vào hạn mức chậm vài ngày, khoản giữ
+     chốt lệch vài trăm đồng mỗi giao dịch (103đ, 375đ, 1.917đ, dồn 12 giao dịch thành 3.020đ). Ngưỡng bỏ
+     qua vì thế đi theo số giao dịch: `cardDiffTolerance(n) = max(2.000đ, 500đ × n)`. "Đã quẹt chưa trả" trả hết là **về 0** — KHÔNG có "trả dư"
   (trả thẻ chỉ là trả nợ thẻ); xuống dưới 0 nghĩa là sổ thiếu khoản quẹt, kẹp hiển thị về 0 và báo phần
   thiếu, tổng "Nợ thẻ" cũng kẹp từng thẻ về 0 để thẻ thiếu không ăn bớt nợ thẻ khác.
 - **Thẻ thông** (`household_source.limit_group`, chủ app 10/9/2026): hai thẻ dùng chung một hạn mức thì quẹt

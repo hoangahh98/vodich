@@ -94,8 +94,12 @@ export function sourceBalances(sources: SourceRow[], transactions: TransactionRo
   return result;
 }
 
-/** Lệch hạn mức khả dụng nhỏ hơn ngần này là tiền lẻ của ngân hàng, không phải sổ thiếu giao dịch. */
-export const CARD_DIFF_TOLERANCE = 1000;
+/**
+ * Ngưỡng bỏ qua khi so hạn mức khả dụng: ngân hàng chốt lệch vài trăm đồng MỖI giao dịch (khoản giữ chốt
+ * lại, làm tròn) nên cửa sổ càng nhiều giao dịch càng lệch nhiều — thực tế 10/9/2026: 103đ, 375đ, 1.917đ,
+ * và 3.020đ sau 12 giao dịch. Dưới ngưỡng coi như khớp.
+ */
+export const cardDiffTolerance = (transactionCount: number) => Math.max(2000, 500 * transactionCount);
 
 /** Một lần ngân hàng báo số: giá trị, lúc nào, kèm id giao dịch mang tin đó (để so thứ tự). */
 export interface BankMark {
@@ -121,14 +125,15 @@ export interface SourceCheck extends SourceBalance {
  */
 export const limitGroupKey = (source: SourceRow) => source.limitGroup || `one:${source.id}`;
 
-/** Dòng tiền của một nguồn trong khoảng (from, to]: bỏ mốc `from`, tính cả mốc `to`. */
-function flowBetween(source: SourceRow, transactions: TransactionRow[], from: BankMark | null, to: BankMark | null): number {
+/** Dòng tiền của một nguồn trong khoảng (from, to]: bỏ mốc `from`, tính cả mốc `to`. `count` = số giao dịch. */
+function flowBetween(source: SourceRow, transactions: TransactionRow[], from: BankMark | null, to: BankMark | null): { flow: number; count: number } {
   const inRange = transactions.filter((tx) => {
     const afterFrom = !from || tx.occurredAt > from.at || (tx.occurredAt.getTime() === from.at.getTime() && BigInt(tx.id) > BigInt(from.txId));
     const beforeTo = !to || tx.occurredAt < to.at || (tx.occurredAt.getTime() === to.at.getTime() && BigInt(tx.id) <= BigInt(to.txId));
     return afterFrom && beforeTo;
   });
-  return sourceBalances([{ ...source, openingBalance: 0 }], inRange).get(source.id)?.balance ?? 0;
+  const mine = inRange.filter((tx) => tx.sourceId === source.id || tx.targetSourceId === source.id);
+  return { flow: sourceBalances([{ ...source, openingBalance: 0 }], mine).get(source.id)?.balance ?? 0, count: mine.length };
 }
 
 /**
@@ -160,18 +165,22 @@ export function reconcileSources(
     const reported = balanceMarks.get(source.id) || null;
     const window = availableWindows.get(source.id) || null;
     if (reported) {
-      const balance = reported.value + flowBetween(source, transactions, reported, null);
+      const balance = reported.value + flowBetween(source, transactions, reported, null).flow;
       return { ...item, balance, reported, reportedAvailable: window ? window.last : null, diff: Math.round(item.balance - balance), anchored: true };
     }
     let diff = 0;
     if (window && window.first.txId !== window.last.txId) {
+      // Thẻ thông của MSB KHÔNG đối xứng (soi dữ liệu thật 10/9/2026): thẻ CHÍNH báo hạn mức của cả cụm
+      // (quẹt thẻ phụ cũng làm nó tụt), còn thẻ PHỤ báo hạn mức riêng của nó, quẹt thẻ khác không ảnh
+      // hưởng. Không bắt chủ app khai chính/phụ — thử cả hai cách rồi lấy cách khớp hơn.
       const pool = cardsByGroup.get(limitGroupKey(source)) || [source];
-      const spent = pool.reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last), 0);
-      diff = Math.round(window.first.value - spent - window.last.value);
-      // Hạn mức khả dụng MSB không nhúc nhích đúng từng đồng theo giao dịch: hoàn tiền vào hạn mức chậm
-      // vài ngày, khoản giữ (hold) chốt lệch vài trăm đồng. Thực tế 10/9/2026: cả hai nhóm thẻ đều lệch
-      // đúng 103đ. Dưới ngưỡng này coi như khớp, khỏi báo động vì tiền lẻ của ngân hàng.
-      if (Math.abs(diff) < CARD_DIFF_TOLERANCE) diff = 0;
+      const group = pool.reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last).flow, 0);
+      const own = flowBetween(source, transactions, window.first, window.last);
+      const diffGroup = Math.round(window.first.value - group - window.last.value);
+      const diffOwn = Math.round(window.first.value - own.flow - window.last.value);
+      diff = Math.abs(diffOwn) < Math.abs(diffGroup) ? diffOwn : diffGroup;
+      const count = pool.reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last).count, 0);
+      if (Math.abs(diff) <= cardDiffTolerance(count)) diff = 0;
     }
     return { ...item, reported: null, reportedAvailable: window ? window.last : null, diff, anchored: false };
   });
