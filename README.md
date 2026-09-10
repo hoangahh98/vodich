@@ -147,21 +147,26 @@ tiền về nhà đi hết qua Timo.
    const APP_URL = 'https://<tên miền app>';
    const SECRET = '<TELEGRAM_WEBHOOK_SECRET>';
    const CHAT_ID = '-1001234567890';
-   // Đánh dấu "đã gửi" bằng NHÃN, không dùng is:unread + markRead (10/9/2026): lỡ tay mở mail là bot
-   // bỏ sót tin. Gửi lại cùng một mail không sinh giao dịch trùng — app chống trùng bằng nội dung tin
-   // và mã giao dịch của ngân hàng.
-   const LABEL_NAME = 'vodich-da-gui';
-   // Quét từ NGÀY ĐẦU THÁNG HIỆN TẠI tới giờ (Gmail `after:` tính cả ngày đó) — sổ đi theo tháng nên
-   // mail cũ hơn tháng này không cần ghi nữa. Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật, kẻo mail OTP/quảng cáo
-   // cùng địa chỉ cũng bị gửi. Thẻ MSB có HAI tiêu đề, phải lấy CẢ HAI:
+   // Nhớ TỪNG MAIL đã gửi bằng id tin, cất trong Script Properties. KHÔNG dùng nhãn Gmail: Gmail gom mail
+   // cùng tiêu đề vào MỘT luồng, gắn nhãn cho luồng là mọi mail ngân hàng sau đó bị bỏ qua sạch (đã dính
+   // 10/9/2026 — mail thẻ từ 7/9 trở đi không vào app). Cũng không dùng is:unread: lỡ tay mở mail là mất tin.
+   const DONE_KEY = 'vodich_da_gui';
+   const DONE_KEEP = 300; // Script Properties tối đa ~9KB mỗi khoá, 300 id là thoải mái.
+
+   // Quét từ NGÀY ĐẦU THÁNG HIỆN TẠI tới giờ (Gmail `after:` tính cả ngày đó) — sổ đi theo tháng nên mail
+   // cũ hơn tháng này không cần ghi. Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật, kẻo mail OTP/quảng cáo cùng địa chỉ
+   // cũng bị gửi. Thẻ MSB có HAI tiêu đề, phải lấy CẢ HAI:
    //   Timo:    support@timo.vn        — "Thông báo thay đổi số dư tài khoản"
    //   Thẻ MSB: banking_notify@msb.com.vn — "Biến động chi tiêu thẻ tín dụng" (quẹt tiêu)
    //                                     — "Biến động thanh toán thẻ tín dụng" (hoàn tiền / trả nợ thẻ)
-   function buildQuery() {
+   function dauThang() {
      const now = new Date();
-     const dauThang = new Date(now.getFullYear(), now.getMonth(), 1);
-     const from = Utilities.formatDate(dauThang, Session.getScriptTimeZone(), 'yyyy/MM/dd');
-     return 'after:' + from + ' -label:"' + LABEL_NAME + '" ('
+     return new Date(now.getFullYear(), now.getMonth(), 1);
+   }
+
+   function buildQuery() {
+     const from = Utilities.formatDate(dauThang(), Session.getScriptTimeZone(), 'yyyy/MM/dd');
+     return 'after:' + from + ' ('
        + '(from:support@timo.vn subject:"Thông báo thay đổi số dư tài khoản")'
        + ' OR (from:banking_notify@msb.com.vn (subject:"Biến động chi tiêu thẻ tín dụng"'
        + ' OR subject:"Biến động thanh toán thẻ tín dụng"))'
@@ -169,11 +174,16 @@ tiền về nhà đi hết qua Timo.
    }
 
    function pushBankMails() {
-     const label = GmailApp.getUserLabelByName(LABEL_NAME) || GmailApp.createLabel(LABEL_NAME);
-     // Mỗi lượt tối đa 50 luồng; còn dư thì lượt chạy sau (5 phút) lấy nốt.
+     const props = PropertiesService.getScriptProperties();
+     const done = (props.getProperty(DONE_KEY) || '').split(',').filter(String);
+     const daGui = {};
+     done.forEach(function (id) { daGui[id] = true; });
+     const tuNgay = dauThang();
      for (const thread of GmailApp.search(buildQuery(), 0, 50)) {
-       let ok = true;
+       // Gmail trả cả LUỒNG nên trong đó có cả mail cũ hơn đầu tháng — lọc lại theo ngày của từng mail.
        for (const mail of thread.getMessages()) {
+         const id = mail.getId();
+         if (daGui[id] || mail.getDate() < tuNgay) continue;
          // Gửi kèm TIÊU ĐỀ: app đọc tiêu đề mới biết mail thẻ là quẹt tiêu hay thanh toán.
          const text = (mail.getSubject() + '\n' + mail.getPlainBody())
            .replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').slice(0, 3500);
@@ -185,14 +195,17 @@ tiền về nhà đi hết qua Timo.
          });
          Logger.log(res.getResponseCode() + ' ' + res.getContentText());
          // App LUÔN trả HTTP 200, phải soi cờ ok trong JSON: ok=false là sai bí mật, nhóm chưa liên kết,
-         // hoặc đã ghi sổ mà chưa đăng được tin lên nhóm → CHƯA gắn nhãn, lần chạy sau gửi lại và bot
-         // đăng bù. Gửi lại không sinh giao dịch trùng.
+         // hoặc đã ghi sổ mà chưa đăng được tin lên nhóm → CHƯA đánh dấu, lần chạy sau gửi lại và bot đăng
+         // bù. Gửi lại không sinh giao dịch trùng (app chống trùng bằng nội dung tin và mã giao dịch).
          let body = {};
          try { body = JSON.parse(res.getContentText()); } catch (err) { body = {}; }
-         if (res.getResponseCode() >= 300 || body.ok !== true) ok = false;
+         if (res.getResponseCode() < 300 && body.ok === true) {
+           done.push(id);
+           daGui[id] = true;
+         }
        }
-       if (ok) thread.addLabel(label);
      }
+     props.setProperty(DONE_KEY, done.slice(-DONE_KEEP).join(','));
    }
    ```
 

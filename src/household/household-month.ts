@@ -94,6 +94,9 @@ export function sourceBalances(sources: SourceRow[], transactions: TransactionRo
   return result;
 }
 
+/** Lệch hạn mức khả dụng nhỏ hơn ngần này là tiền lẻ của ngân hàng, không phải sổ thiếu giao dịch. */
+export const CARD_DIFF_TOLERANCE = 1000;
+
 /** Một lần ngân hàng báo số: giá trị, lúc nào, kèm id giao dịch mang tin đó (để so thứ tự). */
 export interface BankMark {
   value: number;
@@ -165,6 +168,10 @@ export function reconcileSources(
       const pool = cardsByGroup.get(limitGroupKey(source)) || [source];
       const spent = pool.reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last), 0);
       diff = Math.round(window.first.value - spent - window.last.value);
+      // Hạn mức khả dụng MSB không nhúc nhích đúng từng đồng theo giao dịch: hoàn tiền vào hạn mức chậm
+      // vài ngày, khoản giữ (hold) chốt lệch vài trăm đồng. Thực tế 10/9/2026: cả hai nhóm thẻ đều lệch
+      // đúng 103đ. Dưới ngưỡng này coi như khớp, khỏi báo động vì tiền lẻ của ngân hàng.
+      if (Math.abs(diff) < CARD_DIFF_TOLERANCE) diff = 0;
     }
     return { ...item, reported: null, reportedAvailable: window ? window.last : null, diff, anchored: false };
   });

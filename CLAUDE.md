@@ -205,7 +205,9 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 - Thẻ tín dụng **không khai hạn mức lẫn dư nợ** (chủ app 10/9/2026: thẻ thông dùng chung hạn mức, khai kiểu
   gì cũng sai): dư nợ cộng từ giao dịch quẹt/trả, thẻ chỉ hiện "hạn mức khả dụng" theo mail gần nhất, và
   `diff` đo từ mail đầu tới mail gần nhất (khả dụng phải giảm đúng bằng phần dư nợ sổ ghi tăng). Mail KHÔNG có
-  hạn mức TỔNG nên đừng suy dư nợ từ hạn mức. "Đã quẹt chưa trả" trả hết là **về 0** — KHÔNG có "trả dư"
+  hạn mức TỔNG nên đừng suy dư nợ từ hạn mức. Hạn mức khả dụng KHÔNG nhúc nhích đúng từng đồng theo giao dịch
+  (hoàn tiền vào hạn mức chậm vài ngày, khoản giữ chốt lệch vài trăm đồng — thực tế 10/9/2026 cả hai nhóm thẻ
+  lệch đúng 103đ) nên lệch dưới `CARD_DIFF_TOLERANCE` (1.000đ) coi như khớp. "Đã quẹt chưa trả" trả hết là **về 0** — KHÔNG có "trả dư"
   (trả thẻ chỉ là trả nợ thẻ); xuống dưới 0 nghĩa là sổ thiếu khoản quẹt, kẹp hiển thị về 0 và báo phần
   thiếu, tổng "Nợ thẻ" cũng kẹp từng thẻ về 0 để thẻ thiếu không ăn bớt nợ thẻ khác.
 - **Thẻ thông** (`household_source.limit_group`, chủ app 10/9/2026): hai thẻ dùng chung một hạn mức thì quẹt
@@ -228,9 +230,11 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 - Telegram: Apps Script gửi mail vào `POST /telegram/ingest/:secret` (KHÔNG gửi vào nhóm bằng token bot —
   Telegram không đưa tin của chính bot về webhook, bot im lặng, đã dính 10/9/2026); webhook
   `POST /telegram/webhook/:secret` chỉ nhận tin của người và callback nút (`telegram.controller.ts`, @Public
-  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Apps Script quét mail **từ ngày đầu tháng hiện tại tới giờ** (`after:`, chủ app chốt 10/9/2026) và đánh dấu mail
-  đã gửi bằng NHÃN Gmail (`vodich-da-gui`) chứ không dùng `is:unread` + `markRead` — lỡ tay mở mail là bot bỏ
-  sót (chủ app 10/9/2026); gửi lại cùng một mail không sinh giao dịch trùng nên nhãn là đủ. Script gửi kèm
+  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Apps Script quét mail **từ ngày đầu tháng hiện tại tới giờ** (`after:`, chủ app chốt 10/9/2026) và nhớ TỪNG
+  MAIL đã gửi bằng id tin trong Script Properties. **Đừng dùng nhãn Gmail** (Gmail gom mail cùng tiêu đề vào
+  MỘT luồng, nhãn là nhãn của cả luồng → gắn xong là mọi mail ngân hàng sau đó bị bỏ qua sạch, đã dính
+  10/9/2026: mail thẻ từ 7/9 không vào app) và đừng dùng `is:unread` + `markRead` (lỡ tay mở mail là mất tin).
+  Luồng Gmail còn chứa cả mail cũ hơn đầu tháng nên phải lọc lại theo ngày của từng mail. Script gửi kèm
   TIÊU ĐỀ mail vì thẻ MSB có hai tiêu đề: "Biến động chi tiêu thẻ tín dụng" = quẹt tiêu, "Biến động thanh toán
   thẻ tín dụng" = hoàn tiền / mình trả nợ thẻ (mail này có thể không mang dấu +/− nên PHẢI đọc theo tiêu đề;
   bot chỉ báo một dòng "Hoàn tiền vào thẻ … của …", không hỏi mục đích). Mẫu đọc tin ở `bank-parsers.ts` (Timo tài khoản — kèm số dư hiện tại, MSB thẻ — kèm hạn mức khả dụng
