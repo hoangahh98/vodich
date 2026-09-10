@@ -27,7 +27,7 @@
       <div data-for="CARD"><label>Thẻ thông (chung hạn mức)</label><select name="limitGroupWith"><option value="">— Thẻ riêng —</option>${cardList
         .filter((item) => !source || item.id.toString() !== source.id.toString())
         .map((item) => `<option value="${item.id}" ${twinOf(source) && twinOf(source).id === item.id ? 'selected' : ''}>${esc(item.name)}</option>`)
-        .join('')}</select><small class="field-hint">${twinsOf(source).length ? 'Đang chung cụm với: ' + twinsOf(source).map((item) => esc(item.name)).join(', ') + '. ' : ''}Chọn một thẻ bất kỳ trong cụm là vào chung cả cụm — thẻ chính không phải khai lại. App tự nhận ra thẻ nào báo hạn mức riêng, thẻ nào báo hạn mức cả cụm.</small></div>
+        .join('')}</select><small class="field-hint">${twinsOf(source).length ? 'Đang chung cụm với: ' + twinsOf(source).map((item) => esc(item.name)).join(', ') + '. ' : ''}Chọn một thẻ bất kỳ trong cụm là vào chung cả cụm, không phải khai đi khai lại. Hạn mức mỗi thẻ một khác cũng không sao — app tự nhận ra thẻ nào báo hạn mức riêng, thẻ nào ăn theo cả cụm.</small></div>
       <div data-for="CARD" class="hh-form-wide"><label>Hạn mức và dư nợ</label><div class="field-static">Hạn mức còn lấy theo mail ngân hàng gần nhất; phần đã quẹt chưa trả cộng từ giao dịch${source ? ' — đang là ' + formatMoney(current) + 'đ' : ''}</div></div>
       <div data-for="LOAN"><label>Nợ hiện tại</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="LENT"><label>Đã cho vay</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>

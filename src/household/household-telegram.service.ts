@@ -412,8 +412,8 @@ export class HouseholdTelegramService {
     }
     const base = Number(card ? previous.reportedAvailable : previous.reportedBalance);
     const from = { at: previous.occurredAt, id: previous.id };
-    // Thẻ: thẻ CHÍNH báo hạn mức cả cụm thẻ thông, thẻ PHỤ báo hạn mức riêng nó (MSB, soi dữ liệu thật
-    // 10/9/2026) — thử cả hai rồi lấy cách khớp hơn, khỏi bắt chủ app khai thẻ nào chính thẻ nào phụ.
+    // Thẻ: có thẻ báo hạn mức RIÊNG nó, có thẻ ĂN THEO cả cụm thẻ thông (MSB, chủ app 10/9/2026) — thử
+    // cả hai rồi lấy cách khớp hơn, khỏi bắt chủ app khai thẻ nào kiểu nào.
     const cardRows = cards.map(toSourceRow);
     const pool = cardRows.filter((item) => limitGroupKey(item) === limitGroupKey(self));
     const own = flowBetween(self, from, now);

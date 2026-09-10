@@ -170,9 +170,10 @@ export function reconcileSources(
     }
     let diff = 0;
     if (window && window.first.txId !== window.last.txId) {
-      // Thẻ thông của MSB KHÔNG đối xứng (soi dữ liệu thật 10/9/2026): thẻ CHÍNH báo hạn mức của cả cụm
-      // (quẹt thẻ phụ cũng làm nó tụt), còn thẻ PHỤ báo hạn mức riêng của nó, quẹt thẻ khác không ảnh
-      // hưởng. Không bắt chủ app khai chính/phụ — thử cả hai cách rồi lấy cách khớp hơn.
+      // Thẻ thông của MSB KHÔNG đối xứng (chủ app 10/9/2026): có thẻ báo hạn mức RIÊNG nó (quẹt/trả thẻ
+      // khác không đụng tới), có thẻ ĂN THEO cả cụm (mọi thẻ trong cụm tiêu là nó tụt). Hạn mức mỗi thẻ
+      // một khác cũng không sao: chỉ so CHÊNH giữa hai lần báo của CÙNG một thẻ, không so số tuyệt đối
+      // giữa các thẻ. Không bắt chủ app khai thẻ nào kiểu nào — thử cả hai cách rồi lấy cách khớp hơn.
       const pool = cardsByGroup.get(limitGroupKey(source)) || [source];
       const group = pool.reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last).flow, 0);
       const own = flowBetween(source, transactions, window.first, window.last);
