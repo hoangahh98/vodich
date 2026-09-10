@@ -187,11 +187,34 @@ export class HouseholdLedgerService {
     // Người bấm nút "Trả lãi": cả khoản là lãi, dư nợ không đổi. "Trả gốc": không có lãi.
     if (target.kind === 'LOAN' && part === 'INTEREST') interest = Number(tx.amount);
     if (part === 'PRINCIPAL') interest = 0;
+    // Trả thẻ thì NGÂN HÀNG BÁO HAI LẦN: mail tài khoản (khoản chi này) và mail "Biến động thanh toán thẻ
+    // tín dụng" — mail sau đã vào sổ thành hoàn tiền vào thẻ. Giữ cả hai là trừ phần đã quẹt hai lần, nên
+    // bỏ dòng hoàn tiền trùng (cùng thẻ, cùng số, ±3 ngày) khi khoản chi này thành lần trả thẻ.
+    const absorbed = target.kind === 'CARD' ? await this.dropDuplicateCardRefund(householdId, targetSourceId, tx) : 0;
     await this.prisma.householdTransaction.updateMany({
       where: { id: transactionId, householdId },
       data: { kind: 'TRANSFER', targetSourceId, interest, recurringId, purposeId, status: 'CONFIRMED' },
     });
-    return this.prisma.householdTransaction.findFirst({ where: { id: transactionId, householdId }, include: { purpose: true, source: true, targetSource: true } });
+    const saved = await this.prisma.householdTransaction.findFirst({ where: { id: transactionId, householdId }, include: { purpose: true, source: true, targetSource: true } });
+    return saved && { ...saved, absorbed };
+  }
+
+  /** Xoá dòng "hoàn tiền vào thẻ" là bản sao của chính lần trả thẻ này; trả về số dòng đã bỏ. */
+  private async dropDuplicateCardRefund(householdId: bigint, cardId: bigint, payment: HouseholdTransaction): Promise<number> {
+    const windowMs = 3 * 24 * 60 * 60 * 1000;
+    const duplicate = await this.prisma.householdTransaction.findFirst({
+      where: {
+        householdId,
+        id: { not: payment.id },
+        kind: 'INCOME',
+        sourceId: cardId,
+        amount: payment.amount,
+        occurredAt: { gte: new Date(payment.occurredAt.getTime() - windowMs), lte: new Date(payment.occurredAt.getTime() + windowMs) },
+      },
+    });
+    if (!duplicate) return 0;
+    await this.prisma.householdTransaction.deleteMany({ where: { id: duplicate.id, householdId } });
+    return 1;
   }
 
   delete(householdId: bigint, transactionId: bigint) {

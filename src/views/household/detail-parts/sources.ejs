@@ -61,7 +61,9 @@
               chỉ là "đã quẹt chưa trả" — không có hạn mức tổng thì nó không phải dư nợ thật của thẻ. %>
           <% if (item.source.kind === 'CARD') { %>
             <div class="kv"><span>Hạn mức còn</span><strong><% if (item.reportedAvailable) { %><%= formatMoney(item.reportedAvailable.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reportedAvailable.at) %></small><% } else { %>—<br><small class="muted">chờ mail ngân hàng</small><% } %></strong></div>
-            <div class="kv"><span>Đã quẹt chưa trả</span><strong class="<%= item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong></div>
+            <%# Số này chỉ đếm những gì SỔ ghi được. Trả hết thẻ mà phần quẹt từ trước khi dùng app chưa có
+                trong sổ thì nó xuống âm — nói rõ ra thay vì giấu, các mail sau vẫn cộng đúng. %>
+            <div class="kv"><span>Đã quẹt chưa trả</span><strong class="<%= item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong><% if (item.balance < 0) { %><small class="muted">đã trả nhiều hơn phần sổ ghi được — khoản quẹt từ trước khi dùng app không có trong sổ</small><% } %></div>
           <% } else { %>
             <div class="kv"><span><%= debt ? 'Nợ hiện tại' : lent ? 'Đã cho vay' : 'Số dư' %></span><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong></div>
           <% } %>

@@ -121,8 +121,10 @@ Xem [docs/bao-mat.md](docs/bao-mat.md) cho mô hình phân quyền đầy đủ.
 
 Luồng: mail ngân hàng → (Apps Script trên Gmail) → nhóm Telegram có bot → (webhook) → app ghi giao dịch
 → bot trả lời kèm nút chọn mục đích. Mẫu đọc tin có sẵn cho **Timo** (mail "Thông báo thay đổi số dư tài
-khoản", cả tăng lẫn giảm, kèm số dư hiện tại) và **MSB thẻ tín dụng** (mail biến động số dư); ngân hàng khác
-đọc theo mẫu chung "±số tiền VND". VPBank đã bỏ (10/9/2026): tiền về nhà đi hết qua Timo.
+khoản", cả tăng lẫn giảm, kèm số dư hiện tại) và **MSB thẻ tín dụng** — MSB có HAI tiêu đề: *Biến động chi
+tiêu thẻ tín dụng* (quẹt tiêu) và *Biến động thanh toán thẻ tín dụng* (hoàn tiền hoặc mình trả nợ thẻ), cả hai
+đều kèm hạn mức khả dụng còn lại. Ngân hàng khác đọc theo mẫu chung "±số tiền VND". VPBank đã bỏ (10/9/2026):
+tiền về nhà đi hết qua Timo.
 
 1. Tạo bot với @BotFather, lấy token → `TELEGRAM_BOT_TOKEN`. Tắt privacy mode của bot
    (`/setprivacy` → Disable) để bot đọc được tin trong nhóm.
@@ -140,31 +142,44 @@ khoản", cả tăng lẫn giảm, kèm số dư hiện tại) và **MSB thẻ t
    bản tóm tắt gọn kèm nút lên nhóm:
 
    ```javascript
-   const TOKEN = '123456:ABC...';
-   const CHAT_ID = '-1001234567890';
-   // Gửi mail Timo / MSB chưa đọc vào app. Đổi APP_URL (tên miền app), SECRET (TELEGRAM_WEBHOOK_SECRET)
-   // và CHAT_ID (id nhóm bot trả khi gõ /start hoặc /link, số âm).
+   // Đổi APP_URL (tên miền app), SECRET (TELEGRAM_WEBHOOK_SECRET) và CHAT_ID (id nhóm bot trả khi gõ
+   // /start hoặc /link, số âm).
    const APP_URL = 'https://<tên miền app>';
    const SECRET = '<TELEGRAM_WEBHOOK_SECRET>';
    const CHAT_ID = '-1001234567890';
-   // Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật (9/2026), kẻo mail OTP/quảng cáo cùng địa chỉ cũng bị gửi:
-   //   Timo:    support@timo.vn, tiêu đề "Thông báo thay đổi số dư tài khoản"
-   //   Thẻ MSB: banking_notify@msb.com.vn, tiêu đề "Biến động thanh toán thẻ tín dụng"
-   const QUERY = 'is:unread newer_than:2d ((from:support@timo.vn subject:"Thông báo thay đổi số dư tài khoản") OR (from:banking_notify@msb.com.vn subject:"Biến động thanh toán thẻ tín dụng"))';
+   // Đánh dấu "đã gửi" bằng NHÃN, không dùng is:unread + markRead (10/9/2026): lỡ tay mở mail là bot
+   // bỏ sót tin. Gửi lại cùng một mail không sinh giao dịch trùng — app chống trùng bằng nội dung tin
+   // và mã giao dịch của ngân hàng.
+   const LABEL_NAME = 'vodich-da-gui';
+   // Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật, kẻo mail OTP/quảng cáo cùng địa chỉ cũng bị gửi. Thẻ MSB có HAI
+   // tiêu đề, phải lấy CẢ HAI:
+   //   Timo:    support@timo.vn        — "Thông báo thay đổi số dư tài khoản"
+   //   Thẻ MSB: banking_notify@msb.com.vn — "Biến động chi tiêu thẻ tín dụng" (quẹt tiêu)
+   //                                     — "Biến động thanh toán thẻ tín dụng" (hoàn tiền / trả nợ thẻ)
+   const QUERY = 'newer_than:3d -label:"' + LABEL_NAME + '" ('
+     + '(from:support@timo.vn subject:"Thông báo thay đổi số dư tài khoản")'
+     + ' OR (from:banking_notify@msb.com.vn (subject:"Biến động chi tiêu thẻ tín dụng"'
+     + ' OR subject:"Biến động thanh toán thẻ tín dụng"))'
+     + ')';
+
    function pushBankMails() {
+     const label = GmailApp.getUserLabelByName(LABEL_NAME) || GmailApp.createLabel(LABEL_NAME);
      for (const thread of GmailApp.search(QUERY, 0, 20)) {
+       let ok = true;
        for (const mail of thread.getMessages()) {
-         if (!mail.isUnread()) continue;
-         const text = mail.getPlainBody().replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').slice(0, 3500);
+         // Gửi kèm TIÊU ĐỀ: app đọc tiêu đề mới biết mail thẻ là quẹt tiêu hay thanh toán.
+         const text = (mail.getSubject() + '\n' + mail.getPlainBody())
+           .replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').slice(0, 3500);
          const res = UrlFetchApp.fetch(APP_URL + '/telegram/ingest/' + SECRET, {
            method: 'post',
            contentType: 'application/json',
            payload: JSON.stringify({ chat_id: CHAT_ID, text: text }),
            muteHttpExceptions: true,
          });
-         Logger.log(res.getContentText());
-         mail.markRead();
+         Logger.log(res.getResponseCode() + ' ' + res.getContentText());
+         if (res.getResponseCode() >= 300) ok = false; // gửi lỗi thì chưa gắn nhãn, lần chạy sau gửi lại
        }
+       if (ok) thread.addLabel(label);
      }
    }
    ```
@@ -174,14 +189,20 @@ khoản", cả tăng lẫn giảm, kèm số dư hiện tại) và **MSB thẻ t
    cùng `TOKEN` và `CHAT_ID`; mỗi script chỉ đọc hộp thư của tài khoản đang chạy nó.
 
 Trong app: nguồn Timo để trống số tài khoản (mail Timo không ghi số), thẻ MSB khai **4 số cuối thẻ** để tin khớp đúng nguồn.
-Mail Timo có "Số dư hiện tại": app lưu vào `reported_balance` và lấy số ấy làm chuẩn — lệch với số app tự
-cộng thì app tự căn lại số đầu kỳ của nguồn và ghi chú trong tin tóm tắt. Ở Nguồn tiền, ô "Số dư" / "Nợ hiện
-tại" nhập số HIỆN TẠI, app tự suy số đầu kỳ; không còn ô số dư đầu. Tin
-không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được". Tiền VÀO thẻ tín dụng trước đây bị bỏ qua
-(trả thẻ đã ghi ở tài khoản trả; hoàn tiền thì sửa tay). Khoản chi không bấm nút mục đích nào thì mặc định vào
-mục chi tiêu "Khác" và nằm ở danh sách "Cần xem lại" cho tới khi bấm ✓ hoặc đổi mục đích. Tiền VÀO thẻ: trùng
-với một lần trả thẻ đã ghi (cùng số, ±3 ngày) thì bỏ qua, còn lại ghi là hoàn tiền (giảm dư nợ) kèm nút
-"Giữ" / "Bỏ qua".
+
+- **Tài khoản (Timo)**: mail có "Số dư hiện tại" → app lưu `reported_balance` và lấy số ngân hàng làm chuẩn
+  (số dư = số trong mail gần nhất + giao dịch ghi sau mail đó). Sổ ra số khác thì app **báo lệch** ở thẻ nguồn,
+  Tổng quan và tin Telegram để bạn thêm giao dịch còn thiếu bằng tay — app **không** tự bù. Chỉ mail đầu tiên
+  của một tài khoản được lấy làm mốc. Ô "Số dư" ở Nguồn tiền nhập số HIỆN TẠI, app tự suy số đầu kỳ.
+- **Thẻ tín dụng**: không khai hạn mức lẫn dư nợ. Thẻ hiện "Hạn mức còn" theo mail gần nhất (mail báo hạn mức
+  khả dụng SAU khi đã cộng/trừ khoản của chính giao dịch ấy) và "Đã quẹt chưa trả" cộng từ giao dịch. Hai thẻ
+  dùng chung hạn mức thì khai ô **Thẻ thông** (chọn thẻ kia) để app cộng tiền quẹt cả nhóm, khỏi báo lệch oan.
+- **Mail "Biến động thanh toán thẻ tín dụng"** (hoàn tiền hoặc mình trả nợ thẻ): trùng với một lần trả thẻ đã
+  ghi (cùng số, ±3 ngày) thì bỏ qua; còn lại ghi là hoàn tiền vào thẻ — bot chỉ báo một dòng "Hoàn tiền vào thẻ
+  … của …", không hỏi mục đích, và số ấy tự trừ vào "đã quẹt chưa trả". Sau đó nếu bạn bấm "Trả thẻ …" trên
+  khoản chi bên tài khoản thì app tự bỏ dòng hoàn tiền trùng ấy đi.
+- Khoản chi không bấm nút mục đích nào thì mặc định vào mục chi tiêu "Khác" và nằm ở danh sách "Cần xem lại"
+  cho tới khi bấm ✓ hoặc đổi mục đích. Tin không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được".
 
 ## Backup / khôi phục dữ liệu
 

@@ -176,23 +176,25 @@ export class HouseholdTelegramService {
     const borrowers = lendingLedger(purposes.map(toPurposeRow), allTransactions.map(toTransactionRow)).rows;
     const tx = result.transaction;
     const purposeName = tx.purposeId ? purposes.find((item) => item.id === tx.purposeId)?.name : '';
+    // Mail "Biến động thanh toán thẻ tín dụng" (hoàn tiền hoặc mình trả nợ thẻ): chủ app 10/9/2026 chỉ
+    // muốn một dòng báo "đã hoàn tiền vào thẻ … của …", KHÔNG hỏi mục đích. Tiền vào thẻ đã tự trừ phần
+    // "đã quẹt chưa trả", và nếu là lần trả thẻ thì khoản chi bên tài khoản bù lại đúng bằng số này.
     const refund = tx.kind === 'INCOME' && source.kind === 'CARD';
+    const owner = source.ownerName ? ` của ${source.ownerName}` : '';
     const lines = [
-      `${refund ? 'Hoàn tiền vào thẻ' : tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${source.name} · ${when}`,
+      refund
+        ? `Hoàn tiền vào thẻ ${source.name}${owner} +${formatMoney(Number(tx.amount))}đ · ${when}`
+        : `${tx.kind === 'INCOME' ? 'Thu' : 'Chi'} ${formatMoney(Number(tx.amount))}đ · ${source.name} · ${when}`,
       parsed.description,
     ];
     const check = await this.bankCheck(household.id, source, parsed, tx.id);
     if (check) lines.push(check);
-    if (refund) lines.push('Đã trừ dư nợ thẻ. Chọn mục đích được hoàn (trừ bớt mục đó); nếu đây là lần trả thẻ thì bấm Bỏ qua.');
+    if (refund) lines.push('Đã trừ vào phần đã quẹt chưa trả của thẻ, không cần bấm gì.');
     else if (result.matched) lines.push(`Khớp khoản định kỳ: ${result.matched.recurring.name}${purposeName ? ` → ${purposeName}` : ''}`);
     else if (result.suggestedPurposeId && purposeName) lines.push(`Đoán mục đích: ${purposeName} (theo lần trước). Bấm nút nếu muốn đổi.`);
     else if (purposeName) lines.push(`Mặc định: ${purposeName}. Bấm nút nếu muốn đổi.`);
     else lines.push('Chọn mục đích:');
-    const keyboard = refund
-      ? [...this.purposeKeyboard(tx.id, 'EXPENSE', purposes, sources, source, balances, borrowers), [{ text: 'Bỏ qua (đã ghi trả thẻ)', callback_data: `hx:${tx.id}` }]]
-      : result.matched
-        ? []
-        : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source, balances, borrowers);
+    const keyboard = refund || result.matched ? [] : this.purposeKeyboard(tx.id, tx.kind, purposes, sources, source, balances, borrowers);
     // Nhớ message_id tin tóm tắt vào giao dịch để về sau còn sửa / bỏ nút (hash chống trùng đã có household_inbox lo).
     const sent = await this.send(chatId, lines.join('\n'), keyboard);
     if (sent?.message_id) await this.prisma.householdTransaction.updateMany({ where: { id: tx.id }, data: { telegramMsgId: BigInt(String(sent.message_id)) } });
@@ -255,7 +257,7 @@ export class HouseholdTelegramService {
       const tx = await this.ledger.convertToTransfer(household.id, BigInt(transfer[1]), BigInt(transfer[2]), part);
       if (tx) {
         const interest = Number(tx.interest);
-        const note = tx.targetSource?.kind === 'LOAN' ? (interest >= Number(tx.amount) ? ' — trả lãi, dư nợ không đổi' : interest ? ` — lãi ${formatMoney(interest)}đ, gốc ${formatMoney(Number(tx.amount) - interest)}đ` : ' — trả gốc, đã trừ dư nợ') : tx.targetSource?.kind === 'LENT' ? ' — cho vay, họ đang nợ thêm số này' : '';
+        const note = tx.targetSource?.kind === 'LOAN' ? (interest >= Number(tx.amount) ? ' — trả lãi, dư nợ không đổi' : interest ? ` — lãi ${formatMoney(interest)}đ, gốc ${formatMoney(Number(tx.amount) - interest)}đ` : ' — trả gốc, đã trừ dư nợ') : tx.targetSource?.kind === 'LENT' ? ' — cho vay, họ đang nợ thêm số này' : tx.absorbed ? ' — đã bỏ dòng hoàn tiền trùng của mail thẻ' : '';
         done = `✓ Chuyển ${formatMoney(Number(tx.amount))}đ · ${tx.source.name} → ${tx.targetSource?.name}${note}`;
       }
     }

@@ -102,6 +102,47 @@ test('mail MSB kèm hạn mức khả dụng — mail KHÔNG có hạn mức t�
   assert.equal(parseBankMessage(TIMO_IN).availableLimit, undefined, 'mail tài khoản không có hạn mức');
 });
 
+// Apps Script gửi kèm TIÊU ĐỀ mail: MSB có hai tiêu đề thẻ, và mail thanh toán có thể không mang dấu +/−.
+const MSB_PAYMENT = `Biến động thanh toán thẻ tín dụng
+Ngân hàng Hàng hải Việt Nam - MSB xin trân trọng thông báo thông tin biến động số dư trên Thẻ tín dụng MSB của Quý khách như sau:
+Số thẻ tín dụng
+Main Card Number
+xxxx-xxxx-xxxx-3065
+Số tiền thay đổi
+Changed Amount
+5,000,000 VND
+Nội dung giao dịch
+Content
+THANH TOAN THE
+Thời gian giao dịch
+Transaction time
+09/09/2026 10:00
+Hạn mức khả dụng
+Available Limit
+19,913,907 VND`;
+
+test('mail thẻ MSB đọc theo TIÊU ĐỀ: "Biến động thanh toán" là tiền vào kể cả khi số tiền không mang dấu', () => {
+  const payment = parseBankMessage(MSB_PAYMENT);
+  assert.equal(payment.cardEvent, 'PAYMENT');
+  assert.equal(payment.direction, 'IN', 'không có dấu +/− thì phải theo tiêu đề, không được đoán thành khoản chi');
+  assert.equal(payment.amount, 5_000_000);
+  assert.equal(payment.accountKey, '3065');
+  assert.equal(payment.availableLimit, 19_913_907);
+  // Tiêu đề "Biến động chi tiêu" là quẹt tiêu.
+  const spend = parseBankMessage(`Biến động chi tiêu thẻ tín dụng
+${MSB_MAIL}`);
+  assert.equal(spend.cardEvent, 'SPEND');
+  assert.equal(spend.direction, 'OUT');
+});
+
+test('tiền vào thẻ tín dụng trừ vào phần "đã quẹt chưa trả"', () => {
+  const rows = [
+    tx({ id: '61', sourceId: 'c', amount: 100_000 }),
+    tx({ id: '62', kind: 'INCOME', sourceId: 'c', amount: 30_000 }),
+  ];
+  assert.equal(sourceBalances([card], rows).get('c').balance, 70_000);
+});
+
 test('mail MSB số tiền dương là tiền vào thẻ (hoàn / trả thẻ)', () => {
   const parsed = parseBankMessage(MSB_MAIL.replace('-86,093 VND', '+5,000,000 VND'));
   assert.equal(parsed.direction, 'IN');

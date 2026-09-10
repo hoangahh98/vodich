@@ -19,8 +19,13 @@ export interface ParsedBankMessage {
   accountKey: string;
   /** Số dư sau giao dịch nếu ngân hàng báo (Timo) — chỉ để nhắc trong tin tóm tắt, không ghi sổ. */
   balance?: number;
-  /** Hạn mức KHẢ DỤNG còn lại của thẻ tín dụng nếu mail báo (MSB). Không phải hạn mức tổng. */
+  /**
+   * Hạn mức KHẢ DỤNG còn lại của thẻ tín dụng nếu mail báo (MSB). Không phải hạn mức tổng, và là số
+   * SAU khi đã cộng/trừ khoản tiền của chính giao dịch này (chủ app xác nhận 10/9/2026).
+   */
   availableLimit?: number;
+  /** Mail thẻ MSB thuộc loại nào (đọc từ tiêu đề): quẹt tiêu hay thanh toán (hoàn tiền / trả thẻ). */
+  cardEvent?: 'SPEND' | 'PAYMENT';
   description: string;
   occurredAt: Date;
   /** Mã giao dịch ngân hàng, hoặc mã tự dựng khi ngân hàng không cho — chống ghi trùng. */
@@ -102,7 +107,17 @@ export function parseMsb(text: string): ParsedBankMessage | null {
   const content = field(text, 'Nội dung giao dịch', 'Content', '[^\\n]+') || 'MSB';
   const when = parseVnDateTime(field(text, 'Thời gian giao dịch', 'Transaction time', '[\\d/]+(?:\\s+[\\d:]+)?'));
   const occurredAt = when || new Date();
-  const direction: 'OUT' | 'IN' = /^\s*-/.test(amountRaw || '') ? 'OUT' : /^\s*\+/.test(amountRaw || '') ? 'IN' : 'OUT';
+  // MSB có HAI tiêu đề mail thẻ (chủ app 10/9/2026): "Biến động chi tiêu thẻ tín dụng" = quẹt tiêu,
+  // "Biến động thanh toán thẻ tín dụng" = hoàn tiền hoặc mình trả nợ thẻ. Apps Script gửi kèm tiêu đề
+  // nên chiều tiền đọc theo tiêu đề trước, hết mới đoán theo dấu +/− của "Số tiền thay đổi" (mail thanh
+  // toán có thể không mang dấu — đoán theo dấu thì thành ghi nhầm ra khoản chi).
+  const cardEvent: 'SPEND' | 'PAYMENT' | undefined = /Biến động thanh toán/i.test(text)
+    ? 'PAYMENT'
+    : /Biến động chi tiêu/i.test(text)
+      ? 'SPEND'
+      : undefined;
+  const bySign: 'OUT' | 'IN' = /^\s*-/.test(amountRaw || '') ? 'OUT' : /^\s*\+/.test(amountRaw || '') ? 'IN' : 'OUT';
+  const direction: 'OUT' | 'IN' = cardEvent ? (cardEvent === 'PAYMENT' ? 'IN' : 'OUT') : bySign;
   const availableRaw = field(text, 'Hạn mức khả dụng', 'Available Limit', '[0-9.,]+[ ]*(?:VND)?');
   const availableLimit = parseVndAmount(availableRaw);
   return {
@@ -113,6 +128,7 @@ export function parseMsb(text: string): ParsedBankMessage | null {
     description: content.slice(0, 255),
     occurredAt,
     availableLimit: availableLimit || undefined,
+    cardEvent,
     externalId: `msb:${card}:${occurredAt.toISOString()}:${direction}:${amount}`,
   };
 }

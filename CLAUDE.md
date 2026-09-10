@@ -226,7 +226,13 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 - Telegram: Apps Script gửi mail vào `POST /telegram/ingest/:secret` (KHÔNG gửi vào nhóm bằng token bot —
   Telegram không đưa tin của chính bot về webhook, bot im lặng, đã dính 10/9/2026); webhook
   `POST /telegram/webhook/:secret` chỉ nhận tin của người và callback nút (`telegram.controller.ts`, @Public
-  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Mẫu đọc tin ở `bank-parsers.ts` (Timo tài khoản — kèm số dư hiện tại, MSB thẻ — kèm hạn mức khả dụng,
+  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Apps Script đánh dấu mail
+  đã gửi bằng NHÃN Gmail (`vodich-da-gui`) chứ không dùng `is:unread` + `markRead` — lỡ tay mở mail là bot bỏ
+  sót (chủ app 10/9/2026); gửi lại cùng một mail không sinh giao dịch trùng nên nhãn là đủ. Script gửi kèm
+  TIÊU ĐỀ mail vì thẻ MSB có hai tiêu đề: "Biến động chi tiêu thẻ tín dụng" = quẹt tiêu, "Biến động thanh toán
+  thẻ tín dụng" = hoàn tiền / mình trả nợ thẻ (mail này có thể không mang dấu +/− nên PHẢI đọc theo tiêu đề;
+  bot chỉ báo một dòng "Hoàn tiền vào thẻ … của …", không hỏi mục đích). Mẫu đọc tin ở `bank-parsers.ts` (Timo tài khoản — kèm số dư hiện tại, MSB thẻ — kèm hạn mức khả dụng
+  SAU giao dịch,
   mẫu chung; VPBank đã gỡ 10/9/2026 vì tiền về nhà đi hết qua Timo) — thêm ngân hàng thì thêm parser + test với mail thật. Nút inline `hp:<tx>:<purpose>` gán mục
   đích, `ht:<tx>:<source>` đổi khoản chi thành trả thẻ/trả nợ. Liên kết nhóm bằng `/link <mã>`.
 - Quyền: `@FeatureAccess('HOUSEHOLD')`; admin theo `ownedOrSharedWhere`, thành viên trong nhà là CLIENT qua
