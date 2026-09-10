@@ -61,7 +61,13 @@ export interface SourceBalance {
   source: SourceRow;
   /** BANK/CASH: số dư hiện có. CARD/LOAN: dư nợ hiện tại (dương = đang nợ). */
   balance: number;
-  /** CARD: hạn mức còn lại = hạn mức − dư nợ. */
+  /**
+   * CARD: phần hạn mức đang bị chiếm = đã quẹt chưa trả của CHÍNH thẻ này cộng của mọi thẻ khai thẻ
+   * thông là nó (quẹt thẻ ăn theo cũng ngốn hạn mức thẻ này). Từng thẻ kẹp ≥ 0 để thẻ đang "trả quá"
+   * (sổ thiếu khoản quẹt) không nới hạn mức cho thẻ khác.
+   */
+  limitUsed: number;
+  /** CARD: hạn mức còn = hạn mức khai tay − `limitUsed`, kẹp trong [0, hạn mức]. 0 = chưa khai hạn mức. */
   available: number;
 }
 
@@ -87,9 +93,17 @@ export function sourceBalances(sources: SourceRow[], transactions: TransactionRo
   for (const source of sources) {
     const flow = net.get(source.id) || 0;
     const balance = isDebtSource(source.kind) ? source.openingBalance - flow : source.openingBalance + flow;
-    // Hạn mức thẻ không còn khai tay nên `available` chỉ có nghĩa với thẻ cũ còn số hạn mức trong DB;
-    // thẻ mới hiện "hạn mức khả dụng" ngân hàng báo trong mail (xem `reconcileSources`).
-    result.set(source.id, { source, balance, available: source.kind === 'CARD' && source.creditLimit ? source.creditLimit - balance : 0 });
+    result.set(source.id, { source, balance, limitUsed: 0, available: 0 });
+  }
+  // HẠN MỨC CÒN của thẻ tín dụng (chủ app chốt 11/9/2026, thay luật "không khai hạn mức" ngày 10/9 vì
+  // chờ mail báo hạn mức khả dụng thì số cứ lệch): hạn mức KHAI TAY trừ phần đã quẹt chưa trả — tức trừ
+  // giao dịch quẹt thẻ, cộng lại giao dịch hoàn tiền / trả thẻ. Số này sổ có ngay, không phải chờ mail.
+  // THẺ THÔNG vẫn phải nhớ: thẻ ăn theo bị trừ cả phần quẹt của mấy thẻ trỏ về nó (`affectsLimitOf`).
+  const cards = sources.filter((item) => item.kind === 'CARD');
+  for (const source of cards) {
+    const item = result.get(source.id)!;
+    item.limitUsed = cards.filter((card) => affectsLimitOf(card, source)).reduce((sum, card) => sum + Math.max(0, result.get(card.id)!.balance), 0);
+    item.available = source.creditLimit ? Math.max(0, source.creditLimit - item.limitUsed) : 0;
   }
   return result;
 }
@@ -136,11 +150,14 @@ function flowBetween(source: SourceRow, transactions: TransactionRow[], from: Ba
  *  - Tài khoản: mail Timo báo số dư → NGÂN HÀNG THẮNG, số dư = số trong mail gần nhất + giao dịch ghi
  *    sau mail đó. Sổ tính ra khác số ấy thì `diff` khác 0 — app KHÔNG tự bù, chỉ báo để chủ app thêm
  *    giao dịch còn thiếu bằng tay (tự bù là mất dấu khoản thiếu, tiền thật còn lại thành sai).
- *  - Thẻ tín dụng: mail MSB chỉ có HẠN MỨC KHẢ DỤNG, không có hạn mức tổng nên không suy ra được dư nợ.
- *    Dư nợ vẫn cộng từ giao dịch; `diff` đo từ mail đầu tới mail gần nhất, khả dụng phải giảm đúng bằng
- *    phần dư nợ sổ ghi tăng — tính trên CẢ NHÓM THẺ THÔNG (`limitGroup`), vì quẹt thẻ A thì hạn mức
- *    khả dụng báo trong mail của thẻ B cũng đã trừ khoản ấy rồi. Hai thẻ thông khác hạn mức nhau vẫn
- *    đúng: mức khả dụng mỗi thẻ khác nhau nhưng CHÊNH giữa hai lần báo thì bằng nhau.
+ *  - Thẻ tín dụng ĐÃ KHAI HẠN MỨC (chủ app 11/9/2026): hạn mức còn do SỔ tính (hạn mức khai − đã quẹt
+ *    chưa trả của cả cụm thẻ thông), nên so thẳng số ấy với hạn mức khả dụng trong mail GẦN NHẤT — tính
+ *    tại đúng thời điểm mail đó, không phải lúc này, vì sổ có thể đã ghi thêm giao dịch sau mail.
+ *    `diff` > 0 = sổ còn nhiều hạn mức hơn ngân hàng → thiếu khoản quẹt (hoặc ô hạn mức khai to quá).
+ *  - Thẻ CHƯA khai hạn mức: không có hạn mức tổng thì không suy ra dư nợ, `diff` đo từ mail đầu tới mail
+ *    gần nhất — khả dụng phải giảm đúng bằng phần dư nợ sổ ghi tăng, tính trên CẢ CỤM THẺ THÔNG vì quẹt
+ *    thẻ A thì mail thẻ B cũng đã trừ khoản ấy rồi. Hai thẻ khác hạn mức nhau vẫn đúng: chỉ so CHÊNH
+ *    giữa hai lần báo của cùng một thẻ.
  */
 export function reconcileSources(
   sources: SourceRow[],
@@ -159,7 +176,14 @@ export function reconcileSources(
       return { ...item, balance, reported, reportedAvailable: window ? window.last : null, diff: Math.round(item.balance - balance), anchored: true };
     }
     let diff = 0;
-    if (window && window.first.txId !== window.last.txId) {
+    if (source.kind === 'CARD' && source.creditLimit && window) {
+      // Đã khai hạn mức: so số tuyệt đối với mail gần nhất, tính phần đã quẹt chưa trả của cả cụm thẻ
+      // thông TÍNH TỚI đúng mail đó (`affectsLimitOf`), từng thẻ kẹp ≥ 0 như khi hiện hạn mức còn.
+      const usedThen = cards
+        .filter((card) => affectsLimitOf(card, source))
+        .reduce((sum, card) => sum + Math.max(0, card.openingBalance + flowBetween(card, transactions, null, window.last)), 0);
+      diff = Math.round(source.creditLimit - usedThen - window.last.value);
+    } else if (window && window.first.txId !== window.last.txId) {
       // Hạn mức khả dụng của thẻ này đổi theo giao dịch của CHÍNH NÓ và của mọi thẻ khai thẻ thông là nó.
       // Hạn mức mỗi thẻ một khác không sao: chỉ so CHÊNH giữa hai lần báo của CÙNG một thẻ, không bao giờ
       // so số tuyệt đối giữa các thẻ. Lệch bao nhiêu báo bấy nhiêu, KHÔNG có ngưỡng bỏ qua (chủ app

@@ -2,15 +2,15 @@
   <%
     // Ô nào hiện tuỳ loại nguồn (household.js đọc data-for): tài khoản → ngân hàng, số TK, chủ, số dư;
     // tiết kiệm / đầu tư / tiền mặt → chủ + số dư; khoản vay → lãi suất + nợ hiện tại; thẻ tín dụng →
-    // KHÔNG có ô hạn mức lẫn ô nợ (chủ app 10/9/2026: thẻ thông dùng chung hạn mức nên khai kiểu gì cũng
-    // sai) — dư nợ cộng từ giao dịch, hạn mức khả dụng lấy theo mail gần nhất.
+    // ô HẠN MỨC THẺ (khai tay lại từ 11/9/2026) nhưng KHÔNG có ô dư nợ: đã quẹt chưa trả cộng từ giao
+    // dịch, hạn mức còn = hạn mức khai − phần ấy (cộng cả thẻ ăn theo, xem `limitUsed`).
     // Ngày sao kê / đến hạn đã bỏ khỏi form theo ý chủ app (cột vẫn còn trong DB, không dùng).
     // Ô số dư / nợ nhập số HIỆN TẠI (chủ app: khỏi nhập số dư đầu rồi so lệch). Server tự suy số đầu kỳ
     // = số hiện tại trừ/cộng dòng tiền đã ghi. `current` là số app đang tính cho nguồn đó (form sửa).
     const kindOptions = Object.keys(labels.source);
     const esc = (value) => String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-    // Thẻ thông = hai thẻ dùng chung một hạn mức (quẹt thẻ này là hạn mức thẻ kia cũng giảm). Khai bằng
-    // cách chọn thẻ kia; server cho cả hai cùng mã nhóm. Không phải khai hạn mức, chỉ khai "chung với ai".
+    // Thẻ thông = quẹt thẻ này thì hạn mức thẻ kia cũng giảm. Khai bằng cách chọn thẻ kia (quan hệ CÓ
+    // HƯỚNG, xem `affectsLimitOf`); hạn mức thì mỗi thẻ vẫn khai riêng số của nó.
     const cardList = sources.filter((item) => item.kind === 'CARD');
     // Thẻ thông CÓ HƯỚNG: `limitSharesWith` = thẻ mà giao dịch của thẻ này cũng làm đổi hạn mức của nó.
     // `feeders` = mấy thẻ đang trỏ VỀ thẻ này (thẻ này ăn theo chúng).
@@ -29,14 +29,15 @@
         .filter((item) => !source || item.id.toString() !== source.id.toString())
         .map((item) => `<option value="${item.id}" ${sharesWith(source) && sharesWith(source).id === item.id ? 'selected' : ''}>${esc(item.name)}</option>`)
         .join('')}</select><small class="field-hint">Chọn thẻ mà <strong>quẹt / trả thẻ này thì hạn mức thẻ đó cũng đổi theo</strong>. Thẻ ăn theo (thẻ nhìn thấy hạn mức của thẻ khác) thì để trống. Hai thẻ thông nhau thì khai ở CẢ HAI thẻ, mỗi thẻ trỏ về thẻ kia. Hạn mức mỗi thẻ một khác không sao.${feedersOf(source).length ? ' Đang có ăn theo: ' + feedersOf(source).map((item) => esc(item.name)).join(', ') + '.' : ''}</small></div>
-      <div data-for="CARD" class="hh-form-wide"><label>Hạn mức và dư nợ</label><div class="field-static">Hạn mức còn lấy theo mail ngân hàng gần nhất; phần đã quẹt chưa trả cộng từ giao dịch${source ? ' — đang là ' + formatMoney(current) + 'đ' : ''}</div></div>
+      <div data-for="CARD"><label>Hạn mức thẻ</label><input class="money-input" name="creditLimit" value="${source && Number(source.creditLimit) ? formatMoney(source.creditLimit) : ''}" placeholder="Ví dụ: 20.000.000" inputmode="numeric"><small class="field-hint">Hạn mức ngân hàng cấp cho thẻ này. <strong>Hạn mức còn</strong> = số này trừ các khoản quẹt, cộng lại các khoản hoàn tiền / trả thẻ. Để trống thì app quay về lấy hạn mức khả dụng trong mail gần nhất. Thẻ còn khoản quẹt cũ từ trước khi dùng app thì trừ luôn phần ấy vào đây cho khớp.</small></div>
+      <div data-for="CARD" class="hh-form-wide"><label>Đã quẹt chưa trả</label><div class="field-static">Cộng từ giao dịch, không khai tay${source ? ' — đang là ' + formatMoney(current) + 'đ' : ''}</div></div>
       <div data-for="LOAN"><label>Nợ hiện tại</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="LENT"><label>Đã cho vay</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="LOAN"><label>Lãi suất %/năm</label><input name="interestRate" value="${source ? Number(source.interestRate) : ''}" placeholder="Ví dụ: 10.5" inputmode="decimal"></div>`;
   %>
   <section class="card-lite p mb">
     <div class="section-heading">
-      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'card' }) %></span><h2 class="section-title">Nguồn tiền</h2><p class="muted">Tài khoản, thẻ tín dụng, tiết kiệm, đầu tư, khoản vay, tiền mặt. Nhập số dư đang có, sau đó mọi thay đổi tự cộng từ giao dịch; thẻ tín dụng thì dư nợ cộng từ giao dịch và hạn mức khả dụng lấy theo mail ngân hàng.</p></div>
+      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'card' }) %></span><h2 class="section-title">Nguồn tiền</h2><p class="muted">Tài khoản, thẻ tín dụng, tiết kiệm, đầu tư, khoản vay, tiền mặt. Nhập số dư đang có, sau đó mọi thay đổi tự cộng từ giao dịch; thẻ tín dụng thì khai hạn mức thẻ, còn hạn mức còn app tự trừ các khoản quẹt và cộng lại khoản hoàn tiền / trả thẻ.</p></div>
       <span class="badge badge-dark">Có <%= formatMoney(totals.cash) %>đ<% if (totals.saved) { %> · để dành <%= formatMoney(totals.saved) %>đ<% } %> · nợ <%= formatMoney(totals.debt) %>đ</span>
     </div>
   </section>
@@ -53,21 +54,23 @@
   <% } %>
 
   <div class="hh-source-list">
-    <% balances.forEach((item) => { const source = sources.find((row) => row.id.toString() === item.source.id); const debt = ['CARD', 'LOAN'].includes(item.source.kind); const lent = item.source.kind === 'LENT'; %>
+    <% balances.forEach((item) => { const source = sources.find((row) => row.id.toString() === item.source.id); const debt = ['CARD', 'LOAN'].includes(item.source.kind); const lent = item.source.kind === 'LENT'; const cardLimit = Number(item.source.creditLimit); %>
       <section class="card-lite p hh-source <%= item.source.active ? '' : 'is-muted' %>">
         <div class="hh-source-head">
           <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (['BANK', 'CARD'].includes(item.source.kind) && source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% const twin = sharesWith(source); const feeders = feedersOf(source); %><% if (twin) { %><span class="badge">thông sang <%= twin.name %></span><% } %><% if (feeders.length) { %><span class="badge">theo <%= feeders.map((item) => item.name).join(', ') %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
         </div>
         <%# Mọi con số nằm trong ô (chủ app: "mấy cái đang không trong ô thì cho vào ô"). %>
         <div class="grid kv-grid mt">
-          <%# Thẻ tín dụng: ô đầu là HẠN MỨC CÒN ngân hàng báo (số thật, mail nào cũng có). Con số cộng từ sổ
-              chỉ là "đã quẹt chưa trả" — không có hạn mức tổng thì nó không phải dư nợ thật của thẻ. %>
+          <%# Thẻ tín dụng: ô đầu là HẠN MỨC CÒN. Đã khai hạn mức thì SỔ tính (hạn mức khai − đã quẹt chưa
+              trả của cả cụm thẻ thông) — chủ app 11/9/2026, khỏi phụ thuộc mail về sớm hay muộn; chưa khai
+              thì vẫn lấy hạn mức khả dụng mail gần nhất. Số ngân hàng báo hiện thêm một ô để so mắt thường. %>
           <% if (item.source.kind === 'CARD') { %>
-            <div class="kv"><span>Hạn mức còn</span><strong><% if (item.reportedAvailable) { %><%= formatMoney(item.reportedAvailable.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reportedAvailable.at) %></small><% } else { %>—<br><small class="muted">chờ mail ngân hàng</small><% } %></strong></div>
+            <div class="kv"><span>Hạn mức còn</span><strong><% if (cardLimit) { %><%= formatMoney(item.available) %>đ<br><small class="muted">trên hạn mức <%= formatMoney(cardLimit) %>đ<% if (item.limitUsed > Math.max(0, item.balance)) { %> · đã dùng <%= formatMoney(item.limitUsed) %>đ tính cả thẻ ăn theo<% } %></small><% } else if (item.reportedAvailable) { %><%= formatMoney(item.reportedAvailable.value) %>đ<br><small class="muted">ngân hàng báo <%= fmtDateTime(item.reportedAvailable.at) %></small><% } else { %>—<br><small class="muted">chưa khai hạn mức thẻ</small><% } %></strong></div>
             <%# Số này chỉ đếm những gì SỔ ghi được: quẹt cộng vào, trả thẻ trừ đi. Trả hết là về 0 — KHÔNG
-                có chuyện "trả dư" (thẻ không có hạn mức tổng trong app, trả thẻ chỉ là trả nợ thẻ, chủ app
-                10/9/2026). Xuống dưới 0 nghĩa là SỔ THIẾU khoản quẹt: kẹp về 0 và báo phần thiếu. %>
+                có chuyện "trả dư" (trả thẻ chỉ là trả nợ thẻ, chủ app 10/9/2026). Xuống dưới 0 nghĩa là SỔ
+                THIẾU khoản quẹt: kẹp về 0 và báo phần thiếu. %>
             <div class="kv"><span>Đã quẹt chưa trả</span><strong class="<%= item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(Math.max(0, item.balance)) %>đ</strong></div>
+            <% if (cardLimit && item.reportedAvailable) { %><div class="kv"><span>Ngân hàng báo còn</span><strong><%= formatMoney(item.reportedAvailable.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reportedAvailable.at) %></small></strong></div><% } %>
           <% } else { %>
             <div class="kv"><span><%= debt ? 'Nợ hiện tại' : lent ? 'Đã cho vay' : 'Số dư' %></span><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong></div>
           <% } %>
@@ -82,8 +85,12 @@
         <% if (item.source.kind === 'CARD' && item.balance < 0) { %>
           <div class="alert-lite warn mt"><span>Đã trả nhiều hơn phần quẹt trong sổ <strong><%= formatMoney(-item.balance) %>đ</strong> — thường là trả cho khoản quẹt có trước khi dùng app, sổ chưa có. Nếu là mail quẹt bị bỏ sót thì <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">thêm giao dịch tay</a>.</span></div>
         <% } %>
+        <%# Đã quẹt chưa trả vượt cả hạn mức khai: hoặc ô Hạn mức thẻ gõ thiếu, hoặc sổ thiếu khoản trả thẻ. %>
+        <% if (cardLimit && item.limitUsed > cardLimit) { %>
+          <div class="alert-lite warn mt"><span>Đã quẹt chưa trả <strong><%= formatMoney(item.limitUsed) %>đ</strong> vượt hạn mức khai <strong><%= formatMoney(item.limitUsed - cardLimit) %>đ</strong> — xem lại ô <strong>Hạn mức thẻ</strong>, hoặc sổ còn thiếu khoản trả thẻ / hoàn tiền.</span></div>
+        <% } %>
         <% if (item.diff) { %>
-          <div class="alert-lite warn mt"><span>Sổ lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng — thiếu <%= item.source.kind === 'CARD' ? (item.diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ') : item.diff > 0 ? 'khoản chi' : 'khoản thu' %> chưa ghi. <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.<% if (item.source.kind === 'CARD' && !twin) { %> Hoặc thẻ này dùng chung hạn mức với thẻ khác — bấm <strong>Sửa nguồn</strong> rồi chọn <strong>Thẻ thông</strong>.<% } %></span></div>
+          <div class="alert-lite warn mt"><span>Sổ lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng — thiếu <%= item.source.kind === 'CARD' ? (item.diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ') : item.diff > 0 ? 'khoản chi' : 'khoản thu' %> chưa ghi. <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.<% if (item.source.kind === 'CARD' && cardLimit) { %> Hoặc ô <strong>Hạn mức thẻ</strong> khai chưa đúng (thẻ còn khoản quẹt cũ từ trước khi dùng app thì trừ luôn vào hạn mức khai).<% } %><% if (item.source.kind === 'CARD' && !twin) { %> Hoặc quẹt thẻ này làm đổi hạn mức thẻ khác — bấm <strong>Sửa nguồn</strong> rồi chọn <strong>Thẻ thông</strong>.<% } %></span></div>
         <% } %>
         <% if (isAdmin) { %>
           <details class="hh-edit mt"><summary class="btn btn-sm"><%- include('../../partials/icon', { name: 'edit' }) %> Sửa nguồn</summary>

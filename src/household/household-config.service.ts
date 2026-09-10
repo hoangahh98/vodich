@@ -32,8 +32,9 @@ export class HouseholdConfigService {
       bank: receivesMail ? normalizeBank(form.bank) : 'OTHER',
       matchKey: receivesMail ? text(form.matchKey, 40).replace(/\s+/g, '') : '',
       ownerName: text(form.ownerName),
-      // Hạn mức thẻ KHÔNG còn khai tay (chủ app 10/9/2026: thẻ thông dùng chung hạn mức, khai kiểu gì cũng
-      // sai) — thẻ chỉ hiện "hạn mức khả dụng" ngân hàng báo trong mail gần nhất, dư nợ cộng từ giao dịch.
+      // Hạn mức thẻ khai tay lại từ 11/9/2026 (chủ app: chờ mail báo hạn mức khả dụng thì số cứ lệch).
+      // Chỉ thẻ tín dụng mới có; để trống = chưa khai, lúc ấy app quay về hiện hạn mức khả dụng theo mail.
+      creditLimit: kind === 'CARD' ? Math.max(0, parseMoney(form.creditLimit)) : 0,
       interestRate: Math.max(0, Number.parseFloat(String(form.interestRate || '0').replace(',', '.')) || 0),
       statementDay: clampDay(form.statementDay),
       dueDay: clampDay(form.dueDay),

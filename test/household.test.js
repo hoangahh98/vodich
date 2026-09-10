@@ -295,26 +295,83 @@ test('tài khoản: mail báo số dư thì ngân hàng thắng, sổ lệch bao
   assert.deepEqual([plain.diff, plain.anchored, plain.reported], [0, false, null]);
 });
 
-test('thẻ tín dụng: dư nợ vẫn cộng từ giao dịch, hạn mức khả dụng chỉ để bắt lệch giữa hai mail', () => {
+test('hạn mức còn của thẻ: hạn mức khai trừ khoản quẹt, cộng lại khoản hoàn tiền / trả thẻ', () => {
+  // Luật chủ app 11/9/2026 (thay luật "không khai hạn mức" ngày 10/9): số này sổ tính được ngay, khỏi chờ mail.
+  const rows = [
+    tx({ id: '61', sourceId: 'c', purposeId: 'p-an', amount: 3_000_000 }), // quẹt
+    tx({ id: '62', kind: 'INCOME', sourceId: 'c', amount: 500_000 }), // hoàn tiền vào thẻ
+    tx({ id: '63', kind: 'TRANSFER', sourceId: 'b', targetSourceId: 'c', amount: 1_000_000 }), // trả thẻ
+  ];
+  const item = sourceBalances([bank, card], rows).get('c');
+  assert.equal(item.balance, 1_500_000, 'đã quẹt chưa trả = 3tr − 500k hoàn − 1tr trả');
+  assert.equal(item.limitUsed, 1_500_000);
+  assert.equal(item.available, 20_000_000 - 1_500_000, 'hạn mức còn = hạn mức khai − phần đã quẹt chưa trả');
+  // Chưa khai hạn mức thì không có hạn mức còn (app quay về lấy số ngân hàng báo trong mail).
+  assert.equal(sourceBalances([bank, { ...card, creditLimit: 0 }], rows).get('c').available, 0);
+  // Quẹt quá hạn mức khai: kẹp hạn mức còn về 0, phần vượt xem ở `limitUsed`.
+  const vuot = sourceBalances([bank, { ...card, creditLimit: 1_000_000 }], rows).get('c');
+  assert.deepEqual([vuot.available, vuot.limitUsed], [0, 1_500_000]);
+});
+
+test('hạn mức còn với thẻ thông: thẻ ăn theo bị trừ cả phần quẹt của thẻ trỏ về nó', () => {
+  // Quan hệ CÓ HƯỚNG như luật 10/9/2026: 'ph' trỏ về 'ch' nên quẹt 'ph' ngốn hạn mức 'ch', chiều lại thì không.
+  const antheo = { ...card, id: 'ch', name: 'Thẻ ăn theo', limitSharesWith: null, creditLimit: 20_000_000 };
+  const rieng = { ...card, id: 'ph', name: 'Thẻ hạn mức riêng', limitSharesWith: 'ch', creditLimit: 5_000_000 };
+  const rows = [
+    tx({ id: '71', sourceId: 'ch', amount: 200_000 }),
+    tx({ id: '72', sourceId: 'ph', amount: 100_000 }),
+  ];
+  const balances = sourceBalances([antheo, rieng], rows);
+  assert.equal(balances.get('ph').available, 5_000_000 - 100_000, 'thẻ trỏ đi chỉ trừ phần quẹt của chính nó');
+  assert.equal(balances.get('ch').limitUsed, 300_000);
+  assert.equal(balances.get('ch').available, 20_000_000 - 300_000, 'thẻ ăn theo trừ cả hai thẻ');
+  // Thẻ "trả quá" (sổ thiếu khoản quẹt) không được nới hạn mức cho thẻ ăn theo: kẹp từng thẻ về 0.
+  const traqua = sourceBalances([antheo, rieng], [...rows, tx({ id: '73', kind: 'TRANSFER', sourceId: 'b', targetSourceId: 'ph', amount: 900_000 })]);
+  assert.equal(traqua.get('ch').limitUsed, 200_000);
+  assert.equal(traqua.get('ch').available, 20_000_000 - 200_000);
+});
+
+test('thẻ đã khai hạn mức: so hạn mức còn của sổ với hạn mức khả dụng mail gần nhất', () => {
+  const rows = [
+    tx({ id: '81', sourceId: 'c', amount: 200_000, occurredAt: new Date('2026-09-06T03:00:00Z') }),
+    tx({ id: '82', sourceId: 'c', amount: 86_093, occurredAt: new Date('2026-09-07T11:22:00Z') }),
+  ];
+  const mark = (value, at, txId) => ({ value, at, txId });
+  const khop = new Map([['c', { first: mark(19_800_000, rows[0].occurredAt, '81'), last: mark(20_000_000 - 286_093, rows[1].occurredAt, '82') }]]);
+  const [ok] = reconcileSources([card], rows, new Map(), khop);
+  assert.equal(ok.available, 20_000_000 - 286_093, 'hạn mức còn lấy theo sổ, không lấy theo mail');
+  assert.equal(ok.diff, 0);
+  // Ngân hàng báo còn ít hơn sổ 100k → sổ thiếu khoản quẹt (hoặc hạn mức khai to quá).
+  const lech = new Map([['c', { first: khop.get('c').first, last: mark(20_000_000 - 286_093 - 100_000, rows[1].occurredAt, '82') }]]);
+  assert.equal(reconcileSources([card], rows, new Map(), lech)[0].diff, 100_000);
+  // So tại đúng thời điểm mail gần nhất: giao dịch ghi SAU mail không bị tính là lệch.
+  const sauMail = [...rows, tx({ id: '83', sourceId: 'c', amount: 50_000, occurredAt: new Date('2026-09-08T03:00:00Z') })];
+  const [vanKhop] = reconcileSources([card], sauMail, new Map(), khop);
+  assert.equal(vanKhop.diff, 0);
+  assert.equal(vanKhop.available, 20_000_000 - 336_093);
+});
+
+test('thẻ chưa khai hạn mức: dư nợ vẫn cộng từ giao dịch, hạn mức khả dụng chỉ để bắt lệch giữa hai mail', () => {
   const first = { value: 17_000_000, at: new Date('2026-09-06T03:00:00Z'), txId: '41' };
   const rows = [
     tx({ id: '41', sourceId: 'c', purposeId: 'p-an', amount: 200_000, occurredAt: first.at }),
     tx({ id: '42', sourceId: 'c', purposeId: 'p-an', amount: 86_093, occurredAt: new Date('2026-09-07T11:22:00Z') }),
   ];
   const khop = new Map([['c', { first, last: { value: 17_000_000 - 86_093, at: rows[1].occurredAt, txId: '42' } }]]);
-  const [ok] = reconcileSources([card], rows, new Map(), khop);
+  const chuaKhai = { ...card, creditLimit: 0 };
+  const [ok] = reconcileSources([chuaKhai], rows, new Map(), khop);
   assert.equal(ok.balance, 286_093, 'dư nợ cộng từ giao dịch, không suy từ hạn mức');
   assert.equal(ok.reportedAvailable.value, 16_913_907, 'thẻ hiện đúng hạn mức khả dụng mail gần nhất');
   assert.equal(ok.diff, 0, 'khả dụng giảm đúng bằng phần quẹt đã ghi → không lệch');
   // Mail sau báo khả dụng thấp hơn 100k so với sổ → có khoản quẹt chưa ghi.
   const lech = new Map([['c', { first, last: { value: 17_000_000 - 86_093 - 100_000, at: rows[1].occurredAt, txId: '42' } }]]);
-  assert.equal(reconcileSources([card], rows, new Map(), lech)[0].diff, 100_000);
+  assert.equal(reconcileSources([chuaKhai], rows, new Map(), lech)[0].diff, 100_000);
 });
 
 test('thẻ thông: quẹt thẻ A thì mail thẻ B báo hạn mức đã trừ cả hai — cùng nhóm thì không báo lệch', () => {
-  // Hai thẻ dùng chung hạn mức nhưng KHÁC hạn mức nhau (A 20tr, B 30tr) — chỉ so phần chênh nên vẫn đúng.
-  const cardA = { ...card, id: 'ca', name: 'Thẻ A', limitSharesWith: 'cb', creditLimit: 20_000_000 };
-  const cardB = { ...card, id: 'cb', name: 'Thẻ B', limitSharesWith: 'ca', creditLimit: 30_000_000 };
+  // Hai thẻ chưa khai hạn mức (nhánh so CHÊNH giữa hai mail): hạn mức mỗi thẻ một khác vẫn đúng.
+  const cardA = { ...card, id: 'ca', name: 'Thẻ A', limitSharesWith: 'cb', creditLimit: 0 };
+  const cardB = { ...card, id: 'cb', name: 'Thẻ B', limitSharesWith: 'ca', creditLimit: 0 };
   const rows = [
     tx({ id: '51', sourceId: 'ca', amount: 1_000, occurredAt: new Date('2026-09-06T03:00:00Z') }),
     tx({ id: '52', sourceId: 'cb', amount: 5_000, occurredAt: new Date('2026-09-07T03:00:00Z') }),

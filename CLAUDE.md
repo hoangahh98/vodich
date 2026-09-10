@@ -202,35 +202,38 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   Telegram) để chủ app thêm giao dịch còn thiếu bằng tay — **không** tự căn lại `opening_balance` như bản cũ
   (`syncBalance` đã bỏ: tự bù là mất dấu khoản thiếu, số tiền thật còn lại thành sai). Ngoại lệ duy nhất: mail
   ĐẦU TIÊN của một tài khoản được lấy làm mốc (suy ngược số đầu kỳ) vì tài khoản Timo không khai số dư tay.
-- Thẻ tín dụng **không khai hạn mức lẫn dư nợ** (chủ app 10/9/2026: thẻ thông dùng chung hạn mức, khai kiểu
-  gì cũng sai): dư nợ cộng từ giao dịch quẹt/trả, thẻ chỉ hiện "hạn mức khả dụng" theo mail gần nhất, và
-  `diff` đo từ mail đầu tới mail gần nhất (khả dụng phải giảm đúng bằng phần dư nợ sổ ghi tăng). Mail KHÔNG có
-  hạn mức TỔNG nên đừng suy dư nợ từ hạn mức. Hai chuyện phải nhớ khi đối chiếu hạn mức (soi dữ liệu thật
-  10/9/2026):
+- **Thẻ tín dụng: KHAI HẠN MỨC THẺ, không khai dư nợ** (chủ app chốt 11/9/2026, thay luật "không khai gì" ngày
+  10/9 vì chờ mail báo hạn mức khả dụng thì số cứ lệch). Ô "Hạn mức thẻ" ở form nguồn ghi vào
+  `household_source.credit_limit`; **hạn mức còn** = hạn mức khai − phần đã quẹt chưa trả (trừ giao dịch quẹt,
+  cộng lại giao dịch hoàn tiền / trả thẻ) — `sourceBalances` trả `limitUsed` + `available`, sổ có số ngay
+  không phải chờ mail. Để trống ô hạn mức thì app quay về hiện hạn mức khả dụng theo mail gần nhất như bản
+  10/9. Thẻ còn khoản quẹt CŨ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn mức (app cố ý không cho
+  khai dư nợ thẻ, và **không** tự căn lại — xem `syncBalance` đã bỏ ở gạch đầu dòng trên). Bốn chuyện phải nhớ:
   1. **Thẻ thông là quan hệ CÓ HƯỚNG** (`household_source.limit_shares_with`, chủ app chốt 10/9/2026):
      khai "thẻ thông của thẻ A là B" nghĩa là giao dịch của A cũng làm đổi hạn mức khả dụng của B. Thực tế
      nhà chủ app: 4768 → 3065 và 8867 → 3065 (mỗi thẻ hạn mức riêng, trả vào thẻ nào chỉ thẻ đó tăng, nhưng
      3065 ăn theo cả hai), **3065 để trống**; hai thẻ của vợ thông nhau nên khai TRỎ LẪN NHAU. App không tự
-     khai hộ chiều ngược lại — chiều nào có thật chỉ chủ app biết. Đối chiếu: hạn mức của thẻ X đổi theo
-     giao dịch của chính X và của mọi thẻ trỏ về X (`affectsLimitOf`); test "thẻ thông có hướng" khoá lại.
-     **Hạn mức mỗi thẻ một khác vẫn đúng** vì chỉ so CHÊNH giữa hai lần ngân hàng báo của CÙNG một thẻ,
-     không bao giờ so số tuyệt đối giữa các thẻ. Cộng nhầm cả cụm cho thẻ hạn mức riêng là báo lệch oan cả
-     trăm nghìn (8867 từng lệch 748.922đ).
-  2. **KHÔNG có ngưỡng bỏ qua** — lệch bao nhiêu báo bấy nhiêu (chủ app chốt 10/9/2026: phải khớp từng đồng,
+     khai hộ chiều ngược lại — chiều nào có thật chỉ chủ app biết. Hệ quả cho hạn mức còn: `limitUsed` của
+     thẻ X cộng phần đã quẹt chưa trả của chính X **và của mọi thẻ trỏ về X** (`affectsLimitOf`), từng thẻ
+     kẹp ≥ 0 để thẻ đang "trả quá" không nới hạn mức cho thẻ khác. Cộng nhầm cả cụm cho thẻ hạn mức riêng là
+     báo lệch oan cả trăm nghìn (8867 từng lệch 748.922đ); test "thẻ thông có hướng" khoá lại.
+  2. **Đối chiếu với mail** (`reconcileSources`, `bankCheck` của bot): thẻ ĐÃ khai hạn mức thì so số tuyệt
+     đối — hạn mức còn theo sổ **tính tại đúng thời điểm mail gần nhất** so với hạn mức khả dụng trong mail
+     ấy (không so số lúc này: sổ có thể đã ghi thêm giao dịch sau mail). `diff` > 0 = sổ còn nhiều hạn mức
+     hơn ngân hàng → thiếu khoản quẹt, hoặc ô hạn mức khai to quá. Thẻ CHƯA khai hạn mức thì vẫn đo CHÊNH
+     giữa mail đầu và mail gần nhất như bản 10/9 (mail không có hạn mức TỔNG nên không suy ra dư nợ được).
+  3. **KHÔNG có ngưỡng bỏ qua** — lệch bao nhiêu báo bấy nhiêu (chủ app chốt 10/9/2026: phải khớp từng đồng,
      lệch thẻ nào thì tự tra soát thẻ đó). Từng có `cardDiffTolerance` bỏ qua lệch nhỏ, đã gỡ. Biết trước hai
      nguồn lệch để khỏi hoảng: **hoàn tiền vào lại hạn mức chậm cả ngày** (mail hoàn tiền báo hạn mức y
      nguyên, hôm sau mới cộng — nhìn hai mail liên tiếp là thấy bù nhau), và **mail ngân hàng không gửi**
      (thực tế 10/9/2026 có khoản trả thẻ không có mail). Ngoài ra vài bước một-giao-dịch vẫn lệch trăm đồng
-     (quẹt 180.000 mà hạn mức tụt 180.148) — chưa giải thích được, cứ để nó báo. "Đã quẹt chưa trả" trả hết là **về 0** — KHÔNG có "trả dư"
-  (trả thẻ chỉ là trả nợ thẻ); xuống dưới 0 nghĩa là sổ thiếu khoản quẹt, kẹp hiển thị về 0 và báo phần
-  thiếu, tổng "Nợ thẻ" cũng kẹp từng thẻ về 0 để thẻ thiếu không ăn bớt nợ thẻ khác.
-- **Thẻ thông** (`household_source.limit_group`, chủ app 10/9/2026): hai thẻ dùng chung một hạn mức thì quẹt
-  thẻ A xong, mail của thẻ B báo hạn mức khả dụng đã trừ luôn khoản của A — tính riêng từng thẻ là báo lệch
-  oan. Khai bằng ô "Thẻ thông (chung hạn mức)" ở form nguồn (chọn thẻ kia, **không** khai số hạn mức);
-  `HouseholdConfigService.limitGroupFor` cho cả hai thẻ cùng mã `g<id>`, `limitGroupKey` gom nhóm và phần
-  quẹt trong `reconcileSources` cộng cả nhóm. Chỉ so phần CHÊNH giữa hai lần ngân hàng báo nên **hai thẻ
-  khác hạn mức nhau vẫn đúng**. Chưa khai mà lệch đúng bằng tiền quẹt của một thẻ khác thì bot Telegram mách
-  "hai thẻ này có vẻ thẻ thông" thay vì bắt đi tìm giao dịch thiếu.
+     (quẹt 180.000 mà hạn mức tụt 180.148) — chưa giải thích được, cứ để nó báo. Chưa khai thẻ thông mà lệch
+     đúng bằng phần đã quẹt của một thẻ khác thì bot mách "hai thẻ này có vẻ thẻ thông" thay vì bắt đi tìm
+     giao dịch thiếu.
+  4. **"Đã quẹt chưa trả" trả hết là về 0** — KHÔNG có "trả dư" (trả thẻ chỉ là trả nợ thẻ); xuống dưới 0
+     nghĩa là sổ thiếu khoản quẹt, kẹp hiển thị về 0 và báo phần thiếu, tổng "Nợ thẻ" cũng kẹp từng thẻ về 0
+     để thẻ thiếu không ăn bớt nợ thẻ khác. Ngược lại `limitUsed` vượt hạn mức khai thì hạn mức còn kẹp về 0
+     và thẻ nguồn báo phần vượt.
 - Toán ở `household-month.ts` (thuần, có test `test/household.test.js`): `sourceBalances`, `monthReport`,
   `recurringExpectations`, `matchRecurring`. **Luật chủ app chốt 9/9/2026**: quẹt thẻ là chi tiêu lúc quẹt,
   trả thẻ chỉ là chuyển nguồn; trả nợ vay tính vào "dùng" cả gốc lẫn lãi, gốc trừ dư nợ; giao dịch chưa có

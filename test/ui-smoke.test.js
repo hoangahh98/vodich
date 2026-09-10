@@ -677,12 +677,12 @@ function householdLocals(section, over = {}) {
     { id: 12n, name: 'Ăn uống', kind: 'LIVING', monthlyPlan: 5000000, active: true },
   ];
   const recurrings = [{ id: 21n, name: 'Tiền học', kind: 'EXPENSE', sourceId: 1n, targetSourceId: null, purposeId: 12n, amount: 2000000, interestMode: 'NONE', dayOfMonth: 10, startMonth: '2026-09', endMonth: null, active: true, note: '', source: sources[0], targetSource: null }];
-  // Số dư sau khi đối chiếu mail: Timo có mail báo số dư (lệch 150k = còn giao dịch chưa ghi), thẻ MSB
-  // có mail báo hạn mức khả dụng (mail không có hạn mức tổng nên không suy ra dư nợ).
+  // Số dư sau khi đối chiếu mail: Timo có mail báo số dư (lệch 150k = còn giao dịch chưa ghi); thẻ MSB đã
+  // khai hạn mức nên hạn mức còn do sổ tính, thẻ MSB phụ chưa khai nên lấy số ngân hàng báo trong mail.
   const balances = [
-    { source: { ...sources[0], id: '1' }, balance: 9850000, available: 0, reported: { value: 9850000, at: new Date('2026-09-05T03:00:00Z'), txId: '32' }, reportedAvailable: null, diff: 150000, anchored: true },
-    { source: { ...sources[1], id: '2' }, balance: 86093, available: 0, reported: null, reportedAvailable: { value: 16927825, at: new Date('2026-09-07T11:22:00Z'), txId: '31' }, diff: 0, anchored: false },
-    { source: { ...sources[2], id: '3' }, balance: 0, available: 0, reported: null, reportedAvailable: null, diff: 0, anchored: false },
+    { source: { ...sources[0], id: '1' }, balance: 9850000, limitUsed: 0, available: 0, reported: { value: 9850000, at: new Date('2026-09-05T03:00:00Z'), txId: '32' }, reportedAvailable: null, diff: 150000, anchored: true },
+    { source: { ...sources[1], id: '2' }, balance: 86093, limitUsed: 86093, available: 19913907, reported: null, reportedAvailable: { value: 16927825, at: new Date('2026-09-07T11:22:00Z'), txId: '31' }, diff: 0, anchored: false },
+    { source: { ...sources[2], id: '3' }, balance: 0, limitUsed: 0, available: 0, reported: null, reportedAvailable: null, diff: 0, anchored: false },
   ];
   const transactions = [
     { id: '31', kind: 'EXPENSE', sourceId: '2', targetSourceId: null, purposeId: null, recurringId: null, amount: 86093, interest: 0, month: '2026-09', status: 'NEW', occurredAt: new Date('2026-09-07T11:22:00Z'), description: 'Shopee', sourceName: 'Thẻ MSB', targetName: '', purposeName: '', purposeKind: '', recurringName: '' },
@@ -746,9 +746,11 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(sources, /name="matchKey"/, 'nguồn phải khai được số tài khoản / 4 số cuối thẻ');
   assert.match(sources, /data-source-kind/, 'form nguồn ẩn/hiện ô theo loại');
   assert.doesNotMatch(sources, /statementDay/, 'ngày sao kê đã bỏ khỏi form theo ý chủ app');
-  assert.match(sources, /Hạn mức còn/, 'ô đầu của thẻ tín dụng là hạn mức còn ngân hàng báo, không phải nợ hiện tại');
+  assert.match(sources, /Hạn mức còn/, 'ô đầu của thẻ tín dụng là hạn mức còn, không phải nợ hiện tại');
   assert.match(sources, /Đã quẹt chưa trả/, 'số cộng từ sổ của thẻ gọi đúng tên: đã quẹt chưa trả');
-  assert.doesNotMatch(sources, /name="creditLimit"/, 'hạn mức thẻ không còn khai tay (thẻ thông dùng chung hạn mức)');
+  assert.match(sources, /name="creditLimit"/, 'thẻ tín dụng khai được hạn mức thẻ (chủ app 11/9/2026)');
+  assert.match(sources, /19913907đ/, 'hạn mức còn của thẻ đã khai hạn mức lấy theo sổ');
+  assert.match(sources, /Ngân hàng báo còn/, 'vẫn hiện số ngân hàng báo để so mắt thường');
   assert.match(sources, /<option value="INVEST"/, 'loại nguồn có Đầu tư và Tiết kiệm');
   assert.match(sources, /name="limitSharesWith"/, 'thẻ tín dụng khai được thẻ thông');
   assert.match(sources, /thông sang Thẻ MSB phụ/, 'thẻ đã khai thẻ thông thì hiện huy hiệu chiều đi');

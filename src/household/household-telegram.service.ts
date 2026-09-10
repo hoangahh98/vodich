@@ -372,15 +372,19 @@ export class HouseholdTelegramService {
    * với sổ và **báo lệch**, KHÔNG tự căn lại số đầu kỳ nữa (chủ app 10/9/2026: tự bù là mất dấu khoản
    * thiếu và số tiền thật còn lại thành sai; lệch thì nói ra để chủ app thêm giao dịch tay).
    *
-   * Mốc so là mail TRƯỚC ĐÓ của chính nguồn này: từ mốc tới giờ, số dư phải đổi đúng bằng dòng tiền đã
-   * ghi (thẻ thì hạn mức khả dụng giảm đúng bằng phần dư nợ tăng). Lần đầu ngân hàng báo số dư cho một
-   * tài khoản thì chưa có gì để so — lấy luôn số ấy làm mốc (suy ngược số đầu kỳ), vì tài khoản Timo
-   * không khai số dư bằng tay. Thẻ tín dụng không lấy mốc: mail chỉ có hạn mức khả dụng, không có hạn
-   * mức tổng nên không suy ra được dư nợ.
+   * THẺ ĐÃ KHAI HẠN MỨC (chủ app 11/9/2026): hạn mức còn do SỔ tính (hạn mức khai − đã quẹt chưa trả),
+   * nên so thẳng số ấy với hạn mức khả dụng trong mail này — so được ngay từ mail ĐẦU TIÊN, không phải
+   * chờ có hai mail như trước.
    *
-   * THẺ THÔNG (`limitGroup`): quẹt thẻ A thì hạn mức khả dụng báo trong mail của thẻ B cũng đã trừ khoản
-   * ấy, nên phần quẹt tính trên CẢ NHÓM. Chưa khai nhóm mà lệch đúng bằng tiền quẹt của một thẻ khác thì
-   * bot mách "hai thẻ này có vẻ thẻ thông" thay vì bắt đi tìm giao dịch thiếu.
+   * Thẻ CHƯA khai hạn mức và tài khoản: mốc so là mail TRƯỚC ĐÓ của chính nguồn này — từ mốc tới giờ, số
+   * dư phải đổi đúng bằng dòng tiền đã ghi (thẻ thì hạn mức khả dụng giảm đúng bằng phần dư nợ tăng). Lần
+   * đầu ngân hàng báo số dư cho một tài khoản thì chưa có gì để so — lấy luôn số ấy làm mốc (suy ngược số
+   * đầu kỳ), vì tài khoản Timo không khai số dư bằng tay; thẻ chưa khai hạn mức thì không lấy mốc được vì
+   * mail chỉ có hạn mức khả dụng.
+   *
+   * THẺ THÔNG (`affectsLimitOf`, quan hệ CÓ HƯỚNG): quẹt thẻ A thì hạn mức khả dụng báo trong mail của thẻ
+   * B cũng đã trừ khoản ấy, nên phần quẹt tính trên cả cụm. Chưa khai mà lệch đúng bằng tiền quẹt của một
+   * thẻ khác thì bot mách "hai thẻ này có vẻ thẻ thông" thay vì bắt đi tìm giao dịch thiếu.
    */
   private async bankCheck(householdId: bigint, source: HouseholdSource, parsed: ParsedBankMessage, transactionId: bigint): Promise<string> {
     const card = source.kind === 'CARD';
@@ -407,6 +411,28 @@ export class HouseholdTelegramService {
       return sourceBalances([{ ...item, openingBalance: 0 }], inRange).get(item.id)?.balance ?? 0;
     };
     const now = { at: parsed.occurredAt, id: transactionId };
+    const cardRows = cards.map(toSourceRow);
+    // Phần hạn mức đang bị chiếm tính TỚI mail này: đã quẹt chưa trả của chính thẻ + mọi thẻ trỏ về nó.
+    const limitUsedNow = () =>
+      cardRows
+        .filter((item) => affectsLimitOf(item, self))
+        .reduce((sum, item) => sum + Math.max(0, item.openingBalance + flowBetween(item, null, now)), 0);
+    if (card && Number(source.creditLimit)) {
+      const ours = Number(source.creditLimit) - limitUsedNow();
+      const diff = Math.round(ours - reported);
+      const head = `Hạn mức còn ${source.name}: ${formatMoney(ours)}đ`;
+      if (!diff) return head;
+      // Lệch đúng bằng phần đã quẹt của một thẻ ngoài cụm → gần như chắc chắn quẹt thẻ ấy ăn vào thẻ này.
+      const twin = cardRows.find(
+        (item) => item.id !== self.id && !affectsLimitOf(item, self) && Math.round(Math.max(0, item.openingBalance + flowBetween(item, null, now))) === diff,
+      );
+      if (twin) {
+        return `${head} (ngân hàng báo ${formatMoney(reported)}đ)
+⚠ Lệch ${formatMoney(Math.abs(diff))}đ, đúng bằng phần đã quẹt chưa trả của thẻ ${twin.name} — quẹt thẻ ấy có vẻ ăn luôn vào hạn mức thẻ này (THẺ THÔNG). Vào Nguồn tiền sửa thẻ ${twin.name}, chọn "Thẻ thông của thẻ này" là ${source.name} là hết báo lệch.`;
+      }
+      return `${head} (ngân hàng báo ${formatMoney(reported)}đ)
+⚠ Lệch ${formatMoney(Math.abs(diff))}đ — thiếu ${diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ'} chưa ghi, hoặc ô Hạn mức thẻ khai chưa đúng. Vào web xem lại (app không tự bù).`;
+    }
     if (!previous) {
       if (card) return `${label}: ${formatMoney(reported)}đ`;
       // Số đầu kỳ sao cho tới đúng giao dịch này sổ ra số ngân hàng báo — chỉ làm MỘT LẦN, mail sau chỉ so.
@@ -416,7 +442,6 @@ export class HouseholdTelegramService {
     const base = Number(card ? previous.reportedAvailable : previous.reportedBalance);
     const from = { at: previous.occurredAt, id: previous.id };
     // Hạn mức khả dụng của thẻ này đổi theo giao dịch của CHÍNH NÓ và của mọi thẻ khai thẻ thông là nó.
-    const cardRows = cards.map(toSourceRow);
     const feeding = cardRows.filter((item) => affectsLimitOf(item, self));
     const flow = (feeding.length ? feeding : [self]).reduce((sum, item) => sum + flowBetween(item, from, now), 0);
     // Tài khoản: số dư = mốc + dòng tiền sau mốc. Thẻ: dư nợ tăng bao nhiêu thì khả dụng giảm bấy nhiêu.
