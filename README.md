@@ -200,7 +200,8 @@ Trong app: nguồn Timo để trống số tài khoản (mail Timo không ghi s�
   Tổng quan và tin Telegram để bạn thêm giao dịch còn thiếu bằng tay — app **không** tự bù. Chỉ mail đầu tiên
   của một tài khoản được lấy làm mốc. Ô "Số dư" ở Nguồn tiền nhập số HIỆN TẠI, app tự suy số đầu kỳ.
 - **Thẻ tín dụng**: không khai hạn mức lẫn dư nợ. Thẻ hiện "Hạn mức còn" theo mail gần nhất (mail báo hạn mức
-  khả dụng SAU khi đã cộng/trừ khoản của chính giao dịch ấy) và "Đã quẹt chưa trả" cộng từ giao dịch. Hai thẻ
+  khả dụng SAU khi đã cộng/trừ khoản của chính giao dịch ấy) và "Đã quẹt chưa trả" cộng từ giao dịch — trả hết
+  là về 0, không có khái niệm "trả dư"; xuống dưới 0 là SỔ THIẾU khoản quẹt và app báo đúng phần thiếu ấy. Hai thẻ
   dùng chung hạn mức thì khai ô **Thẻ thông** (chọn thẻ kia) để app cộng tiền quẹt cả nhóm, khỏi báo lệch oan.
 - **Mail "Biến động thanh toán thẻ tín dụng"** (hoàn tiền hoặc mình trả nợ thẻ): trùng với một lần trả thẻ đã
   ghi (cùng số, ±3 ngày) thì bỏ qua; còn lại ghi là hoàn tiền vào thẻ — bot chỉ báo một dòng "Hoàn tiền vào thẻ

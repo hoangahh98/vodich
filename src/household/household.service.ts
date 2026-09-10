@@ -210,9 +210,11 @@ export class HouseholdService {
       saving: sumOf((kind) => kind === 'SAVING'),
       invest: sumOf((kind) => kind === 'INVEST'),
       saved: sumOf(isSavedSource),
-      /** Đã quẹt chưa trả của mọi thẻ tín dụng (không có hạn mức tổng nên đây không phải dư nợ ngân hàng). */
-      cardDebt: sumOf((kind) => kind === 'CARD'),
-      debt: sumOf((kind) => ['CARD', 'LOAN'].includes(kind)),
+      // Đã quẹt chưa trả của mọi thẻ (không có hạn mức tổng nên đây không phải dư nợ ngân hàng). Thẻ trả
+      // nhiều hơn phần sổ ghi được thì phần âm là SỔ THIẾU giao dịch, không phải "trả dư" — kẹp về 0 để nó
+      // không ăn bớt nợ của thẻ khác (chủ app 10/9/2026).
+      cardDebt: balanceList.filter((item) => item.source.kind === 'CARD').reduce((sum, item) => sum + Math.max(0, item.balance), 0),
+      debt: balanceList.filter((item) => ['CARD', 'LOAN'].includes(item.source.kind)).reduce((sum, item) => sum + Math.max(0, item.balance), 0),
       lent: sumOf((kind) => kind === 'LENT'),
     };
     // Cho vay ghi bằng mục đích (không cần nguồn riêng) — gom theo nội dung, cộng vào tổng cho vay.

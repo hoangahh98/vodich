@@ -9,8 +9,7 @@
         <span class="chip"><%- include('../../partials/icon', { name: 'wallet' }) %>Tiền có <%= formatMoney(totals.cash) %>đ</span>
         <% if (totals.saving) { %><span class="chip"><%- include('../../partials/icon', { name: 'save' }) %>Tiết kiệm <%= formatMoney(totals.saving) %>đ</span><% } %>
         <% if (totals.invest) { %><span class="chip"><%- include('../../partials/icon', { name: 'chart' }) %>Đầu tư <%= formatMoney(totals.invest) %>đ</span><% } %>
-        <%# Trả dư (hiếm) thì đổi tên ô, không hiện số âm — chủ app 10/9/2026. %>
-        <% if (totals.cardDebt) { %><span class="chip"><%- include('../../partials/icon', { name: 'card' }) %><%= totals.cardDebt < 0 ? 'Thẻ trả dư ' : 'Nợ thẻ ' %><%= formatMoney(Math.abs(totals.cardDebt)) %>đ</span><% } %>
+        <% if (totals.cardDebt) { %><span class="chip"><%- include('../../partials/icon', { name: 'card' }) %>Nợ thẻ <%= formatMoney(totals.cardDebt) %>đ</span><% } %>
         <span class="chip"><%- include('../../partials/icon', { name: 'scale' }) %>Đang nợ <%= formatMoney(totals.debt) %>đ</span>
         <% if (totals.lent) { %><span class="chip"><%- include('../../partials/icon', { name: 'coin' }) %>Cho vay <%= formatMoney(totals.lent) %>đ</span><% } %>
         <% if (linked) { %><span class="chip lime"><%- include('../../partials/icon', { name: 'bolt' }) %>Telegram đã nối</span><% } %>

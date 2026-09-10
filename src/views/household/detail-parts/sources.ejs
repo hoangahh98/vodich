@@ -61,10 +61,10 @@
               chỉ là "đã quẹt chưa trả" — không có hạn mức tổng thì nó không phải dư nợ thật của thẻ. %>
           <% if (item.source.kind === 'CARD') { %>
             <div class="kv"><span>Hạn mức còn</span><strong><% if (item.reportedAvailable) { %><%= formatMoney(item.reportedAvailable.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reportedAvailable.at) %></small><% } else { %>—<br><small class="muted">chờ mail ngân hàng</small><% } %></strong></div>
-            <%# Số này chỉ đếm những gì SỔ ghi được: quẹt cộng vào, thanh toán / hoàn tiền trừ đi. Trả nhiều
-                hơn phần sổ ghi được thì ĐỔI TÊN ô thành "Đã trả dư" và để số DƯƠNG — chủ app 10/9/2026:
-                đừng bao giờ hiện số âm ở đây, nhìn dễ hiểu nhầm là thẻ đang nợ. %>
-            <div class="kv"><span><%= item.balance < 0 ? 'Đã trả dư' : 'Đã quẹt chưa trả' %></span><strong class="<%= item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(Math.abs(item.balance)) %>đ</strong><% if (item.balance < 0) { %><small class="muted">thanh toán nhiều hơn phần sổ ghi được — khoản quẹt từ trước khi dùng app không có trong sổ</small><% } %></div>
+            <%# Số này chỉ đếm những gì SỔ ghi được: quẹt cộng vào, trả thẻ trừ đi. Trả hết là về 0 — KHÔNG
+                có chuyện "trả dư" (thẻ không có hạn mức tổng trong app, trả thẻ chỉ là trả nợ thẻ, chủ app
+                10/9/2026). Xuống dưới 0 nghĩa là SỔ THIẾU khoản quẹt: kẹp về 0 và báo phần thiếu. %>
+            <div class="kv"><span>Đã quẹt chưa trả</span><strong class="<%= item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(Math.max(0, item.balance)) %>đ</strong></div>
           <% } else { %>
             <div class="kv"><span><%= debt ? 'Nợ hiện tại' : lent ? 'Đã cho vay' : 'Số dư' %></span><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong></div>
           <% } %>
@@ -73,6 +73,9 @@
           <% if (item.reported) { %><div class="kv"><span>Ngân hàng báo</span><strong><%= formatMoney(item.reported.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reported.at) %></small></strong></div><% } %>
         </div>
         <%# Sổ lệch số ngân hàng = thiếu giao dịch. App KHÔNG tự bù (chủ app 10/9/2026) — nhắc để thêm tay. %>
+        <% if (item.source.kind === 'CARD' && item.balance < 0) { %>
+          <div class="alert-lite warn mt"><span>Sổ thiếu <strong><%= formatMoney(-item.balance) %>đ</strong> khoản quẹt chưa ghi: đã trả nhiều hơn phần thẻ này quẹt trong sổ. <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.</span></div>
+        <% } %>
         <% if (item.diff) { %>
           <div class="alert-lite warn mt"><span>Sổ lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng — thiếu <%= item.source.kind === 'CARD' ? (item.diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ') : item.diff > 0 ? 'khoản chi' : 'khoản thu' %> chưa ghi. <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.<% if (item.source.kind === 'CARD' && !twin) { %> Hoặc thẻ này dùng chung hạn mức với thẻ khác — bấm <strong>Sửa nguồn</strong> rồi chọn <strong>Thẻ thông</strong>.<% } %></span></div>
         <% } %>

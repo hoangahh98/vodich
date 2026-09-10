@@ -205,7 +205,9 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 - Thẻ tín dụng **không khai hạn mức lẫn dư nợ** (chủ app 10/9/2026: thẻ thông dùng chung hạn mức, khai kiểu
   gì cũng sai): dư nợ cộng từ giao dịch quẹt/trả, thẻ chỉ hiện "hạn mức khả dụng" theo mail gần nhất, và
   `diff` đo từ mail đầu tới mail gần nhất (khả dụng phải giảm đúng bằng phần dư nợ sổ ghi tăng). Mail KHÔNG có
-  hạn mức TỔNG nên đừng suy dư nợ từ hạn mức.
+  hạn mức TỔNG nên đừng suy dư nợ từ hạn mức. "Đã quẹt chưa trả" trả hết là **về 0** — KHÔNG có "trả dư"
+  (trả thẻ chỉ là trả nợ thẻ); xuống dưới 0 nghĩa là sổ thiếu khoản quẹt, kẹp hiển thị về 0 và báo phần
+  thiếu, tổng "Nợ thẻ" cũng kẹp từng thẻ về 0 để thẻ thiếu không ăn bớt nợ thẻ khác.
 - **Thẻ thông** (`household_source.limit_group`, chủ app 10/9/2026): hai thẻ dùng chung một hạn mức thì quẹt
   thẻ A xong, mail của thẻ B báo hạn mức khả dụng đã trừ luôn khoản của A — tính riêng từng thẻ là báo lệch
   oan. Khai bằng ô "Thẻ thông (chung hạn mức)" ở form nguồn (chọn thẻ kia, **không** khai số hạn mức);
