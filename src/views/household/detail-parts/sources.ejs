@@ -73,8 +73,11 @@
           <% if (item.reported) { %><div class="kv"><span>Ngân hàng báo</span><strong><%= formatMoney(item.reported.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reported.at) %></small></strong></div><% } %>
         </div>
         <%# Sổ lệch số ngân hàng = thiếu giao dịch. App KHÔNG tự bù (chủ app 10/9/2026) — nhắc để thêm tay. %>
+        <%# Dưới 0 = đã trả nhiều hơn phần quẹt SỔ ghi được. Gần như luôn là trả cho khoản quẹt có từ trước
+            khi dùng app (app không khai nợ đầu của thẻ) — nói đúng thế, đừng bảo "thiếu khoản quẹt" rồi
+            chủ app ghi thêm một khoản chi không có thật. %>
         <% if (item.source.kind === 'CARD' && item.balance < 0) { %>
-          <div class="alert-lite warn mt"><span>Sổ thiếu <strong><%= formatMoney(-item.balance) %>đ</strong> khoản quẹt chưa ghi: đã trả nhiều hơn phần thẻ này quẹt trong sổ. <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.</span></div>
+          <div class="alert-lite warn mt"><span>Đã trả nhiều hơn phần quẹt trong sổ <strong><%= formatMoney(-item.balance) %>đ</strong> — thường là trả cho khoản quẹt có trước khi dùng app, sổ chưa có. Nếu là mail quẹt bị bỏ sót thì <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">thêm giao dịch tay</a>.</span></div>
         <% } %>
         <% if (item.diff) { %>
           <div class="alert-lite warn mt"><span>Sổ lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng — thiếu <%= item.source.kind === 'CARD' ? (item.diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ') : item.diff > 0 ? 'khoản chi' : 'khoản thu' %> chưa ghi. <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.<% if (item.source.kind === 'CARD' && !twin) { %> Hoặc thẻ này dùng chung hạn mức với thẻ khác — bấm <strong>Sửa nguồn</strong> rồi chọn <strong>Thẻ thông</strong>.<% } %></span></div>
