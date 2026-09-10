@@ -752,7 +752,7 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(sources, /<option value="INVEST"/, 'loại nguồn có Đầu tư và Tiết kiệm');
   assert.match(sources, /name="limitSharesWith"/, 'thẻ tín dụng khai được thẻ thông');
   assert.match(sources, /thông sang Thẻ MSB phụ/, 'thẻ đã khai thẻ thông thì hiện huy hiệu chiều đi');
-  assert.match(sources, /ăn theo Thẻ MSB/, 'thẻ được trỏ tới hiện huy hiệu ăn theo');
+  assert.match(sources, /theo Thẻ MSB/, 'thẻ được trỏ tới hiện huy hiệu thẻ nào đang theo nó');
   assert.match(sources, /Sổ lệch/, 'nguồn lệch với ngân hàng phải nhắc thêm giao dịch tay');
   assert.match(overview, /lệch/, 'Tổng quan cũng nhắc nguồn đang lệch với ngân hàng');
 

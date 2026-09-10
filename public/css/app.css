@@ -1105,6 +1105,9 @@ select.is-warn { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-sof
 .hh-source-head > div { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .hh-source-head h3 { margin-right: 4px; }
 .hh-source-head .badge { margin-right: 4px; }
+/* Huy hiệu thẻ thông mang tên đầy đủ của thẻ khác nên rất dài — cho xuống dòng trong thẻ nguồn thay vì
+   tràn ra ngoài ô (nơi khác vẫn giữ nowrap để huy hiệu ngắn không bị gãy). */
+.hh-source-head .badge { white-space: normal; overflow-wrap: anywhere; text-align: left; max-width: 100%; }
 .hh-source-amount { text-align: right; margin-left: auto; }
 .hh-source .kv-grid { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
 .hh-source .kv { padding: 8px 10px; }
