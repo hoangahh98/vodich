@@ -115,6 +115,52 @@ export interface BankMark {
   txId: string;
 }
 
+/** Một giao dịch có mang số ngân hàng báo (mail Timo báo số dư, mail thẻ MSB báo hạn mức khả dụng). */
+export interface ReportedRow {
+  id: string;
+  sourceId: string;
+  targetSourceId: string | null;
+  reportedBalance: number | null;
+  reportedAvailable: number | null;
+  occurredAt: Date;
+}
+
+/**
+ * Gom số ngân hàng báo về đúng nguồn của nó, `rows` xếp MỚI → CŨ.
+ *
+ * Số dư thuộc phía TÀI KHOẢN, hạn mức khả dụng thuộc phía THẺ — xét RIÊNG từng số chứ không chọn
+ * chung một "phía mail" cho cả dòng: một khoản trả thẻ (chuyển Timo → thẻ) mang cả số dư Timo lẫn
+ * hạn mức khả dụng của thẻ, chọn chung thì hạn mức của thẻ bị gán nhầm sang Timo và ô "Ngân hàng báo
+ * còn" của thẻ đứng im ở mail cũ (chủ app 11/9/2026: luôn lấy theo mail gần nhất).
+ *
+ * `availableWindows`: `last` là mail GẦN NHẤT, `first` là mail CŨ NHẤT của thẻ đó.
+ */
+export function collectBankMarks(rows: ReportedRow[], kindOf: (sourceId: string) => string) {
+  const balanceMarks = new Map<string, BankMark>();
+  const availableWindows = new Map<string, { first: BankMark; last: BankMark }>();
+  // Phía nào của giao dịch là nguồn mà con số này nói về: ưu tiên nguồn, không hợp loại thì sang đích.
+  const sideOf = (row: ReportedRow, kinds: string[]) => {
+    if (kinds.includes(kindOf(row.sourceId))) return row.sourceId;
+    if (row.targetSourceId && kinds.includes(kindOf(row.targetSourceId))) return row.targetSourceId;
+    return row.sourceId;
+  };
+  for (const row of rows) {
+    const mark = (value: number): BankMark => ({ value, at: row.occurredAt, txId: row.id });
+    if (row.reportedBalance !== null) {
+      // Lần đầu gặp một nguồn là mail gần nhất của nó (danh sách đang mới → cũ).
+      const side = sideOf(row, ['BANK', 'CASH', 'SAVING', 'INVEST']);
+      if (!balanceMarks.has(side)) balanceMarks.set(side, mark(row.reportedBalance));
+    }
+    if (row.reportedAvailable !== null) {
+      const side = sideOf(row, ['CARD']);
+      const current = availableWindows.get(side);
+      const last = current ? current.last : mark(row.reportedAvailable);
+      availableWindows.set(side, { first: mark(row.reportedAvailable), last });
+    }
+  }
+  return { balanceMarks, availableWindows };
+}
+
 export interface SourceCheck extends SourceBalance {
   /** Số dư ngân hàng báo gần nhất (mail Timo). Null = ngân hàng chưa báo lần nào. */
   reported: BankMark | null;

@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const { parseBankMessage, parseVndAmount, parseVnDateTime } = require('../dist/household/bank-parsers');
-const { matchRecurring, monthReport, nextMonth, previousMonth, reconcileSources, recurringExpectations, sourceBalances } = require('../dist/household/household-month');
+const { collectBankMarks, matchRecurring, monthReport, nextMonth, previousMonth, reconcileSources, recurringExpectations, sourceBalances } = require('../dist/household/household-month');
 const { normalizeDescription } = require('../dist/household/household-rows');
 const { isTelegramMessageId, pickSource, textHash } = require('../dist/household/household-telegram.service');
 const { monthOf, normalizeMonth } = require('../dist/household/household-enums');
@@ -276,6 +276,24 @@ test('nguồn Tiết kiệm / Đầu tư: giữ số dư như tài khoản, chuy
 });
 
 // ─────────────────────────── Đối chiếu với số ngân hàng báo ───────────────────────────
+
+test('số ngân hàng báo về đúng nguồn: số dư về tài khoản, hạn mức khả dụng về thẻ', () => {
+  // Khoản TRẢ THẺ là chuyển Timo → thẻ, mang cả hai số: mail Timo báo số dư, mail thẻ báo hạn mức khả
+  // dụng vừa nhả ra. Chọn chung một "phía mail" cho cả dòng thì hạn mức của thẻ bị gán sang Timo và ô
+  // "Ngân hàng báo còn" của thẻ đứng im ở mail quẹt cũ (chủ app 11/9/2026: luôn lấy mail gần nhất).
+  const kindOf = (id) => ({ timo: 'BANK', the: 'CARD' })[id] || '';
+  const rows = [
+    // Mới → cũ: trả thẻ hôm 10/9 (mang cả hai số), quẹt thẻ hôm 8/9 (chỉ có hạn mức).
+    { id: '9', sourceId: 'timo', targetSourceId: 'the', reportedBalance: 5_000_000, reportedAvailable: 9_000_000, occurredAt: new Date('2026-09-10T03:00:00Z') },
+    { id: '8', sourceId: 'the', targetSourceId: null, reportedBalance: null, reportedAvailable: 8_000_000, occurredAt: new Date('2026-09-08T03:00:00Z') },
+  ];
+  const { balanceMarks, availableWindows } = collectBankMarks(rows, kindOf);
+  assert.equal(balanceMarks.get('timo')?.value, 5_000_000, 'số dư trong mail Timo là của Timo');
+  assert.equal(balanceMarks.has('the'), false, 'thẻ không có số dư');
+  assert.equal(availableWindows.get('the')?.last.value, 9_000_000, 'hạn mức khả dụng lấy theo mail gần nhất của thẻ');
+  assert.equal(availableWindows.get('the')?.first.value, 8_000_000, 'mail cũ nhất của thẻ là mốc đầu');
+  assert.equal(availableWindows.has('timo'), false, 'hạn mức khả dụng không bao giờ là của tài khoản');
+});
 
 test('tài khoản: mail báo số dư thì ngân hàng thắng, sổ lệch bao nhiêu thì báo bấy nhiêu (không tự bù)', () => {
   const at = new Date('2026-09-05T03:00:00Z');

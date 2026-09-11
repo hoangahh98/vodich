@@ -153,6 +153,12 @@ export class HouseholdTelegramService {
       });
       if (payment) {
         await this.prisma.householdInbox.update({ where: { id: inbox.id }, data: { status: 'IGNORED', transactionId: payment.id } });
+        // Mail này không sinh giao dịch mới, NHƯNG vẫn mang hạn mức khả dụng mới nhất của thẻ (trả thẻ
+        // xong thì hạn mức nhả ra). Ghi số ấy vào chính khoản trả thẻ đã có, không thì ô "Ngân hàng báo
+        // còn" đứng im ở mail quẹt cũ cho tới lần quẹt sau (chủ app 11/9/2026: luôn lấy mail gần nhất).
+        if (parsed.availableLimit) {
+          await this.prisma.householdTransaction.updateMany({ where: { id: payment.id, householdId: household.id }, data: { reportedAvailable: parsed.availableLimit } });
+        }
         await this.send(chatId, `Thẻ ${source.name} +${formatMoney(parsed.amount)}đ · ${when} — trùng lần trả thẻ đã ghi.`);
         return 'done';
       }
