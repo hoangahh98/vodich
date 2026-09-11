@@ -420,7 +420,8 @@ export class HouseholdTelegramService {
     if (card && Number(source.creditLimit)) {
       const ours = Number(source.creditLimit) - limitUsedNow();
       const diff = Math.round(ours - reported);
-      const head = `Hạn mức còn ${source.name}: ${formatMoney(ours)}đ`;
+      // Kèm luôn hạn mức khai để đọc tin là biết còn bao nhiêu trên bao nhiêu (chủ app 11/9/2026).
+      const head = `Hạn mức còn ${source.name}: ${formatMoney(ours)}đ trên hạn mức ${formatMoney(Number(source.creditLimit))}đ`;
       if (!diff) return head;
       // Lệch đúng bằng phần đã quẹt của một thẻ ngoài cụm → gần như chắc chắn quẹt thẻ ấy ăn vào thẻ này.
       const twin = cardRows.find(
