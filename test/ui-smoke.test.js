@@ -770,6 +770,15 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(settings, /name="playerIds"/, 'chọn được thành viên trong nhà');
   assert.doesNotMatch(settings, /purposes\/12\/delete/, 'mục Mục đích đã ẩn khỏi Cài đặt');
   assert.doesNotMatch(settings, /<tr[^>]*>\s*<form/, 'form không được nằm trong <tr>');
+
+  // Điện thoại không phải kéo ngang (chủ app 11/9/2026): Nguồn tiền ở Tổng quan bỏ hẳn <table>,
+  // mấy bảng nhiều cột còn lại phải mang .hh-stack để xếp dọc từ 640px trở xuống.
+  assert.match(overview, /class="hh-lines"/, 'Nguồn tiền ở Tổng quan là danh sách flex, không phải bảng');
+  for (const [name, html] of [['Tổng quan', overview], ['Giao dịch', transactions], ['Định kỳ', recurring], ['Cài đặt', settings]]) {
+    for (const cls of html.match(/class="table-wrap[^"]*"/g) || []) {
+      assert.match(cls, /hh-stack/, `${name}: bảng nào cũng phải xếp dọc được trên điện thoại`);
+    }
+  }
 });
 
 test('chi tiêu: thành viên (CLIENT) chỉ xem, không có form ghi và không có tab Cài đặt', async () => {

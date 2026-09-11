@@ -24,7 +24,7 @@
 
   <section class="card-lite mb">
     <div class="card-hdr blue"><span><%- include('../../partials/icon', { name: 'calendar' }) %> Tháng <%= selectedMonth %></span><span class="badge badge-dark"><%= expectations.length %> khoản</span></div>
-    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Khoản</th><th>Hạn</th><th class="text-right">Dự kiến</th><th>Trạng thái</th><% if (isAdmin) { %><th></th><% } %></tr></thead><tbody>
+    <div class="table-wrap member-table hh-stack"><table class="member-list"><thead><tr><th>Khoản</th><th>Hạn</th><th class="text-right">Dự kiến</th><th>Trạng thái</th><% if (isAdmin) { %><th></th><% } %></tr></thead><tbody>
       <% expectations.forEach((item) => { const recurring = recurrings.find((row) => row.id.toString() === item.recurring.id); %>
         <tr>
           <td><strong><%= item.recurring.name %></strong><br><span class="muted"><%= labels.tx[item.recurring.kind] %><% if (recurring.source) { %> · <%= recurring.source.name %><% } %><% if (recurring.targetSource) { %> → <%= recurring.targetSource.name %><% } %><% if (item.interest) { %> · gốc <%= formatMoney(item.principal) %>đ + lãi <%= formatMoney(item.interest) %>đ<% } %></span></td>

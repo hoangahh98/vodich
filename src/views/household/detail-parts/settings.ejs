@@ -32,7 +32,7 @@
   <section class="card-lite p mb">
     <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'users' }) %> Thành viên trong nhà</h2>
     <p class="muted">Thành viên đăng nhập bằng email trong danh sách Thành viên (mật khẩu chung như vận động viên) và chỉ XEM được hộ này.</p>
-    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Tên</th><th>Email</th><th></th></tr></thead><tbody>
+    <div class="table-wrap member-table hh-stack"><table class="member-list"><thead><tr><th>Tên</th><th>Email</th><th></th></tr></thead><tbody>
       <% members.forEach((access) => { %>
         <tr><td><strong><%= access.player.displayName %></strong></td><td><%= access.player.email %></td><td class="text-right row-action"><form method="post" action="/household/<%= household.id %>/members/<%= access.id %>/delete" data-confirm="Bỏ quyền xem của <%= access.player.displayName %>?"><button class="btn btn-sm btn-danger btn-icon" aria-label="Bỏ" data-loading-text="…"><%- include('../../partials/icon', { name: 'trash' }) %></button></form></td></tr>
       <% }) %>

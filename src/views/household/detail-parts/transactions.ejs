@@ -31,7 +31,7 @@
 
   <section class="card-lite mb">
     <div class="card-hdr blue"><span><%- include('../../partials/icon', { name: 'list' }) %> Tháng <%= selectedMonth %></span><span class="badge badge-dark">Thu <%= formatMoney(report.income) %>đ · dùng <%= formatMoney(report.used) %>đ</span></div>
-    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Ngày</th><th>Nội dung</th><th>Nguồn</th><th class="text-right">Tiền</th><th>Mục đích</th><% if (isAdmin) { %><th></th><% } %></tr></thead><tbody>
+    <div class="table-wrap member-table hh-stack hh-stack-tx"><table class="member-list"><thead><tr><th>Ngày</th><th>Nội dung</th><th>Nguồn</th><th class="text-right">Tiền</th><th>Mục đích</th><% if (isAdmin) { %><th></th><% } %></tr></thead><tbody>
       <% transactions.forEach((tx) => { %>
         <tr class="<%= tx.status === 'NEW' ? 'hh-new' : '' %>">
           <td class="nowrap"><%= fmtDateTime(tx.occurredAt) %></td>

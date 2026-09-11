@@ -1121,3 +1121,54 @@ select.is-warn { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-sof
 .hh-review { display: flex; gap: 6px; align-items: center; }
 .hh-review select { min-width: 140px; }
 .field-static { min-height: 44px; display: flex; align-items: center; padding: 8px 12px; border: 1px dashed var(--line); border-radius: var(--radius-sm); background: var(--paper); color: var(--muted); font-weight: 600; }
+
+/* ─── Chi tiêu trên điện thoại (11/9/2026) ──────────────────────────────────────────────────
+   Chủ app: bảng Nguồn tiền ở Tổng quan và bảng giao dịch "phải kéo sang ngang, trông rất là
+   stupid". Hai cách chữa, dùng đúng chỗ:
+   - Danh sách chỉ có tên + một con số (Nguồn tiền ở Tổng quan) thì BỎ HẲN thẻ <table>, xếp
+     bằng flex: tên trái, số phải, hẹp quá thì số tự tụt xuống dòng. Không bao giờ có gì để kéo.
+   - Bảng thật nhiều cột (giao dịch, định kỳ, thành viên) thì giữ <table> cho máy tính, còn từ
+     640px trở xuống .hh-stack bẻ mỗi hàng thành một khối xếp dọc và giấu đầu bảng đi. */
+.hh-lines { border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
+.hh-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 14px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+.hh-line:last-child { border-bottom: 0; }
+.hh-line-name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
+.hh-line-num { margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; }
+.hh-line-num strong { font-family: var(--display); font-size: 17px; font-weight: 600; }
+.hh-line-num small { display: block; font-size: 12px; line-height: 1.4; }
+
+@media (max-width: 640px) {
+  .hh-line { padding: 12px 14px; }
+  .hh-stack { overflow-x: visible; }
+  .hh-stack thead { display: none; }
+  .hh-stack table, .hh-stack tbody, .hh-stack tr, .hh-stack td { display: block; width: auto; }
+  .hh-stack tr { padding: 12px 14px; border-bottom: 1px solid var(--line); }
+  .hh-stack tr:last-child { border-bottom: 0; }
+  .hh-stack td, .hh-stack td:first-child, .hh-stack td:last-child { border: 0; padding: 3px 0; }
+  .hh-stack td:empty { display: none; }
+  .hh-stack .text-right, .hh-stack .row-action { text-align: left; }
+  .hh-stack .paid-cell { white-space: normal; }
+  .hh-stack .row-action { width: auto; }
+  /* Vạch lime của khoản "chưa xác nhận" chuyển sang cả hàng, vì ô đầu không còn cao bằng hàng nữa. */
+  .hh-new td:first-child { box-shadow: none; }
+  .hh-stack tr.hh-new { box-shadow: inset 3px 0 0 var(--lime-2); }
+  /* Bảng giao dịch: ngày và tiền chung một dòng, còn lại mỗi thứ một dòng. Ô nút Sửa ăn trọn
+     chiều ngang nên form sửa mở ra được cả hàng, không bị kẹp trong cột cuối như trước. */
+  .hh-stack-tx tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+  .hh-stack-tx td:nth-child(1) { grid-area: 1 / 1; }
+  .hh-stack-tx td:nth-child(4) { grid-area: 1 / 2; text-align: right; }
+  .hh-stack-tx td:nth-child(2) { grid-area: 2 / 1 / auto / -1; }
+  .hh-stack-tx td:nth-child(3) { grid-area: 3 / 1 / auto / -1; }
+  .hh-stack-tx td:nth-child(5) { grid-area: 4 / 1 / auto / -1; }
+  .hh-stack-tx td:nth-child(6) { grid-area: 5 / 1 / auto / -1; }
+  .hh-stack-tx td[colspan] { grid-area: auto / 1 / auto / -1; }
+  .hh-stack-tx .hh-review { width: 100%; }
+  .hh-stack-tx .hh-review select { width: 100%; min-width: 0; }
+  /* Ô cuối bảng để form nằm inline-block cho nút Sửa / Xoá đứng cạnh nhau — xếp dọc rồi thì form
+     sửa phải ăn trọn chiều ngang, không thì nó co lại còn 2/3 hàng và nút Xoá nhảy lên bên cạnh. */
+  .hh-stack .row-action form { display: block; width: 100%; }
+  .hh-stack .row-action form.hh-form { display: grid; }
+  /* Form sửa nằm trong hàng đã xếp dọc: một cột thôi. Hai cột thì mỗi ô chỉ ~150px, tên nguồn dài
+     là bị cắt cụt ngay trong ô chọn. */
+  .hh-stack .hh-form-inline { grid-template-columns: 1fr; }
+}

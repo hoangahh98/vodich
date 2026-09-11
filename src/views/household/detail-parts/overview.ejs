@@ -40,7 +40,7 @@
   <% if (pendingExpectations.length) { %>
     <section class="card-lite mb">
       <div class="card-hdr warn"><span><%- include('../../partials/icon', { name: 'clock' }) %> Khoản định kỳ chưa ghi nhận</span><span class="badge badge-dark"><%= pendingExpectations.length %> khoản · <%= formatMoney(pendingExpectations.reduce((sum, item) => sum + item.expected, 0)) %>đ</span></div>
-      <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Khoản</th><th>Hạn</th><th class="text-right">Dự kiến</th><% if (isAdmin) { %><th></th><% } %></tr></thead><tbody>
+      <div class="table-wrap member-table hh-stack"><table class="member-list"><thead><tr><th>Khoản</th><th>Hạn</th><th class="text-right">Dự kiến</th><% if (isAdmin) { %><th></th><% } %></tr></thead><tbody>
         <% pendingExpectations.forEach((item) => { %>
           <tr><td><strong><%= item.recurring.name %></strong><% if (item.interest) { %><br><span class="muted">gốc <%= formatMoney(item.principal) %>đ + lãi <%= formatMoney(item.interest) %>đ</span><% } %></td><td class="nowrap"><%= fmtDate(item.dueDate) %><% if (item.overdue) { %> <span class="badge bg-danger">quá hạn</span><% } %></td><td class="text-right paid-cell"><strong><%= formatMoney(item.expected) %></strong><span class="muted">đ</span></td><% if (isAdmin) { %><td class="text-right row-action"><form method="post" action="/household/<%= household.id %>/recurring/<%= item.recurring.id %>/record" data-confirm="Ghi nhận đã trả '<%= item.recurring.name %>' <%= formatMoney(item.expected) %>đ?"><input type="hidden" name="month" value="<%= selectedMonth %>"><button class="btn btn-sm btn-success" data-loading-text="…">Ghi nhận</button></form></td><% } %></tr>
         <% }) %>
@@ -50,19 +50,24 @@
 
   <section class="card-lite mb">
     <div class="card-hdr blue"><span><%- include('../../partials/icon', { name: 'card' }) %> Nguồn tiền</span><span class="badge badge-dark"><%= balances.filter((item) => item.source.active).length %> nguồn</span></div>
-    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Nguồn</th><th>Loại</th><th class="text-right">Số dư / dư nợ</th></tr></thead><tbody>
+    <%# Danh sách này chỉ có tên + một con số nên KHÔNG dùng bảng: trên điện thoại bảng ba cột bắt
+        kéo ngang mới đọc hết (chủ app 11/9/2026). Flex thì hẹp quá số tự tụt xuống dòng dưới tên. %>
+    <div class="hh-lines">
       <% balances.filter((item) => item.source.active).forEach((item) => { const debt = ['CARD', 'LOAN'].includes(item.source.kind); const cardLimit = Number(item.source.creditLimit); %>
-        <tr><td><strong><%= item.source.name %></strong></td><td><span class="badge"><%= labels.source[item.source.kind] %></span></td><%# Thẻ tín dụng: số chính là HẠN MỨC CÒN — hạn mức khai trừ đã quẹt chưa trả (chủ app 11/9/2026), thẻ chưa khai hạn mức thì lấy số ngân hàng báo. %>
-        <td class="text-right paid-cell"><% if (item.source.kind === 'CARD') { %><strong><%= cardLimit ? 'còn ' + formatMoney(item.available) : item.reportedAvailable ? 'còn ' + formatMoney(item.reportedAvailable.value) : '—' %></strong><span class="muted">đ</span><br><span class="muted"><% if (cardLimit) { %>trên hạn mức <%= formatMoney(cardLimit) %>đ · <% } %>đã quẹt chưa trả <%= formatMoney(Math.max(0, item.balance)) %>đ<% if (cardLimit && item.limitUsed > Math.max(0, item.balance)) { %> · đã dùng <%= formatMoney(item.limitUsed) %>đ tính cả thẻ ăn theo<% } else if (!cardLimit && item.reportedAvailable) { %> · ngân hàng báo, chưa khai hạn mức thẻ<% } %></span><% if (item.balance < 0) { %><br><span class="text-danger">đã trả quá <%= formatMoney(-item.balance) %>đ so với phần quẹt trong sổ</span><% } %><% } else { %><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt && item.balance > 0 ? 'nợ ' : '' %><%= formatMoney(item.balance) %></strong><span class="muted">đ</span><% if (item.reported) { %><br><span class="muted">theo ngân hàng báo</span><% } %><% } %></td></tr>
+        <div class="hh-line">
+          <div class="hh-line-name"><strong><%= item.source.name %></strong><span class="badge"><%= labels.source[item.source.kind] %></span></div>
+          <%# Thẻ tín dụng: số chính là HẠN MỨC CÒN — hạn mức khai trừ đã quẹt chưa trả (chủ app 11/9/2026), thẻ chưa khai hạn mức thì lấy số ngân hàng báo. %>
+          <div class="hh-line-num"><% if (item.source.kind === 'CARD') { %><strong><%= cardLimit ? 'còn ' + formatMoney(item.available) : item.reportedAvailable ? 'còn ' + formatMoney(item.reportedAvailable.value) : '—' %></strong><span class="muted">đ</span><small class="muted"><% if (cardLimit) { %>trên hạn mức <%= formatMoney(cardLimit) %>đ · <% } %>đã quẹt chưa trả <%= formatMoney(Math.max(0, item.balance)) %>đ<% if (cardLimit && item.limitUsed > Math.max(0, item.balance)) { %> · đã dùng <%= formatMoney(item.limitUsed) %>đ tính cả thẻ ăn theo<% } else if (!cardLimit && item.reportedAvailable) { %> · ngân hàng báo, chưa khai hạn mức thẻ<% } %></small><% if (item.balance < 0) { %><small class="text-danger">đã trả quá <%= formatMoney(-item.balance) %>đ so với phần quẹt trong sổ</small><% } %><% } else { %><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt && item.balance > 0 ? 'nợ ' : '' %><%= formatMoney(item.balance) %></strong><span class="muted">đ</span><% if (item.reported) { %><small class="muted">theo ngân hàng báo</small><% } %><% } %></div>
+        </div>
       <% }) %>
-      <% if (!balances.length) { %><tr><td colspan="3" class="muted text-center">Chưa khai nguồn tiền. <% if (isAdmin) { %><a href="/household/<%= household.id %>/sources">Khai ngay</a>.<% } %></td></tr><% } %>
-    </tbody></table></div>
+      <% if (!balances.length) { %><div class="hh-line muted">Chưa khai nguồn tiền. <% if (isAdmin) { %><a href="/household/<%= household.id %>/sources">Khai ngay</a>.<% } %></div><% } %>
+    </div>
   </section>
 
   <% if (unclassified.length) { %>
     <section class="card-lite mb">
       <div class="card-hdr red"><span><%- include('../../partials/icon', { name: 'alert' }) %> Cần xem lại</span><span class="badge badge-dark"><%= unclassified.length %> khoản</span></div>
-      <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Ngày</th><th>Nội dung</th><th class="text-right">Tiền</th><th>Mục đích</th></tr></thead><tbody>
+      <div class="table-wrap member-table hh-stack"><table class="member-list"><thead><tr><th>Ngày</th><th>Nội dung</th><th class="text-right">Tiền</th><th>Mục đích</th></tr></thead><tbody>
         <% unclassified.forEach((tx) => { %>
           <tr><td class="nowrap"><%= fmtDate(tx.occurredAt) %></td><td><strong><%= tx.description || '(không có nội dung)' %></strong><br><span class="muted"><%= tx.sourceName %><%= tx.refund ? ' · hoàn tiền' : '' %> · <%= tx.status === 'NEW' ? (tx.telegramPending ? 'chưa lên được Telegram' : 'chưa xác nhận') : 'chưa chọn mục đích' %></span></td><td class="text-right paid-cell"><strong><%= tx.refund ? '+' : '' %><%= formatMoney(tx.amount) %></strong><span class="muted">đ</span></td><td>
             <% if (isAdmin) { %><form class="hh-review" method="post" action="/household/<%= household.id %>/transactions/<%= tx.id %>/purpose"><input type="hidden" name="month" value="<%= selectedMonth %>"><input type="hidden" name="section" value="overview"><select name="purposeId" data-autosubmit><option value="">Chọn mục đích…</option><% activePurposes.filter((purpose) => purpose.kind !== 'INCOME' || purpose.id.toString() === tx.purposeId).forEach((purpose) => { %><option value="<%= purpose.id %>" <%= purpose.id.toString() === tx.purposeId ? 'selected' : '' %>><%= purpose.name %></option><% }) %></select><button class="btn btn-sm btn-success" data-loading-text="…" title="Giữ mục đích này">✓</button></form><% } else { %><span class="muted"><%= tx.purposeName || 'Chưa chọn' %></span><% } %>
