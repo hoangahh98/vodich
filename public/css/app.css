@@ -1156,18 +1156,22 @@ select.is-warn { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-sof
   /* Vạch lime của khoản "chưa xác nhận" chuyển sang cả hàng, vì ô đầu không còn cao bằng hàng nữa. */
   .hh-new td:first-child { box-shadow: none; }
   .hh-stack tr.hh-new { box-shadow: inset 3px 0 0 var(--lime-2); }
-  /* Bảng giao dịch: ngày và tiền chung một dòng, còn lại mỗi thứ một dòng. Ô nút Sửa ăn trọn
-     chiều ngang nên form sửa mở ra được cả hàng, không bị kẹp trong cột cuối như trước. */
-  .hh-stack-tx tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; }
+  /* Bảng giao dịch gói lại còn ba dòng (chủ app 11/9/2026): ngày + tiền, nội dung, rồi nguồn với
+     nút Sửa dạt phải cùng dòng. Ô chọn mục đích bỏ khỏi danh sách trên điện thoại — nó thành một
+     thanh "— chưa chọn —" dài ngoằng chiếm nguyên dòng; chọn mục đích thì vào Sửa, hoặc dùng ô
+     "Cần xem lại" ở Tổng quan (ô ấy vẫn còn). Thành viên chỉ xem thì vẫn thấy tên mục đích. */
+  .hh-stack-tx tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; align-items: center; }
   .hh-stack-tx td:nth-child(1) { grid-area: 1 / 1; }
   .hh-stack-tx td:nth-child(4) { grid-area: 1 / 2; text-align: right; }
   .hh-stack-tx td:nth-child(2) { grid-area: 2 / 1 / auto / -1; }
-  .hh-stack-tx td:nth-child(3) { grid-area: 3 / 1 / auto / -1; }
+  .hh-stack-tx td:nth-child(3) { grid-area: 3 / 1; }
   .hh-stack-tx td:nth-child(5) { grid-area: 4 / 1 / auto / -1; }
-  .hh-stack-tx td:nth-child(6) { grid-area: 5 / 1 / auto / -1; }
+  .hh-stack-tx td:nth-child(5):has(.hh-review) { display: none; }
+  .hh-stack-tx td:nth-child(6) { grid-area: 3 / 2; text-align: right; }
+  /* Mở form sửa thì ô ấy tụt xuống dòng riêng, ăn trọn chiều ngang — không thì form bị kẹp trong
+     cột nút, co lại còn 2/3 hàng như trước. */
+  .hh-stack-tx td:nth-child(6):has(details[open]) { grid-area: 4 / 1 / auto / -1; text-align: left; }
   .hh-stack-tx td[colspan] { grid-area: auto / 1 / auto / -1; }
-  .hh-stack-tx .hh-review { width: 100%; }
-  .hh-stack-tx .hh-review select { width: 100%; min-width: 0; }
   /* Ô cuối bảng để form nằm inline-block cho nút Sửa / Xoá đứng cạnh nhau — xếp dọc rồi thì form
      sửa phải ăn trọn chiều ngang, không thì nó co lại còn 2/3 hàng và nút Xoá nhảy lên bên cạnh. */
   .hh-stack .row-action form { display: block; width: 100%; }
@@ -1175,4 +1179,5 @@ select.is-warn { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-sof
   /* Form sửa nằm trong hàng đã xếp dọc: một cột thôi. Hai cột thì mỗi ô chỉ ~150px, tên nguồn dài
      là bị cắt cụt ngay trong ô chọn. */
   .hh-stack .hh-form-inline { grid-template-columns: 1fr; }
+  .hh-stack .hh-form-inline input.money-input { width: 100%; }
 }
