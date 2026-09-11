@@ -63,13 +63,18 @@
         <div class="grid kv-grid mt">
           <%# Thẻ tín dụng: ô đầu là HẠN MỨC CÒN. Đã khai hạn mức thì SỔ tính (hạn mức khai − đã quẹt chưa
               trả của cả cụm thẻ thông) — chủ app 11/9/2026, khỏi phụ thuộc mail về sớm hay muộn; chưa khai
-              thì vẫn lấy hạn mức khả dụng mail gần nhất. Số ngân hàng báo hiện thêm một ô để so mắt thường. %>
+              thì vẫn lấy hạn mức khả dụng mail gần nhất. Số ngân hàng báo hiện thêm một ô để so mắt thường.
+              HẠN MỨC KHAI đứng thành ô riêng chứ không nhét chữ nhỏ dưới ô Hạn mức còn (chủ app 11/9/2026:
+              số nào cũng phải nằm trong ô của nó), phần đã dùng tính cả thẻ ăn theo cũng vậy. %>
           <% if (item.source.kind === 'CARD') { %>
-            <div class="kv"><span>Hạn mức còn</span><strong><% if (cardLimit) { %><%= formatMoney(item.available) %>đ<br><small class="muted">trên hạn mức <%= formatMoney(cardLimit) %>đ<% if (item.limitUsed > Math.max(0, item.balance)) { %> · đã dùng <%= formatMoney(item.limitUsed) %>đ tính cả thẻ ăn theo<% } %></small><% } else if (item.reportedAvailable) { %><%= formatMoney(item.reportedAvailable.value) %>đ<br><small class="muted">ngân hàng báo <%= fmtDateTime(item.reportedAvailable.at) %></small><% } else { %>—<br><small class="muted">chưa khai hạn mức thẻ</small><% } %></strong></div>
+            <div class="kv"><span>Hạn mức còn</span><strong><% if (cardLimit) { %><%= formatMoney(item.available) %>đ<% } else if (item.reportedAvailable) { %><%= formatMoney(item.reportedAvailable.value) %>đ<br><small class="muted">ngân hàng báo <%= fmtDateTime(item.reportedAvailable.at) %></small><% } else { %>—<br><small class="muted">chưa khai hạn mức thẻ</small><% } %></strong></div>
+            <% if (cardLimit) { %><div class="kv"><span>Hạn mức thẻ</span><strong><%= formatMoney(cardLimit) %>đ</strong></div><% } %>
             <%# Số này chỉ đếm những gì SỔ ghi được: quẹt cộng vào, trả thẻ trừ đi. Trả hết là về 0 — KHÔNG
                 có chuyện "trả dư" (trả thẻ chỉ là trả nợ thẻ, chủ app 10/9/2026). Xuống dưới 0 nghĩa là SỔ
                 THIẾU khoản quẹt: kẹp về 0 và báo phần thiếu. %>
             <div class="kv"><span>Đã quẹt chưa trả</span><strong class="<%= item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(Math.max(0, item.balance)) %>đ</strong></div>
+            <%# Thẻ ăn theo quẹt cũng ngốn hạn mức thẻ này, nên số trừ vào hạn mức to hơn phần quẹt của chính nó. %>
+            <% if (cardLimit && item.limitUsed > Math.max(0, item.balance)) { %><div class="kv"><span>Đã dùng cả thẻ ăn theo</span><strong><%= formatMoney(item.limitUsed) %>đ</strong></div><% } %>
             <% if (cardLimit && item.reportedAvailable) { %><div class="kv"><span>Ngân hàng báo còn</span><strong><%= formatMoney(item.reportedAvailable.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reportedAvailable.at) %></small></strong></div><% } %>
           <% } else { %>
             <div class="kv"><span><%= debt ? 'Nợ hiện tại' : lent ? 'Đã cho vay' : 'Số dư' %></span><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= formatMoney(item.balance) %>đ</strong></div>
