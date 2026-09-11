@@ -751,7 +751,7 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(sources, /name="creditLimit"/, 'thẻ tín dụng khai được hạn mức thẻ (chủ app 11/9/2026)');
   assert.match(sources, /19913907đ/, 'hạn mức còn của thẻ đã khai hạn mức lấy theo sổ');
   assert.match(sources, /<span>Hạn mức thẻ<\/span><strong>20000000đ/, 'hạn mức khai đứng thành ô riêng, không phải chữ nhỏ dưới ô khác');
-  assert.match(overview, /trên hạn mức 20000000đ/, 'Tổng quan cũng nói rõ thẻ còn bấy nhiêu trên hạn mức nào');
+  assert.match(overview, /còn 19913907<\/strong><span class="muted">đ, nợ thẻ 86093đ/, 'Tổng quan gói thẻ vào một dòng: còn bao nhiêu, nợ thẻ bao nhiêu');
   assert.match(sources, /Ngân hàng báo còn/, 'vẫn hiện số ngân hàng báo để so mắt thường');
   assert.match(sources, /<option value="INVEST"/, 'loại nguồn có Đầu tư và Tiết kiệm');
   assert.match(sources, /name="limitSharesWith"/, 'thẻ tín dụng khai được thẻ thông');

@@ -1130,12 +1130,16 @@ select.is-warn { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-sof
    - Bảng thật nhiều cột (giao dịch, định kỳ, thành viên) thì giữ <table> cho máy tính, còn từ
      640px trở xuống .hh-stack bẻ mỗi hàng thành một khối xếp dọc và giấu đầu bảng đi. */
 .hh-lines { border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
-.hh-line { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 14px; padding: 12px 20px; border-bottom: 1px solid var(--line); }
+.hh-line { padding: 12px 20px; border-bottom: 1px solid var(--line); }
 .hh-line:last-child { border-bottom: 0; }
-.hh-line-name { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; overflow-wrap: anywhere; }
-.hh-line-num { margin-left: auto; text-align: right; font-variant-numeric: tabular-nums; }
-.hh-line-num strong { font-family: var(--display); font-size: 17px; font-weight: 600; }
-.hh-line-num small { display: block; font-size: 12px; line-height: 1.4; }
+/* Dòng trên: tên dạt trái, huy hiệu loại dạt phải. Tên dài thì xuống dòng chứ không đẩy huy hiệu đi. */
+.hh-line-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.hh-line-top strong { min-width: 0; overflow-wrap: anywhere; }
+.hh-line-top .badge { flex: 0 0 auto; }
+.hh-line-money { margin-top: 3px; font-variant-numeric: tabular-nums; }
+.hh-line-money strong { font-family: var(--display); font-size: 17px; font-weight: 600; }
+.hh-line-money .muted { font-weight: 600; }
+.hh-line-money small { display: block; font-size: 12px; line-height: 1.4; }
 
 @media (max-width: 640px) {
   .hh-line { padding: 12px 14px; }

@@ -51,13 +51,16 @@
   <section class="card-lite mb">
     <div class="card-hdr blue"><span><%- include('../../partials/icon', { name: 'card' }) %> Nguồn tiền</span><span class="badge badge-dark"><%= balances.filter((item) => item.source.active).length %> nguồn</span></div>
     <%# Danh sách này chỉ có tên + một con số nên KHÔNG dùng bảng: trên điện thoại bảng ba cột bắt
-        kéo ngang mới đọc hết (chủ app 11/9/2026). Flex thì hẹp quá số tự tụt xuống dòng dưới tên. %>
+        kéo ngang mới đọc hết (chủ app 11/9/2026). Mỗi nguồn đúng hai dòng: trên là tên (trái) với
+        huy hiệu loại (phải), dưới là tiền. %>
     <div class="hh-lines">
       <% balances.filter((item) => item.source.active).forEach((item) => { const debt = ['CARD', 'LOAN'].includes(item.source.kind); const cardLimit = Number(item.source.creditLimit); %>
         <div class="hh-line">
-          <div class="hh-line-name"><strong><%= item.source.name %></strong><span class="badge"><%= labels.source[item.source.kind] %></span></div>
-          <%# Thẻ tín dụng: số chính là HẠN MỨC CÒN — hạn mức khai trừ đã quẹt chưa trả (chủ app 11/9/2026), thẻ chưa khai hạn mức thì lấy số ngân hàng báo. %>
-          <div class="hh-line-num"><% if (item.source.kind === 'CARD') { %><strong><%= cardLimit ? 'còn ' + formatMoney(item.available) : item.reportedAvailable ? 'còn ' + formatMoney(item.reportedAvailable.value) : '—' %></strong><span class="muted">đ</span><small class="muted"><% if (cardLimit) { %>trên hạn mức <%= formatMoney(cardLimit) %>đ · <% } %>đã quẹt chưa trả <%= formatMoney(Math.max(0, item.balance)) %>đ<% if (cardLimit && item.limitUsed > Math.max(0, item.balance)) { %> · đã dùng <%= formatMoney(item.limitUsed) %>đ tính cả thẻ ăn theo<% } else if (!cardLimit && item.reportedAvailable) { %> · ngân hàng báo, chưa khai hạn mức thẻ<% } %></small><% if (item.balance < 0) { %><small class="text-danger">đã trả quá <%= formatMoney(-item.balance) %>đ so với phần quẹt trong sổ</small><% } %><% } else { %><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt && item.balance > 0 ? 'nợ ' : '' %><%= formatMoney(item.balance) %></strong><span class="muted">đ</span><% if (item.reported) { %><small class="muted">theo ngân hàng báo</small><% } %><% } %></div>
+          <div class="hh-line-top"><strong><%= item.source.name %></strong><span class="badge"><%= labels.source[item.source.kind] %></span></div>
+          <%# Thẻ tín dụng gói gọn một dòng "còn … , nợ thẻ …" (chủ app 11/9/2026): số đầu là HẠN MỨC
+              CÒN — hạn mức khai trừ đã quẹt chưa trả, thẻ chưa khai hạn mức thì lấy số ngân hàng báo;
+              số sau là phần đã quẹt chưa trả. Hạn mức khai và phần thẻ ăn theo xem ở tab Nguồn tiền. %>
+          <div class="hh-line-money"><% if (item.source.kind === 'CARD') { const avail = cardLimit ? item.available : item.reportedAvailable ? item.reportedAvailable.value : null; %><% if (avail === null) { %><strong>nợ thẻ <%= formatMoney(Math.max(0, item.balance)) %></strong><span class="muted">đ · chưa khai hạn mức thẻ</span><% } else { %><strong>còn <%= formatMoney(avail) %></strong><span class="muted">đ, nợ thẻ <%= formatMoney(Math.max(0, item.balance)) %>đ</span><% } %><% if (item.balance < 0) { %><small class="text-danger">đã trả quá <%= formatMoney(-item.balance) %>đ so với phần quẹt trong sổ</small><% } %><% } else { %><strong class="<%= debt && item.balance > 0 ? 'text-danger' : '' %>"><%= debt && item.balance > 0 ? 'nợ ' : '' %><%= formatMoney(item.balance) %></strong><span class="muted">đ<% if (item.reported) { %> · theo ngân hàng báo<% } %></span><% } %></div>
         </div>
       <% }) %>
       <% if (!balances.length) { %><div class="hh-line muted">Chưa khai nguồn tiền. <% if (isAdmin) { %><a href="/household/<%= household.id %>/sources">Khai ngay</a>.<% } %></div><% } %>
