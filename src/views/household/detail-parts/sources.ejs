@@ -83,7 +83,8 @@
           <% if (Number(source.interestRate)) { %><div class="kv"><span>Lãi suất</span><strong><%= Number(source.interestRate) %>%/năm</strong></div><% } %>
           <% if (item.reported) { %><div class="kv"><span>Ngân hàng báo</span><strong><%= formatMoney(item.reported.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reported.at) %></small></strong></div><% } %>
         </div>
-        <%# Sổ lệch số ngân hàng = thiếu giao dịch. App KHÔNG tự bù (chủ app 10/9/2026) — nhắc để thêm tay. %>
+        <%# Sổ lệch số ngân hàng = thiếu giao dịch. App KHÔNG tự bù (chủ app 10/9/2026). CHỈ báo lệch bao
+            nhiêu, không đoán hộ nguyên nhân (chủ app 11/9/2026: "bỏ đoạn dài dòng đằng sau đi"). %>
         <%# Dưới 0 = đã trả nhiều hơn phần quẹt SỔ ghi được. Gần như luôn là trả cho khoản quẹt có từ trước
             khi dùng app (app không khai nợ đầu của thẻ) — nói đúng thế, đừng bảo "thiếu khoản quẹt" rồi
             chủ app ghi thêm một khoản chi không có thật. %>
@@ -95,7 +96,7 @@
           <div class="alert-lite warn mt"><span>Đã quẹt chưa trả <strong><%= formatMoney(item.limitUsed) %>đ</strong> vượt hạn mức khai <strong><%= formatMoney(item.limitUsed - cardLimit) %>đ</strong> — xem lại ô <strong>Hạn mức thẻ</strong>, hoặc sổ còn thiếu khoản trả thẻ / hoàn tiền.</span></div>
         <% } %>
         <% if (item.diff) { %>
-          <div class="alert-lite warn mt"><span>Sổ lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng — thiếu <%= item.source.kind === 'CARD' ? (item.diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ') : item.diff > 0 ? 'khoản chi' : 'khoản thu' %> chưa ghi. <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.<% if (item.source.kind === 'CARD' && cardLimit) { %> Hoặc ô <strong>Hạn mức thẻ</strong> khai chưa đúng (thẻ còn khoản quẹt cũ từ trước khi dùng app thì trừ luôn vào hạn mức khai).<% } %><% if (item.source.kind === 'CARD' && !twin) { %> Hoặc quẹt thẻ này làm đổi hạn mức thẻ khác — bấm <strong>Sửa nguồn</strong> rồi chọn <strong>Thẻ thông</strong>.<% } %></span></div>
+          <div class="alert-lite warn mt"><span>Sổ lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng</span></div>
         <% } %>
         <% if (isAdmin) { %>
           <details class="hh-edit mt"><summary class="btn btn-sm"><%- include('../../partials/icon', { name: 'edit' }) %> Sửa nguồn</summary>

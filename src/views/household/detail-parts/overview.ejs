@@ -1,8 +1,9 @@
 <% if (section === 'overview') { %>
   <% const pendingExpectations = expectations.filter((item) => !item.paid); %>
-  <%# Ngân hàng báo số khác sổ = có giao dịch chưa ghi. App không tự bù, nhắc chủ app thêm tay. %>
+  <%# Ngân hàng báo số khác sổ = có giao dịch chưa ghi. App không tự bù, chỉ báo lệch bao nhiêu. %>
   <% (typeof mismatches !== 'undefined' ? mismatches : []).forEach((item) => { %>
-    <section class="alert-lite warn mb"><span><strong><%= item.source.name %></strong> lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng — thiếu <%= item.source.kind === 'CARD' ? (item.diff > 0 ? 'khoản quẹt thẻ' : 'khoản hoàn tiền / trả thẻ') : item.diff > 0 ? 'khoản chi' : 'khoản thu' %> chưa ghi.<% if (isAdmin) { %> <a href="/household/<%= household.id %>/transactions?month=<%= selectedMonth %>">Thêm giao dịch tay</a>.<% } %></span></section>
+    <%# Chỉ báo lệch bao nhiêu, không đoán hộ nguyên nhân (chủ app 11/9/2026). %>
+    <section class="alert-lite warn mb"><span><strong><%= item.source.name %></strong> lệch <strong><%= formatMoney(Math.abs(item.diff)) %>đ</strong> so với ngân hàng</span></section>
   <% }) %>
   <% if (unclassified.length && isAdmin) { %>
     <section class="alert-lite warn mb"><span><strong><%= unclassified.length %></strong> khoản chi tháng này cần xem lại (<%= formatMoney(typeof unclassifiedTotal !== 'undefined' ? unclassifiedTotal : 0) %>đ): máy tự xếp mục đích, bạn xác nhận hoặc đổi ngay bên dưới.</span></section>
