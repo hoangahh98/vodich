@@ -66,7 +66,8 @@ export class KnightController {
     const stage = getStage(stageNumber);
     if (!stage) return res.status(400).json({ error: 'Ải không hợp lệ' });
 
-    // Sinh đề dùng AI -> chống spam bằng rate-limit theo IP.
+    // Đề sinh bằng code (không gọi AI), nhưng vẫn kẹp rate-limit theo IP để một tab lặp vô hạn
+    // không ngốn CPU server.
     const limit = this.rateLimit.consume(`ai:knight:${req.ip || 'unknown'}`, { max: 20, windowMs: 60_000 });
     if (!limit.allowed) return res.status(429).json({ error: `Chờ chút nhé, thử lại sau ${limit.retryAfterSeconds}s.` });
 

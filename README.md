@@ -46,7 +46,7 @@ REQUIRE_REDIS=false
 - `CSRF_ALLOWED_ORIGINS`: danh sách origin được phép gửi request ghi ngoài chính host của app, ngăn cách bằng dấu phẩy. Hiếm khi cần — chỉ dùng khi app đứng sau nhiều tên miền.
 - `LOG_ALL_HTTP=true`: ghi cả health check/static asset vào log. Mặc định app bỏ qua các request này để giảm DB writes.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`: bot của module Chi tiêu (xem mục "Chi tiêu gia đình: bot Telegram"). Không đặt = webhook đóng, module vẫn dùng được bằng nhập tay.
-- `GROQ_API_KEY`, `GROQ_MODEL`: AI cho mục Học vui (xem mục "Tính năng AI (Groq)"). Không đặt = phần AI tự ẩn, phần còn lại của app chạy bình thường.
+- `GROQ_API_KEY`, `GROQ_MODEL`: chỉ dùng cho game "Tập nói chuyện tiếng Anh" (xem mục "Tính năng AI (Groq)"). Không đặt = riêng game đó báo chưa cấu hình, phần còn lại của app chạy bình thường.
 
 Biến chỉ nên dùng cho test/CI:
 
@@ -124,12 +124,14 @@ Xem [docs/bao-mat.md](docs/bao-mat.md) cho mô hình phân quyền đầy đủ.
 
 ## Tính năng AI (Groq)
 
-Dùng cho mục **Học vui** ở `/games`: game nói chuyện tiếng Anh và game "Hiệp sĩ toán học"
-(`/games/hiep-si`, đề toán sinh theo tuổi + ghi chú của từng bé — spec ở
-[docs/hiep-si-toan-hoc.md](docs/hiep-si-toan-hoc.md)).
+Cả app chỉ còn **đúng một tính năng** gọi AI: game **"Tập nói chuyện tiếng Anh"**
+(`/games/tieng-anh-nang-cao`) — bé nói theo tình huống, AI đóng vai người đối thoại kiêm gia sư sửa lỗi.
+Mấy game còn lại, kể cả "Hiệp sĩ toán học", sinh đề bằng code nên **không cần** AI (xem
+[docs/hiep-si-toan-hoc.md](docs/hiep-si-toan-hoc.md) mục 3).
 
-- `GROQ_API_KEY`: bắt buộc để dùng AI. Lấy tại https://console.groq.com/keys. Không đặt thì phần AI tự ẩn,
-  game vẫn chơi được với bộ đề tĩnh.
+- `GROQ_API_KEY`: bắt buộc cho riêng game nói chuyện tiếng Anh. Lấy tại https://console.groq.com/keys.
+  Không đặt thì trang game ấy hiện "Chưa cấu hình AI trên server nên chưa trò chuyện được", mọi thứ khác
+  của app chạy bình thường. Không định dùng game đó thì bỏ qua biến này.
 - `GROQ_MODEL`: model dùng, mặc định `llama-3.3-70b-versatile`. `llama-4-scout` đã bị Groq gỡ (404
   `model_not_found`) — đừng đặt lại.
 - `AI_TIMEOUT_MS`: huỷ request nếu Groq không trả lời trong ngần ấy mili-giây, mặc định `20000`.

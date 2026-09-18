@@ -380,6 +380,11 @@ Mọi game là **state machine vanilla JS** trong `public/js/games-*.js` — kh�
 không chạy được dưới CSP. Server giữ nguồn sự thật về ải/quái (`knight.constants.ts`) và tiến trình
 (`knight.service.ts`), client chỉ chạy vòng lặp.
 
+**Chỉ đúng MỘT chỗ trong cả app gọi AI**: `POST /games/advanced-chat` của game "Tập nói chuyện tiếng
+Anh" (`games.controller.ts`). `KnightAiService` mang chữ "Ai" trong tên nhưng **không gọi AI** —
+`isConfigured()` trả `true` cứng và đề toán dựng bằng code, cố ý như vậy vì AI từng đặt sai đáp án cho
+bé 4–7 tuổi. Đừng đọc tên lớp rồi tưởng game hiệp sĩ cần `GROQ_API_KEY`.
+
 AI đi qua `AiService` (`src/common/ai.service.ts`): Groq theo chuẩn OpenAI, `GROQ_API_KEY` +
 `GROQ_MODEL` (mặc định `llama-3.3-70b-versatile`). Chỉ gửi TEXT — phần đọc ảnh đã đi cùng module y tế
 khi module đó bị gỡ. Model dòng reasoning phải kèm `reasoning_format=hidden` + `reasoning_effort=none`

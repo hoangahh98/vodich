@@ -14,11 +14,12 @@ Spec gốc mô tả stack React + PostgreSQL thuần + Groq. Dự án thực t�
 |----------|------------------------|-------|
 | React component (game loop) | **State machine vanilla JS** `public/js/games-knight.js` | Đồng bộ 8 game hiện có; React island không chạy được dưới CSP/không có bundler. Mô hình state (`playerHp`, `monsterHp`, `question`, `timer`) giữ nguyên như một component React. |
 | SQL thuần | **Prisma models + migration SQL** | Toàn dự án dùng Prisma; migration `.sql` vẫn là deliverable SQL. |
-| Groq | **Groq** qua `AiService.generateJson` có sẵn | Đúng provider dự án đang dùng (`GROQ_API_KEY`). |
+| Groq sinh đề | **Sinh đề bằng code**, không gọi AI | Đề do AI sinh có lúc đặt sai đáp án — xem mục 3. Game vì thế KHÔNG cần `GROQ_API_KEY`. |
 
 Các tệp thêm mới:
 - `src/games/knight.constants.ts` — 10 ải + quái (nguồn sự thật ở server).
-- `src/games/knight-ai.service.ts` — sinh câu hỏi từ (tuổi, ghi chú) + fallback tĩnh.
+- `src/games/knight-ai.service.ts` — sinh câu hỏi từ (tuổi, ghi chú, mức khó, ải) bằng code. Tên
+  lớp còn chữ "Ai" là dấu vết của bản đầu, giờ nó không gọi AI nữa.
 - `src/games/knight.service.ts` — CRUD nhân vật + lưu/nạp tiến trình (Prisma).
 - `src/games/knight.controller.ts` — routes `/games/hiep-si*`.
 - `src/views/games/knight.ejs` — 4 màn (chọn/tạo nhân vật, bản đồ ải, chiến đấu) + overlay.
@@ -64,28 +65,41 @@ dùng **so khớp chính xác** — `findUnique(id)`, `findMany(where ownerUserI
 `upsert(where characterId_stageNumber)`, và tra ải bằng `STAGES.find(s => s.stage === n)`.
 Không dùng `gt/lt/gte/lte/between`.
 
-## 3. Luồng AI sinh câu hỏi (từ biến Tuổi + Ghi chú)
+## 3. Sinh câu hỏi bằng CODE, không gọi AI
 
-`KnightAiService.generateQuestions({ age, notes, monster, count })`:
+> **Đã đổi so với spec gốc.** Ban đầu đề do Groq sinh, `sanitizeQuestions` lọc lại và có fallback
+> tĩnh khi AI hỏng. Nay `KnightAiService` **không gọi AI nữa** — `isConfigured()` luôn trả `true`
+> và `generateQuestions` dựng đề hoàn toàn bằng code. Lý do: đề do AI sinh có lúc **đặt sai đáp
+> án**, mà sai đáp án với bé 4–7 tuổi thì tệ hơn hẳn một bộ đề đơn giản nhưng luôn đúng. Đổi lại,
+> game không cần `GROQ_API_KEY`, không có độ trễ mạng và không tốn hạn mức API.
 
-1. Nếu `GROQ_API_KEY` đã cấu hình → dựng prompt cá nhân hoá:
-   - **4–5 tuổi:** nhận diện hình khối, quy luật/dãy hình, đếm số lượng qua hình ảnh
-     (cảm hứng POMath/Kumon/VioEdu). **6–7 tuổi:** cộng/trừ ≤20, so sánh, toán đố logic.
-   - `notes` (điểm mạnh/yếu) được nhét vào prompt để luyện đúng chỗ yếu, tránh làm bé nản.
-   - Độ khó theo loại quái (`normal`/`elite`/`boss`).
-2. Gọi `ai.generateJson()` → nhận `{ questions: [...] }`.
-3. **Kiểm chứng & làm sạch** từng câu (`sanitizeQuestions`): prompt không rỗng, 2–4 lựa chọn,
-   `answer` là chỉ số hợp lệ. Câu hỏng bị loại; thiếu thì bù bằng câu tĩnh.
-4. Nếu AI chưa cấu hình / lỗi / JSON hỏng → **fallback tĩnh** sinh đề đúng lứa tuổi
-   (đếm emoji, quy luật hình, hình khối / cộng trừ, so sánh). **Game luôn chơi được.**
+`KnightAiService.generateQuestions({ age, notes, monster, count, level, stage })`:
+
+1. **Độ khó** = mốc theo mức người chơi chọn (`easy` 0 / `medium` 3 / `hard` 6) **+ số ải đã đi**,
+   kẹp trong 0–16 — ải càng cao càng khó.
+2. **Chọn dạng câu theo tuổi** (`typePool`): 4 tuổi thiên về đếm, quy luật, hình khối; 5 tuổi thêm
+   cộng/trừ bằng hình; 6–7 tuổi cộng/trừ bằng số, so sánh, dãy số. Ngoài ra còn dạng mở rộng: so
+   sánh dấu, trước/sau, đếm cạnh hình, vật thật, loại vật khác nhóm, nặng/nhẹ, chia kẹo, đếm
+   chân/bánh xe, xem giờ, thứ trong tuần, suy luận bắc cầu, và **cân thăng bằng** (1 vật lớn = k
+   vật nhỏ).
+3. **`notes` (điểm mạnh/yếu bố mẹ ghi) cộng trọng số** cho đúng dạng cần luyện: ghi "cộng" thì dạng
+   cộng xuất hiện dày hơn, ghi "hình" thì thêm quy luật/hình khối… Ghi chú cũng đổi bộ emoji minh
+   hoạ (`themeEmojis`) để hợp sở thích của bé.
+4. **Không câu nào trùng nhau** trong một ải: mỗi câu dựng xong lấy `signature` rồi bỏ nếu đã gặp.
+   Số câu xin luôn đủ cho trường hợp xấu nhất (hạ hết đợt + tối đa `MAX_HP−1` câu sai).
+5. Đáp án đúng **theo cấu tạo** — câu được dựng từ con số trước rồi mới sinh lựa chọn nhiễu, nên
+   không có chuyện đáp án sai.
 
 Định dạng 1 câu hỏi (trực quan, bấm chọn — không gõ phím):
 ```json
 { "prompt": "Đếm xem có tất cả mấy 🍎?", "visual": "🍎🍎🍎", "choices": ["2","3","4"], "answer": 1 }
 ```
 
-Chống lạm dụng: endpoint `/quiz` có **rate-limit 20 lần/phút/IP** (`RateLimitService`),
-`AiService` có timeout 20s + retry 3 lần.
+Ngoài `type: 'choice'` mặc định còn `type: 'match'` (nối số với nhóm hình, dùng `pairs`), và các
+trường phụ `clock` (vẽ đồng hồ kim), `balance` (vẽ cân), `explain` (giải thích khi bé chọn xong).
+
+Endpoint `/quiz` vẫn giữ **rate-limit 20 lần/phút/IP** (`RateLimitService`) — không phải để giữ hạn
+mức AI nữa mà để một tab lặp vô hạn không ngốn CPU server.
 
 ## 4. Cơ chế RPG (state machine — `games-knight.js`)
 
@@ -123,6 +137,6 @@ Mọi endpoint kiểm `req.session.user` và **quyền sở hữu nhân vật** 
 ## 7. Triển khai
 
 - Migration tự chạy khi deploy: `render:build` → `npx prisma migrate deploy`.
-- Biến môi trường: **`GROQ_API_KEY`** (tuỳ chọn — không có vẫn chơi được nhờ fallback),
-  `GROQ_MODEL` (mặc định `llama-3.3-70b-versatile`), `AI_TIMEOUT_MS`.
+- Biến môi trường: **không cần cái nào**. Game không gọi AI nên `GROQ_API_KEY` không liên quan tới
+  nó (biến ấy chỉ còn phục vụ game "Tập nói chuyện tiếng Anh").
 - Không cần thư viện mới; đã build sạch (`nest build`).
