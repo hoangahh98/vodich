@@ -36,7 +36,7 @@ Các decorator, đặt trên class hoặc từng method (method thắng class):
 
 | Decorator | Ý nghĩa |
 |-----------|---------|
-| `@Public()` | Mở cho khách vãng lai. **Chỉ 3 controller được phép**, xem mục 5. |
+| `@Public()` | Mở cho khách vãng lai. **Chỉ 4 controller được phép**, xem mục 5. |
 | `@FeatureAccess('TEAMS')` | Phải được cấp feature đó |
 | `@AdminOnly()` | Phải là ADMIN (chặn vai CLIENT) |
 | `@RootAdminOnly()` | Chỉ admin gốc (`APP_ADMIN_USERNAME`) |
@@ -60,7 +60,7 @@ Hai luật bắt buộc:
 2. **Xoá/sửa dùng `deleteMany`/`updateMany` kèm id chủ sở hữu**, để gửi lên id của người khác
    thì tác động 0 dòng thay vì thành công.
 
-Module đã áp dụng: giải đấu, đội bóng.
+Module đã áp dụng: giải đấu, đội bóng, nhóm thành viên, sổ Chi tiêu.
 
 > Du lịch, hồ sơ y tế và sổ chi tiêu cũng dùng đúng khuôn này cho tới khi ba module bị gỡ
 > hẳn ngày 3/8/2026 (migration `20260803180000_drop_medical_household_travel`). Khuôn vẫn là
@@ -81,9 +81,12 @@ Module đã áp dụng: giải đấu, đội bóng.
 > `X-Telegram-Bot-Api-Secret-Token`; thiếu `TELEGRAM_WEBHOOK_SECRET` là route đóng.
 
 Có tên trong giải **không còn** tự động nghĩa là được xem giải. Quyền xem là hai bảng riêng,
-`player_tournament_access` và `player_team_access`, cấp ở màn hình **Thành viên → Phân quyền**
-(`/players/:id/access`, `PlayerAccessService`). Bộ lọc cho vai CLIENT nằm ở một chỗ:
-`src/common/player-scope.ts` (`clientTournamentWhere`, `clientTeamWhere`).
+`player_tournament_access` và `player_team_access` (`PlayerAccessService`). Bộ lọc cho vai CLIENT nằm ở một
+chỗ: `src/common/player-scope.ts` (`clientTournamentWhere`, `clientTeamWhere`).
+
+Từ 9/2026 quyền xem **chỉ còn được cấp tự động** khi thêm người vào giải/đội (xem luồng cuối mục này): trang
+Thành viên không còn cột/link "Quyền xem" nữa — chủ app bỏ vì đã có nhóm. Màn hình `/players/:id/access` vẫn
+chạy được nếu gõ thẳng đường dẫn, nhưng không còn lối vào nào trỏ tới.
 
 | Ai | Thấy gì trên màn hình Thành viên | Cấp/thu được gì |
 |----|----------------------------------|-----------------|
@@ -120,13 +123,14 @@ cả route tương lai.
 
 ## 5. Bề mặt công khai
 
-Đúng ba controller được `@Public()`:
+Đúng bốn controller được `@Public()`:
 
 | Controller | Lý do |
 |------------|-------|
 | `AuthController` | Trang đăng nhập — không mở thì thành vòng lặp redirect |
 | `HealthController` | Render gọi `/healthz`, `/readyz` khi chưa có session; chỉ trả cờ boolean |
 | `ExternalRegistrationController` | Người ngoài tự đăng ký giải qua link chia sẻ; đã có rate-limit theo IP + email |
+| `TelegramController` | Webhook + đường nhận mail của module Chi tiêu — Telegram/Apps Script không có phiên đăng nhập. Chặn bằng bí mật trong đường dẫn + header `X-Telegram-Bot-Api-Secret-Token`; thiếu `TELEGRAM_WEBHOOK_SECRET` là route đóng hẳn |
 
 Riêng `ExternalRegistrationController` là bề mặt công khai DUY NHẤT chạm vào dữ liệu thật, nên
 nó chỉ được thấy giải **đang mở đăng ký ngoài** — lọc ngay trong truy vấn

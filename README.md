@@ -1,14 +1,17 @@
 # Vô Địch Tool
 
-Ứng dụng quản lý giải đấu pickleball, thành viên, đội bóng, phân quyền, log hệ thống và tỉ số trực tiếp.
+Ứng dụng quản lý giải đấu pickleball, thành viên, nhóm, đội bóng (quỹ + khoản thu), phân quyền, log hệ thống
+và tỉ số trực tiếp. Kèm hai module dùng chung tài khoản: **Chi tiêu gia đình** (sổ thu chi của nhà, tin ngân
+hàng vào qua Telegram) và **Học vui** (mấy game cho bé ở `/games`).
 
 ## Công nghệ
 
 - Node.js 20, NestJS, TypeScript
 - Prisma + PostgreSQL
-- EJS server-rendered UI
+- EJS server-rendered UI (không phải SPA, CSP `script-src 'self'` nên không có inline script)
 - Socket.IO cho realtime scoring
 - Redis cho session/realtime khi chạy nhiều Render service
+- Groq cho phần AI của mục Học vui
 
 ## Chạy local
 
@@ -43,6 +46,7 @@ REQUIRE_REDIS=false
 - `CSRF_ALLOWED_ORIGINS`: danh sách origin được phép gửi request ghi ngoài chính host của app, ngăn cách bằng dấu phẩy. Hiếm khi cần — chỉ dùng khi app đứng sau nhiều tên miền.
 - `LOG_ALL_HTTP=true`: ghi cả health check/static asset vào log. Mặc định app bỏ qua các request này để giảm DB writes.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`: bot của module Chi tiêu (xem mục "Chi tiêu gia đình: bot Telegram"). Không đặt = webhook đóng, module vẫn dùng được bằng nhập tay.
+- `GROQ_API_KEY`, `GROQ_MODEL`: AI cho mục Học vui (xem mục "Tính năng AI (Groq)"). Không đặt = phần AI tự ẩn, phần còn lại của app chạy bình thường.
 
 Biến chỉ nên dùng cho test/CI:
 
@@ -82,10 +86,17 @@ Khi chạy hai Render service cùng source và cùng DB, đặt cùng `DATABASE_
 
 ## Test
 
-Unit/domain tests:
+Unit/domain tests (`npm test` = build → kiểm cấu trúc HTML các view → chạy `test/*.test.js`):
 
 ```bash
 npm test
+```
+
+Chạy một file test — test đọc từ `dist/` nên phải build trước:
+
+```bash
+npm run build
+node --test test/household.test.js
 ```
 
 Browser smoke tests không cần DB:
@@ -111,11 +122,19 @@ Bộ test phân quyền:
 
 Xem [docs/bao-mat.md](docs/bao-mat.md) cho mô hình phân quyền đầy đủ.
 
-## Tính năng AI (Gemini)
+## Tính năng AI (Groq)
 
-- `GEMINI_API_KEY`: bắt buộc để dùng AI (game nói chuyện). Lấy tại https://aistudio.google.com/apikey.
-- `GEMINI_MODEL`: model dùng, mặc định `gemini-2.0-flash`. Nếu hay bị lỗi 429 (hết hạn mức/ngày của bản free), thử đổi sang model có hạn mức free cao hơn, ví dụ `gemini-1.5-flash`, hoặc bật billing trong Google Cloud để tăng giới hạn.
-- App tự thử lại vài lần khi gặp 429/503 tạm thời và báo lỗi thân thiện khi hết lượt.
+Dùng cho mục **Học vui** ở `/games`: game nói chuyện tiếng Anh và game "Hiệp sĩ toán học"
+(`/games/hiep-si`, đề toán sinh theo tuổi + ghi chú của từng bé — spec ở
+[docs/hiep-si-toan-hoc.md](docs/hiep-si-toan-hoc.md)).
+
+- `GROQ_API_KEY`: bắt buộc để dùng AI. Lấy tại https://console.groq.com/keys. Không đặt thì phần AI tự ẩn,
+  game vẫn chơi được với bộ đề tĩnh.
+- `GROQ_MODEL`: model dùng, mặc định `llama-3.3-70b-versatile`. `llama-4-scout` đã bị Groq gỡ (404
+  `model_not_found`) — đừng đặt lại.
+- `AI_TIMEOUT_MS`: huỷ request nếu Groq không trả lời trong ngần ấy mili-giây, mặc định `20000`.
+- App chỉ gửi TEXT cho AI (phần đọc ảnh đã đi cùng module y tế lúc module đó bị gỡ), tự thử lại vài lần khi
+  gặp 429/503 tạm thời và báo lỗi thân thiện khi hết lượt. Mọi route gọi AI đều qua `RateLimitService`.
 
 ## Chi tiêu gia đình: bot Telegram
 
@@ -225,16 +244,24 @@ Trong app: nguồn Timo để trống số tài khoản (mail Timo không ghi s�
   (số dư = số trong mail gần nhất + giao dịch ghi sau mail đó). Sổ ra số khác thì app **báo lệch** ở thẻ nguồn,
   Tổng quan và tin Telegram để bạn thêm giao dịch còn thiếu bằng tay — app **không** tự bù. Chỉ mail đầu tiên
   của một tài khoản được lấy làm mốc. Ô "Số dư" ở Nguồn tiền nhập số HIỆN TẠI, app tự suy số đầu kỳ.
-- **Thẻ tín dụng**: không khai hạn mức lẫn dư nợ. Thẻ hiện "Hạn mức còn" theo mail gần nhất (mail báo hạn mức
-  khả dụng SAU khi đã cộng/trừ khoản của chính giao dịch ấy) và "Đã quẹt chưa trả" cộng từ giao dịch — trả hết
-  là về 0, không có khái niệm "trả dư"; xuống dưới 0 là SỔ THIẾU khoản quẹt và app báo đúng phần thiếu ấy. Hai thẻ
-  dùng chung hạn mức thì khai ô **Thẻ thông** (chọn thẻ kia) để app cộng tiền quẹt cả nhóm, khỏi báo lệch oan.
+- **Thẻ tín dụng**: khai **Hạn mức thẻ** (số ngân hàng cấp), KHÔNG khai dư nợ. "Hạn mức còn" = hạn mức khai
+  − phần đã quẹt chưa trả, nên có số ngay chứ không phải chờ mail; để trống ô hạn mức thì app quay về lấy hạn
+  mức khả dụng trong mail gần nhất. Thẻ còn khoản quẹt cũ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn
+  mức. "Đã quẹt chưa trả" cộng từ giao dịch — trả hết là về 0, không có khái niệm "trả dư"; xuống dưới 0 là SỔ
+  THIẾU khoản quẹt và app báo đúng phần thiếu ấy. Hai thẻ dùng chung hạn mức thì khai ô **Thẻ thông** (chọn thẻ
+  kia) để app cộng tiền quẹt cả nhóm, khỏi báo lệch oan — quan hệ CÓ HƯỚNG, hai thẻ thông nhau thì khai ở cả hai.
+- **Khoản vay và nguồn có lãi suất**: khai lãi suất %/năm thì thẻ nguồn và ô "Trả nợ" ở Tổng quan hiện luôn
+  **lãi dự tính** mỗi tháng = dư nợ hiện tại × lãi suất / 12. Trả bớt gốc là số này giảm theo, trả hết thì mất.
 - **Mail "Biến động thanh toán thẻ tín dụng"** (hoàn tiền hoặc mình trả nợ thẻ): trùng với một lần trả thẻ đã
   ghi (cùng số, ±3 ngày) thì bỏ qua; còn lại ghi là hoàn tiền vào thẻ — bot chỉ báo một dòng "Hoàn tiền vào thẻ
   … của …", không hỏi mục đích, và số ấy tự trừ vào "đã quẹt chưa trả". Sau đó nếu bạn bấm "Trả thẻ …" trên
   khoản chi bên tài khoản thì app tự bỏ dòng hoàn tiền trùng ấy đi.
 - Khoản chi không bấm nút mục đích nào thì mặc định vào mục chi tiêu "Khác" và nằm ở danh sách "Cần xem lại"
   cho tới khi bấm ✓ hoặc đổi mục đích. Tin không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được".
+- **Ghi tay bốn loại** (giống nhau ở cả form Giao dịch lẫn form Khoản định kỳ): **Chi**, **Thu**,
+  **Chuyển nguồn** (trả thẻ, trả nợ, cất tiết kiệm — chọn tiếp trả gốc hay trả lãi) và **Đầu tư** (chuyển sang
+  nguồn loại Đầu tư: chỉ chọn nguồn đích, không hỏi gốc/lãi cũng không hỏi mục đích, vì tiền chỉ cất sang chỗ
+  khác chứ không tiêu). Tiền sang nguồn Tiết kiệm / Đầu tư luôn được tính là "cất đi", rút về thì trừ lại.
 
 ## Backup / khôi phục dữ liệu
 
@@ -327,9 +354,14 @@ npm run check:render -- https://service-a.onrender.com https://service-b.onrende
 - **Đánh bảng + vòng trong** — chia bảng rồi vào tứ kết/bán kết/chung kết.
 - **Đôi xoay vòng (Americano)** — mỗi VĐV lần lượt đánh chung đội với những người khác nhau,
   xếp hạng theo **từng cá nhân** (ưu tiên tổng điểm ghi được) chứ không theo cặp. Luôn là đánh
-  đôi. Mỗi người chỉ ghép cặp với tối đa `(n-2)/2` người để giải dài đúng bằng một giải vòng
-  tròn thường — 10 người thì mỗi người ghép 4 người, ra 10 trận, y như 5 đội cố định đấu vòng
-  tròn. Ghép hết mọi cặp sẽ ra 22 trận, đánh cả ngày không hết.
+  đôi. Luật chốt 9/2026: app chia người làm **hai bên** (phân trình thì bên mạnh / bên yếu, không
+  phân trình thì xáo rồi cắt đôi), vòng nào cũng ghép mỗi người bên này với một người bên kia —
+  **không bao giờ ghép cùng bên**, và sau `n/2` vòng ai cũng đã đi với đủ người bên kia đúng một
+  lần. Một vòng là `n/2` cặp, mỗi người đúng một cặp: số cặp chẵn thì vòng nào cũng đủ mặt, số cặp
+  lẻ thì mỗi vòng có một **cặp nghỉ** (chọn cặp ít nghỉ nhất nên rốt cuộc ai cũng nghỉ đúng một
+  lần) và cặp nghỉ **không đánh bù** ở vòng khác — thà ai cũng thiếu một trận còn hơn vài người
+  thiếu. Cụ thể: 8 người → 8 trận / 4 vòng, 10 → 10/5, 12 → 18/6, 14 → 21/7, 16 → 32/8; lẻ người
+  thì bên mạnh dư một người, mỗi vòng một người nghỉ (9 → 10 trận / 5 vòng, 11 → 12/6).
 
 Kèm theo là **quy tắc ghép cặp** cho đánh đôi:
 
@@ -339,15 +371,21 @@ Kèm theo là **quy tắc ghép cặp** cho đánh đôi:
 
 ### Vòng quay chia trận
 
-Ở tab **Thi đấu** của giải đánh đôi (vòng tròn hoặc đánh bảng), cạnh nút *Chia trận* có nút
+Ở tab **Thi đấu** của giải vòng tròn hoặc đánh bảng (cả thi đôi lẫn thi đơn), cạnh nút *Chia trận* có nút
 **🎡 Vòng quay**: bốc từng cặp một cách trực quan trước mặt cả nhóm thay vì để máy chia lặng lẽ.
 
 - Giải **phân trình** quay hai ô cùng lúc, mỗi ô một mức trình đang được ghép với nhau.
 - Giải **không phân trình** quay hai ô từ cùng một rổ chung.
+- Giải **thi đơn** mỗi lượt quay một ô, bốc đúng một người theo thứ tự.
+- Đánh bảng thì bốc tới đâu xếp bảng tới đó (đội 1 → A, đội 2 → B...), nhãn bảng hiện ngay trong danh sách.
 - Bốc xong bấm *Chốt danh sách này & chia trận* — nó dùng lại đúng luồng ghép cặp thủ công.
+- Đang bốc dở mà đóng khung hay rớt mạng thì mở lại vẫn còn: bản nháp nằm trong `localStorage` của máy.
 
 Quy tắc bốc nằm ở `public/js/spin-pairing.js` và **phải khớp với server**; `test/spin-pairing.test.js`
-so thẳng kết quả hai bên trên 9 cấu hình mức trình khác nhau.
+so thẳng kết quả hai bên trên 12 cấu hình mức trình khác nhau.
+
+Ngoài ra còn một **vòng quay bốc tên đứng riêng** ở `/vong-quay`: chỉ cần đăng nhập, không thuộc giải nào,
+danh sách tên nằm trong máy người dùng chứ không vào DB.
 
 ## Ghi chú kiến trúc
 

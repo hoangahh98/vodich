@@ -239,6 +239,21 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   trả thẻ chỉ là chuyển nguồn; trả nợ vay tính vào "dùng" cả gốc lẫn lãi, gốc trừ dư nợ; giao dịch chưa có
   mục đích tính vào chi tiêu và đếm ở "chưa phân loại"; chuyển tiền sang nguồn Tiết kiệm / Đầu tư là "cất đi"
   (vào `saving`) kể cả khi không gắn mục đích, rút về thì trừ lại.
+- **Ô "Loại" có bốn lựa chọn, ĐẦU TƯ là lựa chọn thứ tư (chủ app 18/9/2026)** — ở CẢ form giao dịch lẫn form
+  khoản định kỳ, nhãn dùng chung `labels.txForm` (`TX_FORM_KIND_LABELS`), và "Chuyển nguồn" không còn chú
+  thích trong ngoặc. Nhưng DB vẫn chỉ có ba `TX_KINDS`: Đầu tư ghi xuống là TRANSFER sang nguồn Đầu tư
+  (`normalizeFormTxKind`, `isInvestForm` trong `household-enums.ts`). Chọn Đầu tư thì ô "Sang nguồn" chỉ
+  còn nguồn loại INVEST và hai ô gốc/lãi + "Mục đích" biến mất — ô giấu bằng `hidden` VẪN gửi giá trị lên
+  nên `createFromForm`/`update` (giao dịch) và `recurringData` (định kỳ) phải tự ép lãi về 0 / `NONE` và
+  `purposeId = null`, đừng bỏ. Cả hai form suy ngược "đây là khoản đầu tư" từ LOẠI NGUỒN ĐÍCH (giao dịch:
+  `targetKind === 'INVEST'`; định kỳ: `targetSource.kind`) chứ không có cột mới. Đừng thêm `'INVEST'` vào
+  `TX_KINDS`: mọi chỗ đang hỏi `kind === 'TRANSFER'` (toán tháng, đối chiếu, Telegram, định kỳ) sẽ lặng lẽ
+  bỏ sót nó.
+- Nguồn nào khai lãi suất thì thẻ nguồn và ô "Trả nợ" ở Tổng quan hiện luôn **lãi dự tính mỗi tháng**
+  (chủ app 18/9/2026) = dư nợ × lãi suất năm / 12, tính trong `monthlyInterest` và gắn sẵn vào từng dòng
+  `reconcileSources` trả về. Dùng chung đúng hàm ấy với khoản định kỳ kiểu `FROM_RATE` — hai chỗ tự tính
+  riêng là thẻ nguồn một số, dòng định kỳ một số. Chỉ nguồn CÒN nợ mới có lãi (hết nợ / trả quá → 0), và
+  lãi đi theo dư nợ đã căn với mail ngân hàng chứ không phải số thô của sổ.
 - Mọi giao dịch đi qua `HouseholdLedgerService.create()` (form tay, nút Ghi nhận định kỳ, Telegram) để cùng
   một luật khớp định kỳ (cùng nguồn, lệch ≤ 2%) và đoán mục đích theo lần trước cùng nội dung
   (`normalizeDescription`). Tin tự động (status NEW) không đoán được thì mặc định vào mục chi tiêu "Khác"
@@ -294,9 +309,10 @@ bộ lọc chủ sở hữu trong service.
 - `FeatureGuard` đăng ký qua `APP_GUARD` và **mặc-định-chặn**: route mới tự động đòi đăng nhập.
   Decorator: `@Public()`, `@FeatureAccess('TOURNAMENTS'|'TEAMS'|'PERMISSIONS')`, `@AdminOnly()`,
   `@RootAdminOnly()` (đặt trên class hoặc method, method thắng class).
-- Chỉ **3 controller** được `@Public()`: `AuthController`, `HealthController`,
-  `ExternalRegistrationController`. Danh sách này bị khóa bởi `test/security.test.js` — thêm
-  `@Public()` chỗ khác là test đỏ.
+- Chỉ **4 controller** được `@Public()`: `AuthController`, `HealthController`,
+  `ExternalRegistrationController` và `TelegramController` (webhook + đường nhận mail của module
+  Chi tiêu, chặn bằng bí mật trong đường dẫn + header). Danh sách này bị khóa bởi
+  `test/security.test.js` — thêm `@Public()` chỗ khác là test đỏ.
 - Guard chặn ≠ lọc chủ sở hữu. Mọi truy vấn tài nguyên có chủ phải dùng
   `ownedOrSharedWhere(user)` (`src/common/admin-scope.ts`), **lọc ngay trong câu truy vấn**
   (`findFirst({ where: { id, ...scope } })`, không phải `findUnique` rồi `if`), và sửa/xóa bằng
@@ -356,6 +372,19 @@ người vào nhóm là `GroupService.addMembers` tự gọi `TeamMemberService.
 liên kết; bỏ khỏi nhóm KHÔNG gỡ khỏi đội (còn lịch sử phí). Giải đấu chỉ **lấy** danh sách lúc thêm
 (`mergeDistinct` trong tournament-registration.controller). Admin phụ chỉ thấy nhóm mình tạo; id
 nhóm gửi lên luôn đi qua `GroupService.scopedIds`/`playerIdsOfGroups` trước khi dùng.
+
+### Game cho bé và AI (`src/games/`)
+
+Hub `/games` + game "Hiệp sĩ toán học" `/games/hiep-si` (spec đầy đủ ở `docs/hiep-si-toan-hoc.md`).
+Mọi game là **state machine vanilla JS** trong `public/js/games-*.js` — không có bundler, React island
+không chạy được dưới CSP. Server giữ nguồn sự thật về ải/quái (`knight.constants.ts`) và tiến trình
+(`knight.service.ts`), client chỉ chạy vòng lặp.
+
+AI đi qua `AiService` (`src/common/ai.service.ts`): Groq theo chuẩn OpenAI, `GROQ_API_KEY` +
+`GROQ_MODEL` (mặc định `llama-3.3-70b-versatile`). Chỉ gửi TEXT — phần đọc ảnh đã đi cùng module y tế
+khi module đó bị gỡ. Model dòng reasoning phải kèm `reasoning_format=hidden` + `reasoning_effort=none`
+(model thường gửi vào là lỗi 400); `llama-4-scout` đã bị Groq gỡ, đừng dùng lại. Thiếu key thì
+`isConfigured()` false và view tự ẩn phần AI. Mọi route gọi AI kẹp thêm `RateLimitService`.
 
 ### CSP: không có inline script
 
