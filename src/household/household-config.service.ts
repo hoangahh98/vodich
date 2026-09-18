@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { parseMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
-import { isDebtSource, normalizeBank, normalizeInterestMode, normalizeMonth, normalizePurposeKind, normalizeSourceKind, normalizeTxKind } from './household-enums';
+import { isDebtSource, isInvestForm, normalizeBank, normalizeFormTxKind, normalizeInterestMode, normalizeMonth, normalizePurposeKind, normalizeSourceKind } from './household-enums';
 import { sourceBalances } from './household-month';
 import { toSourceRow, toTransactionRow } from './household-rows';
 
@@ -120,10 +120,13 @@ export class HouseholdConfigService {
   // ───────────────────────────── Khoản định kỳ ─────────────────────────────
 
   private async recurringData(householdId: bigint, form: Form) {
-    const kind = normalizeTxKind(form.kind);
+    // Loại "Đầu tư" ở form cũng là TRANSFER (sang nguồn Đầu tư), y như form giao dịch: không có lãi và
+    // không có mục đích. Ô giấu bằng `hidden` vẫn gửi giá trị lên nên phải bỏ ở đây, đừng tin form.
+    const invest = isInvestForm(form.kind);
+    const kind = normalizeFormTxKind(form.kind);
     const sourceId = await this.ownSourceId(householdId, form.sourceId);
     const targetSourceId = kind === 'TRANSFER' ? await this.ownSourceId(householdId, form.targetSourceId) : null;
-    const purposeId = await this.ownPurposeId(householdId, form.purposeId);
+    const purposeId = invest ? null : await this.ownPurposeId(householdId, form.purposeId);
     const startMonth = normalizeMonth(form.startMonth);
     const endMonth = form.endMonth && /^\d{4}-\d{2}$/.test(form.endMonth) ? form.endMonth : null;
     return {
@@ -133,7 +136,7 @@ export class HouseholdConfigService {
       targetSourceId,
       purposeId,
       amount: parseMoney(form.amount),
-      interestMode: targetSourceId ? normalizeInterestMode(form.interestMode) : 'NONE',
+      interestMode: targetSourceId && !invest ? normalizeInterestMode(form.interestMode) : 'NONE',
       dayOfMonth: Math.min(31, Math.max(1, clampDay(form.dayOfMonth) || 1)),
       startMonth,
       endMonth: endMonth && endMonth < startMonth ? null : endMonth,

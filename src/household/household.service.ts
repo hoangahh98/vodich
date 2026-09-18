@@ -167,6 +167,8 @@ export class HouseholdService {
       // Tiền vào thẻ tín dụng là hoàn tiền → chọn mục đích CHI như khoản chi; tiền vào tài khoản là thu nhập.
       refund: tx.kind === 'INCOME' && sourceKindById.get(tx.sourceId) === 'CARD',
       targetName: tx.targetSourceId ? sourceName.get(tx.targetSourceId) || '?' : '',
+      // Form sửa cần biết nguồn đích là loại gì để chọn sẵn "Đầu tư" (chuyển sang nguồn Đầu tư).
+      targetKind: tx.targetSourceId ? sourceKindById.get(tx.targetSourceId) || '' : '',
       purposeName: tx.purposeId ? purposeById.get(tx.purposeId)?.name || '' : '',
       purposeKind: tx.purposeId ? purposeById.get(tx.purposeId)?.kind || '' : '',
       recurringName: tx.recurringId ? recurringName.get(tx.recurringId) || '' : '',

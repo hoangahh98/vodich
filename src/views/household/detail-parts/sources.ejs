@@ -81,6 +81,9 @@
           <% } %>
           <% if (source.ownerName) { %><div class="kv"><span>Chủ nguồn</span><strong><%= source.ownerName %></strong></div><% } %>
           <% if (Number(source.interestRate)) { %><div class="kv"><span>Lãi suất</span><strong><%= Number(source.interestRate) %>%/năm</strong></div><% } %>
+          <%# Nguồn có khai lãi suất thì nói luôn mỗi tháng lãi bao nhiêu (dư nợ hiện tại × lãi suất / 12) —
+              khỏi bấm máy tính. Dư nợ đổi là số này đổi theo; trả hết nợ thì không còn ô này. %>
+          <% if (item.monthlyInterest) { %><div class="kv"><span>Lãi dự tính</span><strong><%= formatMoney(item.monthlyInterest) %>đ/tháng</strong></div><% } %>
           <% if (item.reported) { %><div class="kv"><span>Ngân hàng báo</span><strong><%= formatMoney(item.reported.value) %>đ<br><small class="muted"><%= fmtDateTime(item.reported.at) %></small></strong></div><% } %>
         </div>
         <%# Sổ lệch số ngân hàng = thiếu giao dịch. App KHÔNG tự bù (chủ app 10/9/2026). CHỈ báo lệch bao

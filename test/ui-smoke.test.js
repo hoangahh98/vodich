@@ -665,28 +665,40 @@ function householdLocals(section, over = {}) {
     source: { BANK: 'Tài khoản ngân hàng', CARD: 'Thẻ tín dụng', CASH: 'Tiền mặt', SAVING: 'Tiết kiệm', INVEST: 'Đầu tư', LOAN: 'Khoản vay', LENT: 'Cho vay' },
     purpose: { LIVING: 'Chi tiêu', SAVING: 'Tiết kiệm', DEBT: 'Trả nợ', RESERVE: 'Dự phòng', LENDING: 'Cho vay', INCOME: 'Thu nhập' },
     tx: { EXPENSE: 'Chi', INCOME: 'Thu', TRANSFER: 'Chuyển' },
+    txForm: { EXPENSE: 'Chi', INCOME: 'Thu', TRANSFER: 'Chuyển nguồn', INVEST: 'Đầu tư' },
     bank: { TIMO: 'Timo', MSB: 'MSB', OTHER: 'Khác' },
   };
   const sources = [
     { id: 1n, name: 'Timo', kind: 'BANK', bank: 'TIMO', matchKey: '', ownerName: 'Cả nhà', openingBalance: 10000000, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true },
     { id: 2n, name: 'Thẻ MSB', kind: 'CARD', bank: 'MSB', matchKey: '3065', ownerName: '', openingBalance: 0, creditLimit: 20000000, interestRate: 0, statementDay: 20, dueDay: 5, active: true, limitSharesWith: 3n },
     { id: 3n, name: 'Thẻ MSB phụ', kind: 'CARD', bank: 'MSB', matchKey: '7788', ownerName: 'Vợ', openingBalance: 0, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true, limitSharesWith: null },
+    { id: 4n, name: 'Chứng khoán', kind: 'INVEST', bank: 'OTHER', matchKey: '', ownerName: '', openingBalance: 1500000, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true, limitSharesWith: null },
+    { id: 5n, name: 'Vay mua nhà', kind: 'LOAN', bank: 'OTHER', matchKey: '', ownerName: 'Chồng', openingBalance: 100000000, creditLimit: 0, interestRate: 10.5, statementDay: 0, dueDay: 0, active: true, limitSharesWith: null },
   ];
   const purposes = [
     { id: 11n, name: 'Lương vợ', kind: 'INCOME', monthlyPlan: 0, active: true },
     { id: 12n, name: 'Ăn uống', kind: 'LIVING', monthlyPlan: 5000000, active: true },
   ];
-  const recurrings = [{ id: 21n, name: 'Tiền học', kind: 'EXPENSE', sourceId: 1n, targetSourceId: null, purposeId: 12n, amount: 2000000, interestMode: 'NONE', dayOfMonth: 10, startMonth: '2026-09', endMonth: null, active: true, note: '', source: sources[0], targetSource: null }];
+  const recurrings = [
+    { id: 21n, name: 'Tiền học', kind: 'EXPENSE', sourceId: 1n, targetSourceId: null, purposeId: 12n, amount: 2000000, interestMode: 'NONE', dayOfMonth: 10, startMonth: '2026-09', endMonth: null, active: true, note: '', source: sources[0], targetSource: null },
+    // Khoản định kỳ chuyển sang nguồn Đầu tư: form phải chọn sẵn loại "Đầu tư", danh sách cũng gọi tên ấy.
+    { id: 22n, name: 'Mua quỹ hàng tháng', kind: 'TRANSFER', sourceId: 1n, targetSourceId: 4n, purposeId: null, amount: 3000000, interestMode: 'NONE', dayOfMonth: 15, startMonth: '2026-09', endMonth: null, active: true, note: '', source: sources[0], targetSource: sources[3] },
+  ];
   // Số dư sau khi đối chiếu mail: Timo có mail báo số dư (lệch 150k = còn giao dịch chưa ghi); thẻ MSB đã
   // khai hạn mức nên hạn mức còn do sổ tính, thẻ MSB phụ chưa khai nên lấy số ngân hàng báo trong mail.
   const balances = [
     { source: { ...sources[0], id: '1' }, balance: 9850000, limitUsed: 0, available: 0, reported: { value: 9850000, at: new Date('2026-09-05T03:00:00Z'), txId: '32' }, reportedAvailable: null, diff: 150000, anchored: true },
     { source: { ...sources[1], id: '2' }, balance: 86093, limitUsed: 86093, available: 19913907, reported: null, reportedAvailable: { value: 16927825, at: new Date('2026-09-07T11:22:00Z'), txId: '31' }, diff: 0, anchored: false },
     { source: { ...sources[2], id: '3' }, balance: 0, limitUsed: 0, available: 0, reported: null, reportedAvailable: null, diff: 0, anchored: false },
+    { source: { ...sources[3], id: '4' }, balance: 1500000, limitUsed: 0, available: 0, reported: null, reportedAvailable: null, diff: 0, anchored: false, monthlyInterest: 0 },
+    // Khoản vay 100tr, 10,5%/năm → lãi dự tính 875.000đ/tháng (reconcileSources tính sẵn).
+    { source: { ...sources[4], id: '5' }, balance: 100000000, limitUsed: 0, available: 0, reported: null, reportedAvailable: null, diff: 0, anchored: false, monthlyInterest: 875000 },
   ];
   const transactions = [
-    { id: '31', kind: 'EXPENSE', sourceId: '2', targetSourceId: null, purposeId: null, recurringId: null, amount: 86093, interest: 0, month: '2026-09', status: 'NEW', occurredAt: new Date('2026-09-07T11:22:00Z'), description: 'Shopee', sourceName: 'Thẻ MSB', targetName: '', purposeName: '', purposeKind: '', recurringName: '' },
-    { id: '32', kind: 'INCOME', sourceId: '1', targetSourceId: null, purposeId: '11', recurringId: null, amount: 30000000, interest: 0, month: '2026-09', status: 'CONFIRMED', occurredAt: new Date('2026-09-05T03:00:00Z'), description: 'Lương', sourceName: 'Timo', targetName: '', purposeName: 'Lương vợ', purposeKind: 'INCOME', recurringName: '' },
+    { id: '31', kind: 'EXPENSE', sourceId: '2', sourceKind: 'CARD', targetSourceId: null, purposeId: null, recurringId: null, amount: 86093, interest: 0, month: '2026-09', status: 'NEW', occurredAt: new Date('2026-09-07T11:22:00Z'), description: 'Shopee', sourceName: 'Thẻ MSB', targetName: '', targetKind: '', purposeName: '', purposeKind: '', recurringName: '' },
+    { id: '32', kind: 'INCOME', sourceId: '1', sourceKind: 'BANK', targetSourceId: null, purposeId: '11', recurringId: null, amount: 30000000, interest: 0, month: '2026-09', status: 'CONFIRMED', occurredAt: new Date('2026-09-05T03:00:00Z'), description: 'Lương', sourceName: 'Timo', targetName: '', targetKind: '', purposeName: 'Lương vợ', purposeKind: 'INCOME', recurringName: '' },
+    // Chuyển sang nguồn Đầu tư: form sửa phải chọn sẵn loại "Đầu tư" và giấu ô mục đích.
+    { id: '33', kind: 'TRANSFER', sourceId: '1', sourceKind: 'BANK', targetSourceId: '4', purposeId: null, recurringId: null, amount: 2000000, interest: 0, month: '2026-09', status: 'CONFIRMED', occurredAt: new Date('2026-09-08T02:00:00Z'), description: 'Mua quỹ', sourceName: 'Timo', targetName: 'Chứng khoán', targetKind: 'INVEST', purposeName: '', purposeKind: '', recurringName: '' },
   ];
   return {
     ...common,
@@ -707,7 +719,10 @@ function householdLocals(section, over = {}) {
     totals: { cash: 9850000, saving: 3000000, invest: 1500000, saved: 4500000, cardDebt: 86093, debt: 86093, lent: 0 },
     mismatches: balances.filter((item) => item.diff),
     report: { month: '2026-09', income: 30000000, living: 86093, saving: 0, reserve: 0, lending: 0, debt: { total: 0, principal: 0, interest: 0 }, cardPayment: 0, used: 86093, free: 29913907, unclassified: { count: 1, total: 86093 }, byPurpose: [{ purpose: { id: '12', name: 'Ăn uống', kind: 'LIVING', monthlyPlan: 5000000, active: true }, actual: 0, plan: 5000000, count: 0 }], cardSpending: 86093 },
-    expectations: [{ recurring: { ...recurrings[0], id: '21', sourceId: '1' }, expected: 2000000, principal: 2000000, interest: 0, dueDate: new Date('2026-09-10T05:00:00Z'), transaction: null, paid: false, overdue: false }],
+    expectations: [
+      { recurring: { ...recurrings[0], id: '21', sourceId: '1' }, expected: 2000000, principal: 2000000, interest: 0, dueDate: new Date('2026-09-10T05:00:00Z'), transaction: null, paid: false, overdue: false },
+      { recurring: { ...recurrings[1], id: '22', sourceId: '1', targetSourceId: '4' }, expected: 3000000, principal: 3000000, interest: 0, dueDate: new Date('2026-09-15T05:00:00Z'), transaction: null, paid: false, overdue: false },
+    ],
     transactions,
     unclassified: transactions.filter((tx) => tx.kind === 'EXPENSE' && !tx.purposeId),
     unclassifiedAll: 1,
@@ -739,6 +754,15 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   const transactions = await renderView('household/detail.ejs', householdLocals('transactions'));
   assert.match(transactions, /data-tx-kind/, 'form ghi giao dịch có ô loại điều khiển ô nguồn đích');
   assert.match(transactions, /name="targetSourceId"/);
+  // Ô "Loại" (chủ app 18/9/2026): "Chuyển nguồn" không còn chú thích trong ngoặc, có thêm Đầu tư.
+  assert.match(transactions, /<option value="TRANSFER"[^>]*>Chuyển nguồn<\/option>/, 'loại Chuyển nguồn bỏ phần trong ngoặc');
+  assert.match(transactions, /<option value="INVEST"[^>]*>Đầu tư<\/option>/, 'ô Loại có thêm Đầu tư');
+  assert.doesNotMatch(transactions, /Trả thẻ tín dụng: để/, 'bỏ dòng nhắc "Trả thẻ tín dụng: để Trả gốc"');
+  assert.match(transactions, /data-tx-purpose/, 'ô Mục đích phải giấu được khi chọn Đầu tư');
+  assert.match(transactions, /data-source-kind="INVEST"/, 'ô Sang nguồn đánh dấu nguồn Đầu tư để lọc');
+  // Giao dịch 33 chuyển sang nguồn Đầu tư: form sửa chọn sẵn Đầu tư và giấu sẵn ô mục đích.
+  assert.match(transactions, /<option value="INVEST" selected>Đầu tư<\/option>/, 'chuyển sang nguồn Đầu tư thì form sửa chọn sẵn Đầu tư');
+  assert.match(transactions, /<div data-tx-purpose hidden>/, 'form sửa của khoản đầu tư giấu sẵn ô mục đích');
   assert.match(transactions, /Tin Telegram chưa đọc được/);
   assert.match(transactions, /transactions\/31\/delete/);
 
@@ -753,6 +777,10 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(sources, /<span>Hạn mức thẻ<\/span><strong>20000000đ/, 'hạn mức khai đứng thành ô riêng, không phải chữ nhỏ dưới ô khác');
   assert.match(overview, /còn 19913907<\/strong><span class="muted">đ, nợ thẻ 86093đ/, 'Tổng quan gói thẻ vào một dòng: còn bao nhiêu, nợ thẻ bao nhiêu');
   assert.match(sources, /Ngân hàng báo còn/, 'vẫn hiện số ngân hàng báo để so mắt thường');
+  // Nguồn có khai lãi suất thì nói luôn lãi mỗi tháng là bao nhiêu (chủ app 18/9/2026).
+  assert.match(sources, /Lãi dự tính<\/span><strong>875000đ\/tháng/, 'nguồn có lãi suất hiện lãi dự tính mỗi tháng');
+  assert.match(overview, /lãi dự tính 875000đ\/tháng/, 'ô Trả nợ ở Tổng quan cộng lãi dự tính của các khoản vay');
+  assert.match(overview, /lãi ~875000đ\/tháng/, 'mở ô Trả nợ thấy lãi dự tính của từng khoản vay');
   assert.match(sources, /<option value="INVEST"/, 'loại nguồn có Đầu tư và Tiết kiệm');
   assert.match(sources, /name="limitSharesWith"/, 'thẻ tín dụng khai được thẻ thông');
   assert.match(sources, /thông sang Thẻ MSB phụ/, 'thẻ đã khai thẻ thông thì hiện huy hiệu chiều đi');
@@ -762,6 +790,12 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
 
   const recurring = await renderView('household/detail.ejs', householdLocals('recurring'));
   assert.match(recurring, /recurring\/21\/record/, 'link cũ tới mục định kỳ vẫn render được');
+  // Form định kỳ đồng bộ với form giao dịch (chủ app 18/9/2026).
+  assert.match(recurring, /<option value="TRANSFER"[^>]*>Chuyển nguồn<\/option>/, 'loại Chuyển nguồn bỏ phần trong ngoặc');
+  assert.match(recurring, /<option value="INVEST"[^>]*>Đầu tư<\/option>/, 'khoản định kỳ cũng khai được loại Đầu tư');
+  assert.match(recurring, /<option value="INVEST" selected>Đầu tư<\/option>/, 'khoản chuyển sang nguồn Đầu tư chọn sẵn loại Đầu tư');
+  assert.match(recurring, /<div data-tx-purpose hidden>/, 'khoản định kỳ đầu tư giấu sẵn ô mục đích');
+  assert.match(recurring, /data-source-kind="INVEST"/, 'ô Sang nguồn đánh dấu nguồn Đầu tư để lọc');
   assert.doesNotMatch(overview, /\/household\/1\/recurring\?month/, 'tab Định kỳ đã ẩn theo ý chủ app');
   assert.match(transactions, /name="debtPart"/, 'chuyển nguồn phải chọn được trả gốc / trả lãi');
 

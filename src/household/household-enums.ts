@@ -57,6 +57,23 @@ export const TX_KINDS = ['EXPENSE', 'INCOME', 'TRANSFER'] as const;
 export type TxKind = (typeof TX_KINDS)[number];
 export const TX_KIND_LABELS: Record<TxKind, string> = { EXPENSE: 'Chi', INCOME: 'Thu', TRANSFER: 'Chuyển' };
 
+/**
+ * Ô "Loại" ở form giao dịch có thêm ĐẦU TƯ (chủ app 18/9/2026). Đây KHÔNG phải loại mới trong DB —
+ * vẫn ghi TRANSFER, chỉ khác là tiền sang nguồn Đầu tư nên form không hỏi gốc/lãi và không hỏi mục
+ * đích (tiền cất đi, `monthReport` đã tính vào "cất đi" theo nguồn đích chứ không theo mục đích).
+ */
+export const TX_FORM_KINDS = ['EXPENSE', 'INCOME', 'TRANSFER', 'INVEST'] as const;
+export const TX_FORM_KIND_LABELS: Record<(typeof TX_FORM_KINDS)[number], string> = {
+  EXPENSE: 'Chi',
+  INCOME: 'Thu',
+  TRANSFER: 'Chuyển nguồn',
+  INVEST: 'Đầu tư',
+};
+/** Form đang chọn Đầu tư (không có giá trị này trong DB). */
+export const isInvestForm = (value: unknown) => String(value || '') === 'INVEST';
+/** Loại gửi từ form → loại lưu DB. */
+export const normalizeFormTxKind = (value: unknown) => normalizeTxKind(isInvestForm(value) ? 'TRANSFER' : value);
+
 export const INTEREST_MODES = ['NONE', 'FROM_RATE'] as const;
 
 export const normalizeSourceKind = (value: unknown) => oneOf(value, SOURCE_KINDS, 'BANK');
@@ -95,4 +112,4 @@ export const DEFAULT_PURPOSES: { name: string; kind: PurposeKind }[] = [
 ];
 
 /** Gói nhãn đưa vào view (EJS không import được TS). */
-export const HOUSEHOLD_LABELS = { source: SOURCE_KIND_LABELS, purpose: PURPOSE_KIND_LABELS, tx: TX_KIND_LABELS, bank: BANK_LABELS };
+export const HOUSEHOLD_LABELS = { source: SOURCE_KIND_LABELS, purpose: PURPOSE_KIND_LABELS, tx: TX_KIND_LABELS, txForm: TX_FORM_KIND_LABELS, bank: BANK_LABELS };

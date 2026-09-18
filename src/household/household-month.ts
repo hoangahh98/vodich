@@ -170,6 +170,18 @@ export interface SourceCheck extends SourceBalance {
   diff: number;
   /** Số dư đang hiện lấy theo mail ngân hàng (true) hay chỉ cộng từ sổ (false). */
   anchored: boolean;
+  /** Lãi DỰ TÍNH phải trả trong một tháng với dư nợ hiện tại (0 = nguồn không khai lãi suất hoặc hết nợ). */
+  monthlyInterest: number;
+}
+
+/**
+ * Lãi dự tính một tháng của nguồn có khai lãi suất: dư nợ × lãi suất năm / 12 — đúng công thức khoản
+ * định kỳ kiểu FROM_RATE dùng (`recurringExpectations`), để thẻ nguồn và dòng định kỳ không ra hai số.
+ * Chỉ nguồn CÒN NỢ mới có lãi phải trả: hết nợ, trả quá (số âm) hay chưa khai lãi suất đều là 0.
+ */
+export function monthlyInterest(balance: number, interestRate: number): number {
+  if (!(interestRate > 0) || !(balance > 0)) return 0;
+  return Math.round((balance * interestRate) / 100 / 12);
 }
 
 /**
@@ -213,13 +225,18 @@ export function reconcileSources(
 ): SourceCheck[] {
   const balances = sourceBalances(sources, transactions);
   const cards = sources.filter((item) => item.kind === 'CARD');
+  // Lãi dự tính đi theo dư nợ CUỐI CÙNG của dòng này (số đã căn theo mail nếu có), không phải số thô của sổ.
+  const withInterest = (check: Omit<SourceCheck, 'monthlyInterest'>): SourceCheck => ({
+    ...check,
+    monthlyInterest: monthlyInterest(check.balance, check.source.interestRate),
+  });
   return sources.map((source) => {
     const item = balances.get(source.id)!;
     const reported = balanceMarks.get(source.id) || null;
     const window = availableWindows.get(source.id) || null;
     if (reported) {
       const balance = reported.value + flowBetween(source, transactions, reported, null);
-      return { ...item, balance, reported, reportedAvailable: window ? window.last : null, diff: Math.round(item.balance - balance), anchored: true };
+      return withInterest({ ...item, balance, reported, reportedAvailable: window ? window.last : null, diff: Math.round(item.balance - balance), anchored: true });
     }
     let diff = 0;
     if (source.kind === 'CARD' && source.creditLimit && window) {
@@ -237,7 +254,7 @@ export function reconcileSources(
       const spent = cards.filter((card) => affectsLimitOf(card, source)).reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last), 0);
       diff = Math.round(window.first.value - spent - window.last.value);
     }
-    return { ...item, reported: null, reportedAvailable: window ? window.last : null, diff, anchored: false };
+    return withInterest({ ...item, reported: null, reportedAvailable: window ? window.last : null, diff, anchored: false });
   });
 }
 
@@ -433,7 +450,7 @@ export function recurringExpectations(
       let interest = 0;
       if (recurring.interestMode === 'FROM_RATE' && recurring.targetSourceId) {
         const target = balancesAtStart.get(recurring.targetSourceId);
-        if (target && target.balance > 0) interest = Math.round((target.balance * target.source.interestRate) / 100 / 12);
+        if (target) interest = monthlyInterest(target.balance, target.source.interestRate);
       }
       const principal = recurring.amount;
       const expected = principal + interest;

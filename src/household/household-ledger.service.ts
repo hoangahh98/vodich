@@ -3,7 +3,7 @@ import { HouseholdTransaction, Prisma } from '@prisma/client';
 import { parseMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
 import { HouseholdConfigService } from './household-config.service';
-import { monthOf, normalizeTxKind } from './household-enums';
+import { isInvestForm, monthOf, normalizeFormTxKind, normalizeTxKind } from './household-enums';
 import { RecurringExpectation, matchRecurring, recurringExpectations, sourceBalances } from './household-month';
 import { normalizeDescription, toRecurringRow, toSourceRow, toTransactionRow } from './household-rows';
 
@@ -118,13 +118,16 @@ export class HouseholdLedgerService {
     if (!sourceId) return null;
     const occurredAt = parseDateInput(form.occurredAt);
     const amount = parseMoney(form.amount);
+    // Đầu tư = chuyển sang nguồn Đầu tư: form giấu ô gốc/lãi và ô mục đích, nên bỏ luôn hai giá trị
+    // ấy (ô giấu bằng `hidden` vẫn gửi lên) thay vì lưu số của loại vừa chọn trước đó.
+    const invest = isInvestForm(form.kind);
     return this.create(householdId, {
-      kind: normalizeTxKind(form.kind),
+      kind: normalizeFormTxKind(form.kind),
       sourceId,
       targetSourceId: await this.config.ownSourceId(householdId, form.targetSourceId),
-      purposeId: await this.config.ownPurposeId(householdId, form.purposeId),
+      purposeId: invest ? null : await this.config.ownPurposeId(householdId, form.purposeId),
       amount,
-      interest: interestFromForm(form, amount),
+      interest: invest ? 0 : interestFromForm(form, amount),
       occurredAt,
       description: form.description,
       status: 'CONFIRMED',
@@ -135,7 +138,8 @@ export class HouseholdLedgerService {
   async update(householdId: bigint, transactionId: bigint, form: Record<string, string | undefined>) {
     const sourceId = await this.config.ownSourceId(householdId, form.sourceId);
     if (!sourceId) return;
-    const kind = normalizeTxKind(form.kind);
+    const invest = isInvestForm(form.kind);
+    const kind = normalizeFormTxKind(form.kind);
     const occurredAt = parseDateInput(form.occurredAt);
     const amount = Math.max(0, parseMoney(form.amount));
     await this.prisma.householdTransaction.updateMany({
@@ -144,9 +148,9 @@ export class HouseholdLedgerService {
         kind,
         sourceId,
         targetSourceId: kind === 'TRANSFER' ? await this.config.ownSourceId(householdId, form.targetSourceId) : null,
-        purposeId: await this.config.ownPurposeId(householdId, form.purposeId),
+        purposeId: invest ? null : await this.config.ownPurposeId(householdId, form.purposeId),
         amount,
-        interest: kind === 'TRANSFER' ? interestFromForm(form, amount) : 0,
+        interest: kind === 'TRANSFER' && !invest ? interestFromForm(form, amount) : 0,
         occurredAt,
         month: monthOf(occurredAt),
         description: String(form.description || '').trim().slice(0, 255),

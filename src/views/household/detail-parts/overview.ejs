@@ -22,11 +22,13 @@
         <% if (report.unclassified.count) { %><div><span>Chưa phân loại</span><strong><%= formatMoney(report.unclassified.total) %>đ</strong></div><% } %>
       </div>
     </details>
+    <%# Lãi dự tính của cả tháng tới: cộng lãi từng nguồn còn nợ có khai lãi suất (dư nợ × lãi suất / 12). %>
+    <% const interestAhead = balances.reduce((sum, item) => sum + (item.monthlyInterest || 0), 0); %>
     <details class="metric-card blue metric-drop">
-      <summary><span>Trả nợ</span><strong><%= formatMoney(report.debt.total) %>đ</strong><small>Gốc <%= formatMoney(report.debt.principal) %>đ · lãi <%= formatMoney(report.debt.interest) %>đ</small></summary>
+      <summary><span>Trả nợ</span><strong><%= formatMoney(report.debt.total) %>đ</strong><small>Gốc <%= formatMoney(report.debt.principal) %>đ · lãi <%= formatMoney(report.debt.interest) %>đ<% if (interestAhead) { %> · lãi dự tính <%= formatMoney(interestAhead) %>đ/tháng<% } %></small></summary>
       <div class="metric-drop-body">
         <% balances.filter((item) => item.source.kind === 'LOAN').forEach((item) => { %>
-          <div><span><%= item.source.name %><% if (item.source.interestRate) { %> <small class="muted"><%= item.source.interestRate %>%/năm</small><% } %></span><strong>còn <%= formatMoney(item.balance) %>đ</strong></div>
+          <div><span><%= item.source.name %><% if (item.source.interestRate) { %> <small class="muted"><%= item.source.interestRate %>%/năm<% if (item.monthlyInterest) { %> · lãi ~<%= formatMoney(item.monthlyInterest) %>đ/tháng<% } %></small><% } %></span><strong>còn <%= formatMoney(item.balance) %>đ</strong></div>
         <% }) %>
         <% if (!balances.some((item) => item.source.kind === 'LOAN')) { %><p class="metric-drop-note">Chưa khai khoản vay nào.</p><% } %>
       </div>

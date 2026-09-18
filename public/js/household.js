@@ -1,20 +1,50 @@
 /**
  * Form giao dịch / khoản định kỳ của module Chi tiêu: chọn loại "Chuyển nguồn" thì mới hiện ô
  * "Sang nguồn" và ô lãi. Không có inline script vì CSP script-src 'self'.
+ *
+ * Loại "Đầu tư" cũng là chuyển nguồn (server ghi TRANSFER) nhưng tiền sang nguồn Đầu tư: ô "Sang
+ * nguồn" chỉ còn nguồn Đầu tư, và hai ô "Khoản chuyển này là" + "Mục đích" biến mất (chủ app
+ * 18/9/2026). Ô giấu bằng `hidden` VẪN gửi giá trị lên, nên server cũng bỏ hai giá trị ấy.
  */
 (() => {
   const sync = (form) => {
     const kind = form.querySelector('[data-tx-kind]');
     if (!kind) return;
-    const transfer = kind.value === 'TRANSFER';
-    form.querySelectorAll('[data-tx-target], [data-tx-interest]').forEach((box) => {
+    const invest = kind.value === 'INVEST';
+    const transfer = kind.value === 'TRANSFER' || invest;
+    form.querySelectorAll('[data-tx-target]').forEach((box) => {
       box.hidden = !transfer;
+    });
+    form.querySelectorAll('[data-tx-interest]').forEach((box) => {
+      box.hidden = !transfer || invest;
+    });
+    form.querySelectorAll('[data-tx-purpose]').forEach((box) => {
+      box.hidden = invest;
     });
     // Ô "Trong đó lãi" chỉ khi chọn Gốc + lãi.
     const part = form.querySelector('[data-debt-part]');
     form.querySelectorAll('[data-tx-mixed]').forEach((box) => {
-      box.hidden = !transfer || !part || part.value !== 'MIXED';
+      box.hidden = !transfer || invest || !part || part.value !== 'MIXED';
     });
+    syncTarget(form, invest);
+  };
+
+  // Đầu tư thì ô "Sang nguồn" chỉ để lại nguồn loại Đầu tư (kèm `disabled` vì Safari cũ không nghe
+  // `hidden` trên <option>); đang trỏ vào nguồn khác thì nhảy về nguồn Đầu tư đầu tiên.
+  const syncTarget = (form, invest) => {
+    const target = form.querySelector('select[name="targetSourceId"]');
+    if (!target) return;
+    let firstInvest = '';
+    Array.prototype.forEach.call(target.options, (option) => {
+      const investSource = option.dataset.sourceKind === 'INVEST';
+      const off = invest && option.value && !investSource;
+      option.hidden = off;
+      option.disabled = off;
+      if (investSource && !firstInvest) firstInvest = option.value;
+    });
+    // Chỉ còn nguồn Đầu tư chọn được thì chọn sẵn cái đầu tiên: đang trỏ nguồn khác (vừa đổi loại) hay
+    // chưa chọn gì đều nhảy về đó, khỏi lỡ ghi một khoản chuyển không có nguồn đích.
+    if (invest && (!target.value || target.selectedOptions[0].disabled)) target.value = firstInvest;
   };
   document.addEventListener('change', (event) => {
     const part = event.target instanceof Element ? event.target.closest('[data-debt-part]') : null;

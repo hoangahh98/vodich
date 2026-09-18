@@ -543,6 +543,41 @@ test('trả nợ vay: chọn Trả lãi thì cả khoản là lãi (không trừ
   assert.deepEqual(report.debt, { total: 6_000_000, principal: 3_000_000, interest: 3_000_000 });
 });
 
+// ─────────────────────────── Lãi dự tính của nguồn có lãi suất ───────────────────────────
+
+const { monthlyInterest } = require('../dist/household/household-month');
+
+test('nguồn có lãi suất: lãi dự tính = dư nợ × lãi suất / 12, hết nợ hay chưa khai lãi suất thì 0', () => {
+  assert.equal(monthlyInterest(100_000_000, 10.5), 875_000);
+  assert.equal(monthlyInterest(100_000_000, 0), 0, 'chưa khai lãi suất thì không đoán bừa');
+  assert.equal(monthlyInterest(0, 10.5), 0, 'trả hết nợ thì hết lãi');
+  assert.equal(monthlyInterest(-500_000, 10.5), 0, 'trả quá (số âm) không thành lãi âm');
+  // Thẻ nguồn lấy số này từ reconcileSources, và nó đi theo dư nợ CÒN LẠI sau khi trả bớt.
+  const paid = tx({ id: 'r', kind: 'TRANSFER', targetSourceId: 'l', amount: 20_000_000, interest: 0 });
+  const [, loanCheck] = reconcileSources([bank, loan], [paid], new Map(), new Map());
+  assert.equal(loanCheck.balance, 80_000_000);
+  assert.equal(loanCheck.monthlyInterest, monthlyInterest(80_000_000, loan.interestRate));
+});
+
+// ─────────────────────────── Loại "Đầu tư" ở form giao dịch ───────────────────────────
+
+const { isInvestForm, normalizeFormTxKind } = require('../dist/household/household-enums');
+
+test('form giao dịch: loại Đầu tư vẫn ghi TRANSFER (không phải loại mới trong DB)', () => {
+  assert.equal(normalizeFormTxKind('INVEST'), 'TRANSFER');
+  assert.equal(isInvestForm('INVEST'), true);
+  assert.equal(normalizeFormTxKind('TRANSFER'), 'TRANSFER');
+  assert.equal(normalizeFormTxKind('EXPENSE'), 'EXPENSE');
+  assert.equal(isInvestForm('TRANSFER'), false);
+  // Chuyển sang nguồn Đầu tư là "cất đi", không phải tiêu — đúng như chuyển sang Tiết kiệm.
+  const invest = { id: 'v', name: 'Chứng khoán', kind: 'INVEST', openingBalance: 0, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true };
+  const buy = tx({ id: 'q', kind: 'TRANSFER', targetSourceId: 'v', amount: 2_000_000, interest: 0, purposeId: null });
+  const report = monthReport('2026-09', [bank, invest], purposes, [buy]);
+  assert.equal(report.saving, 2_000_000, 'tiền sang nguồn Đầu tư vào mục cất đi dù không có mục đích');
+  assert.equal(report.living, 0, 'và không tính là chi tiêu');
+  assert.equal(sourceBalances([bank, invest], [buy]).get('v').balance, 2_000_000);
+});
+
 // ─────────────────────────── Cho vay (nguồn loại LENT) ───────────────────────────
 
 test('cho vay: chuyển sang khoản LENT là cho vay (họ nợ tăng), họ trả về là giảm, không phải thu nhập', () => {
