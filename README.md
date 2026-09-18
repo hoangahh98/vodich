@@ -289,10 +289,14 @@ chạy `db push` + `restore` ở đó.
 
 ### Dựng lại DB từ số không (khi mất Supabase)
 
-**Diễn tập lại ngày 3/8/2026** trên một schema nháp của Supabase: dựng DB trắng bằng `db push`
-→ nạp backup → đối chiếu **38/38 bảng khớp số dòng** (11.251 bản ghi), so từng trường của các
-bảng tiền nong, kiểm 52 khoá ngoại có thật, mọi bộ đếm id >= id lớn nhất, và ghi thử một bản
-ghi mới không đụng id cũ. Lần đầu diễn tập là 28/7/2026.
+**Diễn tập gần nhất 18/9/2026, trên bản backup THẬT** (`latest.json` do Actions xuất đêm 17/9,
+551 dòng): dựng Postgres trắng → `db push` → `restore` → `baseline` → `migrate deploy` chạy được
+→ **28/28 bảng khớp số dòng** (527 bản ghi; 24 dòng còn lại là hai bảng game đã gỡ, bị bỏ qua
+đúng như thiết kế) → **0 bản ghi mồ côi** trên 5 quan hệ khoá ngoại đã soi → tổng tiền khớp từng
+đồng (giao dịch chi tiêu, quỹ đội, lệ phí giải) → bộ đếm id đã nhảy qua id lớn nhất. Đối chứng:
+bỏ bước `baseline` thì `migrate deploy` gãy P3005 như mô tả bên dưới.
+
+Các lần trước: 3/8/2026 (38/38 bảng, 11.251 bản ghi, trên schema nháp Supabase) và 28/7/2026.
 
 ```bash
 # 1. Trỏ DATABASE_URL sang DB mới, rồi:
