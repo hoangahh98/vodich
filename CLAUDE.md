@@ -40,7 +40,14 @@ E2E_DATABASE_URL=postgresql://... npm run test:e2e   # chạy cả bộ phân qu
 `e2e/permissions.spec.js` và `e2e/db.spec.js` **tự skip** nếu thiếu `E2E_DATABASE_URL`.
 `scripts/assert-e2e-permissions-ran.js` (chạy trong CI) là chốt bắt trường hợp skip âm thầm.
 
-**Backup / khôi phục / kiểm tra Render:** `npm run backup`, `npm run backup:push`, `npm run restore`, `npm run check:render -- <url> <url>`.
+**Backup / khôi phục / kiểm tra Render:** `npm run backup`, `npm run backup:push`, `npm run restore`,
+`npm run baseline`, `npm run check:render -- <url> <url>`.
+
+Dựng lại DB sau thảm hoạ đi đúng ba bước, **không bỏ bước nào**: `npx prisma db push` →
+`npm run restore` → `npm run baseline`. Bỏ `baseline` thì `_prisma_migrations` rỗng, lần deploy sau
+`migrate deploy` phát lại cả chuỗi lên schema đã đầy đủ và chết ở
+`20260728120000_household_owner_scope` (`CREATE TABLE "household_permission"` trần) — dữ liệu đúng hết
+mà app không lên. Chi tiết ở README mục "Dựng lại DB từ số không".
 
 Repo **không có** ESLint/Prettier — không thêm bước lint vào quy trình.
 

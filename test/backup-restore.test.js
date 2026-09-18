@@ -60,6 +60,32 @@ test('mọi bảng có id tự tăng đều được đặt lại bộ đếm sa
   assert.match(source, /autoincrement/, 'phải quét đúng các bảng có id tự tăng');
 });
 
+/**
+ * Đường khôi phục sau thảm hoạ là: `prisma db push` -> `npm run restore` -> `npm run baseline`.
+ * Bước baseline KHÔNG được quên, và test này khoá lý do vì sao nó tồn tại.
+ *
+ * CA THẬT (kiểm chứng 18/9/2026): `db push` dựng đủ schema nhưng không ghi gì vào
+ * `_prisma_migrations`, nên lần deploy kế tiếp `prisma migrate deploy` phát lại CẢ chuỗi lên
+ * một DB đã đầy đủ. Migration `20260728120000_household_owner_scope` có
+ * `CREATE TABLE "household_permission"` trần (không IF NOT EXISTS) mà bảng ấy đang tồn tại ->
+ * Postgres từ chối -> `start:prod` chết trước khi tới `node dist/main.js`. Dữ liệu khôi phục
+ * đúng hết mà app vẫn nằm im.
+ */
+test('baseline phủ HẾT migration — thiếu một cái là migrate deploy phát lại và gãy', () => {
+  const { migrationNames } = require('../scripts/baseline-db');
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dir = path.join(__dirname, '..', 'prisma', 'migrations');
+  const onDisk = fs
+    .readdirSync(dir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(dir, entry.name, 'migration.sql')))
+    .map((entry) => entry.name)
+    .sort();
+
+  assert.deepEqual(migrationNames(), onDisk, 'baseline-db.js phải đánh dấu đúng mọi migration đang có');
+  assert.ok(onDisk.length > 0, 'phải tìm thấy migration, không thì test này vô nghĩa');
+});
+
 test('backup đổi tên cột DB về tên field Prisma khi phải đọc bằng SQL thô', () => {
   // Không đổi thì file backup lẫn hai dạng khoá và restore chết với
   // "Unknown argument `week_start_dow`" — đúng lúc đang cần khôi phục.

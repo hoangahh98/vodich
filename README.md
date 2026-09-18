@@ -298,7 +298,16 @@ ghi mới không đụng id cũ. Lần đầu diễn tập là 28/7/2026.
 # 1. Trỏ DATABASE_URL sang DB mới, rồi:
 npx prisma db push   # dựng schema thẳng từ prisma/schema.prisma
 npm run restore      # nạp dữ liệu từ backups/latest.json
+npm run baseline     # đánh dấu mọi migration là ĐÃ chạy — BỎ BƯỚC NÀY LÀ APP KHÔNG LÊN
 ```
+
+⚠️ **Đừng bỏ `npm run baseline`.** `db push` dựng đủ bảng nhưng không ghi gì vào
+`_prisma_migrations`, nên với Prisma thì DB mới coi như chưa chạy migration nào. Lần deploy kế
+tiếp, `start:prod` chạy `prisma migrate deploy` và phát lại CẢ chuỗi lên schema vốn đã đầy đủ —
+tới `20260728120000_household_owner_scope` thì gặp `CREATE TABLE "household_permission"` trần
+(không `IF NOT EXISTS`) trên bảng đang tồn tại, Postgres từ chối, `migrate deploy` hỏng và app
+**không khởi động** dù dữ liệu đã khôi phục đúng hết. Kiểm chứng 18/9/2026;
+`test/backup-restore.test.js` khoá để baseline luôn phủ đủ mọi migration.
 
 ⚠️ **Phải dùng `db push`, KHÔNG dùng `prisma migrate deploy`.** Chuỗi migration không dựng
 được schema từ DB trống: migration đầu tiên (`20260702000000_add_tournament_end_time`) đã là
