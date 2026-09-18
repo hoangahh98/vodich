@@ -5,6 +5,9 @@ target/
 __pycache__/
 *.iml
 .env
+# Mọi file .env (kể cả bản tải từ Render về, ví dụ pickleball.env): chứa DATABASE_URL,
+# SESSION_SECRET, token bot, PAT GitHub — repo public, lọt lên là phải đổi sạch key.
+*.env
 .DS_Store
 *.log
 node_modules
