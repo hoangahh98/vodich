@@ -9,10 +9,6 @@ import { AdminController } from './admin/admin.controller';
 import { AdminService } from './admin/admin.service';
 import { HealthController } from './health.controller';
 import { HomeController } from './home.controller';
-import { GamesController } from './games/games.controller';
-import { KnightController } from './games/knight.controller';
-import { KnightService } from './games/knight.service';
-import { KnightAiService } from './games/knight-ai.service';
 import { PlayersController } from './players/players.controller';
 import { PlayersService } from './players/players.service';
 import { PlayerAccessService } from './players/player-access.service';
@@ -48,20 +44,17 @@ import { HouseholdConfigService } from './household/household-config.service';
 import { HouseholdLedgerService } from './household/household-ledger.service';
 import { HouseholdTelegramService } from './household/household-telegram.service';
 import { TelegramController } from './household/telegram.controller';
-import { AiService } from './common/ai.service';
 import { LocalsMiddleware } from './common/locals.middleware';
 import { RateLimitService } from './common/rate-limit.service';
 import { FeatureGuard } from './common/feature.guard';
 import { CsrfMiddleware } from './common/csrf';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, GamesController, KnightController, PlayersController, GroupController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, HouseholdController, TelegramController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, PlayersController, GroupController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, HouseholdController, TelegramController, AdminController],
   providers: [
     PrismaService,
     AuthService,
     LogService,
-    KnightService,
-    KnightAiService,
     PlayersService,
     PlayerAccessService,
     GroupService,
@@ -85,7 +78,6 @@ import { CsrfMiddleware } from './common/csrf';
     HouseholdConfigService,
     HouseholdLedgerService,
     HouseholdTelegramService,
-    AiService,
     MatchGateway,
     LocalsMiddleware,
     CsrfMiddleware,

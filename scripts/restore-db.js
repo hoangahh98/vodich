@@ -22,7 +22,6 @@ const ORDER = [
   'PlayerTournamentAccess', 'PlayerTeamAccess',
   'PlayerGroup', 'PlayerGroupMember', 'TeamClubGroup', 'TeamGuestReceipt',
   'AppLog',
-  'KnightCharacter', 'KnightProgress',
   // Chi tiêu gia đình (9/2026): hộ trước, rồi nguồn/mục đích, rồi định kỳ (trỏ nguồn + mục đích),
   // rồi giao dịch (trỏ cả định kỳ), hộp thư Telegram sau cùng.
   'Household', 'HouseholdPermission', 'PlayerHouseholdAccess', 'HouseholdSource', 'HouseholdPurpose',
@@ -111,8 +110,9 @@ async function main() {
   //
   //  a) Bảng vẫn còn trong schema  -> LỖI THẬT (quên khai vào ORDER). Dừng ngay, vì chạy tiếp
   //     là khôi phục nửa vời rồi báo "thành công" — đúng cái bẫy im lặng ORDER sinh ra để chặn.
-  //  b) Bảng KHÔNG còn trong schema -> module đã bị gỡ bỏ có chủ ý (y tế, chi tiêu, du lịch —
-  //     gỡ ngày 3/8/2026). File backup cũ hơn ngày đó vẫn chứa chúng. Bỏ qua, nhưng phải NÓI TO
+  //  b) Bảng KHÔNG còn trong schema -> module đã bị gỡ bỏ có chủ ý (y tế, chi tiêu, du lịch gỡ
+  //     ngày 3/8/2026; game Hiệp Sĩ gỡ cùng module Học vui ngày 18/9/2026). File backup cũ hơn
+  //     mốc tương ứng vẫn chứa chúng. Bỏ qua, nhưng phải NÓI TO
   //     kèm số dòng: chặn hẳn thì một backup cũ mất luôn khả năng khôi phục 16 bảng còn lại,
   //     mà im lặng bỏ qua thì người ta tưởng đã khôi phục đủ.
   const known = new Set(Prisma.dmmf.datamodel.models.map((model) => model.name));

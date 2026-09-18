@@ -329,7 +329,6 @@ small { font-size: 13px; }
 .ht-house { --accent: #b45309; }
 .ht-member { --accent: #7c3aed; }
 .ht-group { --accent: #0f8b8d; }
-.ht-games { --accent: #e11d74; }
 .ht-perm { --accent: #2563eb; }
 .ht-log { --accent: #475569; }
 .group-tile { --accent: #0f8b8d; }
@@ -906,31 +905,6 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .filter-row strong { font-size: 12.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-right: 4px; }
 .filter-row select { width: auto; min-width: 200px; }
 
-/* ─── Hộp "Học vui" ở trang chủ (game-hub) ─────────────────────────────────────────── */
-.game-section-head { display: flex; align-items: baseline; gap: 10px; margin: 24px 4px 12px; font-family: var(--display); text-transform: uppercase; letter-spacing: .08em; font-size: 13px; color: var(--muted); font-weight: 600; flex-wrap: wrap; }
-.game-section-head:first-of-type { margin-top: 4px; }
-.game-section-head h2 { margin: 0; font-family: var(--display); font-size: 20px; letter-spacing: .04em; color: var(--ink); }
-.game-section-head .muted { font-family: var(--font); text-transform: none; letter-spacing: 0; font-size: 14px; }
-.game-hub { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
-.game-card { --rx: 0deg; --ry: 0deg; position: relative; display: flex; flex-direction: column; gap: 8px; padding: 24px 22px; border-radius: 24px; color: #fff; text-decoration: none; box-shadow: var(--shadow-2); overflow: hidden; transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry)); transition: transform .25s var(--ease-out), box-shadow .25s var(--ease-out); }
-.game-card::after { content: ""; position: absolute; right: -40px; top: -40px; width: 160px; height: 160px; border-radius: 50%; background: rgba(255, 255, 255, .14); pointer-events: none; }
-.game-card:hover { box-shadow: var(--shadow-3); }
-.game-card-emoji { font-size: 52px; line-height: 1; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .25)); transition: transform .35s var(--ease-spring); }
-.game-card:hover .game-card-emoji { transform: translateY(-6px) rotate(-8deg) scale(1.08); }
-.game-card h2 { margin: 0; font-family: var(--display); font-weight: 600; font-size: 24px; text-transform: uppercase; letter-spacing: .03em; color: #fff; }
-.game-card p { margin: 0; opacity: .95; font-weight: 500; }
-.game-card-go { margin-top: 6px; font-weight: 800; }
-.game-card-math { background: linear-gradient(135deg, #ff8a00, #ff2d95); }
-.game-card-english { background: linear-gradient(135deg, #12c2e9, #6a5acd); }
-.game-card-knight { background: linear-gradient(135deg, #6a11cb, #2575fc); }
-.game-card-advanced { background: linear-gradient(135deg, #0f2027, #2c5364); }
-.game-card-bubbles { background: linear-gradient(135deg, #4facfe, #00f2fe); }
-.game-card-peek { background: linear-gradient(135deg, #56ab2f, #a8e063); }
-.game-card-shadow { background: linear-gradient(135deg, #5f2c82, #49a09d); }
-.game-card-tree { background: linear-gradient(135deg, #43e97b, #38f9d7); color: #073b1e; }
-.game-card-tree h2, .game-card-tree p { color: #0a4023; }
-.game-card.navigating { opacity: .7; transform: scale(.98); pointer-events: none; }
-
 /* ─── Responsive ──────────────────────────────────────────────────────────────────── */
 @media (max-width: 860px) {
   .wheel-page { grid-template-columns: minmax(0, 1fr); }
@@ -1060,7 +1034,7 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 @media (prefers-reduced-motion: reduce) {
   .app-shell > *, .reveal, .ball3d, .ball3d::before, .ball3d::after, .scene-bg *, .balls-bg *, .feature-hero::after, .login-card, .score-modal-panel, .score-modal-backdrop, .wheel-winner { animation: none !important; transition: none !important; }
   .reveal { opacity: 1; transform: none; }
-  .module-card, .game-card { transform: none !important; }
+  .module-card { transform: none !important; }
 }
 
 /* ─── Chi tiêu gia đình (9/2026) ─── */

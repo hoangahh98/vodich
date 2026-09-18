@@ -323,8 +323,8 @@ bộ lọc chủ sở hữu trong service.
 
 ### Giao diện — design system "Sân đấu" (9/2026)
 
-Không còn Bootstrap. Toàn bộ style nằm ở `public/css/app.css` (app) và `public/css/games.css`
-(màn hình game cho bé). Quy ước, và là thứ chủ app đã nói rõ là **ghét**:
+Không còn Bootstrap. Toàn bộ style nằm ở `public/css/app.css` — một file duy nhất kể từ khi gỡ module
+Học vui (18/9/2026, `games.css` đi cùng). Quy ước, và là thứ chủ app đã nói rõ là **ghét**:
 
 - **Không** viền màu ở mép trái thẻ (`border-left: 4px solid ...`), **không** emoji nhốt trong ô
   vuông màu, **không** nền gradient bảy sắc cho thẻ dữ liệu. Trạng thái nói bằng huy hiệu, "của
@@ -373,23 +373,16 @@ liên kết; bỏ khỏi nhóm KHÔNG gỡ khỏi đội (còn lịch sử phí)
 (`mergeDistinct` trong tournament-registration.controller). Admin phụ chỉ thấy nhóm mình tạo; id
 nhóm gửi lên luôn đi qua `GroupService.scopedIds`/`playerIdsOfGroups` trước khi dùng.
 
-### Game cho bé và AI (`src/games/`)
+### Module Học vui đã gỡ (18/9/2026) — app KHÔNG còn gọi AI
 
-Hub `/games` + game "Hiệp sĩ toán học" `/games/hiep-si` (spec đầy đủ ở `docs/hiep-si-toan-hoc.md`).
-Mọi game là **state machine vanilla JS** trong `public/js/games-*.js` — không có bundler, React island
-không chạy được dưới CSP. Server giữ nguồn sự thật về ải/quái (`knight.constants.ts`) và tiến trình
-(`knight.service.ts`), client chỉ chạy vòng lặp.
+Tám game cho bé ở `/games` (`src/games/`, `src/views/games/`, `public/js/games-*.js`,
+`public/css/games.css`) đã gỡ hẳn theo ý chủ app, kèm `AiService` và hai bảng `knight_character` /
+`knight_progress` (migration `20260918120000_drop_games_module`). Hệ quả cần nhớ:
 
-**Chỉ đúng MỘT chỗ trong cả app gọi AI**: `POST /games/advanced-chat` của game "Tập nói chuyện tiếng
-Anh" (`games.controller.ts`). `KnightAiService` mang chữ "Ai" trong tên nhưng **không gọi AI** —
-`isConfigured()` trả `true` cứng và đề toán dựng bằng code, cố ý như vậy vì AI từng đặt sai đáp án cho
-bé 4–7 tuổi. Đừng đọc tên lớp rồi tưởng game hiệp sĩ cần `GROQ_API_KEY`.
-
-AI đi qua `AiService` (`src/common/ai.service.ts`): Groq theo chuẩn OpenAI, `GROQ_API_KEY` +
-`GROQ_MODEL` (mặc định `llama-3.3-70b-versatile`). Chỉ gửi TEXT — phần đọc ảnh đã đi cùng module y tế
-khi module đó bị gỡ. Model dòng reasoning phải kèm `reasoning_format=hidden` + `reasoning_effort=none`
-(model thường gửi vào là lỗi 400); `llama-4-scout` đã bị Groq gỡ, đừng dùng lại. Thiếu key thì
-`isConfigured()` false và view tự ẩn phần AI. Mọi route gọi AI kẹp thêm `RateLimitService`.
+- **Không còn dòng nào gọi ra dịch vụ AI.** `GROQ_API_KEY` / `GROQ_MODEL` / `AI_TIMEOUT_MS` là biến
+  chết. Cần AI trở lại thì dựng client mới, đừng đi tìm `AiService` cũ.
+- `RateLimitService` **vẫn dùng** (đăng nhập + đăng ký ngoài) — đừng gỡ theo.
+- `docs/hiep-si-toan-hoc.md` đã xoá cùng module; lịch sử game nằm ở commit trước commit gỡ.
 
 ### CSP: không có inline script
 

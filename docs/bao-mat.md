@@ -193,8 +193,8 @@ Khoá thật cần ba lớp, `test/ui-smoke.test.js` khoá cả ba lại:
 1. Thẻ `meta viewport` — có tác dụng trên Android/Chrome.
 2. `touch-action: pan-x pan-y` ở `html`/`body` — cho cuộn, cấm chụm ngón và nhấn đúp để phóng.
 3. `public/js/no-zoom.js` — chặn `gesturestart/change/end` (sự kiện riêng của Safari) và
-   `touchmove` từ 2 ngón trở lên. Nạp ở `partials/head` để cả trang đăng nhập lẫn các màn hình
-   game (không có menu dưới) đều được khoá.
+   `touchmove` từ 2 ngón trở lên. Nạp ở `partials/head` (không phải `bottom-menu`) để cả những
+   trang không có menu dưới — trang đăng nhập, trang lỗi — cũng được khoá.
 
 Giới hạn phải nói rõ: đây là chặn cử chỉ **trong trang**. Người dùng vẫn phóng to được qua
 Cài đặt → Trợ năng của iOS, và đó là đúng — không nên khoá tuyệt đối. Ctrl + lăn chuột trên máy

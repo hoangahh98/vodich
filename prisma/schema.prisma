@@ -26,7 +26,6 @@ model AppUser {
   ownedHouseholds         Household[]              @relation("HouseholdOwner")
   householdPermissions    HouseholdPermission[]
   grantedHouseholdAccess  PlayerHouseholdAccess[]  @relation("PlayerHouseholdAccessGrantedBy")
-  knightCharacters      KnightCharacter[]        @relation("KnightCharacterOwner")
 
   @@map("app_user")
 }
@@ -350,45 +349,6 @@ model TeamExpense {
   team TeamClub @relation(fields: [teamId], references: [id], onDelete: Cascade)
 
   @@map("team_expense")
-}
-
-// ===== Game "Hiệp Sĩ Toán Học" (RPG học toán 4-7 tuổi) =====
-// Hồ sơ nhân vật của người chơi: lưu tiến trình liên tục (Save/Load).
-model KnightCharacter {
-  id           BigInt   @id @default(autoincrement())
-  ownerUserId  BigInt   @map("owner_user_id")
-  name         String   @db.VarChar(60)
-  gender       String   @default("boy") @db.VarChar(10) // 'boy' | 'girl'
-  age          Int // 4..7
-  notes        String   @default("") // Ghi chú cá nhân: điểm mạnh/yếu, sở thích
-  currentStage Int      @default(1) @map("current_stage") // màn chơi hiện tại
-  mobIndex     Int      @default(0) @map("mob_index") // đã đánh tới con quái thứ mấy của ải (chơi tiếp đúng chỗ)
-  hp           Int      @default(10) // máu còn lại của lượt chơi hiện tại
-  status       String   @default("ACTIVE") @db.VarChar(20) // ACTIVE | RESTING | VICTORY
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
-
-  owner    AppUser          @relation("KnightCharacterOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
-  progress KnightProgress[]
-
-  @@map("knight_character")
-}
-
-// Tiến trình từng ải đã vượt qua (lịch sử + số sao). Tra cứu bằng khoá chính xác
-// [characterId, stageNumber] — không dùng lọc theo khoảng.
-model KnightProgress {
-  id          BigInt   @id @default(autoincrement())
-  characterId BigInt   @map("character_id")
-  stageNumber Int      @map("stage_number")
-  status      String   @default("CLEARED") @db.VarChar(20) // CLEARED
-  stars       Int      @default(0) // 0..3
-  attempts    Int      @default(1)
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
-
-  character KnightCharacter @relation(fields: [characterId], references: [id], onDelete: Cascade)
-
-  @@unique([characterId, stageNumber])
-  @@map("knight_progress")
 }
 
 model AppLog {

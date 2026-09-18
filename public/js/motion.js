@@ -1,7 +1,7 @@
 /**
  * Chuyển động trang trí của giao diện — chỉ chạy khi máy cho phép (prefers-reduced-motion).
  *
- *  1. Thẻ nghiêng theo con trỏ (.module-card, .game-card): đặt --rx/--ry, CSS lo phần
+ *  1. Thẻ nghiêng theo con trỏ (.module-card): đặt --rx/--ry, CSS lo phần
  *     perspective/rotate. Chỉ bật với chuột (hover + pointer fine), trên điện thoại vô nghĩa.
  *  2. Lộ dần khi cuộn tới: phần tử nằm dưới màn hình lúc mở trang được gắn .reveal, tới lúc
  *     lọt vào khung nhìn thì thêm .in. Xong transition là gỡ cả hai lớp để không đè lên
@@ -18,7 +18,7 @@
 
   // 1. Thẻ nghiêng theo con trỏ
   if (media('(hover: hover) and (pointer: fine)')) {
-    document.querySelectorAll('.module-card, .game-card').forEach((card) => {
+    document.querySelectorAll('.module-card').forEach((card) => {
       let frame = 0;
       card.addEventListener('pointermove', (event) => {
         const rect = card.getBoundingClientRect();
@@ -57,7 +57,7 @@
     }, { rootMargin: '0px 0px -6% 0px' });
     const pending = [];
     document
-      .querySelectorAll('.module-card, .metric-card, .tran-card, .game-card, .ranking-board, .group-board, .cost-card, .permission-admin-card')
+      .querySelectorAll('.module-card, .metric-card, .tran-card, .ranking-board, .group-board, .cost-card, .permission-admin-card')
       .forEach((el) => {
         if (el.getBoundingClientRect().top < viewportHeight) return; // đang trong màn hình: khối cha đã có hiệu ứng nổi lên
         el.classList.add('reveal');

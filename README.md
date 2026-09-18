@@ -1,8 +1,8 @@
 # Vô Địch Tool
 
 Ứng dụng quản lý giải đấu pickleball, thành viên, nhóm, đội bóng (quỹ + khoản thu), phân quyền, log hệ thống
-và tỉ số trực tiếp. Kèm hai module dùng chung tài khoản: **Chi tiêu gia đình** (sổ thu chi của nhà, tin ngân
-hàng vào qua Telegram) và **Học vui** (mấy game cho bé ở `/games`).
+và tỉ số trực tiếp. Kèm module **Chi tiêu gia đình** dùng chung tài khoản (sổ thu chi của nhà, tin ngân hàng
+vào qua Telegram).
 
 ## Công nghệ
 
@@ -11,7 +11,6 @@ hàng vào qua Telegram) và **Học vui** (mấy game cho bé ở `/games`).
 - EJS server-rendered UI (không phải SPA, CSP `script-src 'self'` nên không có inline script)
 - Socket.IO cho realtime scoring
 - Redis cho session/realtime khi chạy nhiều Render service
-- Groq cho phần AI của mục Học vui
 
 ## Chạy local
 
@@ -46,7 +45,6 @@ REQUIRE_REDIS=false
 - `CSRF_ALLOWED_ORIGINS`: danh sách origin được phép gửi request ghi ngoài chính host của app, ngăn cách bằng dấu phẩy. Hiếm khi cần — chỉ dùng khi app đứng sau nhiều tên miền.
 - `LOG_ALL_HTTP=true`: ghi cả health check/static asset vào log. Mặc định app bỏ qua các request này để giảm DB writes.
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`: bot của module Chi tiêu (xem mục "Chi tiêu gia đình: bot Telegram"). Không đặt = webhook đóng, module vẫn dùng được bằng nhập tay.
-- `GROQ_API_KEY`, `GROQ_MODEL`: chỉ dùng cho game "Tập nói chuyện tiếng Anh" (xem mục "Tính năng AI (Groq)"). Không đặt = riêng game đó báo chưa cấu hình, phần còn lại của app chạy bình thường.
 
 Biến chỉ nên dùng cho test/CI:
 
@@ -122,21 +120,12 @@ Bộ test phân quyền:
 
 Xem [docs/bao-mat.md](docs/bao-mat.md) cho mô hình phân quyền đầy đủ.
 
-## Tính năng AI (Groq)
+## App KHÔNG còn gọi AI
 
-Cả app chỉ còn **đúng một tính năng** gọi AI: game **"Tập nói chuyện tiếng Anh"**
-(`/games/tieng-anh-nang-cao`) — bé nói theo tình huống, AI đóng vai người đối thoại kiêm gia sư sửa lỗi.
-Mấy game còn lại, kể cả "Hiệp sĩ toán học", sinh đề bằng code nên **không cần** AI (xem
-[docs/hiep-si-toan-hoc.md](docs/hiep-si-toan-hoc.md) mục 3).
-
-- `GROQ_API_KEY`: bắt buộc cho riêng game nói chuyện tiếng Anh. Lấy tại https://console.groq.com/keys.
-  Không đặt thì trang game ấy hiện "Chưa cấu hình AI trên server nên chưa trò chuyện được", mọi thứ khác
-  của app chạy bình thường. Không định dùng game đó thì bỏ qua biến này.
-- `GROQ_MODEL`: model dùng, mặc định `llama-3.3-70b-versatile`. `llama-4-scout` đã bị Groq gỡ (404
-  `model_not_found`) — đừng đặt lại.
-- `AI_TIMEOUT_MS`: huỷ request nếu Groq không trả lời trong ngần ấy mili-giây, mặc định `20000`.
-- App chỉ gửi TEXT cho AI (phần đọc ảnh đã đi cùng module y tế lúc module đó bị gỡ), tự thử lại vài lần khi
-  gặp 429/503 tạm thời và báo lỗi thân thiện khi hết lượt. Mọi route gọi AI đều qua `RateLimitService`.
+Module **Học vui** (8 game cho bé ở `/games`, gồm cả "Hiệp Sĩ Toán Học") đã gỡ hẳn ngày 18/9/2026 cùng
+`AiService`. Nay không còn dòng code nào gọi ra dịch vụ AI, nên **`GROQ_API_KEY`, `GROQ_MODEL` và
+`AI_TIMEOUT_MS` là biến chết** — xoá khỏi Render cho gọn. Muốn lấy lại mấy game thì checkout commit ngay
+trước commit gỡ.
 
 ## Chi tiêu gia đình: bot Telegram
 
