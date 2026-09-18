@@ -3,17 +3,21 @@
 //
 // VÌ SAO CẦN: khôi phục sau thảm hoạ đi theo đường `db push` + `npm run restore` (xem README,
 // mục "Dựng lại DB từ số không") — chuỗi migration KHÔNG dựng nổi schema từ DB trống. Nhưng
-// `db push` không ghi gì vào bảng `_prisma_migrations`, nên với Prisma thì DB mới này coi như
-// CHƯA chạy migration nào. Lần deploy kế tiếp, `start:prod` chạy `prisma migrate deploy` và
-// nó phát lại cả chuỗi lên một schema vốn đã đầy đủ.
+// `db push` không ghi gì vào bảng `_prisma_migrations`, nên DB mới có schema đầy đủ mà lịch sử
+// migration trống rỗng. Lần deploy kế tiếp, `start:prod` chạy `prisma migrate deploy` và nó
+// TỪ CHỐI NGAY, không chạy migration nào:
 //
-// Chỗ gãy đã kiểm chứng 18/9/2026: `20260728120000_household_owner_scope` có
-// `CREATE TABLE "household_permission"` không kèm IF NOT EXISTS, mà bảng ấy `db push` vừa tạo
-// -> Postgres báo "relation already exists" -> migrate deploy hỏng -> app KHÔNG khởi động.
-// Tức là khôi phục xong dữ liệu vẫn đúng mà app vẫn nằm im, đúng lúc đang cần nó nhất.
+//     Error: P3005
+//     The database schema is not empty.
+//
+// `start:prod` là `prisma migrate deploy && node dist/main.js`, vế đầu chết thì app KHÔNG bao giờ
+// khởi động — dù dữ liệu đã khôi phục đúng từng đồng. Đúng lúc đang cần nó nhất.
+//
+// Kiểm chứng bằng diễn tập thật 18/9/2026: chạy đủ db push -> restore -> baseline thì
+// `migrate deploy` chạy được; bỏ đúng bước baseline thì gãy P3005 như trên.
 //
 // Script này lấp đúng khoảng đó: ghi tên từng migration vào `_prisma_migrations` để
-// `migrate deploy` biết là đã xong, không phát lại. Đây là cách "baseline" chính chủ của Prisma.
+// `migrate deploy` biết là đã xong. Đây là cách "baseline" chính chủ của Prisma.
 const { execFileSync } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');

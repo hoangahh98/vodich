@@ -64,12 +64,11 @@ test('mọi bảng có id tự tăng đều được đặt lại bộ đếm sa
  * Đường khôi phục sau thảm hoạ là: `prisma db push` -> `npm run restore` -> `npm run baseline`.
  * Bước baseline KHÔNG được quên, và test này khoá lý do vì sao nó tồn tại.
  *
- * CA THẬT (kiểm chứng 18/9/2026): `db push` dựng đủ schema nhưng không ghi gì vào
- * `_prisma_migrations`, nên lần deploy kế tiếp `prisma migrate deploy` phát lại CẢ chuỗi lên
- * một DB đã đầy đủ. Migration `20260728120000_household_owner_scope` có
- * `CREATE TABLE "household_permission"` trần (không IF NOT EXISTS) mà bảng ấy đang tồn tại ->
- * Postgres từ chối -> `start:prod` chết trước khi tới `node dist/main.js`. Dữ liệu khôi phục
- * đúng hết mà app vẫn nằm im.
+ * CA THẬT (diễn tập trên Postgres thật 18/9/2026): `db push` dựng đủ schema nhưng không ghi gì
+ * vào `_prisma_migrations`. Lần deploy kế tiếp `prisma migrate deploy` thấy schema không rỗng mà
+ * lịch sử migration trống nên TỪ CHỐI NGAY bằng `P3005 The database schema is not empty` — không
+ * chạy migration nào cả. `start:prod` là `migrate deploy && node dist/main.js` nên app không lên,
+ * dù dữ liệu khôi phục đúng hết. Chạy đủ ba bước thì deploy chạy được; bỏ baseline thì gãy P3005.
  */
 test('baseline phủ HẾT migration — thiếu một cái là migrate deploy phát lại và gãy', () => {
   const { migrationNames } = require('../scripts/baseline-db');
