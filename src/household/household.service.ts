@@ -5,7 +5,7 @@ import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere, isRootAdmin, ownedOrShare
 import { clientHouseholdWhere } from '../common/player-scope';
 import { PrismaService } from '../prisma.service';
 import { CurrentUser } from '../types';
-import { DEFAULT_PURPOSES, isSavedSource, isSpendableSource, normalizeMonth } from './household-enums';
+import { DEFAULT_PURPOSES, isSavedSource, isSpendableSource, normalizeMonth, sourceKindSettings } from './household-enums';
 import { collectBankMarks, lendingLedger, monthReport, reconcileSources, recurringExpectations, sourceBalances } from './household-month';
 import { toPurposeRow, toRecurringRow, toSourceRow, toTransactionRow } from './household-rows';
 import { isTelegramMessageId } from './household-telegram.service';
@@ -130,7 +130,7 @@ export class HouseholdService {
         playerAccess: { include: { player: true }, orderBy: { id: 'asc' } },
       },
     });
-    const [sources, purposes, recurrings, transactions, inbox, admins, players] = await Promise.all([
+    const [sources, purposes, recurrings, transactions, inbox, admins, players, sourceKindRows] = await Promise.all([
       this.prisma.householdSource.findMany({ where: { householdId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
       this.prisma.householdPurpose.findMany({ where: { householdId }, orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] }),
       this.prisma.householdRecurring.findMany({ where: { householdId }, orderBy: [{ dayOfMonth: 'asc' }, { id: 'asc' }] }),
@@ -138,7 +138,12 @@ export class HouseholdService {
       this.prisma.householdInbox.findMany({ where: { householdId, status: 'UNPARSED' }, orderBy: { id: 'desc' }, take: 20 }),
       this.availableAdmins(householdId, household.ownerAdminId),
       this.availablePlayers(householdId),
+      this.prisma.householdSourceKind.findMany({ where: { householdId } }),
     ]);
+    // Loại nguồn hộ đang bật + tên hộ tự đặt (chủ app 21/9/2026). Chưa khai dòng nào thì cả 7 loại
+    // đều bật với tên mặc định, nên hộ cũ không phải làm gì.
+    const sourceKinds = sourceKindSettings(sourceKindRows);
+    const sourceKindLabel = Object.fromEntries(sourceKinds.map((item) => [item.kind, item.label]));
 
     const sourceRows = sources.map(toSourceRow);
     const purposeRows = purposes.map(toPurposeRow);
@@ -227,6 +232,8 @@ export class HouseholdService {
       household,
       selectedMonth: month,
       sources,
+      sourceKinds,
+      sourceKindLabel,
       purposes,
       recurrings,
       admins,

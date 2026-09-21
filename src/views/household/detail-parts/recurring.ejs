@@ -1,22 +1,24 @@
 <% if (section === 'recurring') { %>
   <%
-    // Ô "Loại" giống hệt form giao dịch (chủ app 18/9/2026): "Chuyển nguồn" không còn chú thích trong
-    // ngoặc, và có thêm "Đầu tư" — vẫn lưu TRANSFER, chỉ khác là sang nguồn Đầu tư nên không có lãi và
-    // không có mục đích. Khoản cũ nhận ra là Đầu tư qua loại nguồn đích, không có cột riêng.
-    const recurringKind = (recurring) => (recurring && recurring.kind === 'TRANSFER' && recurring.targetSource && recurring.targetSource.kind === 'INVEST' ? 'INVEST' : recurring ? recurring.kind : 'EXPENSE');
+    // Ô "Loại" giống hệt form giao dịch (chủ app 21/9/2026): năm lựa chọn, ba cái cuối đều lưu TRANSFER
+    // và phân biệt bằng loại nguồn đích. Khoản định kỳ vẫn khai SỐ TIỀN GỐC một ô (lãi để chế độ "tự
+    // tính theo lãi suất" lo), khác form giao dịch chỗ đó — ở đây gốc là số cố định hằng tháng.
+    const recurringKind = (recurring) => (recurring ? (recurring.kind === 'TRANSFER' ? formKindOfTransfer(recurring.targetSource && recurring.targetSource.kind) : recurring.kind) : 'EXPENSE');
     const recurringForm = (recurring) => {
       const formKind = recurringKind(recurring);
+      const transfer = ['DEBT', 'INVEST', 'LEND', 'TRANSFER'].includes(formKind);
+      const kinds = formKind === 'TRANSFER' ? [...txFormKinds, 'TRANSFER'] : txFormKinds;
       return `
-      <div><label>Tên khoản</label><input name="name" value="${recurring ? recurring.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: Trả góp nhà, Tiền học, Lương chồng" required></div>
-      <div><label>Loại</label><select name="kind" data-tx-kind>${['EXPENSE','INCOME','TRANSFER','INVEST'].map((kind) => `<option value="${kind}" ${formKind === kind ? 'selected' : ''}>${labels.txForm[kind]}</option>`).join('')}</select></div>
+      <div><label>Tên khoản</label><input name="name" value="${recurring ? recurring.name.replace(/"/g, '&quot;') : ''}" required></div>
+      <div><label>Loại</label><select name="kind" data-tx-kind>${kinds.map((kind) => `<option value="${kind}" ${formKind === kind ? 'selected' : ''}>${labels.txForm[kind]}</option>`).join('')}</select></div>
       <div><label>Từ nguồn</label><select name="sourceId"><option value="">— chọn —</option>${sources.map((source) => `<option value="${source.id}" ${recurring && recurring.sourceId && recurring.sourceId.toString() === source.id.toString() ? 'selected' : ''}>${source.name}</option>`).join('')}</select></div>
-      <div data-tx-target ${formKind === 'TRANSFER' || formKind === 'INVEST' ? '' : 'hidden'}><label>Sang nguồn</label><select name="targetSourceId"><option value="">— chọn —</option>${sources.map((source) => `<option value="${source.id}" data-source-kind="${source.kind}" ${recurring && recurring.targetSourceId && recurring.targetSourceId.toString() === source.id.toString() ? 'selected' : ''}>${source.name} (${labels.source[source.kind]})</option>`).join('')}</select></div>
-      <div><label>Số tiền (gốc)</label><input class="money-input" name="amount" value="${recurring ? formatMoney(recurring.amount) : ''}" inputmode="numeric"></div>
-      <div data-tx-interest ${formKind === 'TRANSFER' ? '' : 'hidden'}><label>Lãi</label><select name="interestMode"><option value="NONE" ${!recurring || recurring.interestMode === 'NONE' ? 'selected' : ''}>Không tính lãi (số trên là tất cả)</option><option value="FROM_RATE" ${recurring && recurring.interestMode === 'FROM_RATE' ? 'selected' : ''}>Tự tính: dư nợ đầu tháng × lãi suất / 12</option></select></div>
-      <div data-tx-purpose ${formKind === 'INVEST' ? 'hidden' : ''}><label>Mục đích</label><select name="purposeId"><option value="">— chưa chọn —</option>${purposes.map((purpose) => `<option value="${purpose.id}" ${recurring && recurring.purposeId && recurring.purposeId.toString() === purpose.id.toString() ? 'selected' : ''}>${purpose.name} · ${labels.purpose[purpose.kind]}</option>`).join('')}</select></div>
+      <div data-tx-target ${transfer ? '' : 'hidden'}><label>Sang nguồn</label><select name="targetSourceId"><option value="">— chọn —</option>${sources.map((source) => `<option value="${source.id}" data-source-kind="${source.kind}" ${recurring && recurring.targetSourceId && recurring.targetSourceId.toString() === source.id.toString() ? 'selected' : ''}>${source.name} (${sourceKindLabel[source.kind]})</option>`).join('')}</select></div>
+      <div><label>${formKind === 'DEBT' ? 'Trả gốc' : 'Số tiền'}</label><input class="money-input" name="amount" value="${recurring ? formatMoney(recurring.amount) : ''}" inputmode="numeric"></div>
+      <div data-tx-interest ${formKind === 'DEBT' ? '' : 'hidden'}><label>Trả lãi</label><select name="interestMode"><option value="NONE" ${!recurring || recurring.interestMode === 'NONE' ? 'selected' : ''}>Không tính lãi</option><option value="FROM_RATE" ${recurring && recurring.interestMode === 'FROM_RATE' ? 'selected' : ''}>Tự tính theo lãi suất của khoản vay</option></select></div>
+      <div data-tx-purpose ${transfer ? 'hidden' : ''}><label>Mục đích</label><select name="purposeId"><option value="">— chưa chọn —</option>${purposes.map((purpose) => `<option value="${purpose.id}" ${recurring && recurring.purposeId && recurring.purposeId.toString() === purpose.id.toString() ? 'selected' : ''}>${purpose.name} · ${labels.purpose[purpose.kind]}</option>`).join('')}</select></div>
       <div><label>Ngày trong tháng</label><input type="number" name="dayOfMonth" min="1" max="31" value="${recurring ? recurring.dayOfMonth : 5}"></div>
       <div><label>Từ tháng</label><input type="month" name="startMonth" value="${recurring ? recurring.startMonth : selectedMonth}"></div>
-      <div><label>Đến tháng (trống = vô hạn)</label><input type="month" name="endMonth" value="${recurring && recurring.endMonth ? recurring.endMonth : ''}"></div>
+      <div><label>Đến tháng</label><input type="month" name="endMonth" value="${recurring && recurring.endMonth ? recurring.endMonth : ''}"></div>
       <div class="hh-form-wide"><label>Ghi chú</label><input name="note" value="${recurring ? recurring.note.replace(/"/g, '&quot;') : ''}"></div>`;
     };
     const paidTotal = expectations.filter((item) => item.paid).reduce((sum, item) => sum + item.expected, 0);

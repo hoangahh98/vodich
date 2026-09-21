@@ -196,7 +196,8 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
 | Bảng | Vai trò |
 |---|---|
 | `household_source` | Nguồn tiền: BANK/CASH/SAVING/INVEST giữ số dư, CARD/LOAN giữ DƯ NỢ, LENT là cho vay. `match_key` = số TK / 4 số cuối thẻ để khớp tin. |
-| `household_purpose` | Mục đích tự đặt; `kind` (LIVING/SAVING/DEBT/RESERVE/LENDING/INCOME) quyết định luật báo cáo. |
+| `household_purpose` | Mục đích tự đặt (khai ở Cài đặt); `kind` (LIVING/SAVING/DEBT/RESERVE/LENDING/INCOME) quyết định luật báo cáo. |
+| `household_source_kind` | Cài đặt hiển thị 7 loại nguồn của hộ: bật/tắt + đổi tên. KHÔNG tạo được loại mới. |
 | `household_transaction` | EXPENSE / INCOME / TRANSFER. TRANSFER sang LOAN = trả nợ (`interest` là lãi), sang CARD = trả thẻ. `external_id` chống ghi trùng. |
 | `household_recurring` | Khoản định kỳ khai một lần; `interest_mode = FROM_RATE` → lãi = dư nợ đầu tháng × lãi suất / 12. |
 | `household_inbox` | Tin Telegram thô; UNPARSED để xử lý tay. |
@@ -247,16 +248,30 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   trả thẻ chỉ là chuyển nguồn; trả nợ vay tính vào "dùng" cả gốc lẫn lãi, gốc trừ dư nợ; giao dịch chưa có
   mục đích tính vào chi tiêu và đếm ở "chưa phân loại"; chuyển tiền sang nguồn Tiết kiệm / Đầu tư là "cất đi"
   (vào `saving`) kể cả khi không gắn mục đích, rút về thì trừ lại.
-- **Ô "Loại" có bốn lựa chọn, ĐẦU TƯ là lựa chọn thứ tư (chủ app 18/9/2026)** — ở CẢ form giao dịch lẫn form
-  khoản định kỳ, nhãn dùng chung `labels.txForm` (`TX_FORM_KIND_LABELS`), và "Chuyển nguồn" không còn chú
-  thích trong ngoặc. Nhưng DB vẫn chỉ có ba `TX_KINDS`: Đầu tư ghi xuống là TRANSFER sang nguồn Đầu tư
-  (`normalizeFormTxKind`, `isInvestForm` trong `household-enums.ts`). Chọn Đầu tư thì ô "Sang nguồn" chỉ
-  còn nguồn loại INVEST và hai ô gốc/lãi + "Mục đích" biến mất — ô giấu bằng `hidden` VẪN gửi giá trị lên
-  nên `createFromForm`/`update` (giao dịch) và `recurringData` (định kỳ) phải tự ép lãi về 0 / `NONE` và
-  `purposeId = null`, đừng bỏ. Cả hai form suy ngược "đây là khoản đầu tư" từ LOẠI NGUỒN ĐÍCH (giao dịch:
-  `targetKind === 'INVEST'`; định kỳ: `targetSource.kind`) chứ không có cột mới. Đừng thêm `'INVEST'` vào
-  `TX_KINDS`: mọi chỗ đang hỏi `kind === 'TRANSFER'` (toán tháng, đối chiếu, Telegram, định kỳ) sẽ lặng lẽ
-  bỏ sót nó.
+- **Ô "Loại" có NĂM lựa chọn (chủ app 21/9/2026)**, dùng chung ở form giao dịch lẫn form khoản định kỳ,
+  nhãn lấy từ `labels.txForm` (`TX_FORM_KIND_LABELS`). Ba lựa chọn cuối đều là chuyển tiền nên DB **vẫn chỉ
+  lưu ba `TX_KINDS`**, phân biệt bằng LOẠI NGUỒN ĐÍCH:
+
+  | Ô Loại | Lưu DB | Nguồn đích | Ô gốc/lãi | Ô mục đích |
+  |---|---|---|---|---|
+  | Chi | EXPENSE | — | không | có |
+  | Thu | INCOME | — | không | có |
+  | **Trả nợ** | TRANSFER | CARD, LOAN | **có** | không |
+  | Đầu tư | TRANSFER | INVEST | không | không |
+  | Cho vay | TRANSFER | LENT | không | không |
+
+  `TRANSFER_FORM_TARGETS` là nguồn sự thật cho bảng trên (cả `household.js` cũng chép lại y thế — sửa một
+  bên mà quên bên kia là form lọc nguồn đích một đằng, server nhận một nẻo). `normalizeFormTxKind` đổi ba
+  loại ấy về TRANSFER, `formKindOfTransfer(targetKind)` suy ngược lúc mở form sửa. **Đừng thêm loại mới vào
+  `TX_KINDS`**: mọi chỗ đang hỏi `kind === 'TRANSFER'` (toán tháng, đối chiếu, Telegram, định kỳ) sẽ lặng lẽ
+  bỏ sót nó. Nhãn "Chuyển nguồn" vẫn còn trong `TX_FORM_KIND_LABELS` nhưng KHÔNG có trong ô Loại của form
+  ghi mới — chỉ để hiện khoản TRANSFER sang nguồn ngoài ba loại trên (bot tạo khi bấm "… trả nợ": LENT →
+  tài khoản), mở form sửa mà thiếu nhãn là nó lặng lẽ nhảy sang loại khác.
+- **Trả nợ KHÔNG có ô tổng** (chủ app 21/9/2026): gõ thẳng **Trả gốc** và **Trả lãi**, tổng là hai số cộng
+  lại (`moneyFromForm` trong `household-ledger.service.ts`). Trả thẻ thì gõ gốc, để lãi trống. Trước đây là
+  một ô tổng + ô chọn "khoản này là gốc / lãi / cả hai" (`debtPart`, đã bỏ hẳn) — vừa phải nhẩm vừa hay
+  lệch. Các loại khác vẫn một ô tổng và lãi luôn 0. Ô giấu bằng `hidden` VẪN gửi giá trị lên nên
+  `moneyFromForm` đọc theo `kind` chứ không cộng bừa ô nào có số.
 - Nguồn nào khai lãi suất thì thẻ nguồn và ô "Trả nợ" ở Tổng quan hiện luôn **lãi dự tính mỗi tháng**
   (chủ app 18/9/2026) = dư nợ × lãi suất năm / 12, tính trong `monthlyInterest` và gắn sẵn vào từng dòng
   `reconcileSources` trả về. Dùng chung đúng hàm ấy với khoản định kỳ kiểu `FROM_RATE` — hai chỗ tự tính
@@ -295,6 +310,19 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   trả `ok: false` → Apps Script chưa gắn nhãn nên gửi lại, và lần gửi lại tuy TRÙNG giao dịch vẫn đăng bù tin
   tóm tắt (`isTelegramMessageId`: `telegram_msg_id` còn là hash nội dung = chưa từng đăng). Web cũng ghi rõ
   dưới dòng giao dịch vì sao nó còn "cần xem lại": chưa xác nhận / chưa lên được Telegram / chưa chọn mục đích.
+- **Mục đích và Loại nguồn khai ở mục Cài đặt (chủ app 21/9/2026).** Mục đích từng bị ẩn khỏi Cài đặt ngày
+  10/9 (dùng bộ mặc định), nay mở lại — ô "Mục đích" ở form giao dịch VÀ các nút trên Telegram đều đọc
+  `household_purpose` nên sửa ở Cài đặt là đổi cả hai nơi, không phải khai hai chỗ.
+- **Loại nguồn: bật/tắt + đổi tên, KHÔNG tạo được loại mới** (`household_source_kind`, migration
+  `20260921100000`). Bảy `SOURCE_KINDS` mỗi loại gắn một LUẬT viết cứng trong code (`isDebtSource`,
+  `isSavedSource`, `isSpendableSource`), nên bảng này chỉ giữ NHÃN và cờ ẩn/hiện — đừng đọc nhãn để suy ra
+  cách tính, và đừng mở cho tạo `kind` tự đặt vì không có luật nào chạy cho nó. Hộ chưa khai dòng nào thì cả
+  7 loại đều bật với tên mặc định (`sourceKindSettings`), nên hộ cũ không phải làm gì. Loại đang có nguồn
+  dùng thì `saveSourceKinds` **không cho tắt** (tắt xong nguồn ấy vẫn được tính nhưng biến mất khỏi ô Loại,
+  không ai sửa lại được) — nó trả `blocked` để controller báo lại bằng flash.
+- **Không còn chữ gợi ý trong module** (chủ app 21/9/2026): đã bỏ hết `placeholder`, `small.field-hint` và
+  mấy đoạn `p.muted` giải thích dưới tiêu đề. Thêm ô mới thì đừng kèm chú thích; `test/ui-smoke.test.js`
+  khoá lại bằng `doesNotMatch(/placeholder=/)` cho form giao dịch và form định kỳ.
 - Quyền: `@FeatureAccess('HOUSEHOLD')`; admin theo `ownedOrSharedWhere`, thành viên trong nhà là CLIENT qua
   `player_household_access` (`clientHouseholdWhere`). Mỗi admin tạo được nhiều hộ.
 - View `src/views/household/` cùng khuôn trang đội; form trong bảng dùng thuộc tính `form=` trỏ tới form rỗng

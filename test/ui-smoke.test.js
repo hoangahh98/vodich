@@ -665,7 +665,7 @@ function householdLocals(section, over = {}) {
     source: { BANK: 'Tài khoản ngân hàng', CARD: 'Thẻ tín dụng', CASH: 'Tiền mặt', SAVING: 'Tiết kiệm', INVEST: 'Đầu tư', LOAN: 'Khoản vay', LENT: 'Cho vay' },
     purpose: { LIVING: 'Chi tiêu', SAVING: 'Tiết kiệm', DEBT: 'Trả nợ', RESERVE: 'Dự phòng', LENDING: 'Cho vay', INCOME: 'Thu nhập' },
     tx: { EXPENSE: 'Chi', INCOME: 'Thu', TRANSFER: 'Chuyển' },
-    txForm: { EXPENSE: 'Chi', INCOME: 'Thu', TRANSFER: 'Chuyển nguồn', INVEST: 'Đầu tư' },
+    txForm: { EXPENSE: 'Chi', INCOME: 'Thu', DEBT: 'Trả nợ', INVEST: 'Đầu tư', LEND: 'Cho vay', TRANSFER: 'Chuyển nguồn' },
     bank: { TIMO: 'Timo', MSB: 'MSB', OTHER: 'Khác' },
   };
   const sources = [
@@ -704,6 +704,14 @@ function householdLocals(section, over = {}) {
     ...common,
     featureSet: new Set(['TOURNAMENTS', 'TEAMS', 'HOUSEHOLD', 'PERMISSIONS']),
     labels,
+    // Ô "Loại" của form và cách suy ngược loại của một khoản TRANSFER đã lưu (theo nguồn đích).
+    txFormKinds: ['EXPENSE', 'INCOME', 'DEBT', 'INVEST', 'LEND'],
+    transferTargets: { DEBT: ['CARD', 'LOAN'], INVEST: ['INVEST'], LEND: ['LENT'] },
+    formKindOfTransfer: (kind) =>
+      ({ CARD: 'DEBT', LOAN: 'DEBT', INVEST: 'INVEST', LENT: 'LEND' })[String(kind || '')] || 'TRANSFER',
+    // Cài đặt loại nguồn của hộ: chưa khai gì thì cả 7 loại bật với tên mặc định.
+    sourceKinds: Object.keys(labels.source).map((kind) => ({ kind, label: labels.source[kind], active: true })),
+    sourceKindLabel: labels.source,
     section,
     household: { id: 1n, name: 'Nhà mình', description: 'Sổ chung', ownerAdmin: { displayName: 'Admin', username: 'admin' }, permissions: [], playerAccess: [], telegramChatId: null },
     selectedMonth: '2026-09',
@@ -754,15 +762,24 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   const transactions = await renderView('household/detail.ejs', householdLocals('transactions'));
   assert.match(transactions, /data-tx-kind/, 'form ghi giao dịch có ô loại điều khiển ô nguồn đích');
   assert.match(transactions, /name="targetSourceId"/);
-  // Ô "Loại" (chủ app 18/9/2026): "Chuyển nguồn" không còn chú thích trong ngoặc, có thêm Đầu tư.
-  assert.match(transactions, /<option value="TRANSFER"[^>]*>Chuyển nguồn<\/option>/, 'loại Chuyển nguồn bỏ phần trong ngoặc');
-  assert.match(transactions, /<option value="INVEST"[^>]*>Đầu tư<\/option>/, 'ô Loại có thêm Đầu tư');
-  assert.doesNotMatch(transactions, /Trả thẻ tín dụng: để/, 'bỏ dòng nhắc "Trả thẻ tín dụng: để Trả gốc"');
-  assert.match(transactions, /data-tx-purpose/, 'ô Mục đích phải giấu được khi chọn Đầu tư');
-  assert.match(transactions, /data-source-kind="INVEST"/, 'ô Sang nguồn đánh dấu nguồn Đầu tư để lọc');
+  // Ô "Loại" có năm lựa chọn (chủ app 21/9/2026); "Chuyển nguồn" đã bỏ khỏi form ghi mới.
+  assert.match(transactions, /<option value="DEBT"[^>]*>Trả nợ<\/option>/, 'Chuyển nguồn đổi tên thành Trả nợ');
+  assert.match(transactions, /<option value="INVEST"[^>]*>Đầu tư<\/option>/, 'ô Loại có Đầu tư');
+  assert.match(transactions, /<option value="LEND"[^>]*>Cho vay<\/option>/, 'ô Loại có Cho vay');
+  assert.doesNotMatch(transactions.split('data-tx-form')[1] || '', /value="TRANSFER"/, 'form ghi mới không còn lựa chọn Chuyển nguồn');
+  // Trả nợ bỏ ô tổng, thay bằng hai ô gốc và lãi.
+  assert.doesNotMatch(transactions, /name="debtPart"/, 'bỏ hẳn ô "Khoản chuyển này là"');
+  assert.match(transactions, /<label>Trả gốc<\/label><input class="money-input" name="principal"/, 'ô Trả gốc kèm ô số tiền');
+  assert.match(transactions, /<label>Trả lãi<\/label><input class="money-input" name="interest"/, 'ô Trả lãi kèm ô số tiền');
+  assert.match(transactions, /data-tx-amount/, 'ô Số tiền tổng phải giấu được khi chọn Trả nợ');
+  assert.match(transactions, /data-tx-purpose/, 'ô Mục đích phải giấu được khi chọn loại chuyển');
+  assert.match(transactions, /data-source-kind="INVEST"/, 'ô Sang nguồn đánh dấu loại nguồn để lọc');
   // Giao dịch 33 chuyển sang nguồn Đầu tư: form sửa chọn sẵn Đầu tư và giấu sẵn ô mục đích.
   assert.match(transactions, /<option value="INVEST" selected>Đầu tư<\/option>/, 'chuyển sang nguồn Đầu tư thì form sửa chọn sẵn Đầu tư');
   assert.match(transactions, /<div data-tx-purpose hidden>/, 'form sửa của khoản đầu tư giấu sẵn ô mục đích');
+  // Bỏ hết chữ gợi ý trong module (chủ app 21/9/2026).
+  assert.doesNotMatch(transactions, /placeholder=/, 'form giao dịch không còn chữ gợi ý trong ô');
+  assert.doesNotMatch(transactions, /class="field-hint"/, 'không còn dòng chú thích dưới ô');
   assert.match(transactions, /Tin Telegram chưa đọc được/);
   assert.match(transactions, /transactions\/31\/delete/);
 
@@ -791,18 +808,26 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   const recurring = await renderView('household/detail.ejs', householdLocals('recurring'));
   assert.match(recurring, /recurring\/21\/record/, 'link cũ tới mục định kỳ vẫn render được');
   // Form định kỳ đồng bộ với form giao dịch (chủ app 18/9/2026).
-  assert.match(recurring, /<option value="TRANSFER"[^>]*>Chuyển nguồn<\/option>/, 'loại Chuyển nguồn bỏ phần trong ngoặc');
+  assert.match(recurring, /<option value="DEBT"[^>]*>Trả nợ<\/option>/, 'khoản định kỳ cũng đổi sang Trả nợ');
   assert.match(recurring, /<option value="INVEST"[^>]*>Đầu tư<\/option>/, 'khoản định kỳ cũng khai được loại Đầu tư');
+  assert.match(recurring, /<option value="LEND"[^>]*>Cho vay<\/option>/, 'khoản định kỳ cũng khai được loại Cho vay');
   assert.match(recurring, /<option value="INVEST" selected>Đầu tư<\/option>/, 'khoản chuyển sang nguồn Đầu tư chọn sẵn loại Đầu tư');
   assert.match(recurring, /<div data-tx-purpose hidden>/, 'khoản định kỳ đầu tư giấu sẵn ô mục đích');
   assert.match(recurring, /data-source-kind="INVEST"/, 'ô Sang nguồn đánh dấu nguồn Đầu tư để lọc');
+  assert.doesNotMatch(recurring, /placeholder=/, 'form định kỳ không còn chữ gợi ý trong ô');
   assert.doesNotMatch(overview, /\/household\/1\/recurring\?month/, 'tab Định kỳ đã ẩn theo ý chủ app');
-  assert.match(transactions, /name="debtPart"/, 'chuyển nguồn phải chọn được trả gốc / trả lãi');
 
   const settings = await renderView('household/detail.ejs', householdLocals('settings'));
   assert.match(settings, /\/link AB12CD34/, 'mã liên kết Telegram phải hiện khi chưa nối');
   assert.match(settings, /name="playerIds"/, 'chọn được thành viên trong nhà');
-  assert.doesNotMatch(settings, /purposes\/12\/delete/, 'mục Mục đích đã ẩn khỏi Cài đặt');
+  // Mục đích khai ở Cài đặt (chủ app 21/9/2026) — ô Mục đích của form giao dịch và nút trên
+  // Telegram đều lấy từ danh sách này.
+  assert.match(settings, /purposes\/12\/delete/, 'mục Mục đích đã quay lại Cài đặt');
+  assert.match(settings, /action="\/household\/1\/purposes"/, 'thêm được mục đích mới');
+  // Loại nguồn tiền cũng khai ở Cài đặt: bật/tắt + đổi tên, KHÔNG tạo được loại mới.
+  assert.match(settings, /action="\/household\/1\/source-kinds"/, 'lưu được cài đặt loại nguồn');
+  assert.match(settings, /name="label_CARD"/, 'đổi được tên hiển thị của loại');
+  assert.match(settings, /name="active_CASH"/, 'bật/tắt được loại không dùng');
   assert.doesNotMatch(settings, /<tr[^>]*>\s*<form/, 'form không được nằm trong <tr>');
 
   // Điện thoại không phải kéo ngang (chủ app 11/9/2026): Nguồn tiền ở Tổng quan bỏ hẳn <table>,

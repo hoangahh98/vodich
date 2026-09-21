@@ -3,7 +3,7 @@ import { HouseholdTransaction, Prisma } from '@prisma/client';
 import { parseMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
 import { HouseholdConfigService } from './household-config.service';
-import { isInvestForm, monthOf, normalizeFormTxKind, normalizeTxKind } from './household-enums';
+import { hasDebtParts, isTransferForm, monthOf, normalizeFormTxKind, normalizeTxKind } from './household-enums';
 import { RecurringExpectation, matchRecurring, recurringExpectations, sourceBalances } from './household-month';
 import { normalizeDescription, toRecurringRow, toSourceRow, toTransactionRow } from './household-rows';
 
@@ -117,17 +117,14 @@ export class HouseholdLedgerService {
     const sourceId = await this.config.ownSourceId(householdId, form.sourceId);
     if (!sourceId) return null;
     const occurredAt = parseDateInput(form.occurredAt);
-    const amount = parseMoney(form.amount);
-    // Đầu tư = chuyển sang nguồn Đầu tư: form giấu ô gốc/lãi và ô mục đích, nên bỏ luôn hai giá trị
-    // ấy (ô giấu bằng `hidden` vẫn gửi lên) thay vì lưu số của loại vừa chọn trước đó.
-    const invest = isInvestForm(form.kind);
+    const money = moneyFromForm(form);
     return this.create(householdId, {
       kind: normalizeFormTxKind(form.kind),
       sourceId,
       targetSourceId: await this.config.ownSourceId(householdId, form.targetSourceId),
-      purposeId: invest ? null : await this.config.ownPurposeId(householdId, form.purposeId),
-      amount,
-      interest: invest ? 0 : interestFromForm(form, amount),
+      purposeId: isTransferForm(form.kind) ? null : await this.config.ownPurposeId(householdId, form.purposeId),
+      amount: money.amount,
+      interest: money.interest,
       occurredAt,
       description: form.description,
       status: 'CONFIRMED',
@@ -138,19 +135,19 @@ export class HouseholdLedgerService {
   async update(householdId: bigint, transactionId: bigint, form: Record<string, string | undefined>) {
     const sourceId = await this.config.ownSourceId(householdId, form.sourceId);
     if (!sourceId) return;
-    const invest = isInvestForm(form.kind);
+    const transfer = isTransferForm(form.kind);
     const kind = normalizeFormTxKind(form.kind);
     const occurredAt = parseDateInput(form.occurredAt);
-    const amount = Math.max(0, parseMoney(form.amount));
+    const money = moneyFromForm(form);
     await this.prisma.householdTransaction.updateMany({
       where: { id: transactionId, householdId },
       data: {
         kind,
         sourceId,
         targetSourceId: kind === 'TRANSFER' ? await this.config.ownSourceId(householdId, form.targetSourceId) : null,
-        purposeId: invest ? null : await this.config.ownPurposeId(householdId, form.purposeId),
-        amount,
-        interest: kind === 'TRANSFER' && !invest ? interestFromForm(form, amount) : 0,
+        purposeId: transfer ? null : await this.config.ownPurposeId(householdId, form.purposeId),
+        amount: money.amount,
+        interest: kind === 'TRANSFER' ? money.interest : 0,
         occurredAt,
         month: monthOf(occurredAt),
         description: String(form.description || '').trim().slice(0, 255),
@@ -332,12 +329,19 @@ export function parseDateInput(raw: string | undefined): Date {
 }
 
 /**
- * Phần lãi của một khoản chuyển theo ô "Khoản chuyển này là": Trả gốc → 0 (cả khoản trừ dư nợ), Trả lãi
- * → cả khoản (dư nợ không đổi, chỉ mất tiền), Gốc + lãi → số nhập tay, không quá tổng.
+ * Số tiền của một giao dịch theo ô "Loại" (chủ app 21/9/2026).
+ *
+ * TRẢ NỢ không có ô tổng: gõ thẳng **Trả gốc** và **Trả lãi**, tổng là hai số cộng lại. Trước đây là
+ * một ô tổng + ô chọn "khoản này là gốc / lãi / cả hai", vừa phải nhẩm vừa hay lệch. Trả thẻ thì gõ
+ * gốc, để lãi trống.
+ *
+ * Mọi loại còn lại (Chi, Thu, Đầu tư, Cho vay) chỉ có một ô tổng và không có lãi.
  */
-export function interestFromForm(form: Record<string, string | undefined>, amount: number): number {
-  const part = String(form.debtPart || 'MIXED');
-  if (part === 'PRINCIPAL') return 0;
-  if (part === 'INTEREST') return Math.max(0, amount);
-  return Math.min(Math.max(0, parseMoney(form.interest)), Math.max(0, amount));
+export function moneyFromForm(form: Record<string, string | undefined>): { amount: number; interest: number } {
+  if (hasDebtParts(form.kind)) {
+    const principal = Math.max(0, parseMoney(form.principal));
+    const interest = Math.max(0, parseMoney(form.interest));
+    return { amount: principal + interest, interest };
+  }
+  return { amount: Math.max(0, parseMoney(form.amount)), interest: 0 };
 }

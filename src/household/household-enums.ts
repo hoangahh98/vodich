@@ -22,6 +22,25 @@ export const SOURCE_KIND_LABELS: Record<SourceKind, string> = {
   LOAN: 'Khoản vay',
   LENT: 'Cho vay',
 };
+/**
+ * Cài đặt hiển thị của 7 loại trên, theo từng hộ (bảng `household_source_kind`, chủ app 21/9/2026):
+ * bật/tắt loại mình dùng và đổi tên cho dễ hiểu. LUẬT TÍNH TIỀN VẪN THEO `kind`, tên chỉ là nhãn —
+ * đừng đọc nhãn để suy ra cách tính, và đừng cho tạo `kind` mới vì không có luật nào chạy cho nó.
+ */
+export interface SourceKindSetting {
+  kind: SourceKind;
+  label: string;
+  active: boolean;
+}
+/** Danh sách loại nguồn của một hộ: chưa khai dòng nào thì cả 7 loại đều bật, tên mặc định. */
+export function sourceKindSettings(rows: { kind: string; label: string; active: boolean }[] = []): SourceKindSetting[] {
+  const saved = new Map(rows.map((row) => [row.kind, row]));
+  return SOURCE_KINDS.map((kind) => {
+    const row = saved.get(kind);
+    return { kind, label: (row?.label || '').trim() || SOURCE_KIND_LABELS[kind], active: row ? row.active : true };
+  });
+}
+
 export const isDebtSource = (kind: string) => kind === 'CARD' || kind === 'LOAN';
 /** Nguồn giữ tiền của mình nhưng để riêng — chuyển sang đây là cất đi, không phải tiêu. */
 export const isSavedSource = (kind: string) => kind === 'SAVING' || kind === 'INVEST';
@@ -58,21 +77,52 @@ export type TxKind = (typeof TX_KINDS)[number];
 export const TX_KIND_LABELS: Record<TxKind, string> = { EXPENSE: 'Chi', INCOME: 'Thu', TRANSFER: 'Chuyển' };
 
 /**
- * Ô "Loại" ở form giao dịch có thêm ĐẦU TƯ (chủ app 18/9/2026). Đây KHÔNG phải loại mới trong DB —
- * vẫn ghi TRANSFER, chỉ khác là tiền sang nguồn Đầu tư nên form không hỏi gốc/lãi và không hỏi mục
- * đích (tiền cất đi, `monthReport` đã tính vào "cất đi" theo nguồn đích chứ không theo mục đích).
+ * Ô "Loại" ở form giao dịch có NĂM lựa chọn (chủ app 21/9/2026) — ba cái cuối đều là chuyển tiền
+ * sang một nguồn khác nên DB vẫn chỉ lưu TRANSFER, phân biệt bằng LOẠI NGUỒN ĐÍCH:
+ *
+ * | Ô Loại    | Lưu DB   | Nguồn đích   | Hỏi gốc/lãi | Hỏi mục đích |
+ * |-----------|----------|--------------|-------------|--------------|
+ * | Chi       | EXPENSE  | —            | không       | có           |
+ * | Thu       | INCOME   | —            | không       | có           |
+ * | Trả nợ    | TRANSFER | CARD, LOAN   | CÓ          | không        |
+ * | Đầu tư    | TRANSFER | INVEST       | không       | không        |
+ * | Cho vay   | TRANSFER | LENT         | không       | không        |
+ *
+ * "Chuyển nguồn" đã bỏ khỏi ô Loại. Vẫn giữ nhãn để HIỆN những khoản TRANSFER sang nguồn khác ba
+ * loại trên — bot tự tạo khi bấm "<tên> trả nợ" (LENT → tài khoản) là một ca như thế; mở form sửa
+ * mà không có nhãn thì nó lặng lẽ nhảy sang loại khác.
  */
-export const TX_FORM_KINDS = ['EXPENSE', 'INCOME', 'TRANSFER', 'INVEST'] as const;
-export const TX_FORM_KIND_LABELS: Record<(typeof TX_FORM_KINDS)[number], string> = {
+export const TX_FORM_KINDS = ['EXPENSE', 'INCOME', 'DEBT', 'INVEST', 'LEND'] as const;
+export type TxFormKind = (typeof TX_FORM_KINDS)[number];
+export const TX_FORM_KIND_LABELS: Record<TxFormKind | 'TRANSFER', string> = {
   EXPENSE: 'Chi',
   INCOME: 'Thu',
-  TRANSFER: 'Chuyển nguồn',
+  DEBT: 'Trả nợ',
   INVEST: 'Đầu tư',
+  LEND: 'Cho vay',
+  TRANSFER: 'Chuyển nguồn',
 };
-/** Form đang chọn Đầu tư (không có giá trị này trong DB). */
-export const isInvestForm = (value: unknown) => String(value || '') === 'INVEST';
+
+/** Ba loại form đi xuống DB thành TRANSFER, kèm loại nguồn đích được phép chọn. */
+export const TRANSFER_FORM_TARGETS: Record<string, SourceKind[]> = {
+  DEBT: ['CARD', 'LOAN'],
+  INVEST: ['INVEST'],
+  LEND: ['LENT'],
+};
+export const isTransferForm = (value: unknown) => Object.prototype.hasOwnProperty.call(TRANSFER_FORM_TARGETS, String(value || ''));
+/** Chỉ loại Trả nợ mới có gốc/lãi; Đầu tư và Cho vay chỉ có một số tiền. */
+export const hasDebtParts = (value: unknown) => String(value || '') === 'DEBT';
 /** Loại gửi từ form → loại lưu DB. */
-export const normalizeFormTxKind = (value: unknown) => normalizeTxKind(isInvestForm(value) ? 'TRANSFER' : value);
+export const normalizeFormTxKind = (value: unknown) => normalizeTxKind(isTransferForm(value) ? 'TRANSFER' : value);
+
+/** Khoản TRANSFER đã lưu thì soi LOẠI NGUỒN ĐÍCH để biết form phải chọn sẵn lựa chọn nào. */
+export function formKindOfTransfer(targetKind: unknown): string {
+  const kind = String(targetKind || '');
+  for (const [form, kinds] of Object.entries(TRANSFER_FORM_TARGETS)) {
+    if ((kinds as string[]).includes(kind)) return form;
+  }
+  return 'TRANSFER';
+}
 
 export const INTEREST_MODES = ['NONE', 'FROM_RATE'] as const;
 

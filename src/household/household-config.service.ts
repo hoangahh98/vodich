@@ -1,7 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { parseMoney } from '../common/money';
 import { PrismaService } from '../prisma.service';
-import { isDebtSource, isInvestForm, normalizeBank, normalizeFormTxKind, normalizeInterestMode, normalizeMonth, normalizePurposeKind, normalizeSourceKind } from './household-enums';
+import {
+  SOURCE_KINDS,
+  hasDebtParts,
+  isDebtSource,
+  isTransferForm,
+  normalizeBank,
+  normalizeFormTxKind,
+  normalizeInterestMode,
+  normalizeMonth,
+  normalizePurposeKind,
+  normalizeSourceKind,
+  sourceKindSettings,
+} from './household-enums';
 import { sourceBalances } from './household-month';
 import { toSourceRow, toTransactionRow } from './household-rows';
 
@@ -117,16 +129,50 @@ export class HouseholdConfigService {
     return this.prisma.householdPurpose.deleteMany({ where: { id: purposeId, householdId } });
   }
 
+  // ───────────────────────────── Loại nguồn tiền ─────────────────────────────
+
+  /** Cài đặt 7 loại nguồn của hộ; chưa khai dòng nào thì cả 7 đều bật với tên mặc định. */
+  async sourceKindsOf(householdId: bigint) {
+    const rows = await this.prisma.householdSourceKind.findMany({ where: { householdId } });
+    return sourceKindSettings(rows);
+  }
+
+  /**
+   * Lưu cài đặt loại nguồn: mỗi loại một dòng bật/tắt + tên. KHÔNG nhận `kind` lạ — luật tính tiền
+   * gắn cứng theo `kind` nên loại tự chế sẽ không có luật nào chạy cho nó.
+   *
+   * Loại đang có nguồn dùng thì KHÔNG cho tắt: tắt xong nguồn ấy vẫn nằm trong sổ và vẫn được tính,
+   * nhưng biến mất khỏi ô Loại nên không ai sửa lại được — trả về danh sách loại bị từ chối để báo.
+   */
+  async saveSourceKinds(householdId: bigint, form: Form): Promise<{ blocked: string[] }> {
+    const used = await this.prisma.householdSource.groupBy({ by: ['kind'], where: { householdId }, _count: { _all: true } });
+    const inUse = new Set(used.filter((row) => row._count._all > 0).map((row) => row.kind));
+    const blocked: string[] = [];
+    for (const [index, kind] of SOURCE_KINDS.entries()) {
+      const wantActive = form[`active_${kind}`] !== 'off';
+      const active = wantActive || inUse.has(kind);
+      if (!wantActive && inUse.has(kind)) blocked.push(kind);
+      const label = text(form[`label_${kind}`], 60);
+      await this.prisma.householdSourceKind.upsert({
+        where: { householdId_kind: { householdId, kind } },
+        update: { label, active },
+        create: { householdId, kind, label, active, sortOrder: index },
+      });
+    }
+    return { blocked };
+  }
+
   // ───────────────────────────── Khoản định kỳ ─────────────────────────────
 
   private async recurringData(householdId: bigint, form: Form) {
-    // Loại "Đầu tư" ở form cũng là TRANSFER (sang nguồn Đầu tư), y như form giao dịch: không có lãi và
-    // không có mục đích. Ô giấu bằng `hidden` vẫn gửi giá trị lên nên phải bỏ ở đây, đừng tin form.
-    const invest = isInvestForm(form.kind);
+    // Trả nợ / Đầu tư / Cho vay ở form đều là TRANSFER (khác nhau ở loại nguồn đích), y như form giao
+    // dịch: không hỏi mục đích, và chỉ Trả nợ mới có lãi. Ô giấu bằng `hidden` vẫn gửi giá trị lên nên
+    // phải bỏ ở đây, đừng tin form.
+    const transfer = isTransferForm(form.kind);
     const kind = normalizeFormTxKind(form.kind);
     const sourceId = await this.ownSourceId(householdId, form.sourceId);
     const targetSourceId = kind === 'TRANSFER' ? await this.ownSourceId(householdId, form.targetSourceId) : null;
-    const purposeId = invest ? null : await this.ownPurposeId(householdId, form.purposeId);
+    const purposeId = transfer ? null : await this.ownPurposeId(householdId, form.purposeId);
     const startMonth = normalizeMonth(form.startMonth);
     const endMonth = form.endMonth && /^\d{4}-\d{2}$/.test(form.endMonth) ? form.endMonth : null;
     return {
@@ -136,7 +182,7 @@ export class HouseholdConfigService {
       targetSourceId,
       purposeId,
       amount: parseMoney(form.amount),
-      interestMode: targetSourceId && !invest ? normalizeInterestMode(form.interestMode) : 'NONE',
+      interestMode: targetSourceId && hasDebtParts(form.kind) ? normalizeInterestMode(form.interestMode) : 'NONE',
       dayOfMonth: Math.min(31, Math.max(1, clampDay(form.dayOfMonth) || 1)),
       startMonth,
       endMonth: endMonth && endMonth < startMonth ? null : endMonth,

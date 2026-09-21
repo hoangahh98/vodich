@@ -526,13 +526,17 @@ test('hoàn tiền: tiền vào gắn mục đích chi (hoặc vào thẻ chưa 
 
 // ─────────────────────────── Trả nợ: gốc / lãi ───────────────────────────
 
-const { interestFromForm } = require('../dist/household/household-ledger.service');
+const { moneyFromForm } = require('../dist/household/household-ledger.service');
 
-test('trả nợ vay: chọn Trả lãi thì cả khoản là lãi (không trừ dư nợ), Trả gốc thì lãi 0, Gốc + lãi thì lấy số nhập', () => {
-  assert.equal(interestFromForm({ debtPart: 'INTEREST' }, 3_000_000), 3_000_000);
-  assert.equal(interestFromForm({ debtPart: 'PRINCIPAL', interest: '999' }, 3_000_000), 0);
-  assert.equal(interestFromForm({ debtPart: 'MIXED', interest: '1,000,000' }, 3_000_000), 1_000_000);
-  assert.equal(interestFromForm({ debtPart: 'MIXED', interest: '9,000,000' }, 3_000_000), 3_000_000, 'lãi không vượt tổng');
+test('trả nợ: gõ thẳng gốc và lãi, tổng là hai số cộng lại — không còn ô tổng', () => {
+  // Chủ app 21/9/2026: bỏ ô tổng + ô chọn "khoản này là gốc/lãi/cả hai", gõ thẳng hai số.
+  assert.deepEqual(moneyFromForm({ kind: 'DEBT', principal: '2,000,000', interest: '1,000,000' }), { amount: 3_000_000, interest: 1_000_000 });
+  assert.deepEqual(moneyFromForm({ kind: 'DEBT', principal: '3,000,000' }), { amount: 3_000_000, interest: 0 }, 'trả thẻ: để trống ô lãi');
+  assert.deepEqual(moneyFromForm({ kind: 'DEBT', interest: '3,000,000' }), { amount: 3_000_000, interest: 3_000_000 }, 'chỉ trả lãi: dư nợ không đổi');
+  // Loại khác vẫn một ô tổng, không có lãi — kể cả khi form còn sót giá trị của loại vừa chọn trước.
+  assert.deepEqual(moneyFromForm({ kind: 'INVEST', amount: '2,000,000', interest: '999' }), { amount: 2_000_000, interest: 0 });
+  assert.deepEqual(moneyFromForm({ kind: 'LEND', amount: '500,000' }), { amount: 500_000, interest: 0 });
+  assert.deepEqual(moneyFromForm({ kind: 'EXPENSE', amount: '86,093' }), { amount: 86_093, interest: 0 });
   // Và dư nợ phản ứng đúng: trả lãi 3tr → dư nợ giữ nguyên; trả gốc 3tr → giảm 3tr.
   const onlyInterest = tx({ id: 'i', kind: 'TRANSFER', targetSourceId: 'l', amount: 3_000_000, interest: 3_000_000 });
   const onlyPrincipal = tx({ id: 'p', kind: 'TRANSFER', targetSourceId: 'l', amount: 3_000_000, interest: 0 });
@@ -559,16 +563,32 @@ test('nguồn có lãi suất: lãi dự tính = dư nợ × lãi suất / 12, h
   assert.equal(loanCheck.monthlyInterest, monthlyInterest(80_000_000, loan.interestRate));
 });
 
-// ─────────────────────────── Loại "Đầu tư" ở form giao dịch ───────────────────────────
+// ─────────────────────────── Năm loại ở ô "Loại" của form ───────────────────────────
 
-const { isInvestForm, normalizeFormTxKind } = require('../dist/household/household-enums');
+const { formKindOfTransfer, hasDebtParts, isTransferForm, normalizeFormTxKind, sourceKindSettings } = require('../dist/household/household-enums');
 
-test('form giao dịch: loại Đầu tư vẫn ghi TRANSFER (không phải loại mới trong DB)', () => {
-  assert.equal(normalizeFormTxKind('INVEST'), 'TRANSFER');
-  assert.equal(isInvestForm('INVEST'), true);
-  assert.equal(normalizeFormTxKind('TRANSFER'), 'TRANSFER');
+test('ô Loại: Trả nợ / Đầu tư / Cho vay đều ghi TRANSFER, phân biệt bằng loại nguồn đích', () => {
+  // Chủ app 21/9/2026. DB vẫn chỉ có ba TX_KINDS — thêm loại mới vào DB là mọi chỗ hỏi
+  // kind === 'TRANSFER' (toán tháng, đối chiếu, Telegram, định kỳ) lặng lẽ bỏ sót nó.
+  for (const kind of ['DEBT', 'INVEST', 'LEND']) {
+    assert.equal(normalizeFormTxKind(kind), 'TRANSFER', `${kind} phải ghi xuống là TRANSFER`);
+    assert.equal(isTransferForm(kind), true);
+  }
   assert.equal(normalizeFormTxKind('EXPENSE'), 'EXPENSE');
-  assert.equal(isInvestForm('TRANSFER'), false);
+  assert.equal(isTransferForm('EXPENSE'), false);
+  // Chỉ Trả nợ mới hỏi gốc/lãi.
+  assert.equal(hasDebtParts('DEBT'), true);
+  assert.equal(hasDebtParts('INVEST'), false);
+  assert.equal(hasDebtParts('LEND'), false);
+  // Khoản đã lưu thì nhận ra loại qua nguồn đích.
+  assert.equal(formKindOfTransfer('CARD'), 'DEBT');
+  assert.equal(formKindOfTransfer('LOAN'), 'DEBT');
+  assert.equal(formKindOfTransfer('INVEST'), 'INVEST');
+  assert.equal(formKindOfTransfer('LENT'), 'LEND');
+  // Sang tài khoản (bot tạo khi bấm "… trả nợ") không thuộc ba loại trên: giữ nhãn Chuyển nguồn
+  // để mở form sửa không lặng lẽ đổi nó sang loại khác.
+  assert.equal(formKindOfTransfer('BANK'), 'TRANSFER');
+  assert.equal(formKindOfTransfer(null), 'TRANSFER');
   // Chuyển sang nguồn Đầu tư là "cất đi", không phải tiêu — đúng như chuyển sang Tiết kiệm.
   const invest = { id: 'v', name: 'Chứng khoán', kind: 'INVEST', openingBalance: 0, creditLimit: 0, interestRate: 0, statementDay: 0, dueDay: 0, active: true };
   const buy = tx({ id: 'q', kind: 'TRANSFER', targetSourceId: 'v', amount: 2_000_000, interest: 0, purposeId: null });
@@ -576,6 +596,24 @@ test('form giao dịch: loại Đầu tư vẫn ghi TRANSFER (không phải lo�
   assert.equal(report.saving, 2_000_000, 'tiền sang nguồn Đầu tư vào mục cất đi dù không có mục đích');
   assert.equal(report.living, 0, 'và không tính là chi tiêu');
   assert.equal(sourceBalances([bank, invest], [buy]).get('v').balance, 2_000_000);
+});
+
+test('cài đặt loại nguồn: chưa khai gì thì cả 7 loại đều bật với tên mặc định', () => {
+  // Chủ app 21/9/2026: hộ bật/tắt loại mình dùng và đổi tên. LUẬT tính tiền vẫn theo `kind`,
+  // tên chỉ là nhãn — nên hộ cũ không khai dòng nào vẫn chạy y như trước.
+  const mặcĐịnh = sourceKindSettings([]);
+  assert.equal(mặcĐịnh.length, 7);
+  assert.ok(mặcĐịnh.every((item) => item.active), 'chưa khai thì loại nào cũng bật');
+  assert.equal(mặcĐịnh.find((item) => item.kind === 'CARD').label, 'Thẻ tín dụng');
+
+  const đãKhai = sourceKindSettings([
+    { kind: 'CASH', label: '', active: false },
+    { kind: 'CARD', label: 'Thẻ nhà mình', active: true },
+  ]);
+  assert.equal(đãKhai.find((item) => item.kind === 'CASH').active, false, 'tắt được loại không dùng');
+  assert.equal(đãKhai.find((item) => item.kind === 'CARD').label, 'Thẻ nhà mình', 'đổi được tên');
+  assert.equal(đãKhai.find((item) => item.kind === 'CASH').label, 'Tiền mặt', 'tên rỗng thì về nhãn mặc định');
+  assert.equal(đãKhai.find((item) => item.kind === 'LOAN').active, true, 'loại chưa khai vẫn bật');
 });
 
 // ─────────────────────────── Cho vay (nguồn loại LENT) ───────────────────────────

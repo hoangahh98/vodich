@@ -4,7 +4,15 @@ import { forbidden, idList, notFound, parseBigId, safeHouseholdSection } from '.
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
 import { render } from '../common/view';
 import { HouseholdConfigService } from './household-config.service';
-import { HOUSEHOLD_LABELS, normalizeMonth } from './household-enums';
+import {
+  HOUSEHOLD_LABELS,
+  SOURCE_KIND_LABELS,
+  SourceKind,
+  TRANSFER_FORM_TARGETS,
+  TX_FORM_KINDS,
+  formKindOfTransfer,
+  normalizeMonth,
+} from './household-enums';
 import { HouseholdLedgerService } from './household-ledger.service';
 import { HouseholdService } from './household.service';
 
@@ -54,7 +62,17 @@ export class HouseholdController {
     if (user.role !== 'ADMIN' && safeSection === 'settings') return res.redirect(`/household/${id}/overview`);
     const detail = await this.households.detail(householdId, req.query.month);
     const linkCode = user.role === 'ADMIN' && safeSection === 'settings' && !detail.linked ? await this.households.ensureLinkCode(householdId) : '';
-    return render(res, 'household/detail', { ...detail, section: safeSection, linkCode, labels: HOUSEHOLD_LABELS });
+    return render(res, 'household/detail', {
+      ...detail,
+      section: safeSection,
+      linkCode,
+      labels: HOUSEHOLD_LABELS,
+      // Ô "Loại" của form giao dịch / khoản định kỳ, và cách suy ngược loại của một khoản TRANSFER
+      // đã lưu (theo loại nguồn đích) — view không import TS được nên đưa sẵn vào locals.
+      txFormKinds: TX_FORM_KINDS,
+      transferTargets: TRANSFER_FORM_TARGETS,
+      formKindOfTransfer,
+    });
   }
 
   // ───────────────────────────── Hộ, quyền, thành viên ─────────────────────────────
@@ -154,6 +172,19 @@ export class HouseholdController {
     const source = parseBigId(sourceId);
     if (source) await this.config.deleteSource(householdId, source);
     return res.redirect(`/household/${id}/sources`);
+  }
+
+  // ───────────────────────────── Loại nguồn tiền ─────────────────────────────
+
+  /** Cài đặt → Loại nguồn tiền: bật/tắt và đổi tên hiển thị của 7 loại có sẵn. */
+  @Post('/household/:id/source-kinds')
+  @AdminOnly()
+  async saveSourceKinds(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Form) {
+    const householdId = await this.manageable(req, res, id);
+    if (!householdId) return;
+    const { blocked } = await this.config.saveSourceKinds(householdId, body);
+    if (blocked.length) req.session.flash = `Không tắt được ${blocked.length} loại vì đang có nguồn dùng: ${blocked.map((kind) => SOURCE_KIND_LABELS[kind as SourceKind]).join(', ')}.`;
+    return res.redirect(`/household/${id}/settings`);
   }
 
   // ───────────────────────────── Mục đích ─────────────────────────────

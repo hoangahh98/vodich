@@ -249,10 +249,17 @@ Trong app: nguồn Timo để trống số tài khoản (mail Timo không ghi s�
   khoản chi bên tài khoản thì app tự bỏ dòng hoàn tiền trùng ấy đi.
 - Khoản chi không bấm nút mục đích nào thì mặc định vào mục chi tiêu "Khác" và nằm ở danh sách "Cần xem lại"
   cho tới khi bấm ✓ hoặc đổi mục đích. Tin không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được".
-- **Ghi tay bốn loại** (giống nhau ở cả form Giao dịch lẫn form Khoản định kỳ): **Chi**, **Thu**,
-  **Chuyển nguồn** (trả thẻ, trả nợ, cất tiết kiệm — chọn tiếp trả gốc hay trả lãi) và **Đầu tư** (chuyển sang
-  nguồn loại Đầu tư: chỉ chọn nguồn đích, không hỏi gốc/lãi cũng không hỏi mục đích, vì tiền chỉ cất sang chỗ
-  khác chứ không tiêu). Tiền sang nguồn Tiết kiệm / Đầu tư luôn được tính là "cất đi", rút về thì trừ lại.
+- **Ghi tay năm loại** (giống nhau ở cả form Giao dịch lẫn form Khoản định kỳ): **Chi**, **Thu**,
+  **Trả nợ**, **Đầu tư**, **Cho vay**. Ba loại sau đều là chuyển tiền sang một nguồn khác nên chỉ chọn nguồn
+  đích và **không hỏi mục đích**; ô "Sang nguồn" tự lọc đúng loại nguồn hợp lệ (Trả nợ → thẻ hoặc khoản vay,
+  Đầu tư → nguồn đầu tư, Cho vay → nguồn cho vay).
+- **Trả nợ không có ô tổng**: gõ thẳng **Trả gốc** và **Trả lãi**, app cộng lại thành số tiền. Trả thẻ thì gõ
+  gốc, để lãi trống. Gốc trừ vào dư nợ, lãi thì không.
+- **Mục đích và Loại nguồn khai ở mục Cài đặt.** Mục đích khai một lần, dùng chung cho cả ô Mục đích trên web
+  lẫn các nút bấm trên Telegram. Loại nguồn thì bật/tắt loại nhà mình dùng và đổi tên cho dễ hiểu — không tạo
+  được loại mới, vì mỗi loại gắn một cách tính riêng (tài khoản giữ số dư, thẻ và khoản vay giữ dư nợ...);
+  loại đang có nguồn dùng thì không tắt được.
+- Tiền sang nguồn Tiết kiệm / Đầu tư luôn được tính là "cất đi", rút về thì trừ lại.
 
 ## Backup / khôi phục dữ liệu
 

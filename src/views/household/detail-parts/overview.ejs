@@ -58,7 +58,7 @@
     <div class="hh-lines">
       <% balances.filter((item) => item.source.active).forEach((item) => { const debt = ['CARD', 'LOAN'].includes(item.source.kind); const cardLimit = Number(item.source.creditLimit); %>
         <div class="hh-line">
-          <div class="hh-line-top"><strong><%= item.source.name %></strong><span class="badge"><%= labels.source[item.source.kind] %></span></div>
+          <div class="hh-line-top"><strong><%= item.source.name %></strong><span class="badge"><%= sourceKindLabel[item.source.kind] %></span></div>
           <%# Thẻ tín dụng gói gọn một dòng "còn … , nợ thẻ …" (chủ app 11/9/2026): số đầu là HẠN MỨC
               CÒN — hạn mức khai trừ đã quẹt chưa trả, thẻ chưa khai hạn mức thì lấy số ngân hàng báo;
               số sau là phần đã quẹt chưa trả. Hạn mức khai và phần thẻ ăn theo xem ở tab Nguồn tiền. %>

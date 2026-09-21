@@ -13,7 +13,47 @@
     </form>
   </section>
 
-  <%# Mục "Mục đích" đã ẩn theo ý chủ app (10/9/2026): dùng bộ mặc định tạo sẵn khi lập hộ. Route sửa/xoá vẫn còn. %>
+  <%# Mục đích khai ở đây (chủ app 21/9/2026) — ô "Mục đích" của form giao dịch và các nút trên
+      Telegram đều lấy từ danh sách này, nên sửa ở đây là đổi cả hai nơi. %>
+  <section class="card-lite p mb">
+    <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'target' }) %> Mục đích</h2>
+    <div class="hh-list">
+      <% purposes.forEach((purpose) => { %>
+        <details class="hh-edit hh-row <%= purpose.active ? '' : 'is-muted' %>">
+          <summary><span class="hh-row-main"><strong><%= purpose.name %></strong><span class="badge"><%= labels.purpose[purpose.kind] %></span><% if (!purpose.active) { %><span class="badge">đã ẩn</span><% } %></span><span class="hh-row-side"><%= Number(purpose.monthlyPlan) ? formatMoney(purpose.monthlyPlan) + 'đ / tháng' : '—' %></span></summary>
+          <form class="hh-form hh-form-inline" method="post" action="/household/<%= household.id %>/purposes/<%= purpose.id %>">
+            <div><label>Tên</label><input name="name" value="<%= purpose.name %>" required></div>
+            <div><label>Loại</label><select name="kind"><% ['LIVING','SAVING','DEBT','RESERVE','LENDING','INCOME'].forEach((kind) => { %><option value="<%= kind %>" <%= purpose.kind === kind ? 'selected' : '' %>><%= labels.purpose[kind] %></option><% }) %></select></div>
+            <div><label>Kế hoạch / tháng</label><input class="money-input" name="monthlyPlan" value="<%= Number(purpose.monthlyPlan) ? formatMoney(purpose.monthlyPlan) : '' %>" inputmode="numeric"></div>
+            <div><label>Trạng thái</label><select name="active"><option value="on" <%= purpose.active ? 'selected' : '' %>>Đang dùng</option><option value="off" <%= purpose.active ? '' : 'selected' %>>Ẩn</option></select></div>
+            <div class="hh-form-action"><button class="btn btn-sm btn-primary" data-loading-text="…">Lưu</button></div>
+          </form>
+          <form method="post" action="/household/<%= household.id %>/purposes/<%= purpose.id %>/delete" data-confirm="Xoá mục '<%= purpose.name %>'? Đã có giao dịch thì chỉ ẩn."><button class="btn btn-sm btn-danger" data-loading-text="…">Xoá / ẩn</button></form>
+        </details>
+      <% }) %>
+    </div>
+    <form class="hh-form mt" method="post" action="/household/<%= household.id %>/purposes">
+      <div><label>Mục mới</label><input name="name" required></div>
+      <div><label>Loại</label><select name="kind"><% ['LIVING','SAVING','DEBT','RESERVE','LENDING','INCOME'].forEach((kind) => { %><option value="<%= kind %>"><%= labels.purpose[kind] %></option><% }) %></select></div>
+      <div><label>Kế hoạch / tháng</label><input class="money-input" name="monthlyPlan" inputmode="numeric"></div>
+      <div class="hh-form-action"><button class="btn btn-success" data-loading-text="…"><%- include('../../partials/icon', { name: 'plus' }) %> Thêm mục</button></div>
+    </form>
+  </section>
+
+  <%# Loại nguồn tiền (chủ app 21/9/2026): bật/tắt loại nhà mình dùng và đổi tên cho dễ hiểu. KHÔNG
+      tạo được loại mới — mỗi loại gắn một luật tính tiền viết trong code, tên chỉ là nhãn. Loại đang
+      có nguồn dùng thì không tắt được, server chặn và báo lại. %>
+  <section class="card-lite p mb">
+    <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'card' }) %> Loại nguồn tiền</h2>
+    <form class="hh-form" method="post" action="/household/<%= household.id %>/source-kinds">
+      <% sourceKinds.forEach((item) => { const used = sources.filter((source) => source.kind === item.kind).length; %>
+        <div><label><%= labels.source[item.kind] %><% if (used) { %> <span class="badge"><%= used %> nguồn</span><% } %></label><input name="label_<%= item.kind %>" value="<%= item.label %>"></div>
+        <div><label>Dùng loại này</label><select name="active_<%= item.kind %>"><option value="on" <%= item.active ? 'selected' : '' %>>Có</option><option value="off" <%= item.active ? '' : 'selected' %>>Ẩn</option></select></div>
+      <% }) %>
+      <div class="hh-form-action"><button class="btn btn-success" data-loading-text="Đang lưu..."><%- include('../../partials/icon', { name: 'save' }) %> Lưu loại nguồn</button></div>
+    </form>
+  </section>
+
   <section class="card-lite p mb">
     <h2 class="section-title mb"><%- include('../../partials/icon', { name: 'bolt' }) %> Telegram</h2>
     <% if (linked) { %>

@@ -1,55 +1,64 @@
 /**
- * Form giao dịch / khoản định kỳ của module Chi tiêu: chọn loại "Chuyển nguồn" thì mới hiện ô
- * "Sang nguồn" và ô lãi. Không có inline script vì CSP script-src 'self'.
+ * Form giao dịch / khoản định kỳ của module Chi tiêu. Không có inline script vì CSP script-src 'self'.
  *
- * Loại "Đầu tư" cũng là chuyển nguồn (server ghi TRANSFER) nhưng tiền sang nguồn Đầu tư: ô "Sang
- * nguồn" chỉ còn nguồn Đầu tư, và hai ô "Khoản chuyển này là" + "Mục đích" biến mất (chủ app
- * 18/9/2026). Ô giấu bằng `hidden` VẪN gửi giá trị lên, nên server cũng bỏ hai giá trị ấy.
+ * Ô "Loại" có năm lựa chọn (chủ app 21/9/2026); ba cái cuối đều là chuyển tiền sang nguồn khác nên
+ * server ghi TRANSFER, khác nhau ở LOẠI NGUỒN ĐÍCH được phép chọn:
+ *
+ *   Chi / Thu  -> không có "Sang nguồn", có ô Mục đích, một ô Số tiền.
+ *   Trả nợ     -> sang thẻ hoặc khoản vay. KHÔNG có ô Số tiền: gõ Trả gốc và Trả lãi, tổng tự cộng.
+ *   Đầu tư     -> sang nguồn đầu tư. Một ô Số tiền.
+ *   Cho vay    -> sang nguồn cho vay. Một ô Số tiền.
+ *
+ * Ba loại chuyển đều KHÔNG hỏi mục đích. Ô giấu bằng `hidden` VẪN gửi giá trị lên, nên server cũng
+ * tự bỏ mục đích/lãi chứ không tin form.
  */
 (() => {
+  // Loại nguồn đích hợp lệ cho từng loại chuyển — phải khớp TRANSFER_FORM_TARGETS bên server.
+  const TARGETS = { DEBT: ['CARD', 'LOAN'], INVEST: ['INVEST'], LEND: ['LENT'] };
+
   const sync = (form) => {
     const kind = form.querySelector('[data-tx-kind]');
     if (!kind) return;
-    const invest = kind.value === 'INVEST';
-    const transfer = kind.value === 'TRANSFER' || invest;
+    const allowed = TARGETS[kind.value] || null;
+    // 'TRANSFER' là khoản cũ do bot tạo (sang tài khoản): vẫn cho sửa, nguồn đích để nguyên không lọc.
+    const transfer = !!allowed || kind.value === 'TRANSFER';
+    const debt = kind.value === 'DEBT';
     form.querySelectorAll('[data-tx-target]').forEach((box) => {
       box.hidden = !transfer;
     });
-    form.querySelectorAll('[data-tx-interest]').forEach((box) => {
-      box.hidden = !transfer || invest;
+    form.querySelectorAll('[data-tx-debt]').forEach((box) => {
+      box.hidden = !debt;
+    });
+    form.querySelectorAll('[data-tx-amount]').forEach((box) => {
+      box.hidden = debt;
     });
     form.querySelectorAll('[data-tx-purpose]').forEach((box) => {
-      box.hidden = invest;
+      box.hidden = transfer;
     });
-    // Ô "Trong đó lãi" chỉ khi chọn Gốc + lãi.
-    const part = form.querySelector('[data-debt-part]');
-    form.querySelectorAll('[data-tx-mixed]').forEach((box) => {
-      box.hidden = !transfer || invest || !part || part.value !== 'MIXED';
+    // Ô lãi của khoản định kỳ (chọn "tự tính theo lãi suất") chỉ có nghĩa với Trả nợ.
+    form.querySelectorAll('[data-tx-interest]').forEach((box) => {
+      box.hidden = !debt;
     });
-    syncTarget(form, invest);
+    syncTarget(form, allowed);
   };
 
-  // Đầu tư thì ô "Sang nguồn" chỉ để lại nguồn loại Đầu tư (kèm `disabled` vì Safari cũ không nghe
-  // `hidden` trên <option>); đang trỏ vào nguồn khác thì nhảy về nguồn Đầu tư đầu tiên.
-  const syncTarget = (form, invest) => {
+  // Ô "Sang nguồn" chỉ để lại nguồn đúng loại của lựa chọn đang chọn (kèm `disabled` vì Safari cũ
+  // không nghe `hidden` trên <option>); đang trỏ nguồn không hợp lệ thì nhảy về nguồn hợp lệ đầu tiên.
+  const syncTarget = (form, allowed) => {
     const target = form.querySelector('select[name="targetSourceId"]');
     if (!target) return;
-    let firstInvest = '';
+    let firstOk = '';
     Array.prototype.forEach.call(target.options, (option) => {
-      const investSource = option.dataset.sourceKind === 'INVEST';
-      const off = invest && option.value && !investSource;
+      const fits = !allowed || allowed.indexOf(option.dataset.sourceKind) >= 0;
+      const off = !!allowed && !!option.value && !fits;
       option.hidden = off;
       option.disabled = off;
-      if (investSource && !firstInvest) firstInvest = option.value;
+      if (allowed && fits && option.value && !firstOk) firstOk = option.value;
     });
-    // Chỉ còn nguồn Đầu tư chọn được thì chọn sẵn cái đầu tiên: đang trỏ nguồn khác (vừa đổi loại) hay
-    // chưa chọn gì đều nhảy về đó, khỏi lỡ ghi một khoản chuyển không có nguồn đích.
-    if (invest && (!target.value || target.selectedOptions[0].disabled)) target.value = firstInvest;
+    // Chọn sẵn nguồn hợp lệ đầu tiên: đang trỏ nguồn khác (vừa đổi loại) hay chưa chọn gì đều nhảy về
+    // đó, khỏi lỡ ghi một khoản chuyển không có nguồn đích.
+    if (allowed && (!target.value || target.selectedOptions[0].disabled)) target.value = firstOk;
   };
-  document.addEventListener('change', (event) => {
-    const part = event.target instanceof Element ? event.target.closest('[data-debt-part]') : null;
-    if (part && part.form) sync(part.form);
-  });
   document.querySelectorAll('[data-tx-form]').forEach(sync);
 
   // Form nguồn tiền: ô nào mang data-for="BANK CARD" chỉ hiện khi loại nằm trong danh sách. Hai cặp ô

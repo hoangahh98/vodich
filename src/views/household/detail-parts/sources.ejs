@@ -7,7 +7,12 @@
     // Ngày sao kê / đến hạn đã bỏ khỏi form theo ý chủ app (cột vẫn còn trong DB, không dùng).
     // Ô số dư / nợ nhập số HIỆN TẠI (chủ app: khỏi nhập số dư đầu rồi so lệch). Server tự suy số đầu kỳ
     // = số hiện tại trừ/cộng dòng tiền đã ghi. `current` là số app đang tính cho nguồn đó (form sửa).
-    const kindOptions = Object.keys(labels.source);
+    // Chỉ những loại hộ đang bật ở Cài đặt (chủ app 21/9/2026). Nguồn đang mang loại đã tắt thì vẫn
+    // phải có trong danh sách, không thì mở form sửa là nó lặng lẽ nhảy sang loại khác.
+    const kindOptions = (source) => {
+      const on = sourceKinds.filter((item) => item.active).map((item) => item.kind);
+      return source && !on.includes(source.kind) ? [...on, source.kind] : on;
+    };
     const esc = (value) => String(value == null ? '' : value).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
     // Thẻ thông = quẹt thẻ này thì hạn mức thẻ kia cũng giảm. Khai bằng cách chọn thẻ kia (quan hệ CÓ
     // HƯỚNG, xem `affectsLimitOf`); hạn mức thì mỗi thẻ vẫn khai riêng số của nó.
@@ -17,27 +22,27 @@
     const sharesWith = (source) => (source && source.limitSharesWith ? cardList.find((item) => item.id.toString() === source.limitSharesWith.toString()) : null);
     const feedersOf = (source) => (source ? cardList.filter((item) => item.limitSharesWith && item.limitSharesWith.toString() === source.id.toString()) : []);
     const sourceForm = (source, current) => `
-      <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" placeholder="Ví dụ: Timo, Thẻ MSB" required></div>
-      <div><label>Loại</label><select name="kind" data-source-kind>${kindOptions.map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${labels.source[kind]}</option>`).join('')}</select></div>
+      <div><label>Tên nguồn</label><input name="name" value="${source ? source.name.replace(/"/g, '&quot;') : ''}" required></div>
+      <div><label>Loại</label><select name="kind" data-source-kind>${kindOptions(source).map((kind) => `<option value="${kind}" ${source && source.kind === kind ? 'selected' : ''}>${sourceKindLabel[kind]}</option>`).join('')}</select></div>
       <div data-for="BANK CARD"><label>Ngân hàng</label><select name="bank">${['TIMO','MSB','OTHER'].map((bank) => `<option value="${bank}" ${(source ? source.bank : 'TIMO') === bank ? 'selected' : ''}>${labels.bank[bank]}</option>`).join('')}</select></div>
-      <div data-for="BANK"><label>Số tài khoản</label><input name="matchKey" value="${source ? source.matchKey : ''}" placeholder="Chỉ cần khi có nhiều tài khoản cùng ngân hàng" inputmode="numeric" data-match-key></div>
-      <div data-for="CARD"><label>4 số cuối thẻ</label><input value="${source ? source.matchKey : ''}" placeholder="3065" inputmode="numeric" maxlength="4" data-match-key></div>
-      <div data-for="BANK CARD CASH SAVING INVEST LOAN"><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}" placeholder="Chồng / Vợ"></div>
+      <div data-for="BANK"><label>Số tài khoản</label><input name="matchKey" value="${source ? source.matchKey : ''}" inputmode="numeric" data-match-key></div>
+      <div data-for="CARD"><label>4 số cuối thẻ</label><input value="${source ? source.matchKey : ''}" inputmode="numeric" maxlength="4" data-match-key></div>
+      <div data-for="BANK CARD CASH SAVING INVEST LOAN"><label>Chủ nguồn</label><input name="ownerName" value="${source ? source.ownerName.replace(/"/g, '&quot;') : ''}"></div>
       <div data-for="BANK CASH SAVING INVEST" data-balance-box><label>Số dư</label><input class="money-input" name="currentBalance" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="BANK" data-timo-note hidden><label>Số dư</label><div class="field-static">Tự lấy từ mail Timo gần nhất${source ? ': ' + formatMoney(current) + 'đ' : ''}</div></div>
       <div data-for="CARD"><label>Thẻ thông của thẻ này</label><select name="limitSharesWith"><option value="">— Không có —</option>${cardList
         .filter((item) => !source || item.id.toString() !== source.id.toString())
         .map((item) => `<option value="${item.id}" ${sharesWith(source) && sharesWith(source).id === item.id ? 'selected' : ''}>${esc(item.name)}</option>`)
-        .join('')}</select><small class="field-hint">Chọn thẻ mà <strong>quẹt / trả thẻ này thì hạn mức thẻ đó cũng đổi theo</strong>. Thẻ ăn theo (thẻ nhìn thấy hạn mức của thẻ khác) thì để trống. Hai thẻ thông nhau thì khai ở CẢ HAI thẻ, mỗi thẻ trỏ về thẻ kia. Hạn mức mỗi thẻ một khác không sao.${feedersOf(source).length ? ' Đang có ăn theo: ' + feedersOf(source).map((item) => esc(item.name)).join(', ') + '.' : ''}</small></div>
-      <div data-for="CARD"><label>Hạn mức thẻ</label><input class="money-input" name="creditLimit" value="${source && Number(source.creditLimit) ? formatMoney(source.creditLimit) : ''}" placeholder="Ví dụ: 20.000.000" inputmode="numeric"><small class="field-hint">Hạn mức ngân hàng cấp cho thẻ này. <strong>Hạn mức còn</strong> = số này trừ các khoản quẹt, cộng lại các khoản hoàn tiền / trả thẻ. Để trống thì app quay về lấy hạn mức khả dụng trong mail gần nhất. Thẻ còn khoản quẹt cũ từ trước khi dùng app thì trừ luôn phần ấy vào đây cho khớp.</small></div>
+        .join('')}</select></div>
+      <div data-for="CARD"><label>Hạn mức thẻ</label><input class="money-input" name="creditLimit" value="${source && Number(source.creditLimit) ? formatMoney(source.creditLimit) : ''}" inputmode="numeric"></div>
       <div data-for="CARD" class="hh-form-wide"><label>Đã quẹt chưa trả</label><div class="field-static">Cộng từ giao dịch, không khai tay${source ? ' — đang là ' + formatMoney(current) + 'đ' : ''}</div></div>
       <div data-for="LOAN"><label>Nợ hiện tại</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
       <div data-for="LENT"><label>Đã cho vay</label><input class="money-input" value="${source ? formatMoney(current) : ''}" inputmode="numeric" data-opening></div>
-      <div data-for="LOAN"><label>Lãi suất %/năm</label><input name="interestRate" value="${source ? Number(source.interestRate) : ''}" placeholder="Ví dụ: 10.5" inputmode="decimal"></div>`;
+      <div data-for="LOAN"><label>Lãi suất %/năm</label><input name="interestRate" value="${source ? Number(source.interestRate) : ''}" inputmode="decimal"></div>`;
   %>
   <section class="card-lite p mb">
     <div class="section-heading">
-      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'card' }) %></span><h2 class="section-title">Nguồn tiền</h2><p class="muted">Tài khoản, thẻ tín dụng, tiết kiệm, đầu tư, khoản vay, tiền mặt. Nhập số dư đang có, sau đó mọi thay đổi tự cộng từ giao dịch; thẻ tín dụng thì khai hạn mức thẻ, còn hạn mức còn app tự trừ các khoản quẹt và cộng lại khoản hoàn tiền / trả thẻ.</p></div>
+      <div><span class="feature-icon"><%- include('../../partials/icon', { name: 'card' }) %></span><h2 class="section-title">Nguồn tiền</h2></div>
       <span class="badge badge-dark">Có <%= formatMoney(totals.cash) %>đ<% if (totals.saved) { %> · để dành <%= formatMoney(totals.saved) %>đ<% } %> · nợ <%= formatMoney(totals.debt) %>đ</span>
     </div>
   </section>
@@ -49,7 +54,6 @@
         <%- sourceForm(null, 0) %>
         <div class="hh-form-action"><button class="btn btn-success" data-loading-text="Đang thêm..."><%- include('../../partials/icon', { name: 'plus' }) %> Thêm nguồn</button></div>
       </form>
-      <p class="muted mt">Thẻ tín dụng: quẹt thẻ là chi tiêu ngay lúc quẹt; trả thẻ ghi là <strong>Chuyển nguồn</strong> từ tài khoản sang thẻ, không tính chi lần hai. Khoản vay: trả nợ ghi Chuyển nguồn sang khoản vay, chọn trả gốc hay trả lãi. Cho vay: tạo một nguồn loại <strong>Cho vay</strong> mang tên người vay; chuyển tiền sang là cho vay thêm, họ trả thì chuyển ngược về tài khoản (trên Telegram có nút sẵn).</p>
     </section>
   <% } %>
 
@@ -57,7 +61,7 @@
     <% balances.forEach((item) => { const source = sources.find((row) => row.id.toString() === item.source.id); const debt = ['CARD', 'LOAN'].includes(item.source.kind); const lent = item.source.kind === 'LENT'; const cardLimit = Number(item.source.creditLimit); %>
       <section class="card-lite p hh-source <%= item.source.active ? '' : 'is-muted' %>">
         <div class="hh-source-head">
-          <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= labels.source[item.source.kind] %></span> <% if (['BANK', 'CARD'].includes(item.source.kind) && source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% const twin = sharesWith(source); const feeders = feedersOf(source); %><% if (twin) { %><span class="badge">thông sang <%= twin.name %></span><% } %><% if (feeders.length) { %><span class="badge">theo <%= feeders.map((item) => item.name).join(', ') %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
+          <div><h3 class="mb-0"><%= item.source.name %></h3><span class="badge"><%= sourceKindLabel[item.source.kind] %></span> <% if (['BANK', 'CARD'].includes(item.source.kind) && source.bank !== 'OTHER') { %><span class="badge"><%= labels.bank[source.bank] %><%= source.matchKey ? ' · ' + source.matchKey : '' %></span><% } %><% const twin = sharesWith(source); const feeders = feedersOf(source); %><% if (twin) { %><span class="badge">thông sang <%= twin.name %></span><% } %><% if (feeders.length) { %><span class="badge">theo <%= feeders.map((item) => item.name).join(', ') %></span><% } %><% if (!item.source.active) { %><span class="badge">đã ẩn</span><% } %></div>
         </div>
         <%# Mọi con số nằm trong ô (chủ app: "mấy cái đang không trong ô thì cho vào ô"). %>
         <div class="grid kv-grid mt">
