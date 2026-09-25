@@ -208,14 +208,10 @@ function flowBetween(source: SourceRow, transactions: TransactionRow[], from: Ba
  *  - Tài khoản: mail Timo báo số dư → NGÂN HÀNG THẮNG, số dư = số trong mail gần nhất + giao dịch ghi
  *    sau mail đó. Sổ tính ra khác số ấy thì `diff` khác 0 — app KHÔNG tự bù, chỉ báo để chủ app thêm
  *    giao dịch còn thiếu bằng tay (tự bù là mất dấu khoản thiếu, tiền thật còn lại thành sai).
- *  - Thẻ tín dụng ĐÃ KHAI HẠN MỨC (chủ app 11/9/2026): hạn mức còn do SỔ tính (hạn mức khai − đã quẹt
- *    chưa trả của cả cụm thẻ thông), nên so thẳng số ấy với hạn mức khả dụng trong mail GẦN NHẤT — tính
- *    tại đúng thời điểm mail đó, không phải lúc này, vì sổ có thể đã ghi thêm giao dịch sau mail.
- *    `diff` > 0 = sổ còn nhiều hạn mức hơn ngân hàng → thiếu khoản quẹt (hoặc ô hạn mức khai to quá).
- *  - Thẻ CHƯA khai hạn mức: không có hạn mức tổng thì không suy ra dư nợ, `diff` đo từ mail đầu tới mail
- *    gần nhất — khả dụng phải giảm đúng bằng phần dư nợ sổ ghi tăng, tính trên CẢ CỤM THẺ THÔNG vì quẹt
- *    thẻ A thì mail thẻ B cũng đã trừ khoản ấy rồi. Hai thẻ khác hạn mức nhau vẫn đúng: chỉ so CHÊNH
- *    giữa hai lần báo của cùng một thẻ.
+ *  - Thẻ tín dụng: KHÔNG đối chiếu với mail (chủ app 25/9/2026, thay luật 10–11/9). Hạn mức còn chỉ do sổ
+ *    tính (`sourceBalances`: hạn mức khai − đã quẹt chưa trả của cả cụm thẻ thông). Hạn mức khả dụng trong
+ *    mail vẫn được trả về ở `reportedAvailable` cho ai cần đọc, nhưng `diff` của thẻ luôn 0 — không so,
+ *    không báo lệch, không mách thẻ thông.
  */
 export function reconcileSources(
   sources: SourceRow[],
@@ -224,7 +220,6 @@ export function reconcileSources(
   availableWindows: Map<string, { first: BankMark; last: BankMark }>,
 ): SourceCheck[] {
   const balances = sourceBalances(sources, transactions);
-  const cards = sources.filter((item) => item.kind === 'CARD');
   // Lãi dự tính đi theo dư nợ CUỐI CÙNG của dòng này (số đã căn theo mail nếu có), không phải số thô của sổ.
   const withInterest = (check: Omit<SourceCheck, 'monthlyInterest'>): SourceCheck => ({
     ...check,
@@ -238,23 +233,9 @@ export function reconcileSources(
       const balance = reported.value + flowBetween(source, transactions, reported, null);
       return withInterest({ ...item, balance, reported, reportedAvailable: window ? window.last : null, diff: Math.round(item.balance - balance), anchored: true });
     }
-    let diff = 0;
-    if (source.kind === 'CARD' && source.creditLimit && window) {
-      // Đã khai hạn mức: so số tuyệt đối với mail gần nhất, tính phần đã quẹt chưa trả của cả cụm thẻ
-      // thông TÍNH TỚI đúng mail đó (`affectsLimitOf`), từng thẻ kẹp ≥ 0 như khi hiện hạn mức còn.
-      const usedThen = cards
-        .filter((card) => affectsLimitOf(card, source))
-        .reduce((sum, card) => sum + Math.max(0, card.openingBalance + flowBetween(card, transactions, null, window.last)), 0);
-      diff = Math.round(source.creditLimit - usedThen - window.last.value);
-    } else if (window && window.first.txId !== window.last.txId) {
-      // Hạn mức khả dụng của thẻ này đổi theo giao dịch của CHÍNH NÓ và của mọi thẻ khai thẻ thông là nó.
-      // Hạn mức mỗi thẻ một khác không sao: chỉ so CHÊNH giữa hai lần báo của CÙNG một thẻ, không bao giờ
-      // so số tuyệt đối giữa các thẻ. Lệch bao nhiêu báo bấy nhiêu, KHÔNG có ngưỡng bỏ qua (chủ app
-      // 10/9/2026: phải khớp từng đồng, lệch thẻ nào thì tra soát thẻ đó).
-      const spent = cards.filter((card) => affectsLimitOf(card, source)).reduce((sum, card) => sum + flowBetween(card, transactions, window.first, window.last), 0);
-      diff = Math.round(window.first.value - spent - window.last.value);
-    }
-    return withInterest({ ...item, reported: null, reportedAvailable: window ? window.last : null, diff, anchored: false });
+    // Thẻ tín dụng: không đối chiếu với mail (chủ app 25/9/2026) — hạn mức khả dụng ngân hàng báo chỉ
+    // được giữ lại, không so, nên diff luôn 0.
+    return withInterest({ ...item, reported: null, reportedAvailable: window ? window.last : null, diff: 0, anchored: false });
   });
 }
 

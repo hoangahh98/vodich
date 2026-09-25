@@ -241,7 +241,9 @@ Trong app: nguồn Timo để trống số tài khoản (mail Timo không ghi s�
   quẹt cũ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn
   mức. "Đã quẹt chưa trả" cộng từ giao dịch — trả hết là về 0, không có khái niệm "trả dư"; xuống dưới 0 là SỔ
   THIẾU khoản quẹt và app báo đúng phần thiếu ấy. Hai thẻ dùng chung hạn mức thì khai ô **Thẻ thông** (chọn thẻ
-  kia) để app cộng tiền quẹt cả nhóm, khỏi báo lệch oan — quan hệ CÓ HƯỚNG, hai thẻ thông nhau thì khai ở cả hai.
+  kia) để hạn mức còn trừ đúng cả phần quẹt của thẻ kia — quan hệ CÓ HƯỚNG, hai thẻ thông nhau thì khai ở cả hai.
+- **Thẻ không đối chiếu với mail** (25/9/2026): hạn mức khả dụng trong mail MSB chỉ được lưu, không so, không báo
+  lệch. Chỉ tài khoản Timo còn đối chiếu số dư với mail.
 - **Khoản vay và nguồn có lãi suất**: khai lãi suất %/năm thì thẻ nguồn và ô "Trả nợ" ở Tổng quan hiện luôn
   **lãi dự tính** mỗi tháng = dư nợ hiện tại × lãi suất / 12. Trả bớt gốc là số này giảm theo, trả hết thì mất.
 - **Mail "Biến động thanh toán thẻ tín dụng"** (hoàn tiền hoặc mình trả nợ thẻ): trùng với một lần trả thẻ đã

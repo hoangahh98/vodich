@@ -217,9 +217,9 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   cộng lại giao dịch hoàn tiền / trả thẻ) — `sourceBalances` trả `limitUsed` + `available`, sổ có số ngay
   không phải chờ mail. **Chỉ sổ tính, không hiện số ngân hàng báo nữa (chủ app 25/9/2026)**: bỏ ô "Ngân hàng
   báo còn" ở thẻ nguồn, và để trống ô hạn mức thì ô Hạn mức còn để trống chứ không rơi về hạn mức khả dụng
-  trong mail như bản 10/9. `reported_available` vẫn lưu và `reconcileSources` vẫn dùng nó để BÁO LỆCH —
-  chỉ là không in số ấy ra thẻ nguồn / Tổng quan nữa. Thẻ còn khoản quẹt CŨ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn mức (app cố ý không cho
-  khai dư nợ thẻ, và **không** tự căn lại — xem `syncBalance` đã bỏ ở gạch đầu dòng trên). Bốn chuyện phải nhớ:
+  trong mail như bản 10/9. `reported_available` vẫn lưu nhưng KHÔNG dùng để so nữa — đối chiếu thẻ với mail bỏ hẳn 25/9/2026, xem
+  mục 2 bên dưới. Thẻ còn khoản quẹt CŨ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn mức (app cố ý không cho
+  khai dư nợ thẻ, và **không** tự căn lại — xem `syncBalance` đã bỏ ở gạch đầu dòng trên). Ba chuyện phải nhớ:
   1. **Thẻ thông là quan hệ CÓ HƯỚNG** (`household_source.limit_shares_with`, chủ app chốt 10/9/2026):
      khai "thẻ thông của thẻ A là B" nghĩa là giao dịch của A cũng làm đổi hạn mức khả dụng của B. Thực tế
      nhà chủ app: 4768 → 3065 và 8867 → 3065 (mỗi thẻ hạn mức riêng, trả vào thẻ nào chỉ thẻ đó tăng, nhưng
@@ -227,21 +227,14 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
      khai hộ chiều ngược lại — chiều nào có thật chỉ chủ app biết. Hệ quả cho hạn mức còn: `limitUsed` của
      thẻ X cộng phần đã quẹt chưa trả của chính X **và của mọi thẻ trỏ về X** (`affectsLimitOf`), từng thẻ
      kẹp ≥ 0 để thẻ đang "trả quá" không nới hạn mức cho thẻ khác. Cộng nhầm cả cụm cho thẻ hạn mức riêng là
-     báo lệch oan cả trăm nghìn (8867 từng lệch 748.922đ); test "thẻ thông có hướng" khoá lại.
-  2. **Đối chiếu với mail** (`reconcileSources`, `bankCheck` của bot): thẻ ĐÃ khai hạn mức thì so số tuyệt
-     đối — hạn mức còn theo sổ **tính tại đúng thời điểm mail gần nhất** so với hạn mức khả dụng trong mail
-     ấy (không so số lúc này: sổ có thể đã ghi thêm giao dịch sau mail). `diff` > 0 = sổ còn nhiều hạn mức
-     hơn ngân hàng → thiếu khoản quẹt, hoặc ô hạn mức khai to quá. Thẻ CHƯA khai hạn mức thì vẫn đo CHÊNH
-     giữa mail đầu và mail gần nhất như bản 10/9 (mail không có hạn mức TỔNG nên không suy ra dư nợ được).
-  3. **KHÔNG có ngưỡng bỏ qua** — lệch bao nhiêu báo bấy nhiêu (chủ app chốt 10/9/2026: phải khớp từng đồng,
-     lệch thẻ nào thì tự tra soát thẻ đó). Từng có `cardDiffTolerance` bỏ qua lệch nhỏ, đã gỡ. Biết trước hai
-     nguồn lệch để khỏi hoảng: **hoàn tiền vào lại hạn mức chậm cả ngày** (mail hoàn tiền báo hạn mức y
-     nguyên, hôm sau mới cộng — nhìn hai mail liên tiếp là thấy bù nhau), và **mail ngân hàng không gửi**
-     (thực tế 10/9/2026 có khoản trả thẻ không có mail). Ngoài ra vài bước một-giao-dịch vẫn lệch trăm đồng
-     (quẹt 180.000 mà hạn mức tụt 180.148) — chưa giải thích được, cứ để nó báo. Chưa khai thẻ thông mà lệch
-     đúng bằng phần đã quẹt của một thẻ khác thì bot mách "hai thẻ này có vẻ thẻ thông" thay vì bắt đi tìm
-     giao dịch thiếu.
-  4. **"Đã quẹt chưa trả" trả hết là về 0** — KHÔNG có "trả dư" (trả thẻ chỉ là trả nợ thẻ); xuống dưới 0
+     hạn mức còn của nó bị trừ oan cả trăm nghìn; test "thẻ thông có hướng" khoá lại.
+  2. **Thẻ KHÔNG đối chiếu với mail (chủ app 25/9/2026)** — thay hẳn luật 10–11/9 ("so từng đồng, không
+     ngưỡng bỏ qua, mách thẻ thông"). Hạn mức khả dụng MSB báo vẫn lưu ở `reported_available` nhưng
+     `reconcileSources` cho `diff` của thẻ luôn 0, `bankCheck` của bot chỉ nhắc "Hạn mức còn X / Y" (thẻ
+     chưa khai hạn mức thì không nói gì), thẻ nguồn không còn ô "Ngân hàng báo còn" lẫn dòng "Sổ lệch".
+     Lý do chủ app: hoàn tiền vào lại hạn mức chậm cả ngày, mail có lúc không gửi, vài giao dịch lệch trăm
+     đồng không giải thích được — báo lệch thành nhiễu. **Chỉ tài khoản Timo còn đối chiếu số dư.**
+  3. **"Đã quẹt chưa trả" trả hết là về 0** — KHÔNG có "trả dư" (trả thẻ chỉ là trả nợ thẻ); xuống dưới 0
      nghĩa là sổ thiếu khoản quẹt, kẹp hiển thị về 0 và báo phần thiếu, tổng "Nợ thẻ" cũng kẹp từng thẻ về 0
      để thẻ thiếu không ăn bớt nợ thẻ khác. Ngược lại `limitUsed` vượt hạn mức khai thì hạn mức còn kẹp về 0
      và thẻ nguồn báo phần vượt.

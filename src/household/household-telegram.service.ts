@@ -377,44 +377,23 @@ export class HouseholdTelegramService {
   }
 
   /**
-   * Mail có số của ngân hàng — Timo báo SỐ DƯ tài khoản, MSB báo HẠN MỨC KHẢ DỤNG của thẻ — thì so số ấy
-   * với sổ và **báo lệch**, KHÔNG tự căn lại số đầu kỳ nữa (chủ app 10/9/2026: tự bù là mất dấu khoản
-   * thiếu và số tiền thật còn lại thành sai; lệch thì nói ra để chủ app thêm giao dịch tay).
+   * Dòng số ngân hàng trong tin tóm tắt.
    *
-   * THẺ ĐÃ KHAI HẠN MỨC (chủ app 11/9/2026): hạn mức còn do SỔ tính (hạn mức khai − đã quẹt chưa trả),
-   * nên so thẳng số ấy với hạn mức khả dụng trong mail này — so được ngay từ mail ĐẦU TIÊN, không phải
-   * chờ có hai mail như trước.
+   * TÀI KHOẢN (mail Timo báo số dư): NGÂN HÀNG THẮNG. Mail đầu tiên của một tài khoản lấy làm mốc — suy
+   * ngược số đầu kỳ, chỉ làm MỘT LẦN, vì tài khoản Timo không khai số dư tay; mail sau so số dư sổ tính
+   * (mốc + dòng tiền sau mốc) với số ngân hàng báo, lệch bao nhiêu báo bấy nhiêu — không ngưỡng bỏ qua,
+   * không tự bù (chủ app 10/9/2026). Tin chỉ nói lệch bao nhiêu, không đoán hộ thiếu khoản gì (11/9/2026).
    *
-   * Thẻ CHƯA khai hạn mức và tài khoản: mốc so là mail TRƯỚC ĐÓ của chính nguồn này — từ mốc tới giờ, số
-   * dư phải đổi đúng bằng dòng tiền đã ghi (thẻ thì hạn mức khả dụng giảm đúng bằng phần dư nợ tăng). Lần
-   * đầu ngân hàng báo số dư cho một tài khoản thì chưa có gì để so — lấy luôn số ấy làm mốc (suy ngược số
-   * đầu kỳ), vì tài khoản Timo không khai số dư bằng tay; thẻ chưa khai hạn mức thì không lấy mốc được vì
-   * mail chỉ có hạn mức khả dụng.
-   *
-   * THẺ THÔNG (`affectsLimitOf`, quan hệ CÓ HƯỚNG): quẹt thẻ A thì hạn mức khả dụng báo trong mail của thẻ
-   * B cũng đã trừ khoản ấy, nên phần quẹt tính trên cả cụm. Chưa khai mà lệch đúng bằng tiền quẹt của một
-   * thẻ khác thì bot mách "(thẻ thông?)" thay vì bắt đi tìm giao dịch thiếu.
-   *
-   * Tin báo lệch CHỈ nói lệch bao nhiêu (chủ app 11/9/2026: "dài dòng quá") — không đoán hộ thiếu khoản
-   * gì, không chỉ đường vào web; riêng cái mách thẻ thông giữ lại vì đoán được đích danh thẻ nào.
+   * THẺ TÍN DỤNG: KHÔNG đối chiếu với mail nữa (chủ app 25/9/2026, thay luật 10–11/9). Hạn mức còn chỉ do
+   * sổ tính = hạn mức khai − đã quẹt chưa trả của cả cụm thẻ thông (`affectsLimitOf`); tin chỉ nhắc "còn
+   * bao nhiêu trên bao nhiêu", thẻ chưa khai hạn mức thì không nói gì. Hạn mức khả dụng trong mail vẫn
+   * được lưu (`reported_available`) nhưng không so, không báo lệch, không mách thẻ thông.
    */
   private async bankCheck(householdId: bigint, source: HouseholdSource, parsed: ParsedBankMessage, transactionId: bigint): Promise<string> {
-    const card = source.kind === 'CARD';
-    const reported = card ? parsed.availableLimit : parsed.balance;
-    if (reported === undefined) return '';
-    // Tên nguồn đã có ở dòng đầu tin, nhãn khỏi lặp lại (chủ app 11/9/2026: tin ngắn gọn).
-    const label = card ? 'Hạn mức khả dụng' : 'Số dư';
-    const mailSide = { OR: [{ sourceId: source.id }, { targetSourceId: source.id }] };
-    const [previous, transactions, cards] = await Promise.all([
-      this.prisma.householdTransaction.findFirst({
-        where: { householdId, id: { not: transactionId }, ...(card ? { reportedAvailable: { not: null } } : { reportedBalance: { not: null } }), ...mailSide },
-        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-      }),
-      this.prisma.householdTransaction.findMany({ where: { householdId } }),
-      card ? this.prisma.householdSource.findMany({ where: { householdId, kind: 'CARD' } }) : Promise.resolve([]),
-    ]);
+    const transactions = await this.prisma.householdTransaction.findMany({ where: { householdId } });
     const rows = transactions.map(toTransactionRow);
     const self = toSourceRow(source);
+    const now = { at: parsed.occurredAt, id: transactionId };
     const flowBetween = (item: SourceRow, from: { at: Date; id: bigint } | null, to: { at: Date; id: bigint }) => {
       const inRange = rows.filter((tx) => {
         const afterFrom = !from || tx.occurredAt > from.at || (tx.occurredAt.getTime() === from.at.getTime() && BigInt(tx.id) > from.id);
@@ -423,52 +402,33 @@ export class HouseholdTelegramService {
       });
       return sourceBalances([{ ...item, openingBalance: 0 }], inRange).get(item.id)?.balance ?? 0;
     };
-    const now = { at: parsed.occurredAt, id: transactionId };
-    const cardRows = cards.map(toSourceRow);
-    // Phần hạn mức đang bị chiếm tính TỚI mail này: đã quẹt chưa trả của chính thẻ + mọi thẻ trỏ về nó.
-    const limitUsedNow = () =>
-      cardRows
+
+    if (source.kind === 'CARD') {
+      if (!Number(source.creditLimit)) return '';
+      const cards = await this.prisma.householdSource.findMany({ where: { householdId, kind: 'CARD' } });
+      // Phần hạn mức đang bị chiếm tính TỚI mail này: đã quẹt chưa trả của chính thẻ + mọi thẻ trỏ về nó.
+      const limitUsed = cards
+        .map(toSourceRow)
         .filter((item) => affectsLimitOf(item, self))
         .reduce((sum, item) => sum + Math.max(0, item.openingBalance + flowBetween(item, null, now)), 0);
-    if (card && Number(source.creditLimit)) {
-      const ours = Number(source.creditLimit) - limitUsedNow();
-      const diff = Math.round(ours - reported);
-      // Kèm luôn hạn mức khai để đọc tin là biết còn bao nhiêu trên bao nhiêu (chủ app 11/9/2026).
-      const head = `Hạn mức còn ${formatMoney(ours)}đ / ${formatMoney(Number(source.creditLimit))}đ`;
-      if (!diff) return head;
-      // Lệch đúng bằng phần đã quẹt của một thẻ ngoài cụm → gần như chắc chắn quẹt thẻ ấy ăn vào thẻ này.
-      const twin = cardRows.find(
-        (item) => item.id !== self.id && !affectsLimitOf(item, self) && Math.round(Math.max(0, item.openingBalance + flowBetween(item, null, now))) === diff,
-      );
-      if (twin) {
-        return `${head} (ngân hàng ${formatMoney(reported)}đ)
-⚠ Lệch ${formatMoney(Math.abs(diff))}đ = phần đã quẹt của thẻ ${twin.name} (thẻ thông?)`;
-      }
-      return `${head} (ngân hàng ${formatMoney(reported)}đ)
-⚠ Lệch ${formatMoney(Math.abs(diff))}đ`;
+      return `Hạn mức còn ${formatMoney(Number(source.creditLimit) - limitUsed)}đ / ${formatMoney(Number(source.creditLimit))}đ`;
     }
+
+    const reported = parsed.balance;
+    if (reported === undefined) return '';
+    const previous = await this.prisma.householdTransaction.findFirst({
+      where: { householdId, id: { not: transactionId }, reportedBalance: { not: null }, OR: [{ sourceId: source.id }, { targetSourceId: source.id }] },
+      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
+    });
     if (!previous) {
-      if (card) return `${label}: ${formatMoney(reported)}đ`;
       // Số đầu kỳ sao cho tới đúng giao dịch này sổ ra số ngân hàng báo — chỉ làm MỘT LẦN, mail sau chỉ so.
       await this.prisma.householdSource.updateMany({ where: { id: source.id, householdId }, data: { openingBalance: reported - flowBetween(self, null, now) } });
-      return `${label}: ${formatMoney(reported)}đ (lấy làm mốc)`;
+      return `Số dư: ${formatMoney(reported)}đ (lấy làm mốc)`;
     }
-    const base = Number(card ? previous.reportedAvailable : previous.reportedBalance);
     const from = { at: previous.occurredAt, id: previous.id };
-    // Hạn mức khả dụng của thẻ này đổi theo giao dịch của CHÍNH NÓ và của mọi thẻ khai thẻ thông là nó.
-    const feeding = cardRows.filter((item) => affectsLimitOf(item, self));
-    const flow = (feeding.length ? feeding : [self]).reduce((sum, item) => sum + flowBetween(item, from, now), 0);
-    // Tài khoản: số dư = mốc + dòng tiền sau mốc. Thẻ: dư nợ tăng bao nhiêu thì khả dụng giảm bấy nhiêu.
-    // Lệch bao nhiêu báo bấy nhiêu, không có ngưỡng bỏ qua (chủ app 10/9/2026: phải khớp từng đồng).
-    const diff = Math.round((card ? base - flow : base + flowBetween(self, from, now)) - reported);
-    if (!diff) return `${label}: ${formatMoney(reported)}đ`;
-    // Lệch đúng bằng tiền quẹt của một thẻ khác ngoài nhóm → gần như chắc chắn hai thẻ thông nhau.
-    const twin = cardRows.find((item) => item.id !== self.id && !affectsLimitOf(item, self) && Math.round(flowBetween(item, from, now)) === diff);
-    if (twin) {
-      return `${label}: ${formatMoney(reported)}đ
-⚠ Lệch ${formatMoney(Math.abs(diff))}đ = tiền quẹt thẻ ${twin.name} (thẻ thông?)`;
-    }
-    return `${label}: ${formatMoney(reported)}đ
+    const diff = Math.round(Number(previous.reportedBalance) + flowBetween(self, from, now) - reported);
+    if (!diff) return `Số dư: ${formatMoney(reported)}đ`;
+    return `Số dư: ${formatMoney(reported)}đ
 ⚠ Lệch ${formatMoney(Math.abs(diff))}đ`;
   }
 
