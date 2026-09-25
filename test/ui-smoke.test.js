@@ -685,7 +685,7 @@ function householdLocals(section, over = {}) {
     { id: 22n, name: 'Mua quỹ hàng tháng', kind: 'TRANSFER', sourceId: 1n, targetSourceId: 4n, purposeId: null, amount: 3000000, interestMode: 'NONE', dayOfMonth: 15, startMonth: '2026-09', endMonth: null, active: true, note: '', source: sources[0], targetSource: sources[3] },
   ];
   // Số dư sau khi đối chiếu mail: Timo có mail báo số dư (lệch 150k = còn giao dịch chưa ghi); thẻ MSB đã
-  // khai hạn mức nên hạn mức còn do sổ tính, thẻ MSB phụ chưa khai nên lấy số ngân hàng báo trong mail.
+  // khai hạn mức nên hạn mức còn do sổ tính; thẻ MSB phụ chưa khai thì ô Hạn mức còn để trống (25/9/2026).
   const balances = [
     { source: { ...sources[0], id: '1' }, balance: 9850000, limitUsed: 0, available: 0, reported: { value: 9850000, at: new Date('2026-09-05T03:00:00Z'), txId: '32' }, reportedAvailable: null, diff: 150000, anchored: true },
     { source: { ...sources[1], id: '2' }, balance: 86093, limitUsed: 86093, available: 19913907, reported: null, reportedAvailable: { value: 16927825, at: new Date('2026-09-07T11:22:00Z'), txId: '31' }, diff: 0, anchored: false },
@@ -793,7 +793,11 @@ test('chi tiêu: từng mục của trang hộ render đủ nút cho admin', asy
   assert.match(sources, /19913907đ/, 'hạn mức còn của thẻ đã khai hạn mức lấy theo sổ');
   assert.match(sources, /<span>Hạn mức thẻ<\/span><strong>20000000đ/, 'hạn mức khai đứng thành ô riêng, không phải chữ nhỏ dưới ô khác');
   assert.match(overview, /còn 19913907<\/strong><span class="muted">đ, nợ thẻ 86093đ/, 'Tổng quan gói thẻ vào một dòng: còn bao nhiêu, nợ thẻ bao nhiêu');
-  assert.match(sources, /Ngân hàng báo còn/, 'vẫn hiện số ngân hàng báo để so mắt thường');
+  // Chủ app 25/9/2026: hạn mức còn CHỈ do sổ tính (hạn mức khai − quẹt + hoàn tiền/trả thẻ), bỏ hẳn
+  // ô "Ngân hàng báo còn" và không rơi về số trong mail khi chưa khai hạn mức.
+  assert.doesNotMatch(sources, /Ngân hàng báo còn/, 'đã bỏ ô Ngân hàng báo còn');
+  assert.doesNotMatch(sources, /16927825/, 'hạn mức khả dụng trong mail không còn hiện ở đâu trên thẻ nguồn');
+  assert.doesNotMatch(overview, /chưa khai hạn mức thẻ/, 'Tổng quan không còn dòng nhắc chưa khai hạn mức');
   // Nguồn có khai lãi suất thì nói luôn lãi mỗi tháng là bao nhiêu (chủ app 18/9/2026).
   assert.match(sources, /Lãi dự tính<\/span><strong>875000đ\/tháng/, 'nguồn có lãi suất hiện lãi dự tính mỗi tháng');
   assert.match(overview, /lãi dự tính 875000đ\/tháng/, 'ô Trả nợ ở Tổng quan cộng lãi dự tính của các khoản vay');

@@ -215,8 +215,10 @@ năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch —
   10/9 vì chờ mail báo hạn mức khả dụng thì số cứ lệch). Ô "Hạn mức thẻ" ở form nguồn ghi vào
   `household_source.credit_limit`; **hạn mức còn** = hạn mức khai − phần đã quẹt chưa trả (trừ giao dịch quẹt,
   cộng lại giao dịch hoàn tiền / trả thẻ) — `sourceBalances` trả `limitUsed` + `available`, sổ có số ngay
-  không phải chờ mail. Để trống ô hạn mức thì app quay về hiện hạn mức khả dụng theo mail gần nhất như bản
-  10/9. Thẻ còn khoản quẹt CŨ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn mức (app cố ý không cho
+  không phải chờ mail. **Chỉ sổ tính, không hiện số ngân hàng báo nữa (chủ app 25/9/2026)**: bỏ ô "Ngân hàng
+  báo còn" ở thẻ nguồn, và để trống ô hạn mức thì ô Hạn mức còn để trống chứ không rơi về hạn mức khả dụng
+  trong mail như bản 10/9. `reported_available` vẫn lưu và `reconcileSources` vẫn dùng nó để BÁO LỆCH —
+  chỉ là không in số ấy ra thẻ nguồn / Tổng quan nữa. Thẻ còn khoản quẹt CŨ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn mức (app cố ý không cho
   khai dư nợ thẻ, và **không** tự căn lại — xem `syncBalance` đã bỏ ở gạch đầu dòng trên). Bốn chuyện phải nhớ:
   1. **Thẻ thông là quan hệ CÓ HƯỚNG** (`household_source.limit_shares_with`, chủ app chốt 10/9/2026):
      khai "thẻ thông của thẻ A là B" nghĩa là giao dịch của A cũng làm đổi hạn mức khả dụng của B. Thực tế

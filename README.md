@@ -236,8 +236,9 @@ Trong app: nguồn Timo để trống số tài khoản (mail Timo không ghi s�
   Tổng quan và tin Telegram để bạn thêm giao dịch còn thiếu bằng tay — app **không** tự bù. Chỉ mail đầu tiên
   của một tài khoản được lấy làm mốc. Ô "Số dư" ở Nguồn tiền nhập số HIỆN TẠI, app tự suy số đầu kỳ.
 - **Thẻ tín dụng**: khai **Hạn mức thẻ** (số ngân hàng cấp), KHÔNG khai dư nợ. "Hạn mức còn" = hạn mức khai
-  − phần đã quẹt chưa trả, nên có số ngay chứ không phải chờ mail; để trống ô hạn mức thì app quay về lấy hạn
-  mức khả dụng trong mail gần nhất. Thẻ còn khoản quẹt cũ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn
+  − phần đã quẹt chưa trả (quẹt trừ đi, hoàn tiền và trả thẻ cộng lại), có số ngay chứ không phải chờ mail. Chỉ sổ
+  tính: không còn ô "Ngân hàng báo còn", chưa khai hạn mức thì ô Hạn mức còn để trống (25/9/2026). Thẻ còn khoản
+  quẹt cũ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn
   mức. "Đã quẹt chưa trả" cộng từ giao dịch — trả hết là về 0, không có khái niệm "trả dư"; xuống dưới 0 là SỔ
   THIẾU khoản quẹt và app báo đúng phần thiếu ấy. Hai thẻ dùng chung hạn mức thì khai ô **Thẻ thông** (chọn thẻ
   kia) để app cộng tiền quẹt cả nhóm, khỏi báo lệch oan — quan hệ CÓ HƯỚNG, hai thẻ thông nhau thì khai ở cả hai.
