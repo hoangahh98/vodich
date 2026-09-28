@@ -110,6 +110,29 @@ Socket.IO cho tỉ số trực tiếp, deploy trên Render.
   `stage !== 'Vòng bảng' && ...` — thêm một thể thức mới là những chỗ tự viết ấy lặng lẽ chấm
   điểm sai luật (đã xảy ra với gateway ghi điểm và hai view lịch).
 
+### Ghi điểm: lưu có xác nhận, không tin tiếng vọng (28/9/2026)
+
+Chủ app báo ba lỗi cùng lúc: điểm 11-5 hết trận mà refresh máy nào cũng không thấy; vùng sáng người
+giao không chuyển khi đổi đội; đổi người ở bước chọn xong người giao đứng ô 2. Gốc rễ:
+
+- **Lưu điểm chỉ đi qua socket và KHÔNG có ack** — `socket.emit` xong hiện "Đã gửi điểm" ngay. Server
+  lỗi DB thì Nest nuốt exception trong handler socket, client không hay; socket đứt lúc Render ngủ thì
+  tin nằm trong buffer. Nay: luật lưu tách ra `MatchScoreService.save()` (trả `{ ok, message,
+  retryable }`, không bao giờ ném), gateway trả kết quả làm **ack**; client (`scoreboard.js`) giữ
+  `pending` + `seq` tăng dần, chờ ack mới hiện "Đã lưu", 4s không ack hoặc `retryable` thì đi
+  **đường HTTP dự phòng** `POST /tournaments/:id/matches/:matchId/score` (fetch keepalive; đóng tab thì
+  `sendBeacon` dạng form), thất bại thì thử lại lùi dần và gửi lại ngay khi socket `connect` lại.
+  Đừng quay về "emit rồi quên".
+- **Tiếng vọng ghi đè state**: server phát `scoreUpdated` cho cả phòng kể cả máy vừa gửi, client từng
+  ghi đè state cục bộ bằng nó — bấm +1 rồi 300ms sau đổi đội giao là tiếng vọng lần trước về sau kéo
+  người giao ngược lại. Nay broadcast kèm `origin` (id socket) + `seq`; máy gửi nhận ra tiếng vọng của
+  mình thì chỉ đánh dấu đã lưu, không đụng state; đang có `pending` thì cũng không nhận state từ máy
+  khác (lần lưu của mình sẽ đè lên sau). Nhận từ máy khác thì phải tính lại `servingPlayer` /
+  `firstServerActive`, không giữ nguyên như trước.
+- **Chọn đội giao trước**: bấm đúng đội đang được chọn sẵn từng rơi vào nhánh "đổi đội giữa trận" →
+  `firstServerActive` tắt → người giao tính theo tay 2 = ô 2. Nay ở bước chọn trước khi có điểm, bấm
+  đội nào cũng là "chọn người giao đầu", và `serverSlot()` luôn là ô 1 khi trận chưa có điểm.
+
 ### Ghi điểm: đánh đơn khác đánh đôi
 
 `public/js/scoreboard.js` đọc `data-play-type` của `#matchList`. Đánh ĐƠN (luật

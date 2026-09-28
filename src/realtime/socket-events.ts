@@ -16,6 +16,10 @@ export type ScorePayload = {
   scoreB: number;
   servingTeam?: string;
   scoreOrder?: number;
+  /** Số thứ tự lần lưu của client (tăng dần) — server phát lại kèm để client nhận ra tiếng vọng của mình. */
+  seq?: number;
+  /** Id socket của client gửi (điền ở đường HTTP dự phòng để phòng giải vẫn nhận ra ai gửi). */
+  origin?: string;
 };
 
 export type TournamentUpdatedPayload = {

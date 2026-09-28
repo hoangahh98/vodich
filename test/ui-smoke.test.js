@@ -473,6 +473,17 @@ test('ô ngày được chuẩn hoá ở quy tắc CHUNG, không vá lẻ theo t
   );
 });
 
+test('ghi điểm: client chờ ack, có đường HTTP dự phòng và không tin tiếng vọng của chính mình', () => {
+  // Chủ app 28/9/2026: điểm 11-5 hết trận mà refresh không thấy — vì emit rồi quên. Khoá lại thiết kế
+  // "lưu có xác nhận" để sau không ai rút gọn về socket.emit trần.
+  const source = fs.readFileSync(path.join(root, 'public/js/scoreboard.js'), 'utf8');
+  assert.match(source, /socket\.timeout\(/, 'emit điểm phải kèm timeout + callback ack');
+  assert.match(source, /\/matches\/\$\{[^}]+\}\/score/, 'phải có đường HTTP dự phòng');
+  assert.match(source, /sendBeacon/, 'đóng tab giữa chừng thì gửi nốt bằng sendBeacon');
+  assert.match(source, /origin === socket\.id/, 'phải nhận ra tiếng vọng của chính mình');
+  assert.doesNotMatch(source, /setStatus\('Đã gửi điểm'/, 'không được hiện "Đã gửi" trước khi có ack');
+});
+
 test('score rules clamp and finish status are reusable outside scoreboard UI', () => {
   const context = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'public/js/score-rules.js'), 'utf8'), context);

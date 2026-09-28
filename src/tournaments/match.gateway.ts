@@ -1,13 +1,11 @@
 import { ConnectedSocket, MessageBody, OnGatewayInit, SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Server, Socket } from 'socket.io';
-import { AuthService } from '../auth/auth.service';
 import { createConnectedRedisClient, createRedisClient, isRedisConfigured, isRedisRequired, recordRedisLog, redisConnectionSummary, requiredRedisError, setRedisFeatureStatus } from '../common/redis';
 import { getSessionMiddleware } from '../common/session';
-import { PrismaService } from '../prisma.service';
 import { SOCKET_EVENTS, ScorePayload, teamRoom, tournamentRoom } from '../realtime/socket-events';
 import { CurrentUser } from '../types';
-import { isKnockoutStage } from './tournament-schedule';
+import { MatchScoreService, SaveScoreOk } from './match-score.service';
 import { TournamentService } from './tournament.service';
 
 @WebSocketGateway({ cors: false })
@@ -16,9 +14,8 @@ export class MatchGateway implements OnGatewayInit {
   server!: Server;
 
   constructor(
-    private readonly prisma: PrismaService,
     private readonly tournaments: TournamentService,
-    private readonly auth: AuthService,
+    private readonly scores: MatchScoreService,
   ) {}
 
   async afterInit(server: Server) {
@@ -50,64 +47,37 @@ export class MatchGateway implements OnGatewayInit {
     socket.join(teamRoom(teamId));
   }
 
+  /**
+   * Ghi điểm qua socket. Giá trị trả về là ACK cho client (Nest gọi callback của socket.io với nó):
+   * client chờ ack rồi mới hiện "Đã lưu"; không ack trong vài giây thì đi đường HTTP dự phòng.
+   * Trước 28/9/2026 handler này tự lưu DB và exception bị nuốt im lặng — xem `MatchScoreService`.
+   */
   @SubscribeMessage(SOCKET_EVENTS.SCORE)
-  async score(
-    @MessageBody() body: ScorePayload,
-    @ConnectedSocket() socket: Socket,
-  ) {
-    if (!(await this.canUpdateScore(socket, BigInt(0)))) {
-      socket.emit(SOCKET_EVENTS.SCORE_REJECTED, { message: 'Không có quyền ghi điểm' });
-      return;
+  async score(@MessageBody() body: ScorePayload, @ConnectedSocket() socket: Socket) {
+    const request = socket.request as typeof socket.request & { session?: { user?: CurrentUser } };
+    const result = await this.scores.save(request.session?.user, body);
+    if (!result.ok) {
+      socket.emit(SOCKET_EVENTS.SCORE_REJECTED, { message: result.message, retryable: result.retryable, seq: body.seq ?? null });
+      return { ok: false, message: result.message, retryable: result.retryable };
     }
-    const match = await this.prisma.matchGame.findUnique({
-      where: { id: BigInt(body.matchId) },
-      include: { tournament: true },
-    });
-    if (!match) return;
-    if (!(await this.canUpdateScore(socket, match.tournamentId))) {
-      socket.emit(SOCKET_EVENTS.SCORE_REJECTED, { message: 'Không có quyền ghi điểm' });
-      return;
-    }
-    const tournamentId = match.tournamentId;
-    let scoreA = Math.max(0, Number(body.scoreA) || 0);
-    let scoreB = Math.max(0, Number(body.scoreB) || 0);
-    const isKnockout = isKnockoutStage(match.stage);
-    const touchScore = Math.max(1, isKnockout ? match.tournament.knockoutTouchScore || 15 : match.tournament.touchScore || 11);
-    const maxScore = Math.max(1, isKnockout ? match.tournament.knockoutMaxScore || 19 : match.tournament.maxScore || 15);
-    const maxAllowed = (opponentScore: number) => {
-      if (opponentScore >= touchScore - 1) return Math.min(opponentScore + 2, maxScore);
-      return Math.min(touchScore, maxScore);
-    };
-    scoreA = Math.min(scoreA, maxAllowed(scoreB));
-    scoreB = Math.min(scoreB, maxAllowed(scoreA));
-    const high = Math.max(scoreA, scoreB);
-    const diff = Math.abs(scoreA - scoreB);
-    const status = high >= maxScore || (high >= touchScore && diff >= 2) ? 'FINISHED' : 'PLAYING';
-    const updated = await this.prisma.matchGame.update({
-      where: { id: match.id },
-      data: {
-        scoreA,
-        scoreB,
-        servingTeam: body.servingTeam === 'B' ? 'B' : 'A',
-        scoreOrder: body.scoreOrder === 1 ? 1 : 2,
-        status,
-        updatedAt: new Date(),
-      },
-    });
-    this.server.to(tournamentRoom(tournamentId)).emit(SOCKET_EVENTS.SCORE_UPDATED, stringifyBigInt(updated));
-    if (status === 'FINISHED' && (await this.tournaments.syncKnockout(match.tournamentId))) {
-      this.emitTournamentUpdated(tournamentId, 'knockout');
-    }
+    await this.broadcastScore(result, { origin: socket.id, seq: body.seq });
+    return { ok: true, match: result.match };
   }
 
-  private async canUpdateScore(socket: Socket, tournamentId: bigint): Promise<boolean> {
-    const request = socket.request as typeof socket.request & { session?: { user?: CurrentUser } };
-    const user = request.session?.user;
-    if (!user || user.role !== 'ADMIN') return false;
-    const featureSet = await this.auth.featureSet(user);
-    const hasFeature = this.auth.can(user, 'TOURNAMENTS', featureSet);
-    if (!hasFeature || tournamentId === 0n) return hasFeature;
-    return this.tournaments.canManage(user, tournamentId);
+  /**
+   * Phát điểm mới cho cả phòng giải. Kèm `origin` (id socket đã gửi) + `seq` (số thứ tự lần lưu của
+   * client ấy) để chính máy gửi nhận ra TIẾNG VỌNG của mình mà không ghi đè state cục bộ — tiếng vọng
+   * về sau khi người dùng đã bấm tiếp từng kéo người giao ngược lại đội cũ (chủ app báo 28/9/2026).
+   */
+  async broadcastScore(result: SaveScoreOk, meta: { origin?: string; seq?: number } = {}) {
+    this.server.to(tournamentRoom(result.tournamentId)).emit(SOCKET_EVENTS.SCORE_UPDATED, {
+      ...result.match,
+      origin: meta.origin || null,
+      seq: meta.seq ?? null,
+    });
+    if (result.finished && (await this.tournaments.syncKnockout(result.tournamentId))) {
+      this.emitTournamentUpdated(result.tournamentId, 'knockout');
+    }
   }
 
   private async configureRedisAdapter(server: Server) {
@@ -136,8 +106,4 @@ export class MatchGateway implements OnGatewayInit {
       if (isRedisRequired()) throw requiredRedisError('socket adapter failed', error);
     }
   }
-}
-
-function stringifyBigInt<T>(value: T): T {
-  return JSON.parse(JSON.stringify(value, (_, item) => (typeof item === 'bigint' ? item.toString() : item)));
 }

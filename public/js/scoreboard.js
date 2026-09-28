@@ -167,8 +167,10 @@
   const teamOnSide = (side) => (state.sidesSwapped ? (side === 'A' ? 'B' : 'A') : side);
   const teamScore = (team) => (team === 'A' ? state.scoreA : state.scoreB);
   const teamDisplayName = (team) => (team === 'A' ? (activeRow?.dataset.teamA || 'Đội A') : (activeRow?.dataset.teamB || 'Đội B'));
-  // Người giao bóng luôn ở ô1 khi đang là người phát đầu tiên (0-0-2), ngược lại theo thứ tự đánh.
-  const serverSlot = () => (state.firstServerActive ? 1 : state.scoreOrder);
+  // Người giao đứng ô 1 khi là người phát đầu tiên (0-0-2) hoặc trận CHƯA có điểm; ngoài ra theo thứ tự đánh.
+  // Trước 28/9/2026 chỉ xét cờ firstServerActive — cờ ấy bị tắt oan khi bấm lại đúng đội đang chọn ở
+  // bước chọn đội giao trước, thế là đổi người xong người giao nhảy sang ô 2 (chủ app báo).
+  const serverSlot = () => (state.firstServerActive || isInitialServeState() ? 1 : state.scoreOrder);
   const syncServingPlayer = () => { state.servingPlayer = playerAtSlot(state.servingTeam, serverSlot()); };
 
   const renderCourt = () => {
@@ -295,8 +297,99 @@
     speakTimer = window.setTimeout(speakCurrentScore, delay);
   };
 
+  // ── Lưu điểm CÓ XÁC NHẬN (chủ app 28/9/2026) ──────────────────────────────────────────────
+  // Trước đây: socket.emit rồi hiện "Đã gửi điểm" ngay. Server lỗi DB, hay socket đang đứt lúc Render
+  // ngủ, là điểm rơi im lặng — 11-5 hết trận mà refresh máy nào cũng không thấy. Nay:
+  //   1. Mỗi lần lưu là một `seq` tăng dần; `pending` giữ lần lưu GẦN NHẤT chưa được xác nhận.
+  //   2. emit kèm callback ack + timeout: có ack ok mới hiện "Đã lưu".
+  //   3. Không ack, hoặc server báo lỗi tạm → đi đường HTTP dự phòng (fetch keepalive).
+  //   4. Vẫn không được → thử lại lùi dần, và gửi lại ngay khi socket nối lại / máy có mạng lại.
+  //   5. Đóng tab khi còn pending → sendBeacon nốt.
+  let seq = 0;
+  let pending = null;
+  let retryTimer = null;
+  let retryCount = 0;
+  const ACK_TIMEOUT_MS = 4000;
+
+  const scoreUrl = (payload) => `/tournaments/${encodeURIComponent(payload.tournamentId)}/matches/${encodeURIComponent(payload.matchId)}/score`;
+
+  const markSaved = (payloadSeq, via) => {
+    if (pending && pending.seq === payloadSeq) {
+      pending = null;
+      retryCount = 0;
+      window.clearTimeout(retryTimer);
+    }
+    if (!pending) setStatus(via === 'http' ? 'Đã lưu (đường dự phòng)' : 'Đã lưu', 'text-success');
+  };
+
+  const scheduleRetry = (payload) => {
+    window.clearTimeout(retryTimer);
+    retryCount += 1;
+    const wait = Math.min(20000, 1500 * 2 ** Math.min(retryCount, 4));
+    setStatus(`Chưa lưu được — thử lại sau ${Math.round(wait / 1000)}s`, 'text-danger');
+    retryTimer = window.setTimeout(() => flush(payload, true), wait);
+  };
+
+  const httpFallback = async (payload) => {
+    if (!pending || pending.seq !== payload.seq) return;
+    try {
+      const response = await fetch(scoreUrl(payload), {
+        method: 'POST',
+        credentials: 'same-origin',
+        keepalive: true,
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', 'X-Requested-With': 'fetch' },
+        body: JSON.stringify({ ...payload, origin: socket.id || '' }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (response.ok && body.ok) {
+        if (body.match && activeRow && String(body.match.id) === String(activeRow.dataset.matchId)) dom.applyRow?.(activeRow, body.match);
+        markSaved(payload.seq, 'http');
+        return;
+      }
+      if (body.retryable === false) {
+        pending = null;
+        setStatus(body.message || 'Không lưu được điểm', 'text-danger');
+        return;
+      }
+      scheduleRetry(payload);
+    } catch (_) {
+      scheduleRetry(payload);
+    }
+  };
+
+  const flush = (payload = pending?.payload, viaRetry = false) => {
+    if (!payload || !pending || pending.seq !== payload.seq) return;
+    if (viaRetry && retryCount >= 8) {
+      setStatus('Chưa lưu được — kiểm tra mạng rồi bấm lại điểm', 'text-danger');
+      return;
+    }
+    setStatus(viaRetry ? 'Đang thử lưu lại…' : 'Đang lưu…', 'text-primary');
+    if (!socket.connected || typeof socket.timeout !== 'function') {
+      httpFallback(payload);
+      return;
+    }
+    payload.origin = socket.id || '';
+    socket.timeout(ACK_TIMEOUT_MS).emit(socketEvents.SCORE || 'score', payload, (error, result) => {
+      if (!pending || pending.seq !== payload.seq) return;
+      if (!error && result && result.ok) {
+        // Thẻ trận lấy ngay số server đã lưu — không đợi tiếng vọng phát lại cho cả phòng.
+        const row = result.match && list.querySelector(`[data-match-id="${result.match.id}"]`);
+        if (row) dom.applyRow?.(row, result.match);
+        markSaved(payload.seq, 'socket');
+        return;
+      }
+      if (!error && result && result.ok === false && result.retryable === false) {
+        pending = null;
+        setStatus(result.message || 'Không lưu được điểm', 'text-danger');
+        return;
+      }
+      httpFallback(payload);
+    });
+  };
+
   const saveScore = () => {
     if (!activeRow) return;
+    seq += 1;
     const payload = {
       tournamentId,
       matchId: activeRow.dataset.matchId,
@@ -304,14 +397,29 @@
       scoreB: state.scoreB,
       servingTeam: state.servingTeam,
       scoreOrder: state.scoreOrder,
+      seq,
     };
+    pending = { seq, payload };
+    retryCount = 0;
+    window.clearTimeout(retryTimer);
     window.clearTimeout(saveTimer);
-    setStatus('Đang tự lưu...', 'text-primary');
+    setStatus('Đang lưu…', 'text-primary');
     saveTimer = window.setTimeout(() => {
-      socket.emit(socketEvents.SCORE || 'score', payload);
-      setStatus('Đã gửi điểm', 'text-success');
+      saveTimer = null;
+      flush(payload);
     }, 350);
   };
+
+  // Socket nối lại (Render ngủ dậy, đổi mạng) hay máy có mạng lại: gửi nốt cái đang treo.
+  socket.on('connect', () => { if (pending) flush(); });
+  window.addEventListener('online', () => { if (pending) flush(); });
+  // Đóng tab / chuyển app khi còn pending: bắn nốt bằng sendBeacon (dạng form, server nhận cả hai kiểu).
+  window.addEventListener('pagehide', () => {
+    if (!pending || !navigator.sendBeacon) return;
+    const form = new URLSearchParams();
+    Object.entries({ ...pending.payload, origin: socket.id || '' }).forEach(([key, value]) => form.append(key, String(value)));
+    navigator.sendBeacon(scoreUrl(pending.payload), form);
+  });
 
   const openModal = (row) => {
     if (!modal || !scoreTeamA || !scoreTeamB) return;
@@ -326,12 +434,8 @@
       scoreHistory: [],
       ...loadSetup(row),
     };
-    if (state.firstServerActive) {
-      state.servingPlayer = playerAtSlot(state.servingTeam, 1);
-    } else {
-      state.servingPlayer = playerAtSlot(state.servingTeam, state.scoreOrder);
-    }
-    setStatus('Chưa thay đổi');
+    syncServingPlayer();
+    setStatus(pending && pending.payload.matchId === row.dataset.matchId ? 'Đang lưu…' : 'Chưa thay đổi', pending ? 'text-primary' : 'muted');
     renderPlayerSettings();
     renderModal();
     if (canEditSetup()) showSetupStep();
@@ -341,6 +445,12 @@
   };
 
   const closeModal = () => {
+    // Đóng khi chưa hết 350ms chờ gộp: gửi luôn, đừng để lần lưu cuối phụ thuộc vào một timer sau khi đóng.
+    if (saveTimer) {
+      window.clearTimeout(saveTimer);
+      saveTimer = null;
+      flush();
+    }
     modal?.classList.add('hidden');
     modal?.setAttribute('aria-hidden', 'true');
     if (typeof clearActionLoading === 'function') document.querySelectorAll('[data-score-close].loading').forEach(clearActionLoading);
@@ -383,29 +493,48 @@
     saveScore();
   };
 
+  // Điểm mới từ server. Ba trường hợp, và TIẾNG VỌNG của chính mình là cái hay gây lỗi nhất: server phát
+  // cho cả phòng kể cả máy vừa gửi, mà trước đây máy gửi lấy nó ghi đè state — bấm +1 rồi 300ms sau đổi
+  // đội giao là tiếng vọng lần trước về sau kéo người giao ngược lại (chủ app báo 28/9/2026).
   socket.on(socketEvents.SCORE_UPDATED || 'scoreUpdated', (match) => {
     const row = list.querySelector(`[data-match-id="${match.id}"]`);
     if (!row) return;
-    dom.applyRow?.(row, match);
-    if (activeRow === row) {
-      state = {
-        scoreA: Number(match.scoreA) || 0,
-        scoreB: Number(match.scoreB) || 0,
-        scoreOrder: Number(match.scoreOrder) === 1 ? 1 : 2,
-        servingTeam: match.servingTeam === 'B' ? 'B' : 'A',
-        servingPlayer: state.servingPlayer,
-        firstServerActive: state.firstServerActive,
-        scoreHistory: state.scoreHistory || [],
-        players: state.players,
-        positions: state.positions,
-        sidesSwapped: state.sidesSwapped,
-      };
-      renderModal();
-      setStatus('Đã tự lưu', 'text-success');
+    const ownEcho = match.origin && match.origin === socket.id;
+    if (ownEcho) {
+      // Của mình: chỉ lần lưu MỚI NHẤT mới đáng tin; tiếng vọng của lần cũ hơn bỏ hẳn — kể cả với thẻ
+      // trận, không thì thẻ tụt về đội giao cũ trong lúc modal đã đúng.
+      if (Number(match.seq) !== (pending ? pending.seq : seq)) return;
+      dom.applyRow?.(row, match);
+      markSaved(Number(match.seq), 'socket');
+      return;
     }
+    dom.applyRow?.(row, match);
+    if (activeRow !== row) return;
+    // Đang có lần lưu chưa xác nhận: state cục bộ mới hơn, lần lưu ấy sẽ đè lên sau — không nhận đè ngược.
+    if (pending) return;
+    const servingChanged = (match.servingTeam === 'B' ? 'B' : 'A') !== state.servingTeam || (Number(match.scoreOrder) === 1 ? 1 : 2) !== state.scoreOrder;
+    state = {
+      ...state,
+      scoreA: Number(match.scoreA) || 0,
+      scoreB: Number(match.scoreB) || 0,
+      scoreOrder: Number(match.scoreOrder) === 1 ? 1 : 2,
+      servingTeam: match.servingTeam === 'B' ? 'B' : 'A',
+      scoreHistory: [],
+    };
+    // Máy khác đổi đội / đổi tay thì người giao phải tính lại, không giữ nguyên người cũ như trước.
+    if (servingChanged) {
+      state.firstServerActive = state.scoreA === 0 && state.scoreB === 0 && state.scoreOrder !== 1;
+      syncServingPlayer();
+    }
+    renderModal();
+    setStatus('Máy khác vừa cập nhật', 'text-primary');
   });
 
   socket.on(socketEvents.SCORE_REJECTED || 'scoreRejected', (payload) => {
+    if (payload && payload.retryable === false) {
+      pending = null;
+      window.clearTimeout(retryTimer);
+    }
     setStatus(payload?.message || 'Không lưu được điểm', 'text-danger');
   });
 
@@ -435,8 +564,12 @@
       if (!displaySide || !activeRow) return;
       const side = teamOnSide(displaySide);
       const selectingFirstServer = Boolean(setupStep?.contains(item));
-      if (side !== state.servingTeam && selectingFirstServer && isInitialServeState()) {
+      // Bước chọn đội giao trước, trận chưa có điểm: bấm đội nào cũng là "chọn người giao đầu" — KỂ CẢ bấm
+      // lại đúng đội đang chọn sẵn. Trước 28/9/2026 ca ấy rơi xuống nhánh đổi đội giữa trận, tắt
+      // firstServerActive, người giao thành tay 2 = ô 2 (chủ app báo "đổi người xong đứng ô 2").
+      if (selectingFirstServer && isInitialServeState()) {
         const nextServingTeam = side === 'B' ? 'B' : 'A';
+        const changed = nextServingTeam !== state.servingTeam || state.scoreOrder !== 2 || !state.firstServerActive;
         state = {
           ...state,
           servingTeam: nextServingTeam,
@@ -448,7 +581,7 @@
         optimisticRow();
         renderModal();
         scheduleSpeak(0);
-        saveScore();
+        if (changed) saveScore();
         return;
       }
       // Đánh đôi: chỉ mất giao khi cả hai tay đã giao. Đánh đơn: thua bóng là đổi giao ngay.

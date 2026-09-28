@@ -4,6 +4,7 @@ import { AuthService } from '../auth/auth.service';
 import { requireFeature } from '../common/controller-utils';
 import { AdminOnly, FeatureAccess } from '../common/feature.decorator';
 import { MatchGateway } from './match.gateway';
+import { MatchScoreService } from './match-score.service';
 import { formatTeamName } from './team-name';
 import { ManualTeam, groupIndexOf, groupLetter } from './tournament-schedule';
 import { TournamentService } from './tournament.service';
@@ -17,7 +18,36 @@ export class TournamentScheduleController {
     private readonly auth: AuthService,
     private readonly tournaments: TournamentService,
     private readonly matchGateway: MatchGateway,
+    private readonly scores: MatchScoreService,
   ) {}
+
+  /**
+   * Đường DỰ PHÒNG ghi điểm khi socket không ack (Render đang ngủ dậy, mạng chập, DB rớt đúng lúc).
+   * Cùng luật, cùng `MatchScoreService` với gateway; lưu xong vẫn phát `scoreUpdated` cho phòng giải.
+   * Client gọi bằng fetch keepalive, lúc đóng tab thì bằng sendBeacon (body dạng form) — nên nhận cả
+   * JSON lẫn urlencoded, và trả JSON chứ không redirect. Guard của class đã chặn người không phải admin.
+   */
+  @Post('/tournaments/:id/matches/:matchId/score')
+  async saveScore(
+    @Req() req: Request,
+    @Res() res: Response,
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+    @Body() body: Record<string, string | number | undefined>,
+  ) {
+    const result = await this.scores.save(req.session.user, {
+      tournamentId: id,
+      matchId,
+      scoreA: Number(body.scoreA) || 0,
+      scoreB: Number(body.scoreB) || 0,
+      servingTeam: String(body.servingTeam || 'A'),
+      scoreOrder: Number(body.scoreOrder) || 2,
+      seq: Number(body.seq) || undefined,
+    });
+    if (!result.ok) return res.status(result.retryable ? 503 : 403).json({ ok: false, message: result.message, retryable: result.retryable });
+    await this.matchGateway.broadcastScore(result, { origin: body.origin ? String(body.origin) : undefined, seq: Number(body.seq) || undefined });
+    return res.json({ ok: true, match: result.match });
+  }
 
   @Post('/tournaments/:id/generate-schedule')
   async generateSchedule(@Req() req: Request, @Res() res: Response, @Param('id') id: string) {

@@ -27,6 +27,7 @@ import { TournamentRegistrationController } from './tournaments/tournament-regis
 import { TournamentScheduleController } from './tournaments/tournament-schedule.controller';
 import { ExternalRegistrationController } from './tournaments/external-registration.controller';
 import { MatchGateway } from './tournaments/match.gateway';
+import { MatchScoreService } from './tournaments/match-score.service';
 import { TeamService } from './teams/team.service';
 import { TeamCrudService } from './teams/team-crud.service';
 import { TeamDetailService } from './teams/team-detail.service';
@@ -79,6 +80,7 @@ import { CsrfMiddleware } from './common/csrf';
     HouseholdLedgerService,
     HouseholdTelegramService,
     MatchGateway,
+    MatchScoreService,
     LocalsMiddleware,
     CsrfMiddleware,
     RateLimitService,
