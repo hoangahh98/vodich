@@ -5,6 +5,7 @@ import { TeamDetailService } from './team-detail.service';
 import { TeamExpenseService } from './team-expense.service';
 import { TeamFundForm, TeamFundService } from './team-fund.service';
 import { TeamMemberService } from './team-member.service';
+import { TeamReportService } from './team-report.service';
 
 @Injectable()
 export class TeamService {
@@ -14,10 +15,16 @@ export class TeamService {
     private readonly expenses: TeamExpenseService,
     private readonly fund: TeamFundService,
     private readonly members: TeamMemberService,
+    private readonly report: TeamReportService,
   ) {}
 
   list(user: CurrentUser) {
     return this.crud.list(user);
+  }
+
+  /** Báo cáo tháng gộp mọi đội admin này quản lý — xem `team-report.service.ts`. */
+  monthlyReport(user: CurrentUser, month: unknown) {
+    return this.report.monthlyReport(user, month);
   }
 
   create(user: CurrentUser, name: string, description?: string) {

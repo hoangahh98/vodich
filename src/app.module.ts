@@ -38,6 +38,7 @@ import { TeamFundService } from './teams/team-fund.service';
 import { TeamMemberController } from './teams/team-member.controller';
 import { TeamMemberService } from './teams/team-member.service';
 import { TeamMonthService } from './teams/team-month.service';
+import { TeamReportService } from './teams/team-report.service';
 import { TeamController } from './teams/team.controller';
 import { HouseholdController } from './household/household.controller';
 import { HouseholdService } from './household/household.service';
@@ -75,6 +76,7 @@ import { CsrfMiddleware } from './common/csrf';
     TeamFundService,
     TeamMemberService,
     TeamMonthService,
+    TeamReportService,
     HouseholdService,
     HouseholdConfigService,
     HouseholdLedgerService,

@@ -484,6 +484,44 @@ test('ghi điểm: client chờ ack, có đường HTTP dự phòng và không t
   assert.doesNotMatch(source, /setStatus\('Đã gửi điểm'/, 'không được hiện "Đã gửi" trước khi có ack');
 });
 
+test('đội bóng: banner có nút Báo cáo tháng cho admin, trang báo cáo gộp người nhiều đội lên một dòng', async () => {
+  const admin = { ...commonLocals('/teams'), featureSet: new Set(['TOURNAMENTS', 'TEAMS']) };
+  const index = await renderView('teams/index.ejs', { ...admin, teams: [], groups: [] });
+  assert.match(index, /href="\/teams\/report"/, 'admin thấy nút Báo cáo tháng ở banner');
+  const client = { ...admin, currentUser: { id: '77', role: 'CLIENT', displayName: 'Vợ', email: 'vo@test' }, isRoot: false };
+  assert.doesNotMatch(await renderView('teams/index.ejs', { ...client, teams: [], groups: [] }), /href="\/teams\/report"/, 'thành viên không thấy nút');
+
+  const report = await renderView('teams/report.ejs', {
+    ...commonLocals('/teams/report'),
+    featureSet: new Set(['TOURNAMENTS', 'TEAMS']),
+    month: '2026-09',
+    previousMonth: '2026-08',
+    nextMonth: '2026-10',
+    totals: { teamCount: 2, peopleCount: 2, multiTeamCount: 1, totalDue: 550000, totalPaid: 430000, totalMissing: 250000, guestPaid: 0, totalSpent: 400000, balance: 280000 },
+    people: [
+      { key: 'player:5', name: 'An', email: 'an@test', multi: true, teamCount: 2, totalExpected: 350000, totalPaid: 300000, totalMissing: 50000, teams: [
+        { teamId: '2', teamName: 'Sáng chủ nhật', memberType: 'FIXED', typeLabel: 'Cố định', expectedAmount: 150000, paidAmount: 100000, paymentStatus: 'UNPAID', sessions: 0 },
+        { teamId: '1', teamName: 'Tối thứ 3', memberType: 'FIXED', typeLabel: 'Cố định', expectedAmount: 200000, paidAmount: 200000, paymentStatus: 'PAID', sessions: 0 },
+      ] },
+      { key: 'player:6', name: 'Bình', email: '', multi: false, teamCount: 1, totalExpected: 200000, totalPaid: 0, totalMissing: 200000, teams: [
+        { teamId: '1', teamName: 'Tối thứ 3', memberType: 'FIXED', typeLabel: 'Cố định', expectedAmount: 200000, paidAmount: 0, paymentStatus: 'UNPAID', sessions: 0 },
+      ] },
+    ],
+    teams: [
+      { teamId: '1', name: 'Tối thứ 3', fundPreview: false, memberCount: 2, fixedCount: 2, monthlyFee: 200000, totalDue: 400000, totalPaid: 200000, totalMissing: 200000, guestPaid: 0, totalSpent: 300000, balance: 100000 },
+      { teamId: '2', name: 'Sáng chủ nhật', fundPreview: true, memberCount: 1, fixedCount: 1, monthlyFee: 150000, totalDue: 150000, totalPaid: 100000, totalMissing: 50000, guestPaid: 0, totalSpent: 100000, balance: 180000 },
+    ],
+  });
+  assert.match(report, /Báo cáo tháng 2026-09/);
+  assert.match(report, /1 người chơi từ 2 đội trở lên/);
+  assert.match(report, /<strong>An<\/strong> <span class="badge">2 đội<\/span>/, 'người nhiều đội có huy hiệu số đội');
+  assert.match(report, /Sáng chủ nhật<\/a>[\s\S]*Tối thứ 3<\/a>/, 'cả hai đội của An nằm trên cùng một dòng');
+  assert.match(report, /thiếu 50000đ/, 'từng đội nói rõ thiếu bao nhiêu');
+  assert.match(report, /teams\/report\?month=2026-08/, 'có nút lùi tháng');
+  assert.match(report, /<span class="badge">xem trước<\/span>/, 'đội chưa chốt tháng đánh dấu xem trước');
+  assert.doesNotMatch(report, /<tr[^>]*>\s*<form/, 'form không được nằm trong <tr>');
+});
+
 test('score rules clamp and finish status are reusable outside scoreboard UI', () => {
   const context = { window: {} };
   vm.runInNewContext(fs.readFileSync(path.join(root, 'public/js/score-rules.js'), 'utf8'), context);

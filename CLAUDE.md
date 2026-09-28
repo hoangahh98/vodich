@@ -419,6 +419,15 @@ Thành viên đội **đi theo nhóm** (không còn thêm/rời từng người 
 cùng liên kết. Vãng lai không phải thành viên: ghi theo buổi ở mục Khoản thu (`team_guest_receipt`,
 `TeamFundService.addGuestReceipt`), cộng vào `guestPaid`.
 
+**Báo cáo tháng gộp nhiều đội** (`GET /teams/report?month=`, nút "Báo cáo tháng" ở banner Đội bóng, chủ app
+28/9/2026): admin lo 3 đội, có người chơi 2–3 đội, trước phải mở từng đội cộng tay. `TeamReportService`
+lấy đội theo đúng `crud.list(user)` (admin phụ chỉ thấy đội mình), số từng đội lấy từ
+`TeamDetailService.monthSnapshot` — cùng roster tháng, cùng quỹ xem trước, cùng `TeamMonthReportBuilder`
+với trang chi tiết, nên **khớp từng đồng** với "Khoản thu" của mỗi đội; đừng tính lại ở chỗ khác. Phần gộp
+là hàm thuần `aggregateTeamReports` (test `test/team-report.test.js`): theo người thì nhặt đủ mọi đội một
+người có mặt, kể cả vãng lai ghi theo buổi có hồ sơ VĐV; người nhiều đội lên đầu. Route phải khai TRƯỚC
+`/teams/:id`, không thì "report" bị đọc thành id đội.
+
 ### Nhóm thành viên (9/2026)
 
 `src/groups/` — nhóm là tập VĐV đặt tên sẵn. Đội bóng **liên kết** nhóm (`team_club_group`): thêm

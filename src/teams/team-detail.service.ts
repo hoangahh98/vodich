@@ -38,6 +38,27 @@ export class TeamDetailService {
   }
 
   /**
+   * Ảnh chụp tháng của MỘT đội cho báo cáo gộp nhiều đội (28/9/2026): cùng roster tháng, cùng quỹ (thật
+   * hay xem trước), cùng `TeamMonthReportBuilder` với trang chi tiết — nên số ở báo cáo khớp từng đồng với
+   * "Khoản thu" của đội. Không kéo danh sách VĐV toàn hệ thống lẫn admin vì báo cáo gọi cho từng đội.
+   */
+  async monthSnapshot(id: bigint, month: string) {
+    const fundMonth = monthDate(month);
+    const [team, previousMonthBalance, members, storedFund, expenses, guestReceipts] = await Promise.all([
+      this.prisma.teamClub.findUniqueOrThrow({ where: { id } }),
+      this.previousMonthBalance(id, fundMonth),
+      this.monthRoster(id, fundMonth),
+      this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId: id, fundMonth } } }),
+      this.prisma.teamExpense.findMany({ where: { teamId: id, expenseMonth: fundMonth } }),
+      this.prisma.teamGuestReceipt.findMany({ where: { teamId: id, receiptMonth: fundMonth }, include: { player: true } }),
+    ]);
+    const fundPreview = !storedFund;
+    const fund = storedFund ?? (await this.previewFund(id, fundMonth, previousMonthBalance, members));
+    const report = this.monthReportBuilder.build({ members, players: [], fund, expenses, previousMonthBalance, guestReceipts });
+    return { team, members: report.members, finance: report.finance, fundPreview, guestReceipts };
+  }
+
+  /**
    * Danh sách thành viên CỦA THÁNG: ai có dòng phí tháng đó (kể cả người đã rời đội sau này) theo loại
    * đã chụp, cộng thêm người đang hoạt động mà tháng chưa có dòng (tháng chưa chốt) theo loại hiện tại.
    */

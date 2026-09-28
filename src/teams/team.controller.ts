@@ -23,6 +23,16 @@ export class TeamController {
     return render(res, 'teams/index', { teams, groups });
   }
 
+  /**
+   * Báo cáo tháng gộp mọi đội admin này quản lý (chủ app 28/9/2026): một người ở 2–3 đội thấy đủ trên một
+   * dòng. Phải đứng TRƯỚC `/teams/:id`, không thì "report" bị đọc thành id đội.
+   */
+  @Get('/teams/report')
+  @AdminOnly()
+  async teamsReport(@Req() req: Request, @Res() res: Response) {
+    return render(res, 'teams/report', { ...(await this.teams.monthlyReport(req.session.user!, req.query.month)) });
+  }
+
   @Post('/teams')
   @AdminOnly()
   async createTeam(@Req() req: Request, @Res() res: Response, @Body() body: Record<string, string | string[]>) {
