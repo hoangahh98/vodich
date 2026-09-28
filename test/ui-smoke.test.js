@@ -512,13 +512,14 @@ test('đội bóng: banner có nút Báo cáo tháng cho admin, trang báo cáo 
       { teamId: '2', name: 'Sáng chủ nhật', fundPreview: true, memberCount: 1, fixedCount: 1, monthlyFee: 150000, totalDue: 150000, totalPaid: 100000, totalMissing: 50000, guestPaid: 0, totalSpent: 100000, balance: 180000 },
     ],
   });
+  // Bảng ma trận (chủ app 28/9/2026): tên · mỗi đội một cột đánh x · tổng tiền cần đóng.
   assert.match(report, /Báo cáo tháng 2026-09/);
-  assert.match(report, /1 người chơi từ 2 đội trở lên/);
-  assert.match(report, /<strong>An<\/strong> <span class="badge">2 đội<\/span>/, 'người nhiều đội có huy hiệu số đội');
-  assert.match(report, /Sáng chủ nhật<\/a>[\s\S]*Tối thứ 3<\/a>/, 'cả hai đội của An nằm trên cùng một dòng');
-  assert.match(report, /thiếu 50000đ/, 'từng đội nói rõ thiếu bao nhiêu');
+  assert.match(report, /<th class="text-center"><a[^>]*>Tối thứ 3<\/a><\/th><th class="text-center"><a[^>]*>Sáng chủ nhật<\/a><\/th><th class="text-right">Tổng tiền cần đóng<\/th>/, 'mỗi đội một cột, cột cuối là tổng');
+  assert.match(report, /<strong>An<\/strong><\/td>\s*<td class="text-center">x<\/td>\s*<td class="text-center">x<\/td>\s*<td class="text-right paid-cell"><strong>350000<\/strong>/, 'An ở cả hai đội: hai dấu x, tổng 350000');
+  assert.match(report, /<strong>Bình<\/strong><\/td>\s*<td class="text-center">x<\/td>\s*<td class="text-center"><\/td>\s*<td class="text-right paid-cell"><strong>200000<\/strong>/, 'Bình chỉ ở đội 1: một x, ô kia trống');
+  assert.match(report, /<tfoot>[\s\S]*<strong>550000<\/strong>/, 'dòng tổng cộng cột cuối');
   assert.match(report, /teams\/report\?month=2026-08/, 'có nút lùi tháng');
-  assert.match(report, /<span class="badge">xem trước<\/span>/, 'đội chưa chốt tháng đánh dấu xem trước');
+  assert.doesNotMatch(report, /Theo đội|xem trước|Còn thiếu/, 'không còn bảng theo đội hay thẻ số — chỉ một bảng');
   assert.doesNotMatch(report, /<tr[^>]*>\s*<form/, 'form không được nằm trong <tr>');
 });
 

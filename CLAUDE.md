@@ -425,8 +425,11 @@ lấy đội theo đúng `crud.list(user)` (admin phụ chỉ thấy đội mìn
 `TeamDetailService.monthSnapshot` — cùng roster tháng, cùng quỹ xem trước, cùng `TeamMonthReportBuilder`
 với trang chi tiết, nên **khớp từng đồng** với "Khoản thu" của mỗi đội; đừng tính lại ở chỗ khác. Phần gộp
 là hàm thuần `aggregateTeamReports` (test `test/team-report.test.js`): theo người thì nhặt đủ mọi đội một
-người có mặt, kể cả vãng lai ghi theo buổi có hồ sơ VĐV; người nhiều đội lên đầu. Route phải khai TRƯỚC
-`/teams/:id`, không thì "report" bị đọc thành id đội.
+người có mặt, kể cả vãng lai ghi theo buổi có hồ sơ VĐV; người nhiều đội lên đầu. **Giao diện cố ý chỉ một
+bảng ma trận** (chủ app chốt 28/9/2026 sau khi thấy bản đầu nhiều thẻ số + hai bảng): tên · mỗi đội một cột
+đánh x · tổng tiền cần đóng, chân bảng là số cố định từng đội + tổng. Số còn thiếu / đã chi / quỹ còn vẫn có
+trong `TeamsMonthlyReport` nhưng không hiện — muốn xem thì bấm tên đội sang trang Khoản thu. Route phải khai
+TRƯỚC `/teams/:id`, không thì "report" bị đọc thành id đội.
 
 ### Nhóm thành viên (9/2026)
 

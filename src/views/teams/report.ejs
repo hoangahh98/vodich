@@ -6,7 +6,7 @@
       <div>
         <div class="hero-eyebrow">Đội bóng</div>
         <h1>Báo cáo tháng <%= month %></h1>
-        <div class="muted strong-muted">Gộp <%= totals.teamCount %> đội bạn quản lý: ai chơi ở đội nào, đóng bao nhiêu, còn thiếu bao nhiêu.</div>
+        <div class="muted strong-muted"><%= totals.teamCount %> đội · <%= totals.peopleCount %> người · cần đóng <%= formatMoney(totals.totalDue) %>đ</div>
         <div class="hero-action-buttons">
           <a class="btn btn-sm" href="/teams/report?month=<%= previousMonth %>">‹ <%= previousMonth %></a>
           <form method="get" action="/teams/report" class="inline-form"><input type="month" name="month" value="<%= month %>" data-autosubmit aria-label="Chọn tháng"></form>
@@ -18,50 +18,26 @@
     </div>
   </section>
 
-  <section class="grid finance-grid mb">
-    <div class="metric-card"><span>Người</span><strong><%= totals.peopleCount %></strong><small><%= totals.multiTeamCount %> người chơi từ 2 đội trở lên</small></div>
-    <div class="metric-card green"><span>Đã thu</span><strong><%= formatMoney(totals.totalPaid) %>đ</strong><small>Phải thu <%= formatMoney(totals.totalDue) %>đ · vãng lai <%= formatMoney(totals.guestPaid) %>đ</small></div>
-    <div class="metric-card <%= totals.totalMissing > 0 ? 'red' : 'gold' %>"><span>Còn thiếu</span><strong><%= formatMoney(totals.totalMissing) %>đ</strong><small>Đã chi <%= formatMoney(totals.totalSpent) %>đ · quỹ còn <%= formatMoney(totals.balance) %>đ</small></div>
-  </section>
-
-  <%# Theo NGƯỜI: người chơi nhiều đội lên đầu — đúng thứ chủ app phải cộng tay trước đây. %>
+  <%# Một bảng duy nhất (chủ app 28/9/2026): tên · mỗi đội một cột đánh x · tổng tiền cần đóng. %>
   <section class="card-lite mb">
-    <div class="card-hdr blue"><span><%- include('../partials/icon', { name: 'users' }) %> Theo người</span><span class="badge badge-dark"><%= totals.peopleCount %> người</span></div>
-    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Tên</th><th>Đội</th><th class="text-right">Phải đóng</th><th class="text-right">Đã đóng</th><th class="text-right">Còn thiếu</th></tr></thead><tbody>
+    <div class="table-wrap member-table"><table class="member-list"><thead><tr>
+      <th>Tên</th>
+      <% teams.forEach((team) => { %><th class="text-center"><a href="/teams/<%= team.teamId %>/income?month=<%= month %>"><%= team.name %></a></th><% }) %>
+      <th class="text-right">Tổng tiền cần đóng</th>
+    </tr></thead><tbody>
       <% people.forEach((person) => { %>
         <tr>
-          <td><strong><%= person.name %></strong><% if (person.multi) { %> <span class="badge"><%= person.teamCount %> đội</span><% } %><% if (person.email) { %><br><span class="muted"><%= person.email %></span><% } %></td>
-          <td>
-            <% person.teams.forEach((entry) => { %>
-              <div><a href="/teams/<%= entry.teamId %>/income?month=<%= month %>"><%= entry.teamName %></a> <span class="badge"><%= entry.typeLabel %></span> <span class="muted"><% if (entry.expectedAmount || entry.paidAmount) { %><%= formatMoney(entry.paidAmount) %>đ<% if (entry.expectedAmount) { %> / <%= formatMoney(entry.expectedAmount) %>đ<% } %><% } %><% if (entry.sessions) { %><%= entry.expectedAmount || entry.paidAmount ? ' · ' : '' %><%= entry.sessions %> buổi <%= formatMoney(entry.guestAmount) %>đ<% } %></span><% if (entry.expectedAmount > entry.paidAmount) { %> <span class="badge bg-danger">thiếu <%= formatMoney(entry.expectedAmount - entry.paidAmount) %>đ</span><% } %></div>
-            <% }) %>
-          </td>
+          <td><strong><%= person.name %></strong></td>
+          <% teams.forEach((team) => { const entry = person.teams.find((item) => item.teamId === team.teamId); %>
+            <td class="text-center"><%= entry ? 'x' : '' %></td>
+          <% }) %>
           <td class="text-right paid-cell"><strong><%= formatMoney(person.totalExpected) %></strong><span class="muted">đ</span></td>
-          <td class="text-right paid-cell"><strong><%= formatMoney(person.totalPaid) %></strong><span class="muted">đ</span></td>
-          <td class="text-right paid-cell"><strong class="<%= person.totalMissing > 0 ? 'text-danger' : '' %>"><%= formatMoney(person.totalMissing) %></strong><span class="muted">đ</span></td>
         </tr>
       <% }) %>
-      <% if (!people.length) { %><tr><td colspan="5" class="muted text-center">Tháng này chưa có ai trong các đội bạn quản lý.</td></tr><% } %>
-    </tbody></table></div>
-  </section>
-
-  <section class="card-lite mb">
-    <div class="card-hdr"><span><%- include('../partials/icon', { name: 'ball' }) %> Theo đội</span><span class="badge badge-dark"><%= totals.teamCount %> đội</span></div>
-    <div class="table-wrap member-table"><table class="member-list"><thead><tr><th>Đội</th><th class="text-right">Người</th><th class="text-right">Mức phí</th><th class="text-right">Phải thu</th><th class="text-right">Đã thu</th><th class="text-right">Còn thiếu</th><th class="text-right">Đã chi</th><th class="text-right">Quỹ còn</th></tr></thead><tbody>
-      <% teams.forEach((team) => { %>
-        <tr>
-          <td><a href="/teams/<%= team.teamId %>/income?month=<%= month %>"><strong><%= team.name %></strong></a><% if (team.fundPreview) { %> <span class="badge">xem trước</span><% } %></td>
-          <td class="text-right"><%= team.memberCount %> <span class="muted">(<%= team.fixedCount %> cố định)</span></td>
-          <td class="text-right"><%= formatMoney(team.monthlyFee) %>đ</td>
-          <td class="text-right"><%= formatMoney(team.totalDue) %>đ</td>
-          <td class="text-right"><%= formatMoney(team.totalPaid) %>đ</td>
-          <td class="text-right <%= team.totalMissing > 0 ? 'text-danger' : '' %>"><%= formatMoney(team.totalMissing) %>đ</td>
-          <td class="text-right"><%= formatMoney(team.totalSpent) %>đ</td>
-          <td class="text-right"><strong><%= formatMoney(team.balance) %>đ</strong></td>
-        </tr>
-      <% }) %>
-      <% if (!teams.length) { %><tr><td colspan="8" class="muted text-center">Bạn chưa quản lý đội nào.</td></tr><% } %>
-    </tbody></table></div>
+      <% if (!people.length) { %><tr><td colspan="<%= teams.length + 2 %>" class="muted text-center">Tháng này chưa có ai trong các đội bạn quản lý.</td></tr><% } %>
+    </tbody><tfoot>
+      <tr><td><strong>Tổng</strong></td><% teams.forEach((team) => { %><td class="text-center"><%= team.fixedCount %></td><% }) %><td class="text-right paid-cell"><strong><%= formatMoney(totals.totalDue) %></strong><span class="muted">đ</span></td></tr>
+    </tfoot></table></div>
   </section>
 </main>
 <%- include('../partials/bottom-menu') %>
