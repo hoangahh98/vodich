@@ -515,8 +515,9 @@ test('đội bóng: banner có nút Báo cáo tháng cho admin, trang báo cáo 
   // Bảng ma trận (chủ app 28/9/2026): tên · mỗi đội một cột đánh x · tổng tiền cần đóng.
   assert.match(report, /Báo cáo tháng 2026-09/);
   assert.match(report, /<th class="text-center"><a[^>]*>Tối thứ 3<\/a><\/th>\s*<th class="text-center"><a[^>]*>Sáng chủ nhật<\/a><\/th>\s*<th class="text-right">Tổng tiền cần đóng<\/th>/, 'mỗi đội một cột, cột cuối là tổng');
-  assert.match(report, /<strong>An<\/strong><\/td>\s*<td class="text-center">x<\/td>\s*<td class="text-center">x<\/td>\s*<td class="text-right paid-cell"><strong>350000<\/strong>/, 'An ở cả hai đội: hai dấu x, tổng 350000');
-  assert.match(report, /<strong>Bình<\/strong><\/td>\s*<td class="text-center">x<\/td>\s*<td class="text-center"><\/td>\s*<td class="text-right paid-cell"><strong>200000<\/strong>/, 'Bình chỉ ở đội 1: một x, ô kia trống');
+  // Ô có người ghi MỨC PHÍ của đội đó (chủ app 28/9/2026, thay dấu x) — cộng ngang ra cột cuối.
+  assert.match(report, /<strong>An<\/strong><\/td>\s*<td class="text-center">200000đ<\/td>\s*<td class="text-center">150000đ<\/td>\s*<td class="text-right paid-cell"><strong>350000<\/strong>/, 'An ở cả hai đội: 200k + 150k = 350k');
+  assert.match(report, /<strong>Bình<\/strong><\/td>\s*<td class="text-center">200000đ<\/td>\s*<td class="text-center"><\/td>\s*<td class="text-right paid-cell"><strong>200000<\/strong>/, 'Bình chỉ ở đội 1: một ô có tiền, ô kia trống');
   assert.match(report, /<tfoot>[\s\S]*<strong>550000<\/strong>/, 'dòng tổng cộng cột cuối');
   assert.match(report, /teams\/report\?month=2026-08/, 'có nút lùi tháng');
   assert.doesNotMatch(report, /Theo đội|xem trước|Còn thiếu/, 'không còn bảng theo đội hay thẻ số — chỉ một bảng');
