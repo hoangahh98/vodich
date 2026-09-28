@@ -5,8 +5,9 @@ const { TeamReportService, aggregateTeamReports, normalizeReportMonth } = requir
 
 /**
  * Báo cáo tháng gộp nhiều đội (chủ app 28/9/2026): admin quản lý 3 đội, có người chơi ở 2–3 đội, trước
- * đây phải mở từng đội cộng tay. Lời hứa: số từng đội lấy đúng ảnh chụp tháng của trang chi tiết, còn
- * phần gộp theo người phải nhặt đủ mọi đội một người có mặt — kể cả vãng lai ghi theo buổi.
+ * đây phải mở từng đội cộng tay. Lời hứa: số từng đội lấy đúng ảnh chụp tháng của trang chi tiết; phần
+ * gộp theo người nhặt đủ mọi đội một người có mặt — và CHỈ thành viên cố định (chủ app: bảng này check
+ * tổng tiền phải đóng của cố định, vãng lai không ghi vào đây).
  */
 
 const player = (id, name) => ({ displayName: name, email: `${name.toLowerCase()}@test` });
@@ -27,63 +28,41 @@ const snapshots = [
     members: [member(5, 'An', 'FIXED', 200000, 200000), member(6, 'Bình', 'FIXED', 200000, 0)],
     finance: finance({ memberCount: 2, fixedCount: 2, monthlyFee: 200000, totalDue: 400000, totalPaid: 200000, totalMissing: 200000, totalSpent: 300000, balance: 100000 }),
     fundPreview: false,
-    guestReceipts: [],
   },
   {
     team: { id: 2n, name: 'Sáng chủ nhật' },
+    // Cường là vãng lai ở đội 2 — không được xuất hiện trong báo cáo.
     members: [member(5, 'An', 'FIXED', 150000, 100000), member(7, 'Cường', 'GUEST', 0, 50000)],
-    // An còn ghé đội thứ 3 với tư cách vãng lai theo buổi; một khách không có hồ sơ.
     finance: finance({ memberCount: 2, fixedCount: 1, monthlyFee: 150000, totalDue: 150000, totalPaid: 230000, totalMissing: 50000, guestPaid: 130000, totalSpent: 100000, balance: 180000 }),
     fundPreview: true,
-    guestReceipts: [{ playerId: 5n, guestName: null, amount: 40000, player: player(5, 'An') }, { playerId: null, guestName: 'Khách Dũng', amount: 40000, player: null }],
   },
 ];
 
-test('gộp theo người: An ở 2 đội thấy đủ cả hai trên một dòng, cộng đúng phải đóng / đã đóng / còn thiếu', () => {
+test('gộp theo người: An cố định ở 2 đội thấy đủ cả hai trên một dòng, cộng đúng mức phí / đã đóng / còn thiếu', () => {
   const report = aggregateTeamReports('2026-09', snapshots);
   const an = report.people.find((row) => row.name === 'An');
   assert.equal(an.teamCount, 2);
   assert.equal(an.multi, true);
-  assert.deepEqual(an.teams.map((item) => item.teamName), ['Sáng chủ nhật', 'Tối thứ 3'], 'đội sắp theo tên');
+  assert.deepEqual(an.teams.map((item) => [item.teamName, item.expectedAmount]), [['Sáng chủ nhật', 150000], ['Tối thứ 3', 200000]], 'mỗi đội một mức phí, sắp theo tên đội');
   assert.equal(an.totalExpected, 350000, '200k + 150k');
-  assert.equal(an.totalPaid, 340000, '200k + 100k + 40k vãng lai theo buổi ở đội 2');
+  assert.equal(an.totalPaid, 300000);
   assert.equal(an.totalMissing, 50000, 'chỉ thiếu 50k ở đội 2; đội 1 đóng đủ không bù trừ');
-  const doi2 = an.teams.find((item) => item.teamName === 'Sáng chủ nhật');
-  assert.equal(doi2.sessions, 1, 'buổi vãng lai gộp vào đúng người, không thành dòng khách lạ');
-  assert.equal(doi2.guestAmount, 40000, 'tiền buổi tách riêng khỏi phí');
-  assert.equal(doi2.paidAmount, 100000, 'phí đã đóng giữ nguyên 100k để so với mức phí y như trang đội');
-  assert.equal(doi2.memberType, 'FIXED', 'đã là cố định thì buổi vãng lai không hạ xuống vãng lai');
 });
 
-test('người nhiều đội lên đầu; khách không có hồ sơ đứng riêng theo tên', () => {
+test('vãng lai KHÔNG vào báo cáo; người nhiều đội lên đầu', () => {
   const report = aggregateTeamReports('2026-09', snapshots);
-  assert.equal(report.people[0].name, 'An', 'người 2 đội lên đầu');
-  assert.deepEqual(report.people.slice(1).map((row) => row.name), ['Bình', 'Cường', 'Khách Dũng'], 'còn lại: thiếu nhiều trước, rồi theo tên');
-  const guest = report.people.find((row) => row.name === 'Khách Dũng');
-  assert.equal(guest.teams[0].sessions, 1);
-  assert.equal(guest.teams[0].guestAmount, 40000, 'tiền buổi nằm ở cột riêng');
-  assert.equal(guest.teams[0].paidAmount, 0, 'không phải phí cố định');
-  assert.equal(guest.totalPaid, 40000);
-  assert.equal(guest.teams[0].paymentStatus, 'PAID', 'vãng lai có tiền là đã thu');
+  assert.deepEqual(report.people.map((row) => row.name), ['An', 'Bình'], 'Cường vãng lai không có dòng');
+  assert.equal(report.totals.peopleCount, 2);
+  assert.equal(report.totals.multiTeamCount, 1);
 });
 
-test('tổng theo đội và tổng chung lấy đúng số của từng ảnh chụp, không tính lại', () => {
+test('tổng theo đội lấy đúng số của từng ảnh chụp, không tính lại', () => {
   const report = aggregateTeamReports('2026-09', snapshots);
-  assert.deepEqual(report.teams.map((team) => [team.name, team.totalPaid, team.balance, team.fundPreview]), [
-    ['Tối thứ 3', 200000, 100000, false],
-    ['Sáng chủ nhật', 230000, 180000, true],
+  assert.deepEqual(report.teams.map((team) => [team.name, team.fixedCount, team.monthlyFee, team.totalDue, team.fundPreview]), [
+    ['Tối thứ 3', 2, 200000, 400000, false],
+    ['Sáng chủ nhật', 1, 150000, 150000, true],
   ]);
-  assert.deepEqual(report.totals, {
-    teamCount: 2,
-    peopleCount: 4,
-    multiTeamCount: 1,
-    totalDue: 550000,
-    totalPaid: 430000,
-    totalMissing: 250000,
-    guestPaid: 130000,
-    totalSpent: 400000,
-    balance: 280000,
-  });
+  assert.equal(report.totals.totalDue, 550000);
   assert.equal(report.previousMonth, '2026-08');
   assert.equal(report.nextMonth, '2026-10');
 });

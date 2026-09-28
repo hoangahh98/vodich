@@ -19,7 +19,7 @@
   </section>
 
   <%# Một bảng duy nhất (chủ app 28/9/2026): tên · mỗi đội một cột ghi mức phí phải đóng ở đội đó (cộng
-      ngang ra cột cuối) · tổng tiền cần đóng. Vãng lai không có mức phí thì ghi chữ. %>
+      ngang ra cột cuối) · tổng tiền cần đóng. CHỈ thành viên cố định — vãng lai không ghi vào đây. %>
   <section class="card-lite mb">
     <div class="table-wrap member-table"><table class="member-list"><thead><tr>
       <th>Tên</th>
@@ -30,7 +30,7 @@
         <tr>
           <td><strong><%= person.name %></strong></td>
           <% teams.forEach((team) => { const entry = person.teams.find((item) => item.teamId === team.teamId); %>
-            <td class="text-center"><% if (entry && entry.expectedAmount) { %><%= formatMoney(entry.expectedAmount) %>đ<% } else if (entry) { %><span class="muted">vãng lai</span><% } %></td>
+            <td class="text-center"><% if (entry) { %><%= formatMoney(entry.expectedAmount) %>đ<% } %></td>
           <% }) %>
           <td class="text-right paid-cell"><strong><%= formatMoney(person.totalExpected) %></strong><span class="muted">đ</span></td>
         </tr>

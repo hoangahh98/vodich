@@ -12,6 +12,9 @@ import { addMonths, monthDate } from './team-utils';
  * Số của từng đội lấy ĐÚNG ảnh chụp tháng của trang chi tiết (`TeamDetailService.monthSnapshot` →
  * `TeamMonthReportBuilder`), nên báo cáo khớp từng đồng với "Khoản thu" của mỗi đội. Phần gộp là hàm
  * thuần `aggregateTeamReports` để test được không cần DB.
+ *
+ * Chỉ tính THÀNH VIÊN CỐ ĐỊNH (chủ app chốt 28/9/2026): bảng này để check tổng tiền phải đóng của cố
+ * định, vãng lai không ghi vào đây — bản đầu có gộp cả khoản thu theo buổi, đã bỏ.
  */
 
 export interface TeamSnapshotForReport {
@@ -37,22 +40,17 @@ export interface TeamSnapshotForReport {
     balance: number;
   };
   fundPreview: boolean;
-  guestReceipts: Array<{ playerId: bigint | null; guestName: string | null; amount: unknown; player?: { displayName: string } | null }>;
 }
 
+/** Một dòng "người X ở đội Y" — CHỈ thành viên cố định (chủ app 28/9/2026: báo cáo là tiền phải đóng của cố định, vãng lai không ghi vào đây). */
 export interface PersonTeamEntry {
   teamId: string;
   teamName: string;
-  memberType: string;
-  typeLabel: string;
+  /** Mức phí cố định của đội đó trong tháng. */
   expectedAmount: number;
-  /** Tiền PHÍ đã đóng (dòng phí tháng) — đây mới là số so với mức phí, y như trang đội. */
+  /** Tiền phí đã đóng (dòng phí tháng), y như trang đội. */
   paidAmount: number;
   paymentStatus: string;
-  /** Số buổi vãng lai ghi theo buổi (bảng team_guest_receipt) trong tháng. */
-  sessions: number;
-  /** Tiền vãng lai theo buổi. Tách riêng, KHÔNG trừ vào phần thiếu phí — trang đội cũng không trừ. */
-  guestAmount: number;
 }
 
 export interface PersonReportRow {
@@ -121,37 +119,19 @@ export function aggregateTeamReports(month: string, snapshots: TeamSnapshotForRe
     }
     return row;
   };
-  const entryFor = (row: PersonReportRow, team: TeamSnapshotForReport['team']) => {
-    const teamId = String(team.id);
-    let entry = row.teams.find((item) => item.teamId === teamId);
-    if (!entry) {
-      entry = { teamId, teamName: team.name, memberType: 'GUEST', typeLabel: 'Vãng lai', expectedAmount: 0, paidAmount: 0, paymentStatus: 'UNPAID', sessions: 0, guestAmount: 0 };
-      row.teams.push(entry);
-    }
-    return entry;
-  };
-
   const teams: TeamReportRow[] = snapshots.map((snapshot) => {
+    // Chỉ cố định. Vãng lai (dòng GUEST cũ lẫn khoản thu theo buổi) không vào báo cáo này — chủ app
+    // 28/9/2026: đây là bảng check tổng tiền phải đóng của cố định, vãng lai xem ở Khoản thu từng đội.
     for (const member of snapshot.members) {
+      if (member.memberType !== 'FIXED') continue;
       const row = personFor(`player:${member.playerId}`, member.player.displayName, member.player.email || '');
-      const entry = entryFor(row, snapshot.team);
-      entry.memberType = member.memberType;
-      entry.typeLabel = member.typeLabel;
-      entry.expectedAmount = member.expectedAmount;
-      entry.paidAmount += member.paidAmount;
-      entry.paymentStatus = member.paymentStatus;
-    }
-    // Vãng lai ghi theo buổi: có hồ sơ VĐV thì gộp vào đúng người (kể cả khi họ là cố định ở đội khác),
-    // không có thì đứng riêng theo tên khách.
-    for (const receipt of snapshot.guestReceipts) {
-      const amount = Number(receipt.amount || 0);
-      const key = receipt.playerId ? `player:${receipt.playerId}` : `guest:${(receipt.guestName || 'Khách').trim().toLowerCase()}`;
-      const name = receipt.player?.displayName || receipt.guestName || 'Khách';
-      const row = personFor(key, name, '');
-      const entry = entryFor(row, snapshot.team);
-      entry.sessions += 1;
-      entry.guestAmount += amount;
-      if (entry.memberType === 'GUEST' && entry.paidAmount + entry.guestAmount > 0) entry.paymentStatus = 'PAID';
+      row.teams.push({
+        teamId: String(snapshot.team.id),
+        teamName: snapshot.team.name,
+        expectedAmount: member.expectedAmount,
+        paidAmount: member.paidAmount,
+        paymentStatus: member.paymentStatus,
+      });
     }
     const { finance } = snapshot;
     return {
@@ -174,8 +154,7 @@ export function aggregateTeamReports(month: string, snapshots: TeamSnapshotForRe
     row.teams.sort((a, b) => a.teamName.localeCompare(b.teamName, 'vi'));
     row.teamCount = row.teams.length;
     row.totalExpected = row.teams.reduce((sum, item) => sum + item.expectedAmount, 0);
-    // Đã đóng = phí + tiền buổi; còn thiếu chỉ so PHÍ với mức phí (tiền buổi không bù), khớp trang đội.
-    row.totalPaid = row.teams.reduce((sum, item) => sum + item.paidAmount + item.guestAmount, 0);
+    row.totalPaid = row.teams.reduce((sum, item) => sum + item.paidAmount, 0);
     row.totalMissing = row.teams.reduce((sum, item) => sum + Math.max(0, item.expectedAmount - item.paidAmount), 0);
     row.multi = row.teamCount >= 2;
     return row;
