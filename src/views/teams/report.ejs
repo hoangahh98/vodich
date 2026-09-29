@@ -42,7 +42,7 @@
       <% }) %>
       <% if (!people.length) { %><tr><td colspan="<%= teams.length + 2 %>" class="muted text-center">Tháng này chưa có ai trong các đội bạn quản lý.</td></tr><% } %>
     </tbody><tfoot>
-      <tr><td data-amount="Tổng"><strong>Tổng</strong></td><% teams.forEach((team) => { %><td class="text-center" data-amount="<%= team.fixedCount %>"><%= team.fixedCount %></td><% }) %><td class="text-right paid-cell" data-amount="<%= formatMoney(totals.totalDue) %>đ"><strong><%= formatMoney(totals.totalDue) %></strong><span class="muted">đ</span></td></tr>
+      <tr><td data-amount="Tổng"><strong>Tổng</strong></td><% teams.forEach((team) => { %><td class="text-center" data-amount="<%= formatMoney(team.totalDue) %>đ"><strong><%= formatMoney(team.totalDue) %></strong><span class="muted">đ</span></td><% }) %><td class="text-right paid-cell" data-amount="<%= formatMoney(totals.totalDue) %>đ"><strong><%= formatMoney(totals.totalDue) %></strong><span class="muted">đ</span></td></tr>
     </tfoot></table></div>
   </section>
 </main>
