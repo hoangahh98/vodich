@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { CurrentUser } from '../types';
 import { TeamCrudService } from './team-crud.service';
 import { TeamDetailService } from './team-detail.service';
-import { addMonths, monthDate } from './team-utils';
 
 /**
  * Báo cáo tháng GỘP mọi đội mà admin đang quản lý (chủ app 28/9/2026): một admin lo 3 đội, có người
@@ -83,8 +82,6 @@ export interface TeamReportRow {
 
 export interface TeamsMonthlyReport {
   month: string;
-  previousMonth: string;
-  nextMonth: string;
   teams: TeamReportRow[];
   people: PersonReportRow[];
   totals: {
@@ -106,7 +103,6 @@ export function normalizeReportMonth(value: unknown): string {
   return /^\d{4}-(0[1-9]|1[0-2])$/.test(raw) ? raw : new Date().toISOString().slice(0, 7);
 }
 
-const monthKey = (date: Date) => date.toISOString().slice(0, 7);
 
 /** Gộp ảnh chụp tháng của nhiều đội thành báo cáo theo người và theo đội. Thuần, không đụng DB. */
 export function aggregateTeamReports(month: string, snapshots: TeamSnapshotForReport[]): TeamsMonthlyReport {
@@ -163,11 +159,8 @@ export function aggregateTeamReports(month: string, snapshots: TeamSnapshotForRe
   rows.sort((a, b) => b.teamCount - a.teamCount || b.totalMissing - a.totalMissing || a.name.localeCompare(b.name, 'vi'));
 
   const sum = (pick: (team: TeamReportRow) => number) => teams.reduce((total, team) => total + pick(team), 0);
-  const base = monthDate(month);
   return {
     month,
-    previousMonth: monthKey(addMonths(base, -1)),
-    nextMonth: monthKey(addMonths(base, 1)),
     teams,
     people: rows,
     totals: {

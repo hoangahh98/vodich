@@ -495,8 +495,6 @@ test('đội bóng: banner có nút Báo cáo tháng cho admin, trang báo cáo 
     ...commonLocals('/teams/report'),
     featureSet: new Set(['TOURNAMENTS', 'TEAMS']),
     month: '2026-09',
-    previousMonth: '2026-08',
-    nextMonth: '2026-10',
     totals: { teamCount: 2, peopleCount: 2, multiTeamCount: 1, totalDue: 550000, totalPaid: 430000, totalMissing: 250000, guestPaid: 0, totalSpent: 400000, balance: 280000 },
     people: [
       { key: 'player:5', name: 'An', email: 'an@test', multi: true, teamCount: 2, totalExpected: 350000, totalPaid: 300000, totalMissing: 50000, teams: [
@@ -526,7 +524,7 @@ test('đội bóng: banner có nút Báo cáo tháng cho admin, trang báo cáo 
   assert.match(report, /data-amount="350000đ" data-paid="0"><strong>350000<\/strong><span class="muted">đ<\/span> <span class="badge bg-danger"/, 'tổng của An đỏ vì còn một đội chưa đóng');
   assert.match(report, /id="teamReportSave"/, 'có nút Lưu ảnh');
   assert.match(report, /<script src="\/js\/team-report\.js"><\/script>/, 'nạp script vẽ ảnh, không inline (CSP)');
-  assert.match(report, /teams\/report\?month=2026-08/, 'có nút lùi tháng');
+  assert.doesNotMatch(report, /teams\/report\?month=/, 'không còn nút lùi / tiến tháng — chọn ở ô tháng (chủ app 29/9/2026)');
   assert.doesNotMatch(report, /Theo đội|xem trước|Còn thiếu/, 'không còn bảng theo đội hay thẻ số — chỉ một bảng');
   assert.doesNotMatch(report, /<tr[^>]*>\s*<form/, 'form không được nằm trong <tr>');
 });

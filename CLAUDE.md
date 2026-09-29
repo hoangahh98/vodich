@@ -429,7 +429,7 @@ người có mặt, người nhiều đội lên đầu. **CHỈ thành viên c�
 tổng tiền phải đóng của cố định, vãng lai (dòng GUEST lẫn khoản thu theo buổi) không ghi vào; bản đầu có gộp
 đã bỏ. **Giao diện cố ý chỉ một bảng ma trận** (sau khi chủ app thấy bản đầu nhiều thẻ số + hai bảng): tên ·
 mỗi đội một cột ghi MỨC PHÍ phải đóng ở đội đó, cộng ngang ra cột tổng tiền cần đóng; chân bảng là số cố định
-từng đội + tổng. Từ 29/9/2026 mỗi ô kèm huy hiệu ✓ xanh / ✗ đỏ theo `paymentStatus` của dòng phí đội đó, cột
+từng đội + tổng. Chọn tháng CHỈ bằng ô `<input type="month">` — hai nút lùi / tiến tháng đã bỏ (chủ app 29/9/2026). Từ 29/9/2026 mỗi ô kèm huy hiệu ✓ xanh / ✗ đỏ theo `paymentStatus` của dòng phí đội đó, cột
 tổng đỏ khi còn bất kỳ đội nào chưa đóng. Nút **Lưu ảnh** (`public/js/team-report.js`) vẽ lại bảng bằng
 canvas từ `data-amount` / `data-paid` trên từng ô — vẽ tay chứ không kéo thư viện chụp DOM vì CSP
 `script-src 'self'`; điện thoại có `navigator.share` với file thì mở bảng chia sẻ (iPhone "Lưu vào Ảnh"),

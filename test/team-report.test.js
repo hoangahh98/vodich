@@ -63,8 +63,6 @@ test('tổng theo đội lấy đúng số của từng ảnh chụp, không tí
     ['Sáng chủ nhật', 1, 150000, 150000, true],
   ]);
   assert.equal(report.totals.totalDue, 550000);
-  assert.equal(report.previousMonth, '2026-08');
-  assert.equal(report.nextMonth, '2026-10');
 });
 
 test('tháng rác thì về tháng hiện tại; service lấy đội theo đúng phạm vi list(user)', async () => {

@@ -8,9 +8,7 @@
         <h1>Báo cáo tháng <%= month %></h1>
         <div class="muted strong-muted"><%= totals.teamCount %> đội · <%= totals.peopleCount %> người · cần đóng <%= formatMoney(totals.totalDue) %>đ</div>
         <div class="hero-action-buttons">
-          <a class="btn btn-sm" href="/teams/report?month=<%= previousMonth %>">‹ <%= previousMonth %></a>
           <form method="get" action="/teams/report" class="inline-form"><input type="month" name="month" value="<%= month %>" data-autosubmit aria-label="Chọn tháng"></form>
-          <a class="btn btn-sm" href="/teams/report?month=<%= nextMonth %>"><%= nextMonth %> ›</a>
           <button type="button" class="btn btn-sm btn-success" id="teamReportSave" data-loading-text="Đang vẽ..."><%- include('../partials/icon', { name: 'save' }) %> Lưu ảnh</button>
           <a class="btn btn-sm" href="/teams"><%- include('../partials/icon', { name: 'ball' }) %> Danh sách đội</a>
         </div>
