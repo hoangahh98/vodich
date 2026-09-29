@@ -429,7 +429,11 @@ người có mặt, người nhiều đội lên đầu. **CHỈ thành viên c�
 tổng tiền phải đóng của cố định, vãng lai (dòng GUEST lẫn khoản thu theo buổi) không ghi vào; bản đầu có gộp
 đã bỏ. **Giao diện cố ý chỉ một bảng ma trận** (sau khi chủ app thấy bản đầu nhiều thẻ số + hai bảng): tên ·
 mỗi đội một cột ghi MỨC PHÍ phải đóng ở đội đó, cộng ngang ra cột tổng tiền cần đóng; chân bảng là số cố định
-từng đội + tổng. Số còn thiếu / đã chi / quỹ còn vẫn có
+từng đội + tổng. Từ 29/9/2026 mỗi ô kèm huy hiệu ✓ xanh / ✗ đỏ theo `paymentStatus` của dòng phí đội đó, cột
+tổng đỏ khi còn bất kỳ đội nào chưa đóng. Nút **Lưu ảnh** (`public/js/team-report.js`) vẽ lại bảng bằng
+canvas từ `data-amount` / `data-paid` trên từng ô — vẽ tay chứ không kéo thư viện chụp DOM vì CSP
+`script-src 'self'`; điện thoại có `navigator.share` với file thì mở bảng chia sẻ (iPhone "Lưu vào Ảnh"),
+không thì tải PNG về. Số còn thiếu / đã chi / quỹ còn vẫn có
 trong `TeamsMonthlyReport` nhưng không hiện — muốn xem thì bấm tên đội sang trang Khoản thu. Route phải khai
 TRƯỚC `/teams/:id`, không thì "report" bị đọc thành id đội.
 

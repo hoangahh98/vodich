@@ -516,9 +516,16 @@ test('đội bóng: banner có nút Báo cáo tháng cho admin, trang báo cáo 
   assert.match(report, /Báo cáo tháng 2026-09/);
   assert.match(report, /<th class="text-center"><a[^>]*>Tối thứ 3<\/a><\/th>\s*<th class="text-center"><a[^>]*>Sáng chủ nhật<\/a><\/th>\s*<th class="text-right">Tổng tiền cần đóng<\/th>/, 'mỗi đội một cột, cột cuối là tổng');
   // Ô có người ghi MỨC PHÍ của đội đó (chủ app 28/9/2026, thay dấu x) — cộng ngang ra cột cuối.
-  assert.match(report, /<strong>An<\/strong><\/td>\s*<td class="text-center">200000đ<\/td>\s*<td class="text-center">150000đ<\/td>\s*<td class="text-right paid-cell"><strong>350000<\/strong>/, 'An ở cả hai đội: 200k + 150k = 350k');
-  assert.match(report, /<strong>Bình<\/strong><\/td>\s*<td class="text-center">200000đ<\/td>\s*<td class="text-center"><\/td>\s*<td class="text-right paid-cell"><strong>200000<\/strong>/, 'Bình chỉ ở đội 1: một ô có tiền, ô kia trống');
+  assert.match(report, /<strong>An<\/strong><\/td>\s*<td class="text-center nowrap"[^>]*>200000đ <span[\s\S]*?<\/td>\s*<td class="text-center nowrap"[^>]*>150000đ <span[\s\S]*?<\/td>\s*<td class="text-right paid-cell nowrap"[^>]*><strong>350000<\/strong>/, 'An ở cả hai đội: 200k + 150k = 350k');
+  assert.match(report, /<strong>Bình<\/strong><\/td>\s*<td class="text-center nowrap"[^>]*>200000đ <span[\s\S]*?<\/td>\s*<td class="text-center" data-amount=""><\/td>\s*<td class="text-right paid-cell nowrap"[^>]*><strong>200000<\/strong>/, 'Bình chỉ ở đội 1: một ô có tiền, ô kia trống');
+  assert.match(report, /<strong>Bình<\/strong>[\s\S]*?data-amount="200000đ" data-paid="0"><strong>200000<\/strong><span class="muted">đ<\/span> <span class="badge bg-danger"/, 'Bình chưa đóng → tổng đỏ');
   assert.match(report, /<tfoot>[\s\S]*<strong>550000<\/strong>/, 'dòng tổng cộng cột cuối');
+  // Huy hiệu đã đóng / chưa đóng (chủ app 29/9/2026): từng ô theo dòng phí của đội, cột tổng đỏ khi còn đội chưa đóng.
+  assert.match(report, /data-amount="200000đ" data-paid="1">200000đ <span class="badge bg-success"/, 'An đã đóng ở Tối thứ 3 → tích xanh');
+  assert.match(report, /data-amount="150000đ" data-paid="0">150000đ <span class="badge bg-danger"/, 'An chưa đóng ở Sáng chủ nhật → tích đỏ');
+  assert.match(report, /data-amount="350000đ" data-paid="0"><strong>350000<\/strong><span class="muted">đ<\/span> <span class="badge bg-danger"/, 'tổng của An đỏ vì còn một đội chưa đóng');
+  assert.match(report, /id="teamReportSave"/, 'có nút Lưu ảnh');
+  assert.match(report, /<script src="\/js\/team-report\.js"><\/script>/, 'nạp script vẽ ảnh, không inline (CSP)');
   assert.match(report, /teams\/report\?month=2026-08/, 'có nút lùi tháng');
   assert.doesNotMatch(report, /Theo đội|xem trước|Còn thiếu/, 'không còn bảng theo đội hay thẻ số — chỉ một bảng');
   assert.doesNotMatch(report, /<tr[^>]*>\s*<form/, 'form không được nằm trong <tr>');

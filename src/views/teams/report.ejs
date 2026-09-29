@@ -11,6 +11,7 @@
           <a class="btn btn-sm" href="/teams/report?month=<%= previousMonth %>">‹ <%= previousMonth %></a>
           <form method="get" action="/teams/report" class="inline-form"><input type="month" name="month" value="<%= month %>" data-autosubmit aria-label="Chọn tháng"></form>
           <a class="btn btn-sm" href="/teams/report?month=<%= nextMonth %>"><%= nextMonth %> ›</a>
+          <button type="button" class="btn btn-sm btn-success" id="teamReportSave" data-loading-text="Đang vẽ..."><%- include('../partials/icon', { name: 'save' }) %> Lưu ảnh</button>
           <a class="btn btn-sm" href="/teams"><%- include('../partials/icon', { name: 'ball' }) %> Danh sách đội</a>
         </div>
       </div>
@@ -19,26 +20,33 @@
   </section>
 
   <%# Một bảng duy nhất (chủ app 28/9/2026): tên · mỗi đội một cột ghi mức phí phải đóng ở đội đó (cộng
-      ngang ra cột cuối) · tổng tiền cần đóng. CHỈ thành viên cố định — vãng lai không ghi vào đây. %>
+      ngang ra cột cuối) · tổng tiền cần đóng. CHỈ thành viên cố định — vãng lai không ghi vào đây.
+      Mỗi ô kèm huy hiệu ✓ xanh (đã đóng) / ✗ đỏ (chưa đóng) lấy từ dòng phí của đội; cột tổng đỏ khi còn
+      bất kỳ đội nào chưa đóng (chủ app 29/9/2026). data-* để public/js/team-report.js vẽ lại thành ảnh. %>
   <section class="card-lite mb">
-    <div class="table-wrap member-table"><table class="member-list"><thead><tr>
+    <div class="table-wrap member-table"><table class="member-list" id="teamReportTable" data-title="Báo cáo tháng <%= month %>"><thead><tr>
       <th>Tên</th>
       <% teams.forEach((team) => { %><th class="text-center"><a href="/teams/<%= team.teamId %>/income?month=<%= month %>"><%= team.name %></a></th><% }) %>
       <th class="text-right">Tổng tiền cần đóng</th>
     </tr></thead><tbody>
-      <% people.forEach((person) => { %>
+      <% people.forEach((person) => { const allPaid = person.teams.every((item) => item.paymentStatus === 'PAID'); %>
         <tr>
           <td><strong><%= person.name %></strong></td>
           <% teams.forEach((team) => { const entry = person.teams.find((item) => item.teamId === team.teamId); %>
-            <td class="text-center"><% if (entry) { %><%= formatMoney(entry.expectedAmount) %>đ<% } %></td>
+            <% if (entry) { const paid = entry.paymentStatus === 'PAID'; %>
+              <td class="text-center nowrap" data-amount="<%= formatMoney(entry.expectedAmount) %>đ" data-paid="<%= paid ? '1' : '0' %>"><%= formatMoney(entry.expectedAmount) %>đ <span class="badge <%= paid ? 'bg-success' : 'bg-danger' %>" title="<%= paid ? 'Đã đóng' : 'Chưa đóng' %>"><%- include('../partials/icon', { name: paid ? 'check' : 'x' }) %></span></td>
+            <% } else { %>
+              <td class="text-center" data-amount=""></td>
+            <% } %>
           <% }) %>
-          <td class="text-right paid-cell"><strong><%= formatMoney(person.totalExpected) %></strong><span class="muted">đ</span></td>
+          <td class="text-right paid-cell nowrap" data-amount="<%= formatMoney(person.totalExpected) %>đ" data-paid="<%= allPaid ? '1' : '0' %>"><strong><%= formatMoney(person.totalExpected) %></strong><span class="muted">đ</span> <span class="badge <%= allPaid ? 'bg-success' : 'bg-danger' %>" title="<%= allPaid ? 'Đã đóng đủ các đội' : 'Còn đội chưa đóng' %>"><%- include('../partials/icon', { name: allPaid ? 'check' : 'x' }) %></span></td>
         </tr>
       <% }) %>
       <% if (!people.length) { %><tr><td colspan="<%= teams.length + 2 %>" class="muted text-center">Tháng này chưa có ai trong các đội bạn quản lý.</td></tr><% } %>
     </tbody><tfoot>
-      <tr><td><strong>Tổng</strong></td><% teams.forEach((team) => { %><td class="text-center"><%= team.fixedCount %></td><% }) %><td class="text-right paid-cell"><strong><%= formatMoney(totals.totalDue) %></strong><span class="muted">đ</span></td></tr>
+      <tr><td data-amount="Tổng"><strong>Tổng</strong></td><% teams.forEach((team) => { %><td class="text-center" data-amount="<%= team.fixedCount %>"><%= team.fixedCount %></td><% }) %><td class="text-right paid-cell" data-amount="<%= formatMoney(totals.totalDue) %>đ"><strong><%= formatMoney(totals.totalDue) %></strong><span class="muted">đ</span></td></tr>
     </tfoot></table></div>
   </section>
 </main>
 <%- include('../partials/bottom-menu') %>
+<script src="/js/team-report.js"></script>

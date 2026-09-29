@@ -582,6 +582,7 @@ tbody tr:hover { background: rgba(20, 22, 28, .025); }
 .gap { gap: 10px; }
 .text-right, .text-end { text-align: right; }
 .text-center { text-align: center; }
+.nowrap { white-space: nowrap; }
 .metric { display: block; font-size: 26px; margin: 8px 0 2px; }
 .hidden, [hidden] { display: none !important; }
 .empty-state { text-align: center; padding: 28px 16px; color: var(--muted); }
