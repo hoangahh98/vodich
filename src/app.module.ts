@@ -40,19 +40,13 @@ import { TeamMemberService } from './teams/team-member.service';
 import { TeamMonthService } from './teams/team-month.service';
 import { TeamReportService } from './teams/team-report.service';
 import { TeamController } from './teams/team.controller';
-import { HouseholdController } from './household/household.controller';
-import { HouseholdService } from './household/household.service';
-import { HouseholdConfigService } from './household/household-config.service';
-import { HouseholdLedgerService } from './household/household-ledger.service';
-import { HouseholdTelegramService } from './household/household-telegram.service';
-import { TelegramController } from './household/telegram.controller';
 import { LocalsMiddleware } from './common/locals.middleware';
 import { RateLimitService } from './common/rate-limit.service';
 import { FeatureGuard } from './common/feature.guard';
 import { CsrfMiddleware } from './common/csrf';
 
 @Module({
-  controllers: [AuthController, HealthController, HomeController, PlayersController, GroupController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, HouseholdController, TelegramController, AdminController],
+  controllers: [AuthController, HealthController, HomeController, PlayersController, GroupController, TournamentController, TournamentRegistrationController, TournamentScheduleController, ExternalRegistrationController, TeamController, TeamMemberController, TeamFundController, TeamExpenseController, AdminController],
   providers: [
     PrismaService,
     AuthService,
@@ -77,10 +71,6 @@ import { CsrfMiddleware } from './common/csrf';
     TeamMemberService,
     TeamMonthService,
     TeamReportService,
-    HouseholdService,
-    HouseholdConfigService,
-    HouseholdLedgerService,
-    HouseholdTelegramService,
     MatchGateway,
     MatchScoreService,
     LocalsMiddleware,

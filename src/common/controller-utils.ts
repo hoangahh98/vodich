@@ -87,12 +87,6 @@ export function safeTournamentSection(value: unknown) {
   return ['players', 'fund', 'ranking', 'schedule', 'fees', 'settings'].includes(section) ? section : 'settings';
 }
 
-export function safeHouseholdSection(value: unknown) {
-  const section = String(value || 'overview');
-  // 'recurring' vẫn nhận để link cũ không 404, nhưng tab đã ẩn khỏi giao diện.
-  return ['overview', 'transactions', 'sources', 'recurring', 'settings'].includes(section) ? section : 'overview';
-}
-
 export function safeTeamSection(value: unknown) {
   const section = String(value || 'overview');
   return ['overview', 'members', 'income', 'expenses', 'settings'].includes(section) ? section : 'overview';

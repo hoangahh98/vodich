@@ -1,8 +1,7 @@
 # Vô Địch Tool
 
 Ứng dụng quản lý giải đấu pickleball, thành viên, nhóm, đội bóng (quỹ + khoản thu), phân quyền, log hệ thống
-và tỉ số trực tiếp. Kèm module **Chi tiêu gia đình** dùng chung tài khoản (sổ thu chi của nhà, tin ngân hàng
-vào qua Telegram).
+và tỉ số trực tiếp.
 
 ## Công nghệ
 
@@ -44,7 +43,6 @@ REQUIRE_REDIS=false
 - `ALLOW_WEAK_ADMIN_PASSWORD=true`: cửa thoát tạm cho `APP_ADMIN_PASSWORD` yếu (chỉ cảnh báo thay vì chặn khởi động). Dùng khi cần deploy gấp, đổi mật khẩu xong thì gỡ ra.
 - `CSRF_ALLOWED_ORIGINS`: danh sách origin được phép gửi request ghi ngoài chính host của app, ngăn cách bằng dấu phẩy. Hiếm khi cần — chỉ dùng khi app đứng sau nhiều tên miền.
 - `LOG_ALL_HTTP=true`: ghi cả health check/static asset vào log. Mặc định app bỏ qua các request này để giảm DB writes.
-- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`: bot của module Chi tiêu (xem mục "Chi tiêu gia đình: bot Telegram"). Không đặt = webhook đóng, module vẫn dùng được bằng nhập tay.
 
 Biến chỉ nên dùng cho test/CI:
 
@@ -94,7 +92,7 @@ Chạy một file test — test đọc từ `dist/` nên phải build trước:
 
 ```bash
 npm run build
-node --test test/household.test.js
+node --test test/domain.test.js
 ```
 
 Browser smoke tests không cần DB:
@@ -127,142 +125,14 @@ Module **Học vui** (8 game cho bé ở `/games`, gồm cả "Hiệp Sĩ Toán 
 `AI_TIMEOUT_MS` là biến chết** — xoá khỏi Render cho gọn. Muốn lấy lại mấy game thì checkout commit ngay
 trước commit gỡ.
 
-## Chi tiêu gia đình: bot Telegram
+## Module Chi tiêu đã gỡ (30/9/2026)
 
-Luồng: mail ngân hàng → (Apps Script trên Gmail) → nhóm Telegram có bot → (webhook) → app ghi giao dịch
-→ bot trả lời kèm nút chọn mục đích. Mẫu đọc tin có sẵn cho **Timo** (mail "Thông báo thay đổi số dư tài
-khoản", cả tăng lẫn giảm, kèm số dư hiện tại) và **MSB thẻ tín dụng** — MSB có HAI tiêu đề: *Biến động chi
-tiêu thẻ tín dụng* (quẹt tiêu) và *Biến động thanh toán thẻ tín dụng* (hoàn tiền hoặc mình trả nợ thẻ), cả hai
-đều kèm hạn mức khả dụng còn lại. Ngân hàng khác đọc theo mẫu chung "±số tiền VND". VPBank đã bỏ (10/9/2026):
-tiền về nhà đi hết qua Timo.
-
-1. Tạo bot với @BotFather, lấy token → `TELEGRAM_BOT_TOKEN`. Tắt privacy mode của bot
-   (`/setprivacy` → Disable) để bot đọc được tin trong nhóm.
-2. Sinh chuỗi ngẫu nhiên → `TELEGRAM_WEBHOOK_SECRET`. Deploy xong, đặt webhook một lần (mở URL này trên trình duyệt):
-
-   ```
-   https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<host>/telegram/webhook/<SECRET>&secret_token=<SECRET>
-   ```
-
-3. Tạo một nhóm Telegram riêng, thêm bot vào. Trên web: Chi tiêu → hộ → Cài đặt → lấy mã, rồi gõ trong nhóm
-   `/link <mã>`.
-4. Gửi mail vào APP bằng Google Apps Script (script.google.com, chạy trên chính Gmail nhận mail ngân hàng),
-   đặt trigger "time-driven, mỗi 5 phút". Script gửi thẳng vào `/telegram/ingest/<SECRET>`, KHÔNG gửi vào
-   nhóm bằng token bot — Telegram không đưa tin do chính bot gửi về webhook nên bot sẽ im lặng; app tự đăng
-   bản tóm tắt gọn kèm nút lên nhóm:
-
-   ```javascript
-   // Đổi APP_URL (tên miền app), SECRET (TELEGRAM_WEBHOOK_SECRET) và CHAT_ID (id nhóm bot trả khi gõ
-   // /start hoặc /link, số âm).
-   const APP_URL = 'https://<tên miền app>';
-   const SECRET = '<TELEGRAM_WEBHOOK_SECRET>';
-   const CHAT_ID = '-1001234567890';
-   // Nhớ TỪNG MAIL đã gửi bằng id tin, cất trong Script Properties. KHÔNG dùng nhãn Gmail: Gmail gom mail
-   // cùng tiêu đề vào MỘT luồng, gắn nhãn cho luồng là mọi mail ngân hàng sau đó bị bỏ qua sạch (đã dính
-   // 10/9/2026 — mail thẻ từ 7/9 trở đi không vào app). Cũng không dùng is:unread: lỡ tay mở mail là mất tin.
-   const DONE_KEY = 'vodich_da_gui';
-   const DONE_KEEP = 300; // Script Properties tối đa ~9KB mỗi khoá, 300 id là thoải mái.
-
-   // Quét từ NGÀY ĐẦU THÁNG HIỆN TẠI tới giờ (Gmail `after:` tính cả ngày đó) — sổ đi theo tháng nên mail
-   // cũ hơn tháng này không cần ghi. Lọc theo NGƯỜI GỬI + TIÊU ĐỀ thật, kẻo mail OTP/quảng cáo cùng địa chỉ
-   // cũng bị gửi. Thẻ MSB có HAI tiêu đề, phải lấy CẢ HAI:
-   //   Timo:    support@timo.vn        — "Thông báo thay đổi số dư tài khoản"
-   //   Thẻ MSB: banking_notify@msb.com.vn — "Biến động chi tiêu thẻ tín dụng" (quẹt tiêu)
-   //                                     — "Biến động thanh toán thẻ tín dụng" (hoàn tiền / trả nợ thẻ)
-   function dauThang() {
-     const now = new Date();
-     return new Date(now.getFullYear(), now.getMonth(), 1);
-   }
-
-   function buildQuery() {
-     const from = Utilities.formatDate(dauThang(), Session.getScriptTimeZone(), 'yyyy/MM/dd');
-     return 'after:' + from + ' ('
-       + '(from:support@timo.vn subject:"Thông báo thay đổi số dư tài khoản")'
-       + ' OR (from:banking_notify@msb.com.vn (subject:"Biến động chi tiêu thẻ tín dụng"'
-       + ' OR subject:"Biến động thanh toán thẻ tín dụng"))'
-       + ')';
-   }
-
-   function pushBankMails() {
-     const props = PropertiesService.getScriptProperties();
-     const done = (props.getProperty(DONE_KEY) || '').split(',').filter(String);
-     const daGui = {};
-     done.forEach(function (id) { daGui[id] = true; });
-     const tuNgay = dauThang();
-     for (const thread of GmailApp.search(buildQuery(), 0, 50)) {
-       // Gmail trả cả LUỒNG nên trong đó có cả mail cũ hơn đầu tháng — lọc lại theo ngày của từng mail.
-       for (const mail of thread.getMessages()) {
-         const id = mail.getId();
-         if (daGui[id] || mail.getDate() < tuNgay) continue;
-         // Gửi kèm TIÊU ĐỀ: app đọc tiêu đề mới biết mail thẻ là quẹt tiêu hay thanh toán.
-         const text = (mail.getSubject() + '\n' + mail.getPlainBody())
-           .replace(/\r/g, '').replace(/\n{3,}/g, '\n\n').slice(0, 3500);
-         const res = UrlFetchApp.fetch(APP_URL + '/telegram/ingest/' + SECRET, {
-           method: 'post',
-           contentType: 'application/json',
-           // Gửi kèm id tin Gmail: MSB có khi gửi HAI mail giống hệt nhau từng chữ cho hai giao dịch khác
-           // nhau, chỉ id tin mới phân biệt được. Gửi lại cùng một mail vẫn cùng id nên không sinh trùng.
-           payload: JSON.stringify({ chat_id: CHAT_ID, text: text, mail_id: id }),
-           muteHttpExceptions: true,
-         });
-         Logger.log(res.getResponseCode() + ' ' + res.getContentText());
-         // App LUÔN trả HTTP 200, phải soi cờ ok trong JSON: ok=false là sai bí mật, nhóm chưa liên kết,
-         // hoặc đã ghi sổ mà chưa đăng được tin lên nhóm → CHƯA đánh dấu, lần chạy sau gửi lại và bot đăng
-         // bù. Gửi lại không sinh giao dịch trùng (app chống trùng bằng nội dung tin và mã giao dịch).
-         let body = {};
-         try { body = JSON.parse(res.getContentText()); } catch (err) { body = {}; }
-         if (res.getResponseCode() < 300 && body.ok === true) {
-           done.push(id);
-           daGui[id] = true;
-         }
-       }
-     }
-     props.setProperty(DONE_KEY, done.slice(-DONE_KEEP).join(','));
-   }
-   ```
-
-   **Đừng xoá thuộc tính `vodich_da_gui` trong Script Properties rồi chạy lại** khi sổ đang có dữ liệu: mọi
-   mail sẽ được gửi lại và app ghi thành giao dịch mới (mã chống trùng nay đi theo id tin). Muốn nạp lại cả
-   tháng thì xoá giao dịch của tháng đó trên web trước.
-
-   Lấy `CHAT_ID`: sau khi đặt webhook, gõ `/start` (hoặc `/link <mã>`) trong nhóm — bot trả lời kèm id nhóm (số âm).
-   Dùng HAI Gmail (mỗi người nhận mail ngân hàng của mình)? Cài cùng đoạn script này trên CẢ HAI tài khoản Google,
-   cùng `TOKEN` và `CHAT_ID`; mỗi script chỉ đọc hộp thư của tài khoản đang chạy nó.
-
-Trong app: nguồn Timo để trống số tài khoản (mail Timo không ghi số), thẻ MSB khai **4 số cuối thẻ** để tin khớp đúng nguồn.
-
-- **Tài khoản (Timo)**: mail có "Số dư hiện tại" → app lưu `reported_balance` và lấy số ngân hàng làm chuẩn
-  (số dư = số trong mail gần nhất + giao dịch ghi sau mail đó). Sổ ra số khác thì app **báo lệch** ở thẻ nguồn,
-  Tổng quan và tin Telegram để bạn thêm giao dịch còn thiếu bằng tay — app **không** tự bù. Chỉ mail đầu tiên
-  của một tài khoản được lấy làm mốc. Ô "Số dư" ở Nguồn tiền nhập số HIỆN TẠI, app tự suy số đầu kỳ.
-- **Thẻ tín dụng**: khai **Hạn mức thẻ** (số ngân hàng cấp), KHÔNG khai dư nợ. "Hạn mức còn" = hạn mức khai
-  − phần đã quẹt chưa trả (quẹt trừ đi, hoàn tiền và trả thẻ cộng lại), có số ngay chứ không phải chờ mail. Chỉ sổ
-  tính: không còn ô "Ngân hàng báo còn", chưa khai hạn mức thì ô Hạn mức còn để trống (25/9/2026). Thẻ còn khoản
-  quẹt cũ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn
-  mức. "Đã quẹt chưa trả" cộng từ giao dịch — trả hết là về 0, không có khái niệm "trả dư"; xuống dưới 0 là SỔ
-  THIẾU khoản quẹt và app báo đúng phần thiếu ấy. Hai thẻ dùng chung hạn mức thì khai ô **Thẻ thông** (chọn thẻ
-  kia) để hạn mức còn trừ đúng cả phần quẹt của thẻ kia — quan hệ CÓ HƯỚNG, hai thẻ thông nhau thì khai ở cả hai.
-- **Thẻ không đối chiếu với mail** (25/9/2026): hạn mức khả dụng trong mail MSB chỉ được lưu, không so, không báo
-  lệch. Chỉ tài khoản Timo còn đối chiếu số dư với mail.
-- **Khoản vay và nguồn có lãi suất**: khai lãi suất %/năm thì thẻ nguồn và ô "Trả nợ" ở Tổng quan hiện luôn
-  **lãi dự tính** mỗi tháng = dư nợ hiện tại × lãi suất / 12. Trả bớt gốc là số này giảm theo, trả hết thì mất.
-- **Mail "Biến động thanh toán thẻ tín dụng"** (hoàn tiền hoặc mình trả nợ thẻ): trùng với một lần trả thẻ đã
-  ghi (cùng số, ±3 ngày) thì bỏ qua; còn lại ghi là hoàn tiền vào thẻ — bot chỉ báo một dòng "Hoàn tiền vào thẻ
-  … của …", không hỏi mục đích, và số ấy tự trừ vào "đã quẹt chưa trả". Sau đó nếu bạn bấm "Trả thẻ …" trên
-  khoản chi bên tài khoản thì app tự bỏ dòng hoàn tiền trùng ấy đi.
-- Khoản chi không bấm nút mục đích nào thì mặc định vào mục chi tiêu "Khác" và nằm ở danh sách "Cần xem lại"
-  cho tới khi bấm ✓ hoặc đổi mục đích. Tin không đọc được nằm ở mục Giao dịch → "Tin Telegram chưa đọc được".
-- **Ghi tay năm loại** (giống nhau ở cả form Giao dịch lẫn form Khoản định kỳ): **Chi**, **Thu**,
-  **Trả nợ**, **Đầu tư**, **Cho vay**. Ba loại sau đều là chuyển tiền sang một nguồn khác nên chỉ chọn nguồn
-  đích và **không hỏi mục đích**; ô "Sang nguồn" tự lọc đúng loại nguồn hợp lệ (Trả nợ → thẻ hoặc khoản vay,
-  Đầu tư → nguồn đầu tư, Cho vay → nguồn cho vay).
-- **Trả nợ không có ô tổng**: gõ thẳng **Trả gốc** và **Trả lãi**, app cộng lại thành số tiền. Trả thẻ thì gõ
-  gốc, để lãi trống. Gốc trừ vào dư nợ, lãi thì không.
-- **Mục đích và Loại nguồn khai ở mục Cài đặt.** Mục đích khai một lần, dùng chung cho cả ô Mục đích trên web
-  lẫn các nút bấm trên Telegram. Loại nguồn thì bật/tắt loại nhà mình dùng và đổi tên cho dễ hiểu — không tạo
-  được loại mới, vì mỗi loại gắn một cách tính riêng (tài khoản giữ số dư, thẻ và khoản vay giữ dư nợ...);
-  loại đang có nguồn dùng thì không tắt được.
-- Tiền sang nguồn Tiết kiệm / Đầu tư luôn được tính là "cất đi", rút về thì trừ lại.
+Sổ chi tiêu gia đình (nguồn tiền, giao dịch, bot Telegram đọc mail ngân hàng qua Apps Script) đã gỡ hẳn
+lần thứ hai — migration `20260930090000_drop_household_module` xoá 9 bảng `household_*` /
+`player_household_access`. Dữ liệu cuối đã xuất ra Excel trong `backups/` và còn trong backup hằng đêm;
+muốn nạp lại thì checkout commit ngay trước commit gỡ rồi restore ở đó. **`TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_WEBHOOK_SECRET` là biến chết** — xoá khỏi Render; nhớ **tắt trigger Apps Script** trên Gmail vì
+đường `/telegram/ingest/…` không còn.
 
 ## Backup / khôi phục dữ liệu
 

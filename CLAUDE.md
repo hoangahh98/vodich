@@ -211,140 +211,20 @@ Ngoài ra có **vòng quay bốc tên đứng riêng** ở `/vong-quay` (`src/vi
 `public/js/wheel-of-names.js`), đặt cạnh `/score-reader`: chỉ cần đăng nhập, không thuộc module
 nào, không gọi API và không lưu DB — danh sách tên nằm trong `localStorage` của máy người dùng.
 
-### Chi tiêu gia đình (module `src/household/`, dựng lại 9/2026)
+### Module Chi tiêu đã gỡ lần hai (30/9/2026)
 
-Module Chi tiêu từng được dựng 4 lần trong hai tuần (7–8/2026) rồi gỡ hẳn vì mô hình đổi theo từng tính
-năng. Lần này lõi cố ý NHỎ và mọi con số suy từ giao dịch — đừng thêm cột "số dư", "đã trả", "còn lại":
+Sổ chi tiêu gia đình (`src/household/`, 9 bảng `household_*` + `player_household_access`, bot Telegram +
+Apps Script đọc mail Timo/MSB) đã gỡ hẳn theo ý chủ app — migration `20260930090000_drop_household_module`
+xoá 9 bảng và dòng `HOUSEHOLD` trong `admin_feature_permission`. Đây là lần gỡ THỨ HAI: lần đầu 3/8/2026
+(sau 4 lần dựng trong hai tuần), dựng lại 9/9/2026 với lõi nhỏ hơn, dùng ba tuần rồi lại gỡ. Dữ liệu cuối
+cùng (78 giao dịch, 15 nguồn, 13 mục đích, 81 tin Telegram) đã xuất ra Excel
+`backups/chi-tieu-xuat-2026-09-30.xlsx` (không commit) và còn trong backup hằng đêm. Hệ quả cần nhớ:
 
-| Bảng | Vai trò |
-|---|---|
-| `household_source` | Nguồn tiền: BANK/CASH/SAVING/INVEST giữ số dư, CARD/LOAN giữ DƯ NỢ, LENT là cho vay. `match_key` = số TK / 4 số cuối thẻ để khớp tin. |
-| `household_purpose` | Mục đích tự đặt (khai ở Cài đặt); `kind` (LIVING/SAVING/DEBT/RESERVE/LENDING/INCOME) quyết định luật báo cáo. |
-| `household_source_kind` | Cài đặt hiển thị 7 loại nguồn của hộ: bật/tắt + đổi tên. KHÔNG tạo được loại mới. |
-| `household_transaction` | EXPENSE / INCOME / TRANSFER. TRANSFER sang LOAN = trả nợ (`interest` là lãi), sang CARD = trả thẻ. `external_id` chống ghi trùng. |
-| `household_recurring` | Khoản định kỳ khai một lần; `interest_mode = FROM_RATE` → lãi = dư nợ đầu tháng × lãi suất / 12. |
-| `household_inbox` | Tin Telegram thô; UNPARSED để xử lý tay. |
-
-- Số dư: `opening_balance` là số ĐẦU KỲ nhưng người dùng không nhập nó — form nguồn nhận số HIỆN TẠI và
-  `HouseholdConfigService.openingFor` suy ngược. Đừng thêm lại ô "số dư đầu".
-- **Đối chiếu với ngân hàng (chủ app chốt 10/9/2026), `reconcileSources` trong `household-month.ts`**: mail
-  Timo báo SỐ DƯ tài khoản, mail MSB báo HẠN MỨC KHẢ DỤNG của thẻ (lưu ở `reported_balance` /
-  `reported_available` của từng giao dịch). Tài khoản thì NGÂN HÀNG THẮNG: số dư = số trong mail gần nhất +
-  giao dịch ghi sau mail đó. Sổ ra số khác thì `diff` khác 0 và app **báo lệch** (thẻ nguồn + Tổng quan + tin
-  Telegram) để chủ app thêm giao dịch còn thiếu bằng tay — **không** tự căn lại `opening_balance` như bản cũ
-  (`syncBalance` đã bỏ: tự bù là mất dấu khoản thiếu, số tiền thật còn lại thành sai). Ngoại lệ duy nhất: mail
-  ĐẦU TIÊN của một tài khoản được lấy làm mốc (suy ngược số đầu kỳ) vì tài khoản Timo không khai số dư tay.
-- **Thẻ tín dụng: KHAI HẠN MỨC THẺ, không khai dư nợ** (chủ app chốt 11/9/2026, thay luật "không khai gì" ngày
-  10/9 vì chờ mail báo hạn mức khả dụng thì số cứ lệch). Ô "Hạn mức thẻ" ở form nguồn ghi vào
-  `household_source.credit_limit`; **hạn mức còn** = hạn mức khai − phần đã quẹt chưa trả (trừ giao dịch quẹt,
-  cộng lại giao dịch hoàn tiền / trả thẻ) — `sourceBalances` trả `limitUsed` + `available`, sổ có số ngay
-  không phải chờ mail. **Chỉ sổ tính, không hiện số ngân hàng báo nữa (chủ app 25/9/2026)**: bỏ ô "Ngân hàng
-  báo còn" ở thẻ nguồn, và để trống ô hạn mức thì ô Hạn mức còn để trống chứ không rơi về hạn mức khả dụng
-  trong mail như bản 10/9. `reported_available` vẫn lưu nhưng KHÔNG dùng để so nữa — đối chiếu thẻ với mail bỏ hẳn 25/9/2026, xem
-  mục 2 bên dưới. Thẻ còn khoản quẹt CŨ từ trước khi dùng app thì trừ luôn phần ấy vào ô hạn mức (app cố ý không cho
-  khai dư nợ thẻ, và **không** tự căn lại — xem `syncBalance` đã bỏ ở gạch đầu dòng trên). Ba chuyện phải nhớ:
-  1. **Thẻ thông là quan hệ CÓ HƯỚNG** (`household_source.limit_shares_with`, chủ app chốt 10/9/2026):
-     khai "thẻ thông của thẻ A là B" nghĩa là giao dịch của A cũng làm đổi hạn mức khả dụng của B. Thực tế
-     nhà chủ app: 4768 → 3065 và 8867 → 3065 (mỗi thẻ hạn mức riêng, trả vào thẻ nào chỉ thẻ đó tăng, nhưng
-     3065 ăn theo cả hai), **3065 để trống**; hai thẻ của vợ thông nhau nên khai TRỎ LẪN NHAU. App không tự
-     khai hộ chiều ngược lại — chiều nào có thật chỉ chủ app biết. Hệ quả cho hạn mức còn: `limitUsed` của
-     thẻ X cộng phần đã quẹt chưa trả của chính X **và của mọi thẻ trỏ về X** (`affectsLimitOf`), từng thẻ
-     kẹp ≥ 0 để thẻ đang "trả quá" không nới hạn mức cho thẻ khác. Cộng nhầm cả cụm cho thẻ hạn mức riêng là
-     hạn mức còn của nó bị trừ oan cả trăm nghìn; test "thẻ thông có hướng" khoá lại.
-  2. **Thẻ KHÔNG đối chiếu với mail (chủ app 25/9/2026)** — thay hẳn luật 10–11/9 ("so từng đồng, không
-     ngưỡng bỏ qua, mách thẻ thông"). Hạn mức khả dụng MSB báo vẫn lưu ở `reported_available` nhưng
-     `reconcileSources` cho `diff` của thẻ luôn 0, `bankCheck` của bot chỉ nhắc "Hạn mức còn X / Y" (thẻ
-     chưa khai hạn mức thì không nói gì), thẻ nguồn không còn ô "Ngân hàng báo còn" lẫn dòng "Sổ lệch".
-     Lý do chủ app: hoàn tiền vào lại hạn mức chậm cả ngày, mail có lúc không gửi, vài giao dịch lệch trăm
-     đồng không giải thích được — báo lệch thành nhiễu. **Chỉ tài khoản Timo còn đối chiếu số dư.**
-  3. **"Đã quẹt chưa trả" trả hết là về 0** — KHÔNG có "trả dư" (trả thẻ chỉ là trả nợ thẻ); xuống dưới 0
-     nghĩa là sổ thiếu khoản quẹt, kẹp hiển thị về 0 và báo phần thiếu, tổng "Nợ thẻ" cũng kẹp từng thẻ về 0
-     để thẻ thiếu không ăn bớt nợ thẻ khác. Ngược lại `limitUsed` vượt hạn mức khai thì hạn mức còn kẹp về 0
-     và thẻ nguồn báo phần vượt.
-- Toán ở `household-month.ts` (thuần, có test `test/household.test.js`): `sourceBalances`, `monthReport`,
-  `recurringExpectations`, `matchRecurring`. **Luật chủ app chốt 9/9/2026**: quẹt thẻ là chi tiêu lúc quẹt,
-  trả thẻ chỉ là chuyển nguồn; trả nợ vay tính vào "dùng" cả gốc lẫn lãi, gốc trừ dư nợ; giao dịch chưa có
-  mục đích tính vào chi tiêu và đếm ở "chưa phân loại"; chuyển tiền sang nguồn Tiết kiệm / Đầu tư là "cất đi"
-  (vào `saving`) kể cả khi không gắn mục đích, rút về thì trừ lại.
-- **Ô "Loại" có NĂM lựa chọn (chủ app 21/9/2026)**, dùng chung ở form giao dịch lẫn form khoản định kỳ,
-  nhãn lấy từ `labels.txForm` (`TX_FORM_KIND_LABELS`). Ba lựa chọn cuối đều là chuyển tiền nên DB **vẫn chỉ
-  lưu ba `TX_KINDS`**, phân biệt bằng LOẠI NGUỒN ĐÍCH:
-
-  | Ô Loại | Lưu DB | Nguồn đích | Ô gốc/lãi | Ô mục đích |
-  |---|---|---|---|---|
-  | Chi | EXPENSE | — | không | có |
-  | Thu | INCOME | — | không | có |
-  | **Trả nợ** | TRANSFER | CARD, LOAN | **có** | không |
-  | Đầu tư | TRANSFER | INVEST | không | không |
-  | Cho vay | TRANSFER | LENT | không | không |
-
-  `TRANSFER_FORM_TARGETS` là nguồn sự thật cho bảng trên (cả `household.js` cũng chép lại y thế — sửa một
-  bên mà quên bên kia là form lọc nguồn đích một đằng, server nhận một nẻo). `normalizeFormTxKind` đổi ba
-  loại ấy về TRANSFER, `formKindOfTransfer(targetKind)` suy ngược lúc mở form sửa. **Đừng thêm loại mới vào
-  `TX_KINDS`**: mọi chỗ đang hỏi `kind === 'TRANSFER'` (toán tháng, đối chiếu, Telegram, định kỳ) sẽ lặng lẽ
-  bỏ sót nó. Nhãn "Chuyển nguồn" vẫn còn trong `TX_FORM_KIND_LABELS` nhưng KHÔNG có trong ô Loại của form
-  ghi mới — chỉ để hiện khoản TRANSFER sang nguồn ngoài ba loại trên (bot tạo khi bấm "… trả nợ": LENT →
-  tài khoản), mở form sửa mà thiếu nhãn là nó lặng lẽ nhảy sang loại khác.
-- **Trả nợ KHÔNG có ô tổng** (chủ app 21/9/2026): gõ thẳng **Trả gốc** và **Trả lãi**, tổng là hai số cộng
-  lại (`moneyFromForm` trong `household-ledger.service.ts`). Trả thẻ thì gõ gốc, để lãi trống. Trước đây là
-  một ô tổng + ô chọn "khoản này là gốc / lãi / cả hai" (`debtPart`, đã bỏ hẳn) — vừa phải nhẩm vừa hay
-  lệch. Các loại khác vẫn một ô tổng và lãi luôn 0. Ô giấu bằng `hidden` VẪN gửi giá trị lên nên
-  `moneyFromForm` đọc theo `kind` chứ không cộng bừa ô nào có số.
-- Nguồn nào khai lãi suất thì thẻ nguồn và ô "Trả nợ" ở Tổng quan hiện luôn **lãi dự tính mỗi tháng**
-  (chủ app 18/9/2026) = dư nợ × lãi suất năm / 12, tính trong `monthlyInterest` và gắn sẵn vào từng dòng
-  `reconcileSources` trả về. Dùng chung đúng hàm ấy với khoản định kỳ kiểu `FROM_RATE` — hai chỗ tự tính
-  riêng là thẻ nguồn một số, dòng định kỳ một số. Chỉ nguồn CÒN nợ mới có lãi (hết nợ / trả quá → 0), và
-  lãi đi theo dư nợ đã căn với mail ngân hàng chứ không phải số thô của sổ.
-- Mọi giao dịch đi qua `HouseholdLedgerService.create()` (form tay, nút Ghi nhận định kỳ, Telegram) để cùng
-  một luật khớp định kỳ (cùng nguồn, lệch ≤ 2%) và đoán mục đích theo lần trước cùng nội dung
-  (`normalizeDescription`). Tin tự động (status NEW) không đoán được thì mặc định vào mục chi tiêu "Khác"
-  (`defaultLivingPurpose`) — chủ app: không bấm gì thì cứ là chi tiêu. "Cần xem lại" = chưa có mục đích HOẶC
-  còn NEW; bấm ✓ / đổi mục đích là CONFIRMED.
-- Telegram: Apps Script gửi mail vào `POST /telegram/ingest/:secret` (KHÔNG gửi vào nhóm bằng token bot —
-  Telegram không đưa tin của chính bot về webhook, bot im lặng, đã dính 10/9/2026); webhook
-  `POST /telegram/webhook/:secret` chỉ nhận tin của người và callback nút (`telegram.controller.ts`, @Public
-  có trong danh sách duyệt của `test/security.test.js`). Không quét định kỳ. Apps Script quét mail **từ ngày đầu tháng hiện tại tới giờ** (`after:`, chủ app chốt 10/9/2026) và nhớ TỪNG
-  MAIL đã gửi bằng id tin trong Script Properties. **Đừng dùng nhãn Gmail** (Gmail gom mail cùng tiêu đề vào
-  MỘT luồng, nhãn là nhãn của cả luồng → gắn xong là mọi mail ngân hàng sau đó bị bỏ qua sạch, đã dính
-  10/9/2026: mail thẻ từ 7/9 không vào app) và đừng dùng `is:unread` + `markRead` (lỡ tay mở mail là mất tin).
-  Luồng Gmail còn chứa cả mail cũ hơn đầu tháng nên phải lọc lại theo ngày của từng mail. Script gửi kèm
-  TIÊU ĐỀ mail vì thẻ MSB có hai tiêu đề: "Biến động chi tiêu thẻ tín dụng" = quẹt tiêu, "Biến động thanh toán
-  thẻ tín dụng" = hoàn tiền / mình trả nợ thẻ (mail này có thể không mang dấu +/− nên PHẢI đọc theo tiêu đề;
-  bot chỉ báo một dòng "Hoàn tiền vào thẻ … của …", không hỏi mục đích). Mẫu đọc tin ở `bank-parsers.ts` (Timo tài khoản — kèm số dư hiện tại, MSB thẻ — kèm hạn mức khả dụng
-  SAU giao dịch,
-  mẫu chung; VPBank đã gỡ 10/9/2026 vì tiền về nhà đi hết qua Timo) — thêm ngân hàng thì thêm parser + test với mail thật. Mã chống trùng (`external_id`) kèm số dư / hạn mức khả dụng
-  sau giao dịch VÀ id tin Gmail (`mail_id` script gửi kèm): mail chỉ ghi giờ tới PHÚT, và MSB có khi gửi HAI
-  mail **giống hệt nhau từng chữ** (cùng số tiền, cùng phút, cùng hạn mức khả dụng) cho hai giao dịch khác
-  nhau — chủ app bắt được 10/9/2026, hai lần trả thẻ 1.000đ. Chỉ id tin Gmail mới tách được, nên khoá hộp thư
-  (`household_inbox.message_id`) cũng lấy hash của id tin khi có. Hệ quả: **đừng xoá `vodich_da_gui` trong
-  Script Properties rồi chạy lại** khi sổ đang có dữ liệu — mọi mail gửi lại sẽ thành giao dịch mới. Nút inline `hp:<tx>:<purpose>` gán mục
-  đích, `ht:<tx>:<source>` đổi khoản chi thành trả thẻ/trả nợ. Liên kết nhóm bằng `/link <mã>`.
-- **Telegram chặn gửi dồn ~20 tin/phút vào một nhóm.** Gửi cả loạt mail một lần (lần đầu cài Apps Script,
-  hay dồn mail mấy ngày) là tin thứ 21 trở đi ăn 429 — đã dính 9/9/2026: 20 tin lên nhóm, 3 khoản sau vào sổ
-  mà không có tin nào để bấm. `api()` gặp 429 thì đợi `retry_after` rồi gửi lại (tối đa 2 lần, mỗi lần ≤ 30s),
-  hết lượt thì để cơ chế đăng bù bên dưới lo. Đừng gỡ.
-- **Ghi sổ được mà đăng tin lên nhóm hỏng** (mất token, bot bị đá khỏi nhóm) từng để lại khoản "cần xem lại"
-  mà trên Telegram không có gì bấm (chủ app 10/9/2026). Nay `ingestBankText` trả `'unsent'`, `ingestFromScript`
-  trả `ok: false` → Apps Script chưa gắn nhãn nên gửi lại, và lần gửi lại tuy TRÙNG giao dịch vẫn đăng bù tin
-  tóm tắt (`isTelegramMessageId`: `telegram_msg_id` còn là hash nội dung = chưa từng đăng). Web cũng ghi rõ
-  dưới dòng giao dịch vì sao nó còn "cần xem lại": chưa xác nhận / chưa lên được Telegram / chưa chọn mục đích.
-- **Mục đích và Loại nguồn khai ở mục Cài đặt (chủ app 21/9/2026).** Mục đích từng bị ẩn khỏi Cài đặt ngày
-  10/9 (dùng bộ mặc định), nay mở lại — ô "Mục đích" ở form giao dịch VÀ các nút trên Telegram đều đọc
-  `household_purpose` nên sửa ở Cài đặt là đổi cả hai nơi, không phải khai hai chỗ.
-- **Loại nguồn: bật/tắt + đổi tên, KHÔNG tạo được loại mới** (`household_source_kind`, migration
-  `20260921100000`). Bảy `SOURCE_KINDS` mỗi loại gắn một LUẬT viết cứng trong code (`isDebtSource`,
-  `isSavedSource`, `isSpendableSource`), nên bảng này chỉ giữ NHÃN và cờ ẩn/hiện — đừng đọc nhãn để suy ra
-  cách tính, và đừng mở cho tạo `kind` tự đặt vì không có luật nào chạy cho nó. Hộ chưa khai dòng nào thì cả
-  7 loại đều bật với tên mặc định (`sourceKindSettings`), nên hộ cũ không phải làm gì. Loại đang có nguồn
-  dùng thì `saveSourceKinds` **không cho tắt** (tắt xong nguồn ấy vẫn được tính nhưng biến mất khỏi ô Loại,
-  không ai sửa lại được) — nó trả `blocked` để controller báo lại bằng flash.
-- **Không còn chữ gợi ý trong module** (chủ app 21/9/2026): đã bỏ hết `placeholder`, `small.field-hint` và
-  mấy đoạn `p.muted` giải thích dưới tiêu đề. Thêm ô mới thì đừng kèm chú thích; `test/ui-smoke.test.js`
-  khoá lại bằng `doesNotMatch(/placeholder=/)` cho form giao dịch và form định kỳ.
-- Quyền: `@FeatureAccess('HOUSEHOLD')`; admin theo `ownedOrSharedWhere`, thành viên trong nhà là CLIENT qua
-  `player_household_access` (`clientHouseholdWhere`). Mỗi admin tạo được nhiều hộ.
-- View `src/views/household/` cùng khuôn trang đội; form trong bảng dùng thuộc tính `form=` trỏ tới form rỗng
-  đứng ngoài `<table>` (form trong `<tr>` là HTML sai). JS riêng: `public/js/household.js` (ẩn/hiện ô nguồn đích).
+- `AppFeature` chỉ còn `TOURNAMENTS | TEAMS | PERMISSIONS`; `TelegramController` không còn nên chỉ **3**
+  controller `@Public()`. `TELEGRAM_BOT_TOKEN` / `TELEGRAM_WEBHOOK_SECRET` là biến chết — xoá khỏi Render,
+  và tắt trigger Apps Script trên Gmail (nó vẫn gọi `/telegram/ingest/…` và ăn 404).
+- Muốn dựng lại lần nữa thì đọc lịch sử ở commit ngay trước commit gỡ (CLAUDE.md ở đó có ~130 dòng luật
+  chủ app đã chốt: hạn mức thẻ, thẻ thông có hướng, 5 loại giao dịch, đối chiếu Timo…) — đừng đoán lại.
 
 ### Phân quyền — đọc `docs/bao-mat.md` trước khi đụng vào
 
@@ -363,9 +243,8 @@ bộ lọc chủ sở hữu trong service.
 - `FeatureGuard` đăng ký qua `APP_GUARD` và **mặc-định-chặn**: route mới tự động đòi đăng nhập.
   Decorator: `@Public()`, `@FeatureAccess('TOURNAMENTS'|'TEAMS'|'PERMISSIONS')`, `@AdminOnly()`,
   `@RootAdminOnly()` (đặt trên class hoặc method, method thắng class).
-- Chỉ **4 controller** được `@Public()`: `AuthController`, `HealthController`,
-  `ExternalRegistrationController` và `TelegramController` (webhook + đường nhận mail của module
-  Chi tiêu, chặn bằng bí mật trong đường dẫn + header). Danh sách này bị khóa bởi
+- Chỉ **3 controller** được `@Public()`: `AuthController`, `HealthController` và
+  `ExternalRegistrationController` (`TelegramController` đi cùng module Chi tiêu, gỡ 30/9/2026). Danh sách này bị khóa bởi
   `test/security.test.js` — thêm `@Public()` chỗ khác là test đỏ.
 - Guard chặn ≠ lọc chủ sở hữu. Mọi truy vấn tài nguyên có chủ phải dùng
   `ownedOrSharedWhere(user)` (`src/common/admin-scope.ts`), **lọc ngay trong câu truy vấn**
