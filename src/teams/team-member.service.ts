@@ -26,6 +26,12 @@ export class TeamMemberService {
     // Ghi loại vào ảnh chụp tháng này (người quay lại đội trong cùng tháng thì cập nhật loại), rồi
     // chốt tháng để mức phí tự chia lại.
     await this.months.snapshotMemberType(member.id, month, normalizedMemberType);
+    // Tháng SAU đã chốt sẵn cũng phải có dòng: tháng đã chốt chỉ hiện người có dòng phí
+    // (TeamDetailService.monthRoster). ensureMonth bên dưới lan việc chia lại phí sang các tháng đó.
+    const laterFunds = await this.prisma.teamMonthFund.findMany({ where: { teamId, fundMonth: { gt: monthDate(month) } }, select: { fundMonth: true } });
+    for (const fund of laterFunds) {
+      await this.months.snapshotMemberType(member.id, fund.fundMonth.toISOString().slice(0, 7), normalizedMemberType);
+    }
     await this.months.ensureMonth(teamId, month);
     return member;
   }

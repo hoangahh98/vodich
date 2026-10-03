@@ -88,18 +88,20 @@ test('rời đội từ tháng 8: tháng 7 giữ nguyên, tháng 8 trở đi ch�
   assert.deepEqual(recomputed, [M8.toISOString()], 'phí tháng 8 tự chia lại cho người còn lại');
 });
 
-test('thêm người vào tháng: chụp loại vào tháng đó rồi chốt tháng để chia lại phí', async () => {
+test('thêm người vào tháng: chụp loại vào tháng đó và các tháng sau đã chốt, rồi chốt tháng để chia lại phí', async () => {
   const log = [];
   const prisma = {
     teamMember: { upsert: async () => ({ id: 10n }) },
     playerTeamAccess: { createMany: async () => undefined },
+    // Tháng 9 đã chốt sẵn → người mới cũng phải có dòng ở tháng 9, không thì tháng đó không hiện họ.
+    teamMonthFund: { findMany: async ({ where }) => (where.fundMonth.gt.toISOString() === M8.toISOString() ? [{ fundMonth: new Date('2026-09-01T00:00:00Z') }] : []) },
   };
   const months = {
     snapshotMemberType: async (memberId, month, type) => log.push(`snap:${memberId}:${month}:${type}`),
     ensureMonth: async (teamId, month) => log.push(`ensure:${teamId}:${month}`),
   };
   await new TeamMemberService(prisma, months).addMember(1n, 5n, 'GUEST', '', '2026-08');
-  assert.deepEqual(log, ['snap:10:2026-08:GUEST', 'ensure:1:2026-08']);
+  assert.deepEqual(log, ['snap:10:2026-08:GUEST', 'snap:10:2026-09:GUEST', 'ensure:1:2026-08']);
 });
 
 test('số dư mang sang đếm cố định theo ẢNH CHỤP tháng trước, kể cả người đã rời đội', async () => {
@@ -127,6 +129,7 @@ test('monthRoster: người có dòng phí tháng đó hiện theo loại đã c
       findMany: async () => [{ id: 1n, memberType: 'GUEST', paidAmount: 50000, paymentStatus: 'PAID', member: { id: 10n, memberType: 'FIXED', active: false, player: { displayName: 'Đã rời' } } }],
     },
     teamMember: { findMany: async () => [{ id: 11n, memberType: 'FIXED', active: true, player: { displayName: 'Mới' } }] },
+    teamMonthFund: { findUnique: async () => null }, // tháng 7 chưa chốt → xem trước có cả người đang hoạt động
   };
   const roster = await new TeamDetailService(prisma).monthRoster(1n, M7);
   assert.equal(roster.length, 2);
@@ -134,4 +137,17 @@ test('monthRoster: người có dòng phí tháng đó hiện theo loại đã c
   assert.equal(roster[0].payments[0].paidAmount, 50000);
   assert.equal(roster[1].memberType, 'FIXED');
   assert.deepEqual(roster[1].payments, []);
+});
+
+/** Ca thật 4/10/2026: Vũ Việt Hùng vào đội 3/10 hiện luôn trong tháng 9 (đã chốt) như nợ 377k, "Quỹ còn lại" tháng 9 lệch 377k. */
+test('monthRoster: tháng đã chốt chỉ lấy người có dòng phí, người vào đội sau không hiện ngược về', async () => {
+  const prisma = {
+    teamMemberPayment: {
+      findMany: async () => [{ id: 1n, memberType: 'FIXED', paidAmount: 377000, paymentStatus: 'PAID', member: { id: 10n, memberType: 'FIXED', active: true, player: { displayName: 'Cũ' } } }],
+    },
+    teamMember: { findMany: async () => assert.fail('tháng đã chốt không được kéo thêm người đang hoạt động') },
+    teamMonthFund: { findUnique: async () => ({ id: 1n }) },
+  };
+  const roster = await new TeamDetailService(prisma).monthRoster(1n, M7);
+  assert.deepEqual(roster.map((member) => member.player.displayName), ['Cũ']);
 });

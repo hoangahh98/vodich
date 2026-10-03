@@ -60,13 +60,19 @@ export class TeamDetailService {
 
   /**
    * Danh sách thành viên CỦA THÁNG: ai có dòng phí tháng đó (kể cả người đã rời đội sau này) theo loại
-   * đã chụp, cộng thêm người đang hoạt động mà tháng chưa có dòng (tháng chưa chốt) theo loại hiện tại.
+   * đã chụp. Tháng CHƯA CHỐT (chưa có dòng quỹ) thì cộng thêm người đang hoạt động theo loại hiện tại.
+   *
+   * Tháng ĐÃ CHỐT thì chỉ lấy dòng phí: mọi lần ghi đều qua ensureMonth nên ai thuộc tháng đó đã có dòng;
+   * người đang hoạt động mà không có dòng là người vào đội SAU tháng đó. Từng cộng cả họ vào: Vũ Việt Hùng
+   * vào đội 3/10/2026 hiện luôn trong tháng 9 như nợ 377k, "Quỹ còn lại" tháng 9 thành 377k trong khi phí
+   * tháng 9 chia cho 14 người và số dư mang sang tháng 10 (previousMonthBalance, đếm theo dòng) là 0.
    */
   async monthRoster(teamId: bigint, fundMonth: Date): Promise<TeamMemberWithPayment[]> {
-    const [rows, active] = await Promise.all([
+    const [rows, closed] = await Promise.all([
       this.prisma.teamMemberPayment.findMany({ where: { fundMonth, member: { teamId } }, include: { member: { include: { player: true } } }, orderBy: { id: 'asc' } }),
-      this.prisma.teamMember.findMany({ where: { teamId, active: true }, include: { player: true }, orderBy: { id: 'asc' } }),
+      this.prisma.teamMonthFund.findUnique({ where: { teamId_fundMonth: { teamId, fundMonth } }, select: { id: true } }),
     ]);
+    const active = closed ? [] : await this.prisma.teamMember.findMany({ where: { teamId, active: true }, include: { player: true }, orderBy: { id: 'asc' } });
     const roster = new Map<string, TeamMemberWithPayment>();
     for (const row of rows) {
       const { member, ...payment } = row;

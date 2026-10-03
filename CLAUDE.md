@@ -52,6 +52,10 @@ baseline để xem nó gãy). Chi tiết ở README mục "Dựng lại DB từ 
 
 Repo **không có** ESLint/Prettier — không thêm bước lint vào quy trình.
 
+**Xong việc thì mặc định commit và push lên `main`** (chủ app dặn 4/10/2026) sau khi `npm test` xanh —
+không cần hỏi lại. Push là Render tự deploy và chạy migration, nên migration có sửa dữ liệu thì chạy thử
+trên DB thật trong transaction rồi ROLLBACK trước khi push.
+
 ## Kiến trúc
 
 NestJS + TypeScript, render phía server bằng EJS (không phải SPA), Prisma/PostgreSQL (Supabase),
@@ -289,8 +293,11 @@ Học vui (18/9/2026, `games.css` đi cùng). Quy ước, và là thứ chủ ap
 
 `src/teams/team-month.service.ts`. Loại thành viên (cố định/vãng lai) ghi vào `team_member_payment.member_type`
 của TỪNG THÁNG; đổi loại hay rời đội chỉ áp dụng từ tháng đang thao tác trở đi, tháng cũ giữ nguyên số
-và tiền đã đóng. Danh sách của tháng (`TeamDetailService.monthRoster`) = ai có dòng phí tháng đó (kể cả
-người đã rời) + người đang hoạt động mà tháng chưa có dòng — không lấy riêng cờ `active`. Mọi thao tác ghi lên tháng đều qua `ensureMonth` → `recompute`: tháng ở chế độ
+và tiền đã đóng. Danh sách của tháng (`TeamDetailService.monthRoster`): tháng **đã chốt** (có dòng quỹ) CHỈ
+lấy ai có dòng phí tháng đó (kể cả người đã rời); tháng **chưa chốt** thì cộng thêm người đang hoạt động.
+Đừng cộng người đang hoạt động vào tháng đã chốt — họ vào đội sau tháng đó (ca thật 4/10/2026: Vũ Việt Hùng
+vào 3/10 hiện ngược về tháng 9 như nợ 377k, "Quỹ còn lại" tháng 9 thành 377k trong khi dư mang sang tháng
+10 là 0). Vì thế `addMember` tạo dòng cho cả các tháng SAU đã chốt sẵn. Mọi thao tác ghi lên tháng đều qua `ensureMonth` → `recompute`: tháng ở chế độ
 `fee_mode = AUTO` tự chia đều mức phí và lan số dư sang tháng sau (cũng AUTO); MANUAL thì giữ số gõ.
 Tháng chưa chốt được xem trước (`fundPreview`) chứ không ghi DB. `previousMonthBalance` đếm cố định theo
 ảnh chụp tháng trước — đừng đổi về đếm `active`, đó là lỗi cũ làm hụt quỹ khi có người rời đội.
@@ -319,6 +326,20 @@ Màn **Tổng quan** của đội: ô đầu là **Tổng dư đầu tháng**, C
 trước), không chú thích — chủ app 4/10/2026 bỏ ô "Tổng quỹ" (phải đóng + dư + vãng lai, dễ đọc nhầm là tiền
 đang có). Danh sách người còn thiếu chuyển sang ô "Tổng đã thu"; "Quỹ còn lại" vẫn = dư đầu tháng + phải
 đóng + vãng lai − đã chi (khớp `previousMonthBalance`).
+
+Hai điều hay bị hỏi "sao số lệch" (soi DB thật 4/10/2026, đội "chiều chủ nhật"):
+
+- **"Quỹ còn lại" tính theo tiền PHẢI đóng, không theo tiền ĐÃ thu.** Tháng 9: 14 cố định × 377k + vãng
+  lai 900k − sân 3,56tr − chi 2,618tr = **0đ**, nên dư đầu tháng 10 = 0 là đúng. Tiền thật lại là −13k: 13
+  người đã đóng 405k trước 28/9, rồi diu vào làm phí chia lại còn 377k (14 người) mà diu không đóng — phần
+  đóng dư 13 × 28k không cộng, phần nợ 377k của diu vẫn tính như đã có. Đây là công thức chủ app dùng từ
+  đầu; muốn đổi sang tiền thật thì phải đổi đồng thời `TeamMonthReportBuilder.finance` và
+  `previousMonthBalance`, và hỏi chủ app trước.
+- **Tháng MANUAL không nhận số dư lan sang.** `recompute` chỉ cập nhật `previous_balance` của tháng kế tiếp
+  khi tháng đó AUTO. Thêm nữa, form Cài đặt luôn gửi ô "Tiền sân còn lại tháng trước" (điền sẵn số đang lưu),
+  nên lưu Cài đặt một lần là số đó dính cứng. Sửa tháng trước xong mà tháng sau đang MANUAL thì phải vào Cài
+  đặt tháng sau xoá trống ô đó để app tự lấy `previousMonthBalance`. Tháng 10/2026 của đội chiều chủ nhật
+  đang MANUAL (phí 510k, admin chuyển 3/10 sau khi migration chia lại thành 514k).
 
 **Báo cáo tháng gộp nhiều đội** (`GET /teams/report?month=`, nút "Báo cáo tháng" ở banner Đội bóng, chủ app
 28/9/2026): admin lo 3 đội, có người chơi 2–3 đội, trước phải mở từng đội cộng tay. `TeamReportService`
