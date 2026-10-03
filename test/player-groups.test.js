@@ -88,3 +88,17 @@ test('requireAnyFeature: vào được khi có MỘT trong các feature, CLIENT 
   assert.equal(requireAnyFeature({ session: { user: { id: '7', email: 'an@test', displayName: 'An', role: 'CLIENT' } } }, client, auth, ['TOURNAMENTS']), undefined);
   assert.equal(client.statusCode, 403);
 });
+
+/** Ca diu 28/9/2026: tháng 9 đã thu đủ mà thêm vào nhóm là bị chia phí luôn vào tháng 9 — nay chọn được tháng bắt đầu. */
+test('startMonth: mặc định tháng hiện tại, nhận tháng sau, không cho lùi về tháng cũ hay chuỗi lạ', () => {
+  const { startMonth } = require('../dist/groups/group.controller');
+  const now = new Date().toISOString().slice(0, 7);
+  const [y, m] = now.split('-').map(Number);
+  const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`;
+  assert.equal(startMonth(undefined), now);
+  assert.equal(startMonth(''), now);
+  assert.equal(startMonth(next), next);
+  assert.equal(startMonth('2020-01'), now, 'tháng cũ đã chốt thì không thêm ngược vào');
+  assert.equal(startMonth('2026-13'), now);
+  assert.equal(startMonth(['2099-01']), now);
+});

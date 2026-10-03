@@ -34,8 +34,13 @@
   </section>
 
   <section class="card-lite p mb">
-    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'plus' }) %></span><h2 class="section-title">Thêm người vào nhóm</h2><% if (group.teams.length) { %><p class="muted">Người được thêm sẽ tự vào <%= group.teams.length %> đội đang dùng nhóm từ tháng này.</p><% } %></div></div>
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'plus' }) %></span><h2 class="section-title">Thêm người vào nhóm</h2><% if (group.teams.length) { %><p class="muted">Người được thêm sẽ tự vào <%= group.teams.length %> đội đang dùng nhóm (cố định) và tính phí từ tháng chọn bên dưới.</p><% } %></div></div>
     <form method="post" action="/groups/<%= group.id %>/members" data-require-checked="playerIds">
+      <% if (group.teams.length) { %>
+        <%# Tháng đã thu đủ thì chọn tháng sau, không thì người mới bị chia phí vào tháng đó (ca diu 28/9/2026). %>
+        <% const startDefault = typeof currentMonth !== 'undefined' ? currentMonth : new Date().toISOString().slice(0, 7); %>
+        <div class="mb"><label for="groupStartMonth">Tính phí từ tháng</label><input type="month" id="groupStartMonth" name="startMonth" value="<%= startDefault %>" min="<%= startDefault %>"><small class="field-hint">Tháng này đã thu tiền xong thì chọn tháng sau để không chia lại phí tháng này.</small></div>
+      <% } %>
       <% if (candidates.length) { %>
         <div class="check-filter mb"><%- include('../partials/icon', { name: 'search' }) %><input type="search" data-check-filter="groupCandidateList" placeholder="Gõ tên hoặc email để tìm…" autocomplete="off" aria-label="Tìm người"><span class="badge" data-check-filter-count><%= candidates.length %></span></div>
       <% } %>

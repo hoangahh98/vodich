@@ -33,7 +33,7 @@ export class GroupController {
     const groupId = parseBigId(id);
     const group = groupId ? await this.groups.findScoped(user, groupId) : null;
     if (!group) return notFound(res, 'Không tìm thấy nhóm');
-    return render(res, 'groups/detail', { group, players: await this.players.list() });
+    return render(res, 'groups/detail', { group, players: await this.players.list(), currentMonth: currentMonth() });
   }
 
   @Post('/groups')
@@ -50,7 +50,7 @@ export class GroupController {
     if (!user) return;
     const groupId = parseBigId(id);
     if (!groupId) return notFound(res);
-    await this.groups.addMembers(user, groupId, idList(body.playerIds), currentMonth());
+    await this.groups.addMembers(user, groupId, idList(body.playerIds), startMonth(body.startMonth));
     return res.redirect(`/groups/${id}`);
   }
 
@@ -87,4 +87,15 @@ export class GroupController {
     await this.groups.deleteWithTeams(user, groupId, currentMonth());
     return res.redirect('/groups');
   }
+}
+
+/**
+ * Tháng bắt đầu tính phí khi thêm người vào nhóm có đội liên kết (chủ app 4/10/2026). Mặc định tháng hiện
+ * tại; chỉ nhận tháng hiện tại trở đi. Ca thật: diu được thêm ngày 28/9 — tháng 9 đã thu đủ 405k của 13
+ * người — mà app xếp luôn vào tháng 9, phí chia lại còn 377k cho 14 người trong khi diu chỉ chơi từ tháng 10.
+ */
+export function startMonth(value: unknown): string {
+  const now = currentMonth();
+  const month = typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? value : now;
+  return month < now ? now : month;
 }

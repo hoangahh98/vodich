@@ -329,17 +329,23 @@ trước), không chú thích — chủ app 4/10/2026 bỏ ô "Tổng quỹ" (ph
 
 Hai điều hay bị hỏi "sao số lệch" (soi DB thật 4/10/2026, đội "chiều chủ nhật"):
 
-- **"Quỹ còn lại" tính theo tiền PHẢI đóng, không theo tiền ĐÃ thu.** Tháng 9: 14 cố định × 377k + vãng
-  lai 900k − sân 3,56tr − chi 2,618tr = **0đ**, nên dư đầu tháng 10 = 0 là đúng. Tiền thật lại là −13k: 13
-  người đã đóng 405k trước 28/9, rồi diu vào làm phí chia lại còn 377k (14 người) mà diu không đóng — phần
-  đóng dư 13 × 28k không cộng, phần nợ 377k của diu vẫn tính như đã có. Đây là công thức chủ app dùng từ
-  đầu; muốn đổi sang tiền thật thì phải đổi đồng thời `TeamMonthReportBuilder.finance` và
-  `previousMonthBalance`, và hỏi chủ app trước.
+- **"Quỹ còn lại" tính theo tiền PHẢI đóng, không theo tiền ĐÃ thu.** Một người cố định chưa đóng vẫn được
+  tính như đã có tiền. Ví dụ tháng 9 trước khi sửa dữ liệu: 14 cố định × 377k (có diu, không đóng) + vãng lai
+  900k − sân 3,56tr − chi 2,618tr = 0đ, trong khi tiền thật là −13k. Đây là công thức chủ app dùng từ đầu;
+  muốn đổi sang tiền thật thì phải đổi đồng thời `TeamMonthReportBuilder.finance` và `previousMonthBalance`,
+  và hỏi chủ app trước.
 - **Tháng MANUAL không nhận số dư lan sang.** `recompute` chỉ cập nhật `previous_balance` của tháng kế tiếp
   khi tháng đó AUTO. Thêm nữa, form Cài đặt luôn gửi ô "Tiền sân còn lại tháng trước" (điền sẵn số đang lưu),
   nên lưu Cài đặt một lần là số đó dính cứng. Sửa tháng trước xong mà tháng sau đang MANUAL thì phải vào Cài
-  đặt tháng sau xoá trống ô đó để app tự lấy `previousMonthBalance`. Tháng 10/2026 của đội chiều chủ nhật
-  đang MANUAL (phí 510k, admin chuyển 3/10 sau khi migration chia lại thành 514k).
+  đặt tháng sau xoá trống ô đó để app tự lấy `previousMonthBalance`.
+
+**Thêm người vào nhóm chọn được tháng bắt đầu tính phí** (`startMonth` trong group.controller.ts, ô
+"Tính phí từ tháng" ở groups/detail.ejs; mặc định tháng hiện tại, chỉ nhận tháng hiện tại trở đi). Ca thật:
+28/9/2026 diu được thêm vào nhóm, tháng 9 đã thu đủ 405k của 13 người, app xếp luôn diu vào tháng 9 → phí
+tụt còn 377k (chia 14 người) dù diu chỉ chơi từ tháng 10 và không đóng tháng 9; xoá diu 3/10 không sửa được
+tháng 9 vì luật rời đội không đụng tháng trước tháng rời. Migration `20261004120000_fix_diu_september` sửa
+tay dữ liệu đó: bỏ dòng tháng 9 của diu → tháng 9 về 405k × 13, dư tháng 9 = −13k mang sang tháng 10
+(đang AUTO) → phí tháng 10 chia lại 515k cho 12 người.
 
 **Báo cáo tháng gộp nhiều đội** (`GET /teams/report?month=`, nút "Báo cáo tháng" ở banner Đội bóng, chủ app
 28/9/2026): admin lo 3 đội, có người chơi 2–3 đội, trước phải mở từng đội cộng tay. `TeamReportService`
