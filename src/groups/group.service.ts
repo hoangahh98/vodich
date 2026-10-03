@@ -16,7 +16,8 @@ export interface RemovalPreview {
     isMember: boolean;
     willLeave: boolean;
     coveredBy: string[];
-    current: { paid: number; expected: number; shortfall: number };
+    /** `dropFromMonth`: rời đội mà tháng này chưa đóng đồng nào → bỏ hẳn khỏi tháng, không thành nợ. */
+    current: { paid: number; expected: number; shortfall: number; dropFromMonth: boolean };
     debts: Array<{ month: string; shortfall: number }>;
     totalPaid: number;
   }>;
@@ -151,12 +152,15 @@ export class GroupService {
           return { month: key, shortfall: Math.max(0, (feeByMonth.get(key) || 0) - Number(row.paidAmount || 0)) };
         })
         .filter((debt) => debt.shortfall > 0);
+      const willLeave = Boolean(member) && otherGroups.length === 0;
+      // Khớp TeamMemberService.removeMember: rời đội mà tháng này chưa đóng thì dòng tháng bị bỏ, không còn nợ.
+      const dropFromMonth = willLeave && currentPaid <= 0;
       teams.push({
         team: link.team,
         isMember: Boolean(member),
-        willLeave: Boolean(member) && otherGroups.length === 0,
+        willLeave,
         coveredBy: otherGroups.map((row) => row.group.name),
-        current: { paid: currentPaid, expected: currentExpected, shortfall: Math.max(0, currentExpected - currentPaid) },
+        current: { paid: currentPaid, expected: currentExpected, shortfall: dropFromMonth ? 0 : Math.max(0, currentExpected - currentPaid), dropFromMonth },
         debts,
         totalPaid: rows.reduce((sum, row) => sum + Number(row.paidAmount || 0), 0),
       });

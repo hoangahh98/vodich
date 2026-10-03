@@ -43,7 +43,7 @@ test('removalPreview: liệt kê đội sẽ rời / ở lại, tiền tháng n�
   const teamA = preview.teams.find((item) => item.team.name === 'Đội A');
   assert.equal(teamA.isMember, true);
   assert.equal(teamA.willLeave, true, 'không còn nhóm khác gắn với đội A');
-  assert.deepEqual(teamA.current, { paid: 50000, expected: 200000, shortfall: 150000 });
+  assert.deepEqual(teamA.current, { paid: 50000, expected: 200000, shortfall: 150000, dropFromMonth: false }, 'đã đóng một phần thì giữ trong tháng, còn nợ phần thiếu');
   assert.deepEqual(teamA.debts, [{ month: '2026-08', shortfall: 50000 }], 'tháng 7 đủ, tháng 8 thiếu 50k, tháng 9 là tháng hiện tại không tính vào nợ cũ');
   assert.equal(teamA.totalPaid, 300000);
 
@@ -58,4 +58,19 @@ test('removalPreview: liệt kê đội sẽ rời / ở lại, tiền tháng n�
 test('removalPreview: nhóm ngoài phạm vi admin phụ thì không soi được', async () => {
   const prisma = { playerGroup: { findFirst: async () => null }, player: { findUnique: async () => ({ id: 5n }) } };
   assert.equal(await new GroupService(prisma, {}).removalPreview(BOB, 9n, 5n, '2026-09'), null);
+});
+
+test('removalPreview: tháng này chưa đóng đồng nào thì báo bỏ khỏi tháng, không tính là nợ', async () => {
+  const prisma = {
+    playerGroup: { findFirst: async () => ({ id: 9n, name: 'Hội tối thứ 3' }) },
+    player: { findUnique: async () => ({ id: 5n, displayName: 'An', email: 'an@test' }) },
+    teamClubGroup: { findMany: async () => [{ teamId: 100n, team: { id: 100n, name: 'Đội A' } }] },
+    teamMember: { findFirst: async () => ({ id: 1n, memberType: 'FIXED', payments: [{ fundMonth: d('2026-09-01'), memberType: 'FIXED', paidAmount: 0 }] }) },
+    playerGroupMember: { findMany: async () => [] },
+    teamMonthFund: { findMany: async () => [{ fundMonth: d('2026-09-01'), monthlyFee: 200000 }] },
+    tournamentRegistration: { findMany: async () => [] },
+  };
+  const preview = await new GroupService(prisma, {}).removalPreview(BOB, 9n, 5n, '2026-09');
+  assert.deepEqual(preview.teams[0].current, { paid: 0, expected: 200000, shortfall: 0, dropFromMonth: true });
+  assert.equal(preview.hasWarnings, false);
 });

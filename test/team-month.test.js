@@ -69,18 +69,22 @@ test('recompute lan sang tháng sau AUTO: số dư mang sang đổi thì phí th
   assert.equal(nextFee.data.monthlyFee, 175000, '(400k − 50k) / 2 làm tròn lên nghìn');
 });
 
-test('rời đội từ tháng 8: tháng 7 giữ nguyên, tháng 8 trở đi chỉ bỏ dòng chưa đóng, rồi chia lại', async () => {
+test('rời đội từ tháng 8: tháng 7 giữ nguyên, tháng 8 trở đi chỉ bỏ dòng chưa đóng đồng nào, rồi chia lại', async () => {
   const deleted = [];
   const recomputed = [];
+  const updates = [];
   const prisma = {
-    teamMember: { findFirst: async () => ({ playerId: 5n }), updateMany: async () => ({ count: 1 }) },
+    teamMember: { findFirst: async () => ({ playerId: 5n }), updateMany: async (args) => { updates.push(args.data); return { count: 1 }; } },
     teamMemberPayment: { deleteMany: async (args) => deleted.push(args.where) },
     playerTeamAccess: { deleteMany: async () => undefined },
   };
   const months = { recompute: async (teamId, fundMonth) => recomputed.push(fundMonth.toISOString()) };
   await new TeamMemberService(prisma, months).removeMember(1n, 10n, '2026-08');
   assert.deepEqual(deleted[0].fundMonth, { gte: M8 }, 'không đụng tháng trước tháng 8');
-  assert.deepEqual(deleted[0].paymentStatus, { not: 'PAID' }, 'tiền đã đóng thì giữ');
+  // Xét theo tiền thật, không theo cờ PAID: đóng thiếu vẫn là đã đóng → giữ; cờ PAID lỗi thời khi phí chia lại.
+  assert.deepEqual(deleted[0].paidAmount, { lte: 0 }, 'chỉ bỏ dòng chưa đóng đồng nào');
+  assert.equal(deleted[0].paymentStatus, undefined);
+  assert.deepEqual(updates[0], { active: false, leftMonth: M8 }, 'ghi tháng rời đội');
   assert.deepEqual(recomputed, [M8.toISOString()], 'phí tháng 8 tự chia lại cho người còn lại');
 });
 

@@ -16,7 +16,7 @@
   </section>
 
   <section class="card-lite p mb">
-    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'ball' }) %></span><h2 class="section-title">Đội bóng bị ảnh hưởng</h2><p class="muted">Rời đội từ tháng <%= preview.month %>, các tháng trước giữ nguyên. Tiền đã thu vẫn nằm trong quỹ.</p></div></div>
+    <div class="section-heading mb"><div><span class="feature-icon"><%- include('../partials/icon', { name: 'ball' }) %></span><h2 class="section-title">Đội bóng bị ảnh hưởng</h2><p class="muted">Rời đội từ tháng <%= preview.month %>, các tháng trước giữ nguyên. Tháng <%= preview.month %>: đã đóng tiền thì giữ nguyên và tính bình thường; chưa đóng thì bỏ khỏi tháng, mức phí chia lại cho người còn lại. Các tháng sau không còn người này.</p></div></div>
     <% if (!preview.teams.length) { %><p class="muted">Nhóm này chưa gắn với đội bóng nào — chỉ bỏ tên khỏi nhóm.</p><% } %>
     <% preview.teams.forEach((item) => { %>
       <div class="registration-panel mb">
@@ -28,7 +28,7 @@
         </div>
         <% if (item.isMember) { %>
           <div class="grid kv-grid">
-            <div class="kv"><span>Tháng <%= preview.month %> đã thu / mức phí</span><strong><%= formatMoney(item.current.paid) %> / <%= formatMoney(item.current.expected) %>đ<% if (item.current.shortfall > 0) { %> <span class="badge badge-danger">thiếu <%= formatMoney(item.current.shortfall) %>đ</span><% } else if (item.current.expected > 0) { %> <span class="badge bg-success">đủ</span><% } %></strong></div>
+            <div class="kv"><span>Tháng <%= preview.month %> đã thu / mức phí</span><strong><%= formatMoney(item.current.paid) %> / <%= formatMoney(item.current.expected) %>đ<% if (item.current.dropFromMonth) { %> <span class="badge">chưa đóng · bỏ khỏi tháng</span><% } else if (item.current.shortfall > 0) { %> <span class="badge badge-danger">thiếu <%= formatMoney(item.current.shortfall) %>đ</span><% } else if (item.current.expected > 0) { %> <span class="badge bg-success">đủ</span><% } %></strong></div>
             <div class="kv"><span>Các tháng trước còn thiếu</span><strong><% if (!item.debts.length) { %>Không<% } else { %><%= item.debts.map((debt) => `${debt.month}: ${formatMoney(debt.shortfall)}đ`).join(' · ') %><% } %></strong></div>
             <div class="kv"><span>Tổng đã đóng cho đội</span><strong><%= formatMoney(item.totalPaid) %>đ</strong></div>
           </div>

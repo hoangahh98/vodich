@@ -223,6 +223,8 @@ cùng (78 giao dịch, 15 nguồn, 13 mục đích, 81 tin Telegram) đã xuất
 - `AppFeature` chỉ còn `TOURNAMENTS | TEAMS | PERMISSIONS`; `TelegramController` không còn nên chỉ **3**
   controller `@Public()`. `TELEGRAM_BOT_TOKEN` / `TELEGRAM_WEBHOOK_SECRET` là biến chết — xoá khỏi Render,
   và tắt trigger Apps Script trên Gmail (nó vẫn gọi `/telegram/ingest/…` và ăn 404).
+- Rà lại 4/10/2026: code, trang chủ, trang Phân quyền và DB production (không còn bảng `household_*`,
+  `admin_feature_permission` chỉ còn TOURNAMENTS/TEAMS) đều sạch; dòng CSS chết cuối cùng `.ht-house` đã xoá.
 - Muốn dựng lại lần nữa thì đọc lịch sử ở commit ngay trước commit gỡ (CLAUDE.md ở đó có ~130 dòng luật
   chủ app đã chốt: hạn mức thẻ, thẻ thông có hướng, 5 loại giao dịch, đối chiếu Timo…) — đừng đoán lại.
 
@@ -287,8 +289,8 @@ Học vui (18/9/2026, `games.css` đi cùng). Quy ước, và là thứ chủ ap
 
 `src/teams/team-month.service.ts`. Loại thành viên (cố định/vãng lai) ghi vào `team_member_payment.member_type`
 của TỪNG THÁNG; đổi loại hay rời đội chỉ áp dụng từ tháng đang thao tác trở đi, tháng cũ giữ nguyên số
-và tiền đã đóng. Danh sách của tháng lấy từ dòng phí tháng đó (`TeamDetailService.monthRoster`), không
-lấy từ cờ `active`. Mọi thao tác ghi lên tháng đều qua `ensureMonth` → `recompute`: tháng ở chế độ
+và tiền đã đóng. Danh sách của tháng (`TeamDetailService.monthRoster`) = ai có dòng phí tháng đó (kể cả
+người đã rời) + người đang hoạt động mà tháng chưa có dòng — không lấy riêng cờ `active`. Mọi thao tác ghi lên tháng đều qua `ensureMonth` → `recompute`: tháng ở chế độ
 `fee_mode = AUTO` tự chia đều mức phí và lan số dư sang tháng sau (cũng AUTO); MANUAL thì giữ số gõ.
 Tháng chưa chốt được xem trước (`fundPreview`) chứ không ghi DB. `previousMonthBalance` đếm cố định theo
 ảnh chụp tháng trước — đừng đổi về đếm `active`, đó là lỗi cũ làm hụt quỹ khi có người rời đội.
@@ -297,6 +299,26 @@ Thành viên đội **đi theo nhóm** (không còn thêm/rời từng người 
 `deleteWithTeams`, `detachTeamFromGroup` đưa người rời đội từ tháng hiện tại trừ khi còn ở nhóm khác
 cùng liên kết. Vãng lai không phải thành viên: ghi theo buổi ở mục Khoản thu (`team_guest_receipt`,
 `TeamFundService.addGuestReceipt`), cộng vào `guestPaid`.
+
+**Luật rời đội** (chủ app chốt 4/10/2026, `TeamMemberService.removeMember`):
+
+- Tháng rời: ai **đã đóng tiền** (`paid_amount > 0`, kể cả đóng thiếu) giữ dòng và tính bình thường; ai
+  **chưa đóng đồng nào** bị bỏ hẳn khỏi tháng, mức phí chia lại cho người còn lại. Các tháng sau không có
+  người đó (`ensureMonth` chỉ thêm người đang hoạt động). Các tháng trước giữ nguyên, kể cả nợ cũ.
+- Xét theo **tiền thật**, đừng quay về cờ `payment_status = 'PAID'` — cờ ghi DB lỗi thời ngay khi phí chia
+  lại (trạng thái hiển thị do `TeamMonthReportBuilder` tính lại từ đã thu so với mức phí).
+- Tháng rời lưu ở `team_member.left_month` (quay lại đội thì về null). Người đã rời mà bị sửa về 0đ (hoàn
+  tiền) ở tháng ≥ `left_month` thì `updatePayments` bỏ dòng khỏi tháng rồi chốt lại. Ca thật: "diu" 3/10/2026
+  được hoàn 430k, dòng 0đ nằm lại khiến tháng 10 chia phí cho 13 người thay vì 12; migration
+  `20261004090000_team_member_left_month` điền `left_month` cho người đã rời (tháng có dòng phí muộn nhất)
+  và dọn dòng đó. Tháng trước `left_month` thì dòng 0đ là nợ cũ thật, giữ nguyên.
+- Trang soi trước khi đưa ra khỏi nhóm (`removalPreview`, `groups/remove-member.ejs`) báo
+  `dropFromMonth` — chưa đóng thì "bỏ khỏi tháng", không tính là nợ.
+
+Màn **Tổng quan** của đội: ô đầu là **Tổng dư đầu tháng**, CHỈ hiện số `previousBalance` (còn lại tháng
+trước), không chú thích — chủ app 4/10/2026 bỏ ô "Tổng quỹ" (phải đóng + dư + vãng lai, dễ đọc nhầm là tiền
+đang có). Danh sách người còn thiếu chuyển sang ô "Tổng đã thu"; "Quỹ còn lại" vẫn = dư đầu tháng + phải
+đóng + vãng lai − đã chi (khớp `previousMonthBalance`).
 
 **Báo cáo tháng gộp nhiều đội** (`GET /teams/report?month=`, nút "Báo cáo tháng" ở banner Đội bóng, chủ app
 28/9/2026): admin lo 3 đội, có người chơi 2–3 đội, trước phải mở từng đội cộng tay. `TeamReportService`

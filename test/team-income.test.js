@@ -91,6 +91,37 @@ test('nút "Tất cả đã đóng": nâng mọi ô lên đủ mức phí, ai đ
   assert.equal(writes[0].update.paymentStatus, 'UNPAID');
 });
 
+/**
+ * Ca thật 3/10/2026: "diu" đã đóng tháng 10 nên lúc rời nhóm dòng được giữ; admin hoàn tiền và sửa về 0đ,
+ * dòng 0đ nằm lại khiến diu vẫn bị đếm vào số người chia phí. Người đã rời mà về 0đ ở tháng rời (hoặc
+ * sau) thì phải bỏ hẳn khỏi tháng; tháng trước tháng rời thì giữ (nợ cũ thật); người đang ở đội thì giữ.
+ */
+test('lưu khoản thu: người đã rời bị sửa về 0đ ở tháng rời thì bỏ khỏi tháng, nợ cũ và người đang ở đội thì giữ', async () => {
+  const writes = [];
+  const deleted = [];
+  const ensured = [];
+  const M9 = new Date('2026-09-01T00:00:00Z');
+  const members = [
+    { id: 1n, active: true, leftMonth: null },
+    { id: 2n, active: false, leftMonth: M8 }, // rời từ tháng 8, hoàn tiền về 0
+    { id: 3n, active: false, leftMonth: M9 }, // rời từ tháng 9 → tháng 8 là nợ cũ
+    { id: 4n, active: false, leftMonth: M8 }, // rời tháng 8 nhưng vẫn còn tiền đã đóng
+  ];
+  const prisma = {
+    teamMonthFund: { findUnique: async () => ({ monthlyFee: 200000 }) },
+    teamMember: { findMany: async () => members },
+    teamMemberPayment: { upsert: (payload) => payload, deleteMany: async (args) => deleted.push(args.where) },
+    $transaction: async (items) => { writes.push(...items); return items; },
+  };
+  const service = new TeamFundService({}, prisma, { ensureMonth: async (teamId, month) => ensured.push(month) });
+  await service.updatePayments(1n, '2026-08', { amount_1: '0', amount_2: '0', amount_3: '', amount_4: '100,000' });
+  const written = writes.map((w) => w.where.memberId_fundMonth.memberId.toString()).sort();
+  assert.deepEqual(written, ['1', '3', '4']);
+  assert.equal(deleted.length, 1);
+  assert.deepEqual(deleted[0], { fundMonth: M8, memberId: { in: [2n] } });
+  assert.deepEqual(ensured, ['2026-08'], 'chốt lại tháng để phí chia cho người còn lại');
+});
+
 test('báo cáo tháng cộng khoản thu vãng lai vào tiền vãng lai, tổng thu và tổng quỹ', () => {
   const report = new TeamMonthReportBuilder().build({
     members: [],

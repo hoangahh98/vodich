@@ -70,12 +70,24 @@ export class TeamFundService {
       .map((key) => BigInt(key.replace('amount_', '')));
     const validMembers = await this.prisma.teamMember.findMany({
       where: { teamId, id: { in: memberIds } },
-      select: { id: true },
+      select: { id: true, active: true, leftMonth: true },
     });
     const validMemberIds = new Set(validMembers.map((member) => member.id.toString()));
+    // Người đã rời đội chỉ còn dòng ở tháng rời (hoặc sau) vì lúc rời đã đóng tiền. Sửa về 0đ (hoàn
+    // tiền) là coi như chưa đóng → bỏ hẳn khỏi tháng để phí chia lại, giống lúc rời mà chưa đóng.
+    // Tháng TRƯỚC tháng rời thì giữ dòng 0đ: đó là nợ cũ thật.
+    const leftThisMonth = new Set(
+      validMembers
+        .filter((member) => !member.active && member.leftMonth && member.leftMonth.getTime() <= fundMonth.getTime())
+        .map((member) => member.id.toString()),
+    );
+    const dropIds = Object.entries(body)
+      .filter(([key, amount]) => key.startsWith('amount_') && leftThisMonth.has(key.replace('amount_', '')) && amountFor(amount) <= 0)
+      .map(([key]) => BigInt(key.replace('amount_', '')));
+    const dropSet = new Set(dropIds.map(String));
     const updates = Object.entries(body)
       .filter(([key]) => key.startsWith('amount_'))
-      .filter(([key]) => validMemberIds.has(key.replace('amount_', '')))
+      .filter(([key]) => validMemberIds.has(key.replace('amount_', '')) && !dropSet.has(key.replace('amount_', '')))
       .flatMap(([key, amount]) => {
         const memberId = BigInt(key.replace('amount_', ''));
         const memberType = body[`memberType_${memberId}`];
@@ -92,6 +104,7 @@ export class TeamFundService {
         ];
       });
     const result = await this.prisma.$transaction(updates);
+    if (dropIds.length) await this.prisma.teamMemberPayment.deleteMany({ where: { fundMonth, memberId: { in: dropIds } } });
     await this.months.ensureMonth(teamId, month);
     return result;
   }

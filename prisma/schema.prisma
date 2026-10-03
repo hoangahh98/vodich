@@ -286,6 +286,9 @@ model TeamMember {
   playerId   BigInt   @map("player_id")
   memberType String   @default("FIXED") @map("member_type") @db.VarChar(20)
   active     Boolean  @default(true)
+  // Tháng rời đội (ngày 1 của tháng). Từ tháng này trở đi người đó chỉ còn dòng phí nếu đã đóng tiền
+  // thật; dòng nào về 0đ là bị bỏ khỏi tháng và phí chia lại. Quay lại đội thì về null.
+  leftMonth  DateTime? @map("left_month") @db.Date
   notes      String?
   createdAt  DateTime @default(now()) @map("created_at")
 

@@ -19,7 +19,7 @@ export class TeamMemberService {
     const normalizedMemberType = normalizeMemberType(memberType);
     const member = await this.prisma.teamMember.upsert({
       where: { teamId_playerId: { teamId, playerId } },
-      update: { active: true, memberType: normalizedMemberType, notes: cleanText(notes) },
+      update: { active: true, leftMonth: null, memberType: normalizedMemberType, notes: cleanText(notes) },
       create: { teamId, playerId, memberType: normalizedMemberType, notes: cleanText(notes) },
     });
     await grantTeamAccess(this.prisma, teamId, [playerId]);
@@ -74,19 +74,22 @@ export class TeamMemberService {
   }
 
   /**
-   * Rời đội TỪ THÁNG `month` trở đi: các tháng trước giữ nguyên (kể cả tiền đã đóng); dòng phí của
-   * tháng này và các tháng sau bị bỏ nếu chưa đóng, còn dòng đã đóng thì giữ vì tiền đã thu thật.
-   * Sau đó mức phí tháng này (và các tháng sau ở chế độ AUTO) tự chia lại cho người còn lại.
+   * Rời đội TỪ THÁNG `month` trở đi (luật chủ app chốt 4/10/2026): các tháng trước giữ nguyên (kể cả
+   * nợ cũ); tháng này và các tháng sau, ai ĐÃ ĐÓNG tiền (đã thu > 0, kể cả đóng thiếu) thì giữ dòng và
+   * tính bình thường, ai CHƯA ĐÓNG đồng nào thì bỏ hẳn khỏi tháng. Xét theo tiền thật chứ không theo
+   * cờ PAID — cờ đó lỗi thời ngay khi mức phí chia lại. Sau đó mức phí tháng này (và các tháng sau ở
+   * chế độ AUTO) tự chia lại cho người còn lại; tháng mới tạo sau này không có người đã rời
+   * (ensureMonth chỉ lấy người đang hoạt động).
    */
   async removeMember(teamId: bigint, memberId: bigint, month?: string) {
+    const fundMonth = monthDate(month);
     const member = await this.prisma.teamMember.findFirst({ where: { id: memberId, teamId }, select: { playerId: true } });
     const result = await this.prisma.teamMember.updateMany({
       where: { id: memberId, teamId },
-      data: { active: false },
+      data: { active: false, leftMonth: fundMonth },
     });
     if (!result.count) throw new NotFoundException('Không tìm thấy thành viên trong đội');
-    const fundMonth = monthDate(month);
-    await this.prisma.teamMemberPayment.deleteMany({ where: { memberId, fundMonth: { gte: fundMonth }, paymentStatus: { not: 'PAID' } } });
+    await this.prisma.teamMemberPayment.deleteMany({ where: { memberId, fundMonth: { gte: fundMonth }, paidAmount: { lte: 0 } } });
     if (member) await revokeTeamAccess(this.prisma, teamId, [member.playerId]);
     await this.months.recompute(teamId, fundMonth);
     return result;
