@@ -145,3 +145,25 @@ test('số dư mang sang tháng sau cộng cả khoản thu vãng lai của thá
   };
   assert.equal(await new TeamDetailService(prisma).previousMonthBalance(1n, M8), 40000, '100k phải đóng + 40k vãng lai − 100k sân');
 });
+
+/** Ca thật 3/10/2026: sửa khoản chi tháng 9 cho hết −13k mà dư đầu tháng 10 vẫn −13k vì khoản chi không chốt lại tháng. */
+test('khoản chi: thêm thì chốt tháng, xoá thì tính lại đúng tháng của khoản đó → số dư lan sang tháng sau', async () => {
+  const { TeamExpenseService } = require('../dist/teams/team-expense.service');
+  const log = [];
+  const M9 = new Date('2026-09-01T00:00:00Z');
+  const prisma = {
+    teamExpense: {
+      create: async () => ({ id: 1n }),
+      findFirst: async () => ({ expenseMonth: M9 }),
+      deleteMany: async () => ({ count: 1 }),
+    },
+  };
+  const months = {
+    ensureMonth: async (teamId, month) => log.push(`ensure:${teamId}:${month}`),
+    recompute: async (teamId, fundMonth) => log.push(`recompute:${teamId}:${fundMonth.toISOString().slice(0, 7)}`),
+  };
+  const service = new TeamExpenseService(prisma, months);
+  await service.addExpense(10n, '2026-09', '2026-09-27', 'tien Giai mini va nuoc', '995,000');
+  await service.deleteExpense(10n, 39n);
+  assert.deepEqual(log, ['ensure:10:2026-09', 'recompute:10:2026-09']);
+});

@@ -338,6 +338,11 @@ Hai điều hay bị hỏi "sao số lệch" (soi DB thật 4/10/2026, đội "c
   khi tháng đó AUTO. Thêm nữa, form Cài đặt luôn gửi ô "Tiền sân còn lại tháng trước" (điền sẵn số đang lưu),
   nên lưu Cài đặt một lần là số đó dính cứng. Sửa tháng trước xong mà tháng sau đang MANUAL thì phải vào Cài
   đặt tháng sau xoá trống ô đó để app tự lấy `previousMonthBalance`.
+- **Mọi thao tác đổi tiền của một tháng phải chốt lại tháng** (`ensureMonth` hoặc `recompute`) để số dư lan
+  sang tháng sau: đóng phí, Cài đặt, khoản thu vãng lai, và **khoản chi** (`TeamExpenseService`, thêm từ
+  4/10/2026). Ca thật: 3/10 admin sửa khoản chi tháng 9 (1.008.000 → 995.000) cho hết −13k mà dư đầu tháng
+  10 vẫn −13k vì thêm/xoá khoản chi hồi đó không chốt lại; migration `20261004150000_fix_team10_october_balance`
+  sửa số đó (tháng 10 về dư 0, phí 514k). Thêm thao tác ghi tiền mới thì nhớ chốt lại tháng.
 
 **Thêm người vào nhóm chọn được tháng bắt đầu tính phí** (`startMonth` trong group.controller.ts, ô
 "Tính phí từ tháng" ở groups/detail.ejs; mặc định tháng hiện tại, chỉ nhận tháng hiện tại trở đi). Ca thật:
