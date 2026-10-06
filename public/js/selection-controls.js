@@ -68,21 +68,28 @@
 
   // Ô tìm nhanh cho danh sách tích chọn dài: gõ tên/email, so không dấu; người đã tích luôn hiện
   // để không "mất" lựa chọn khi lọc. Đếm số hiện/tổng để biết còn bao nhiêu người khớp.
+  //
+  // Mỗi "dòng" mặc định là một <label> (danh sách tích chọn). Bảng sửa được như trang Thành viên thì
+  // đánh dấu từng <tr data-filter-row>: tên/email nằm trong VALUE của ô nhập chứ không phải chữ, nên
+  // phải đọc cả value — từng chỉ đọc textContent của <label> bọc ô nhập (luôn rỗng) nên gõ gì cũng ra
+  // 0 người, lại còn giấu ô tên/email bên trong dòng thay vì giấu cả dòng (chủ app báo 6/10/2026).
   const initCheckFilter = () => {
     const fold = (text) => String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+    const rowText = (row) => [row.textContent, ...[...row.querySelectorAll('input:not([type="checkbox"]):not([type="hidden"])')].map((field) => field.value)].join(' ');
     document.querySelectorAll('[data-check-filter]').forEach((input) => {
       const list = document.getElementById(input.dataset.checkFilter);
       if (!list) return;
-      const rows = [...list.querySelectorAll('label')];
+      const tableRows = [...list.querySelectorAll('[data-filter-row]')];
+      const rows = tableRows.length ? tableRows : [...list.querySelectorAll('label')];
       const counter = input.parentElement ? input.parentElement.querySelector('[data-check-filter-count]') : null;
       const empty = list.querySelector('[data-check-filter-empty]');
-      rows.forEach((row) => { row.dataset.fold = fold(row.textContent); });
       const apply = () => {
         const needle = fold(input.value.trim());
         let shown = 0;
         rows.forEach((row) => {
           const checkbox = row.querySelector('input[type="checkbox"]');
-          const hit = !needle || row.dataset.fold.includes(needle) || (checkbox && checkbox.checked);
+          // Đọc lại mỗi lần lọc: người dùng có thể vừa sửa tên trong ô nhập.
+          const hit = !needle || fold(rowText(row)).includes(needle) || (checkbox && checkbox.checked);
           row.hidden = !hit;
           if (hit) shown += 1;
         });

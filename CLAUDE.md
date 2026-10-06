@@ -288,6 +288,11 @@ Học vui (18/9/2026, `games.css` đi cùng). Quy ước, và là thứ chủ ap
   `.section-tabs` ngay dưới hero (teams/detail.ejs, tournaments/detail.ejs). Bảng dữ liệu trong thẻ dùng `.table-wrap.member-table` +
   `table.member-list` (đầu bảng màu giấy, không phải đầu bảng xanh mặc định của `th`).
 - Đổi view có chủ ý thì chạy `UPDATE_SNAPSHOTS=1 npm test` rồi soi diff snapshot.
+- Ô tìm nhanh `data-check-filter` (`selection-controls.js`): mặc định mỗi dòng là một `<label>` của danh
+  sách tích chọn. Bảng có ô nhập (trang Thành viên) thì đánh `data-filter-row` lên từng `<tr>` — bộ lọc đọc
+  cả `value` của ô nhập; dòng "không khớp" `data-check-filter-empty` trong bảng phải là `<tr>`, đừng để
+  `<div>` trong `<tbody>` (trình duyệt đẩy ra ngoài bảng). Từng chỉ đọc chữ của `<label>` bọc ô nhập nên
+  tìm gì cũng ra 0 người (6/10/2026). Sửa JS đã precache thì tăng `CACHE` trong `public/sw.js`.
 
 ### Quỹ đội bóng: mỗi tháng là một ảnh chụp (9/2026)
 

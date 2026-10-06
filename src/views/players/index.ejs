@@ -27,17 +27,18 @@
   <form class="card-lite" method="post" action="/players/bulk">
     <div class="card-hdr green"><span><%- include('../partials/icon', { name: 'users' }) %> Danh sách thành viên</span><span class="badge badge-dark"><%= players.length %> người</span></div>
     <%# Ô tìm nhanh lọc theo tên/email (không dấu), người đang sửa dở vẫn gửi lên vì chỉ ẩn dòng chứ không bỏ input. %>
-    <% if (players.length > 8) { %><div class="p pb0"><div class="check-filter"><%- include('../partials/icon', { name: 'search' }) %><input type="search" data-check-filter="playerRows" placeholder="Gõ tên hoặc email để tìm…" autocomplete="off" aria-label="Tìm thành viên"><span class="badge" data-check-filter-count><%= players.length %></span></div></div><% } %>
+    <% if (players.length > 8) { %><div class="p"><div class="check-filter"><%- include('../partials/icon', { name: 'search' }) %><input type="search" data-check-filter="playerRows" placeholder="Gõ tên hoặc email để tìm…" autocomplete="off" aria-label="Tìm thành viên"><span class="badge" data-check-filter-count><%= players.length %></span></div></div><% } %>
     <div class="table-wrap member-table"><table class="member-list player-list"><thead><tr><th>Họ tên / Email</th><th class="text-right">Trình</th><th></th></tr></thead><tbody id="playerRows">
       <% players.forEach((p) => { %>
-        <tr>
+        <tr data-filter-row>
           <td><label class="player-name-cell"><input name="displayName_<%= p.id %>" value="<%= p.displayName %>" placeholder="Họ tên" required><input name="email_<%= p.id %>" type="email" value="<%= p.email %>" placeholder="Email" required></label></td>
           <td class="text-right"><select name="skillLevel_<%= p.id %>" aria-label="Trình của <%= p.displayName %>"><option value="" <%= !p.skillLevel ? 'selected' : '' %>>Chưa chọn</option><% ['A','B','C','D'].forEach((level) => { %><option value="<%= level %>" <%= p.skillLevel === level ? 'selected' : '' %>><%= level %></option><% }) %></select></td>
           <td class="text-right row-action"><button class="btn btn-sm btn-danger btn-icon" type="submit" form="deletePlayer_<%= p.id %>" aria-label="Xoá <%= p.displayName %>" title="Xoá thành viên" data-loading-text="…"><%- include('../partials/icon', { name: 'trash' }) %></button></td>
         </tr>
       <% }) %>
       <% if (!players.length) { %><tr><td colspan="3" class="muted text-center">Chưa có thành viên nào.</td></tr><% } %>
-      <div class="muted p" data-check-filter-empty hidden>Không có ai khớp.</div>
+      <%# Dòng "không khớp" phải là <tr>: <div> nằm trong <tbody> bị trình duyệt đẩy ra ngoài bảng nên JS không tìm thấy. %>
+      <tr data-check-filter-empty hidden><td colspan="3" class="muted text-center">Không có ai khớp.</td></tr>
     </tbody></table></div>
     <% if (players.length) { %><div class="card-foot"><button class="btn btn-primary" data-loading-text="Đang lưu..."><%- include('../partials/icon', { name: 'save' }) %> Lưu thay đổi</button></div><% } %>
   </form>

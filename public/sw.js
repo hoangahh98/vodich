@@ -15,7 +15,8 @@
 // Bump số bản khi HTML đổi theo kiểu bản JS cũ không chạy nổi nữa: cache là
 // stale-while-revalidate nên lần mở đầu sau khi deploy vẫn dùng JS cũ, mà khung vòng quay mới
 // (data-spin-wheel) thì bản spin-draw.js cũ không hiểu. Đổi tên cache là `activate` quét sạch.
-const CACHE = 'vodich-static-v4';
+// v5 (6/10/2026): selection-controls.js lọc được bảng Thành viên — bản cũ trong cache tìm gì cũng ra 0 người.
+const CACHE = 'vodich-static-v5';
 
 // Nạp sẵn ngay khi cài để lần mở đầu tiên từ màn hình chính đã có giao diện.
 const PRECACHE = [
