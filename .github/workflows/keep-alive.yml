@@ -1,0 +1,17 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    - cron: '*/10 8-23 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping-website:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send HTTP request with 5-minute timeout
+        uses: fjogeleit/http-request-action@v1
+        with:
+          url: 'https://pickleball-1-hsk7.onrender.com/healthz'
+          method: 'GET'
+          timeout: 300000
