@@ -10,10 +10,56 @@
   const knockoutRound = roundMatches.some((item) => isKnockoutStage(item.stage)) || round >= 100;
 %>
   <div class="mb-4" data-round-block>
-    <div class="vong-header mb-3">
-      <%- include('../../../partials/icon', { name: knockoutRound ? 'trophy' : 'refresh' }) %>
-      <%= roundTitle(round, roundMatches) %> — <%= roundMatches.length %> trận
-      <small>(<span data-done-count><%= doneCount %></span> đã xong)</small>
+    <div class="vong-header mb-3 flex between center wrap gap">
+      <div>
+        <%- include('../../../partials/icon', { name: knockoutRound ? 'trophy' : 'refresh' }) %>
+        <%= roundTitle(round, roundMatches) %> — <%= roundMatches.length %> trận
+        <small>(<span data-done-count><%= doneCount %></span> đã xong)</small>
+      </div>
+      <% if (currentUser && currentUser.role === 'ADMIN' && tournament.format === 'GROUP_KNOCKOUT') { %>
+        <% if (round === 101 || roundMatches.some((m) => m.stage === 'Bán kết')) { %>
+          <%
+            const qfAllFinished = matches.filter((m) => m.stage === 'Tứ kết').length > 0 && matches.filter((m) => m.stage === 'Tứ kết').every((m) => m.status === 'FINISHED');
+            const sfNotPlayed = !roundMatches.some((m) => m.status === 'FINISHED' || m.scoreA > 0 || m.scoreB > 0);
+          %>
+          <% if (qfAllFinished && sfNotPlayed) { %>
+            <%
+              const qfWinnersList = matches.filter((m) => m.stage === 'Tứ kết').map((m) => (m.scoreA > m.scoreB ? m.teamA : m.teamB)).filter(Boolean);
+            %>
+            <% if (qfWinnersList.length >= 2) { %>
+              <div>
+                <button type="button" class="btn btn-warning btn-sm" data-open-ko-draw data-stage="Bán kết" data-action="/tournaments/<%= tournament.id %>/advance-semifinals" data-teams="<%= JSON.stringify(qfWinnersList) %>">
+                  <%- include('../../../partials/icon', { name: 'wheel' }) %> Bốc thăm Bán kết (Vòng quay)
+                </button>
+              </div>
+            <% } %>
+          <% } %>
+        <% } %>
+        <% if (round === 100 || roundMatches.some((m) => m.stage === 'Tứ kết')) { %>
+          <%
+            const groupAllFinished = matches.filter((m) => m.stage === 'Vòng bảng').length > 0 && matches.filter((m) => m.stage === 'Vòng bảng').every((m) => m.status === 'FINISHED');
+            const qfNotPlayed = !roundMatches.some((m) => m.status === 'FINISHED' || m.scoreA > 0 || m.scoreB > 0);
+            const hasWsData = typeof wildcardStatus !== 'undefined' && wildcardStatus;
+          %>
+          <% if (groupAllFinished && qfNotPlayed && hasWsData) { %>
+            <%
+              let qfTeamsList = [];
+              if (!wildcardStatus.hasShortage) {
+                qfTeamsList = wildcardStatus.directlyQualified;
+              } else if (wildcardStatus.currentWildcards.length === wildcardStatus.shortage) {
+                qfTeamsList = [...wildcardStatus.directlyQualified, ...wildcardStatus.currentWildcards];
+              }
+            %>
+            <% if (qfTeamsList.length >= 8) { %>
+              <div>
+                <button type="button" class="btn btn-warning btn-sm" data-open-ko-draw data-stage="Tứ kết" data-action="/tournaments/<%= tournament.id %>/stage-draw" data-teams="<%= JSON.stringify(qfTeamsList.slice(0, 8)) %>">
+                  <%- include('../../../partials/icon', { name: 'wheel' }) %> Bốc thăm Tứ kết (Vòng quay)
+                </button>
+              </div>
+            <% } %>
+          <% } %>
+        <% } %>
+      <% } %>
     </div>
     <div class="grid courts-grid">
       <% courts.forEach(([court, courtMatches]) => { %>
