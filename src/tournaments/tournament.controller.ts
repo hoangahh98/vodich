@@ -96,7 +96,9 @@ export class TournamentController {
     if (!(await this.tournaments.canManage(req.session.user!, tournamentId))) return forbidden(res);
     try {
       await this.tournaments.updateConfig(tournamentId, body);
+      await this.tournaments.syncKnockout(tournamentId);
       this.matchGateway.emitTournamentUpdated(id, 'tournament');
+      this.matchGateway.emitTournamentUpdated(id, 'schedule');
       req.session.flash = 'Đã lưu cấu hình giải';
     } catch (error) {
       req.session.flash = error instanceof Error ? error.message : 'Không lưu được cấu hình giải';

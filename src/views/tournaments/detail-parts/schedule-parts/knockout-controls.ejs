@@ -1,28 +1,11 @@
 <% if (tournament.format === 'GROUP_KNOCKOUT') { %>
   <%
-    const qfMatches = matches.filter((m) => m.stage === 'Tứ kết');
     const sfMatches = matches.filter((m) => m.stage === 'Bán kết');
-    const finalMatch = matches.find((m) => m.stage === 'Chung kết');
-    const thirdMatch = matches.find((m) => m.stage === 'Tranh hạng 3-4');
     const groupMatches = matches.filter((m) => m.stage === 'Vòng bảng');
     const groupFinished = groupMatches.length > 0 && groupMatches.every((m) => m.status === 'FINISHED');
-    const qfPlayed = qfMatches.some((m) => m.status === 'FINISHED' || m.scoreA > 0 || m.scoreB > 0);
-    const qfAllDone = qfMatches.length > 0 && qfMatches.every((m) => m.status === 'FINISHED');
-    const sfPlayed = sfMatches.some((m) => m.status === 'FINISHED' || m.scoreA > 0 || m.scoreB > 0);
     const sfAllDone = sfMatches.length > 0 && sfMatches.every((m) => m.status === 'FINISHED');
     const hasWs = typeof wildcardStatus !== 'undefined' && wildcardStatus;
   %>
-
-  <%# 0. Cảnh báo tiến độ Tứ kết nếu chưa hoàn thành cả 4 trận %>
-  <% if (tournament.knockoutQualifierCount >= 8 && qfMatches.length > 0 && !qfAllDone && qfPlayed) { %>
-    <% const qfDoneMatches = qfMatches.filter((m) => m.status === 'FINISHED').length; %>
-    <div class="alert-lite warning p-3 mb-3">
-      <%- include('../../../partials/icon', { name: 'trophy' }) %>
-      <strong>Tiến độ Tứ kết:</strong> Đã xong <%= qfDoneMatches %> / <%= qfMatches.length %> trận.
-      Cần hoàn tất đủ cả <%= qfMatches.length %> trận Tứ kết để mở bốc thăm Bán kết.
-      <br><small class="muted">Lưu ý: Trận knockout cần đạt tối thiểu <%= tournament.knockoutTouchScore || 15 %> điểm (cách 2 điểm) mới tính là "Đã xong". Trận nào đang hiện "Đang đánh" thì bấm vào thẻ trận để nhập điểm kết thúc.</small>
-    </div>
-  <% } %>
 
   <%# 1. Khung chọn Wildcard khi vòng bảng thiếu suất %>
   <% if (hasWs && wildcardStatus.hasShortage && groupFinished) { %>
@@ -63,96 +46,7 @@
     </div>
   <% } %>
 
-  <%# 2. Bốc thăm vòng Tứ kết %>
-  <% if (tournament.knockoutQualifierCount >= 8 && groupFinished && !qfPlayed && hasWs) { %>
-    <%
-      let qfTeams = [];
-      if (!wildcardStatus.hasShortage) {
-        qfTeams = wildcardStatus.directlyQualified;
-      } else if (wildcardStatus.currentWildcards.length === wildcardStatus.shortage) {
-        qfTeams = [...wildcardStatus.directlyQualified, ...wildcardStatus.currentWildcards];
-      }
-    %>
-    <% if (qfTeams.length >= 8) { %>
-      <div class="alert-lite info p-3 mb-3">
-        <div class="flex between center wrap gap">
-          <div>
-            <strong>8 đội tham gia Tứ kết:</strong> <%= qfTeams.slice(0, 8).join(', ') %><br>
-            <small class="muted">Các trận Tứ kết chưa thi đấu. Ban tổ chức có thể bốc thăm vòng quay ngẫu nhiên để ghép 4 cặp đấu.</small>
-          </div>
-          <% if (currentUser.role === 'ADMIN') { %>
-            <div>
-              <button type="button" class="btn btn-warning btn-sm" data-open-ko-draw data-stage="Tứ kết" data-action="/tournaments/<%= tournament.id %>/stage-draw" data-teams="<%= JSON.stringify(qfTeams.slice(0, 8)) %>">
-                <%- include('../../../partials/icon', { name: 'wheel' }) %> Bốc thăm Tứ kết (Vòng quay)
-              </button>
-            </div>
-          <% } %>
-        </div>
-      </div>
-    <% } %>
-  <% } %>
-
-  <%# 2.5. Bốc thăm vòng Bán kết trực tiếp từ vòng bảng (khi giải chỉ lấy 4 đội) %>
-  <% if (tournament.knockoutQualifierCount === 4 && groupFinished && !sfPlayed && hasWs) { %>
-    <%
-      let directSfTeams = [];
-      if (!wildcardStatus.hasShortage) {
-        directSfTeams = wildcardStatus.directlyQualified;
-      } else if (wildcardStatus.currentWildcards.length === wildcardStatus.shortage) {
-        directSfTeams = [...wildcardStatus.directlyQualified, ...wildcardStatus.currentWildcards];
-      }
-    %>
-    <% if (directSfTeams.length >= 4) { %>
-      <div class="alert-lite info p-3 mb-3">
-        <div class="flex between center wrap gap">
-          <div>
-            <strong>4 đội tham gia Bán kết:</strong> <%= directSfTeams.slice(0, 4).join(', ') %><br>
-            <small class="muted">Các trận Bán kết chưa thi đấu. Ban tổ chức có thể bốc thăm vòng quay ngẫu nhiên để ghép 2 cặp đấu.</small>
-          </div>
-          <% if (currentUser.role === 'ADMIN') { %>
-            <div>
-              <button type="button" class="btn btn-warning btn-sm" data-open-ko-draw data-stage="Bán kết" data-action="/tournaments/<%= tournament.id %>/stage-draw" data-teams="<%= JSON.stringify(directSfTeams.slice(0, 4)) %>">
-                <%- include('../../../partials/icon', { name: 'wheel' }) %> Bốc thăm Bán kết (Vòng quay)
-              </button>
-            </div>
-          <% } %>
-        </div>
-      </div>
-    <% } %>
-  <% } %>
-
-  <%# 3. Tiến trình Bán kết khi Tứ kết xong %>
-  <% if (tournament.knockoutQualifierCount >= 8 && qfAllDone && !sfPlayed) { %>
-    <%
-      let qfWinners = finishedStageWinners(matches, 'Tứ kết') || [];
-      if (qfWinners.length < 4 && qfAllDone) {
-        qfWinners = qfMatches.map((m) => (m.scoreA > m.scoreB ? m.teamA : m.teamB)).filter(Boolean);
-      }
-    %>
-    <% if (qfWinners.length >= 2) { %>
-      <div class="alert-lite info p-3 mb-3">
-        <div class="flex between center wrap gap">
-          <div>
-            <strong>4 đội thắng Tứ kết:</strong> <%= qfWinners.join(', ') %><br>
-            <small class="muted">Chọn chia cặp Bán kết theo nhánh cố định hoặc quay vòng tròn bốc thăm.</small>
-          </div>
-          <% if (currentUser.role === 'ADMIN') { %>
-            <div class="flex gap wrap">
-              <form method="post" action="/tournaments/<%= tournament.id %>/advance-semifinals">
-                <input type="hidden" name="mode" value="FIXED">
-                <button class="btn btn-primary btn-sm"><%- include('../../../partials/icon', { name: 'scale' }) %> Nhánh cố định (TK 1-2, TK 3-4)</button>
-              </form>
-              <button type="button" class="btn btn-warning btn-sm" data-open-ko-draw data-stage="Bán kết" data-action="/tournaments/<%= tournament.id %>/advance-semifinals" data-teams="<%= JSON.stringify(qfWinners) %>">
-                <%- include('../../../partials/icon', { name: 'wheel' }) %> Bốc thăm Bán kết (Vòng quay)
-              </button>
-            </div>
-          <% } %>
-        </div>
-      </div>
-    <% } %>
-  <% } %>
-
-  <%# 4. Thông báo Chung kết & Tranh 3-4 khi Bán kết xong %>
+  <%# 2. Thông báo Chung kết & Tranh 3-4 khi Bán kết xong %>
   <% if (sfAllDone) { %>
     <%
       const sfWinners = finishedStageWinners(matches, 'Bán kết') || [];

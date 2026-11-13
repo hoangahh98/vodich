@@ -17,25 +17,35 @@
         <small>(<span data-done-count><%= doneCount %></span> đã xong)</small>
       </div>
       <% if (currentUser && currentUser.role === 'ADMIN' && tournament.format === 'GROUP_KNOCKOUT') { %>
-        <% if (round === 101 || roundMatches.some((m) => m.stage === 'Bán kết')) { %>
+        <%# 1. Bốc thăm Bán kết: Chỉ hiển thị khi cấu hình Bán kết là WHEEL (Quay vòng tròn bốc thăm) %>
+        <% if ((round === 101 || roundMatches.some((m) => m.stage === 'Bán kết')) && tournament.semiDrawMethod === 'WHEEL') { %>
           <%
-            const qfAllFinished = matches.filter((m) => m.stage === 'Tứ kết').length > 0 && matches.filter((m) => m.stage === 'Tứ kết').every((m) => m.status === 'FINISHED');
+            const qfMatchesList = matches.filter((m) => m.stage === 'Tứ kết');
+            const qfAllFinished = qfMatchesList.length > 0 && qfMatchesList.every((m) => m.status === 'FINISHED');
+            const isDirectFromGroup = tournament.knockoutQualifierCount === 4 && matches.filter((m) => m.stage === 'Vòng bảng').length > 0 && matches.filter((m) => m.stage === 'Vòng bảng').every((m) => m.status === 'FINISHED');
             const sfNotPlayed = !roundMatches.some((m) => m.status === 'FINISHED' || m.scoreA > 0 || m.scoreB > 0);
           %>
-          <% if (qfAllFinished && sfNotPlayed) { %>
+          <% if ((qfAllFinished || isDirectFromGroup) && sfNotPlayed) { %>
             <%
-              const qfWinnersList = matches.filter((m) => m.stage === 'Tứ kết').map((m) => (m.scoreA > m.scoreB ? m.teamA : m.teamB)).filter(Boolean);
+              let sfTeamsList = [];
+              if (qfAllFinished) {
+                sfTeamsList = qfMatchesList.map((m) => (m.scoreA > m.scoreB ? m.teamA : m.teamB)).filter(Boolean);
+              } else if (isDirectFromGroup && typeof wildcardStatus !== 'undefined' && wildcardStatus) {
+                sfTeamsList = !wildcardStatus.hasShortage ? wildcardStatus.directlyQualified : (wildcardStatus.currentWildcards.length === wildcardStatus.shortage ? [...wildcardStatus.directlyQualified, ...wildcardStatus.currentWildcards] : []);
+              }
             %>
-            <% if (qfWinnersList.length >= 2) { %>
+            <% if (sfTeamsList.length >= 4) { %>
               <div>
-                <button type="button" class="btn btn-warning btn-sm" data-open-ko-draw data-stage="Bán kết" data-action="/tournaments/<%= tournament.id %>/advance-semifinals" data-teams="<%= JSON.stringify(qfWinnersList) %>">
+                <button type="button" class="btn btn-warning btn-sm" data-open-ko-draw data-stage="Bán kết" data-action="/tournaments/<%= tournament.id %>/advance-semifinals" data-teams="<%= JSON.stringify(sfTeamsList) %>">
                   <%- include('../../../partials/icon', { name: 'wheel' }) %> Bốc thăm Bán kết (Vòng quay)
                 </button>
               </div>
             <% } %>
           <% } %>
         <% } %>
-        <% if (round === 100 || roundMatches.some((m) => m.stage === 'Tứ kết')) { %>
+
+        <%# 2. Bốc thăm Tứ kết: Chỉ hiển thị khi cấu hình Tứ kết là WHEEL (Quay vòng tròn bốc thăm) %>
+        <% if ((round === 100 || roundMatches.some((m) => m.stage === 'Tứ kết')) && tournament.quarterDrawMethod === 'WHEEL') { %>
           <%
             const groupAllFinished = matches.filter((m) => m.stage === 'Vòng bảng').length > 0 && matches.filter((m) => m.stage === 'Vòng bảng').every((m) => m.status === 'FINISHED');
             const qfNotPlayed = !roundMatches.some((m) => m.status === 'FINISHED' || m.scoreA > 0 || m.scoreB > 0);
