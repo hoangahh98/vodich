@@ -54,6 +54,8 @@
     const finalBox = document.getElementById('knockoutFinal');
     const semiBox = document.getElementById('knockoutSemi');
     const quarterBox = document.getElementById('knockoutQuarter');
+    const quarterDrawGroup = document.getElementById('quarterDrawMethodGroup');
+    const semiDrawGroup = document.getElementById('semiDrawMethodGroup');
     const expectedPlayersInput = document.querySelector('input[name="expectedPlayers"]');
     const playTypeSelect = document.querySelector('select[name="playType"]');
     const pairingRuleField = document.getElementById('pairingRuleField');
@@ -66,17 +68,30 @@
     const syncKnockout = () => {
       if (!qualifierInput || !finalBox || !semiBox || !quarterBox) return;
       finalBox.checked = true;
-      finalBox.disabled = true;
       semiBox.disabled = false;
       quarterBox.disabled = false;
 
+      let count = 2;
       if (quarterBox.checked) {
         semiBox.checked = true;
-        qualifierInput.value = '8';
+        count = 8;
       } else if (semiBox.checked) {
-        qualifierInput.value = '4';
+        count = 4;
       } else {
-        qualifierInput.value = '2';
+        count = 2;
+      }
+      qualifierInput.value = String(count);
+
+      document.querySelectorAll('[data-ko-card]').forEach((card) => {
+        const val = Number.parseInt(card.dataset.koCard || '0', 10);
+        card.classList.toggle('is-selected', val <= count);
+      });
+
+      if (quarterDrawGroup) {
+        quarterDrawGroup.classList.toggle('hidden', count < 8);
+      }
+      if (semiDrawGroup) {
+        semiDrawGroup.classList.toggle('hidden', count < 4);
       }
     };
     const sync = () => {
@@ -97,6 +112,33 @@
     };
     formatSelect?.addEventListener('change', sync);
     formatRadios.forEach((radio) => radio.addEventListener('change', sync));
+
+    const cards = qualifierField.querySelectorAll('[data-ko-card]');
+    cards.forEach((card) => {
+      card.addEventListener('click', (e) => {
+        const tier = Number.parseInt(card.dataset.koCard || '0', 10);
+        const input = card.querySelector('input[type="checkbox"]');
+        if (e.target !== input) {
+          e.preventDefault();
+          if (tier === 8) {
+            quarterBox.checked = !quarterBox.checked;
+            if (quarterBox.checked) semiBox.checked = true;
+          } else if (tier === 4) {
+            if (quarterBox.checked) {
+              quarterBox.checked = false;
+              semiBox.checked = true;
+            } else {
+              semiBox.checked = !semiBox.checked;
+            }
+          } else if (tier === 2) {
+            quarterBox.checked = false;
+            semiBox.checked = false;
+          }
+          syncKnockout();
+        }
+      });
+    });
+
     quarterBox?.addEventListener('change', () => {
       if (quarterBox.checked) semiBox.checked = true;
       syncKnockout();
@@ -106,6 +148,10 @@
       syncKnockout();
     });
     finalBox?.addEventListener('change', () => {
+      finalBox.checked = true;
+      syncKnockout();
+    });
+    finalBox?.addEventListener('click', () => {
       finalBox.checked = true;
       syncKnockout();
     });

@@ -162,6 +162,7 @@ test('buildTournamentConfig cho phép chọn Tứ kết (8 đội) khi ở thể
       knockoutQualifierCount: '8',
       groupCount: '3',
       advancePerGroup: '2',
+      quarterDrawMethod: 'WHEEL',
       semiDrawMethod: 'WHEEL',
     },
     [50, 30, 20],
@@ -170,5 +171,6 @@ test('buildTournamentConfig cho phép chọn Tứ kết (8 đội) khi ở thể
   assert.equal(config.knockoutQualifierCount, 8);
   assert.equal(config.groupCount, 3);
   assert.equal(config.advancePerGroup, 2);
+  assert.equal(config.quarterDrawMethod, 'WHEEL');
   assert.equal(config.semiDrawMethod, 'WHEEL');
 });

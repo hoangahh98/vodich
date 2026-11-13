@@ -182,6 +182,7 @@ class InMemoryStore {
       advancePerGroup: data.advancePerGroup || 2,
       hasThirdPlace: data.hasThirdPlace !== undefined ? data.hasThirdPlace : true,
       wildcardTeams: data.wildcardTeams || null,
+      quarterDrawMethod: data.quarterDrawMethod || 'FIXED',
       semiDrawMethod: data.semiDrawMethod || 'FIXED',
       createdAt: new Date(),
       updatedAt: new Date(),

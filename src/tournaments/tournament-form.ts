@@ -26,6 +26,7 @@ export function buildTournamentConfig(form: Record<string, unknown>, prizes: num
   const groupCount = form.groupCount ? Math.max(1, Number(form.groupCount)) : null;
   const advancePerGroup = form.advancePerGroup ? Math.max(1, Number(form.advancePerGroup)) : null;
   const hasThirdPlace = form.hasThirdPlace === undefined ? true : form.hasThirdPlace === 'on' || form.hasThirdPlace === 'true' || form.hasThirdPlace === true;
+  const quarterDrawMethod = form.quarterDrawMethod === 'WHEEL' ? 'WHEEL' : 'FIXED';
   const semiDrawMethod = form.semiDrawMethod === 'WHEEL' ? 'WHEEL' : 'FIXED';
   return {
     playType,
@@ -33,13 +34,14 @@ export function buildTournamentConfig(form: Record<string, unknown>, prizes: num
     groupCount,
     advancePerGroup,
     hasThirdPlace,
+    quarterDrawMethod,
     semiDrawMethod,
     pairingRule: normalizePairingRule(form.pairingRule),
     knockoutQualifierCount: normalizeQualifierCount(
       Number(form.knockoutQualifierCount || 2),
       Math.max(1, expectedPlayers),
       playType,
-      format === 'GROUP_KNOCKOUT' && (groupCount !== null || advancePerGroup !== null || form.semiDrawMethod !== undefined),
+      format === 'GROUP_KNOCKOUT' && (groupCount !== null || advancePerGroup !== null || form.semiDrawMethod !== undefined || form.quarterDrawMethod !== undefined),
     ),
     touchScore: Math.max(1, Number(form.touchScore || 11)),
     maxScore: Math.max(1, Number(form.maxScore || 15)),

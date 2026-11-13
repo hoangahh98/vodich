@@ -13,13 +13,13 @@
     <input type="hidden" name="knockoutQualifierCount" id="knockoutQualifierCount" value="<%= tournament?.knockoutQualifierCount || 2 %>">
     <div class="knockout-option-grid">
       <div>
-        <label class="option-card"><input type="checkbox" id="knockoutFinal" data-value="2" data-min-teams="4" checked> Chung kết <small>Lấy 2 đội</small></label>
+        <label class="option-card" data-ko-card="2"><input type="checkbox" id="knockoutFinal" data-value="2" data-min-teams="4" checked> Chung kết <small>Lấy 2 đội</small></label>
       </div>
       <div>
-        <label class="option-card"><input type="checkbox" id="knockoutSemi" data-value="4" data-min-teams="6" <%= (tournament?.knockoutQualifierCount || 2) >= 4 ? 'checked' : '' %>> Bán kết <small>Lấy 4 đội</small></label>
+        <label class="option-card" data-ko-card="4"><input type="checkbox" id="knockoutSemi" data-value="4" data-min-teams="6" <%= (tournament?.knockoutQualifierCount || 2) >= 4 ? 'checked' : '' %>> Bán kết <small>Lấy 4 đội</small></label>
       </div>
       <div>
-        <label class="option-card"><input type="checkbox" id="knockoutQuarter" data-value="8" data-min-teams="12" <%= (tournament?.knockoutQualifierCount || 2) >= 8 ? 'checked' : '' %>> Tứ kết <small>Lấy 8 đội</small></label>
+        <label class="option-card" data-ko-card="8"><input type="checkbox" id="knockoutQuarter" data-value="8" data-min-teams="12" <%= (tournament?.knockoutQualifierCount || 2) >= 8 ? 'checked' : '' %>> Tứ kết <small>Lấy 8 đội</small></label>
       </div>
     </div>
     <p class="muted mt">Bán kết cần từ 4 đội, tứ kết cần từ 8 đội. Nếu số đội qua vòng bảng ít hơn số suất vòng knockout đã chọn, hệ thống sẽ gợi ý và cho phép ban tổ chức chọn bổ sung đội (wildcard).</p>
@@ -28,15 +28,26 @@
       <div class="col-6"><label>Số đội lấy mỗi bảng</label><input type="number" name="advancePerGroup" min="1" max="8" placeholder="Mặc định: 2" value="<%= tournament?.advancePerGroup || '' %>"><span class="field-hint">Số đội vào thẳng vòng trong</span></div>
     </div>
     <div class="row mt">
-      <div class="col-6">
-        <label class="option-card"><input type="checkbox" name="hasThirdPlace" <%= tournament?.hasThirdPlace !== false ? 'checked' : '' %>> Tranh hạng 3-4 <small>2 đội thua bán kết thi đấu</small></label>
+      <div class="col-6" id="quarterDrawMethodGroup">
+        <label>Ghép cặp Tứ kết</label>
+        <select name="quarterDrawMethod">
+          <option value="FIXED" <%= (tournament?.quarterDrawMethod || 'FIXED') === 'FIXED' ? 'selected' : '' %>>Nhánh cố định (theo hạt giống bảng)</option>
+          <option value="WHEEL" <%= tournament?.quarterDrawMethod === 'WHEEL' ? 'selected' : '' %>>Quay vòng tròn bốc thăm</option>
+        </select>
+        <span class="field-hint">Cách chia 4 cặp Tứ kết (8 đội)</span>
       </div>
-      <div class="col-6">
+      <div class="col-6" id="semiDrawMethodGroup">
         <label>Ghép cặp Bán kết</label>
         <select name="semiDrawMethod">
           <option value="FIXED" <%= (tournament?.semiDrawMethod || 'FIXED') === 'FIXED' ? 'selected' : '' %>>Nhánh cố định (TK 1-2, TK 3-4)</option>
           <option value="WHEEL" <%= tournament?.semiDrawMethod === 'WHEEL' ? 'selected' : '' %>>Quay vòng tròn bốc thăm</option>
         </select>
+        <span class="field-hint">Cách chia 2 cặp Bán kết (4 đội)</span>
+      </div>
+    </div>
+    <div class="row mt">
+      <div class="col-12">
+        <label class="option-card"><input type="checkbox" name="hasThirdPlace" <%= tournament?.hasThirdPlace !== false ? 'checked' : '' %>> Tranh hạng 3-4 <small>2 đội thua bán kết thi đấu</small></label>
       </div>
     </div>
     <div class="row mt">

@@ -423,7 +423,7 @@ label { font-weight: 600; display: block; margin-bottom: 6px; font-size: 13.5px;
 .segmented label:hover, .option-card:hover { transform: translateY(-1px); }
 .segmented label:active, .option-card:active { transform: translateY(2px); box-shadow: 0 1px 0 #d3d5db; }
 .segmented input, .option-card input { width: 18px; height: 18px; min-height: 18px; margin: 0; flex: 0 0 auto; }
-.segmented label:has(input:checked), .option-card:has(input:checked) { background: var(--lime-soft); border-color: var(--ink); box-shadow: 0 1px 0 var(--ink); transform: translateY(2px); }
+.segmented label:has(input:checked), .option-card:has(input:checked), .option-card.is-selected { background: var(--lime-soft); border-color: var(--ink); box-shadow: 0 1px 0 var(--ink); transform: translateY(2px); }
 .option-card { display: flex; flex-wrap: wrap; min-height: 64px; }
 .option-card small { display: block; flex-basis: 100%; color: var(--muted); margin: 2px 0 0 28px; font-weight: 500; }
 .segmented label small { color: var(--muted); font-weight: 500; }

@@ -105,6 +105,7 @@ model Tournament {
   advancePerGroup             Int?      @map("advance_per_group")
   hasThirdPlace               Boolean   @default(true) @map("has_third_place")
   wildcardTeams               String?   @map("wildcard_teams")
+  quarterDrawMethod           String?   @default("FIXED") @map("quarter_draw_method") @db.VarChar(20)
   semiDrawMethod              String?   @default("FIXED") @map("semi_draw_method") @db.VarChar(20)
   courtCost                   Decimal   @default(0) @map("court_cost") @db.Decimal(14, 2)
   foodCost                    Decimal   @default(0) @map("food_cost") @db.Decimal(14, 2)
