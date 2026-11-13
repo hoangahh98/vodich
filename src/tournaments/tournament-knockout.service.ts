@@ -96,8 +96,17 @@ export class TournamentKnockoutService {
       data: { wildcardTeams: JSON.stringify(selectedTeams) },
     });
 
-    const allQualified = [...status.directlyQualified, ...selectedTeams];
     const firstStage = tournament.knockoutQualifierCount >= 8 ? 'Tứ kết' : 'Bán kết';
+    // Nếu vòng này cấu hình bốc thăm vòng quay (WHEEL), chỉ lưu danh sách wildcard vào CSDL
+    // Không tự động xếp cứng vào các cặp đấu, để Ban tổ chức quay bốc thăm
+    if (firstStage === 'Tứ kết' && tournament.quarterDrawMethod === 'WHEEL') {
+      return true;
+    }
+    if (firstStage === 'Bán kết' && tournament.semiDrawMethod === 'WHEEL') {
+      return true;
+    }
+
+    const allQualified = [...status.directlyQualified, ...selectedTeams];
     await this.updateStageTeams(tournamentId, firstStage, allQualified);
     return true;
   }
@@ -117,6 +126,9 @@ export class TournamentKnockoutService {
     const uniqueTeams = new Set(allTeams);
     if (uniqueTeams.size !== allTeams.length) {
       throw new Error('Các cặp đấu bốc thăm có đội bị trùng lặp');
+    }
+    if (matches.some((m) => m.status === 'FINISHED')) {
+      throw new Error(`Vòng ${stage} đã có trận đấu kết thúc, không thể bốc thăm lại`);
     }
     const updates: ReturnType<typeof this.prisma.matchGame.update>[] = [];
     for (let i = 0; i < matches.length; i++) {
@@ -205,26 +217,34 @@ export class TournamentKnockoutService {
     const firstStage = tournament.knockoutQualifierCount >= 8 ? 'Tứ kết' : tournament.knockoutQualifierCount >= 4 ? 'Bán kết' : 'Chung kết';
 
     // Xác định các đội vào vòng đầu
-    const status = await this.getWildcardStatus(tournamentId);
-    let seedTeams: string[] = [];
-    if (status.shortage > 0) {
-      if (tournament.wildcardTeams) {
-        try {
-          const wcs: string[] = JSON.parse(tournament.wildcardTeams);
-          if (wcs.length === status.shortage) {
-            seedTeams = [...status.directlyQualified, ...wcs];
-          }
-        } catch {}
-      }
-    } else {
-      seedTeams = knockoutSeeds(tournament.knockoutQualifierCount, rankings);
-      if (!seedTeams.length || seedTeams.length < tournament.knockoutQualifierCount) {
-        seedTeams = status.directlyQualified;
-      }
-    }
+    // Nếu vòng đầu là Tứ kết (hoặc Bán kết) và giải cấu hình bốc thăm bằng WHEEL,
+    // TUYỆT ĐỐI không tự động xếp hạt giống vào lịch! Giữ nguyên để Ban tổ chức bốc thăm vòng quay.
+    const isFirstStageWheel =
+      (firstStage === 'Tứ kết' && tournament.quarterDrawMethod === 'WHEEL') ||
+      (firstStage === 'Bán kết' && tournament.semiDrawMethod === 'WHEEL');
 
-    if (seedTeams.length >= tournament.knockoutQualifierCount) {
-      changed = (await this.updateStageTeams(tournamentId, firstStage, seedTeams)) || changed;
+    if (!isFirstStageWheel) {
+      const status = await this.getWildcardStatus(tournamentId);
+      let seedTeams: string[] = [];
+      if (status.shortage > 0) {
+        if (tournament.wildcardTeams) {
+          try {
+            const wcs: string[] = JSON.parse(tournament.wildcardTeams);
+            if (wcs.length === status.shortage) {
+              seedTeams = [...status.directlyQualified, ...wcs];
+            }
+          } catch {}
+        }
+      } else {
+        seedTeams = knockoutSeeds(tournament.knockoutQualifierCount, rankings);
+        if (!seedTeams.length || seedTeams.length < tournament.knockoutQualifierCount) {
+          seedTeams = status.directlyQualified;
+        }
+      }
+
+      if (seedTeams.length >= tournament.knockoutQualifierCount) {
+        changed = (await this.updateStageTeams(tournamentId, firstStage, seedTeams)) || changed;
+      }
     }
 
     // Tứ kết hoàn tất -> Bán kết (nếu đang ở FIXED mode)
@@ -268,11 +288,27 @@ export class TournamentKnockoutService {
       orderBy: [{ courtNumber: 'asc' }, { id: 'asc' }],
     });
     if (!matches.length || teams.length < matches.length * 2) return false;
+
+    // KHÓA BẤT BIẾN (Stage Lock Guard):
+    // Nếu trong vòng đấu này ĐÃ CÓ BẤT KỲ TRẬN NÀO BẮT ĐẦU (có điểm hoặc đã FINISHED),
+    // TUYỆT ĐỐI KHÔNG cập nhật lại vòng này nữa!
+    // Tránh ghi đè một phần làm cho đội ở trận đã kết thúc bị lặp lại ở các trận chưa thi đấu (gây lỗi 1 đội đánh 2 trận).
+    const anyStarted = matches.some((m) => m.status === 'FINISHED' || m.scoreA > 0 || m.scoreB > 0);
+    if (anyStarted) return false;
+
+    // KIỂM TRA TÍNH DUY NHẤT (Uniqueness Guard):
+    // Đảm bảo danh sách các đội tham gia vòng này không chứa bất kỳ đội nào bị trùng lặp
+    const targetTeams = teams.slice(0, matches.length * 2);
+    const uniqueTeams = new Set(targetTeams);
+    if (uniqueTeams.size !== targetTeams.length) {
+      return false;
+    }
+
     const updates: ReturnType<typeof this.prisma.matchGame.update>[] = [];
     for (const [index, match] of matches.entries()) {
-      const teamA = teams[index * 2];
-      const teamB = teams[index * 2 + 1];
-      if (!teamA || !teamB || (match.teamA === teamA && match.teamB === teamB) || match.status === 'FINISHED') continue;
+      const teamA = targetTeams[index * 2];
+      const teamB = targetTeams[index * 2 + 1];
+      if (!teamA || !teamB || (match.teamA === teamA && match.teamB === teamB)) continue;
       updates.push(
         this.prisma.matchGame.update({
           where: { id: match.id },

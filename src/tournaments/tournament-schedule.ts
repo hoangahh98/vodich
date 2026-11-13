@@ -78,29 +78,58 @@ export class TournamentScheduleBuilder {
   }
 }
 
-export function knockoutSeeds(qualifierCount: number, rankingGroups: RankingGroup[]) {
+export function knockoutSeeds(qualifierCount: number, rankingGroups: RankingGroup[]): string[] {
   const byGroup = new Map(rankingGroups.map((group) => [group.groupName, group.rows]));
+  const groupCount = rankingGroups.length;
+
   if (qualifierCount >= 8) {
-    return [
-      byGroup.get('A')?.[0]?.teamName,
-      byGroup.get('B')?.[1]?.teamName,
-      byGroup.get('B')?.[0]?.teamName,
-      byGroup.get('A')?.[1]?.teamName,
-      byGroup.get('C')?.[0]?.teamName,
-      byGroup.get('D')?.[1]?.teamName,
-      byGroup.get('D')?.[0]?.teamName,
-      byGroup.get('C')?.[1]?.teamName,
-    ].filter(Boolean) as string[];
+    if (groupCount >= 4) {
+      const seeds = [
+        byGroup.get('A')?.[0]?.teamName,
+        byGroup.get('B')?.[1]?.teamName,
+        byGroup.get('B')?.[0]?.teamName,
+        byGroup.get('A')?.[1]?.teamName,
+        byGroup.get('C')?.[0]?.teamName,
+        byGroup.get('D')?.[1]?.teamName,
+        byGroup.get('D')?.[0]?.teamName,
+        byGroup.get('C')?.[1]?.teamName,
+      ];
+      if (seeds.every(Boolean) && new Set(seeds).size === 8) return seeds as string[];
+    } else if (groupCount === 2) {
+      const seeds = [
+        byGroup.get('A')?.[0]?.teamName,
+        byGroup.get('B')?.[3]?.teamName,
+        byGroup.get('B')?.[0]?.teamName,
+        byGroup.get('A')?.[3]?.teamName,
+        byGroup.get('A')?.[1]?.teamName,
+        byGroup.get('B')?.[2]?.teamName,
+        byGroup.get('B')?.[1]?.teamName,
+        byGroup.get('A')?.[2]?.teamName,
+      ];
+      if (seeds.every(Boolean) && new Set(seeds).size === 8) return seeds as string[];
+    }
+  } else if (qualifierCount >= 4) {
+    if (groupCount >= 2) {
+      const seeds = [
+        byGroup.get('A')?.[0]?.teamName,
+        byGroup.get('B')?.[1]?.teamName,
+        byGroup.get('B')?.[0]?.teamName,
+        byGroup.get('A')?.[1]?.teamName,
+      ];
+      if (seeds.every(Boolean) && new Set(seeds).size === 4) return seeds as string[];
+    }
   }
-  if (qualifierCount >= 4) {
-    return [
-      byGroup.get('A')?.[0]?.teamName,
-      byGroup.get('B')?.[1]?.teamName,
-      byGroup.get('B')?.[0]?.teamName,
-      byGroup.get('A')?.[1]?.teamName,
-    ].filter(Boolean) as string[];
+
+  // Fallback an toàn: lấy danh sách các đội duy nhất theo thứ hạng
+  const allRows = rankingGroups.flatMap((group) => group.rows).sort(compareRankingRows);
+  const uniqueNames: string[] = [];
+  for (const row of allRows) {
+    if (row.teamName && !uniqueNames.includes(row.teamName)) {
+      uniqueNames.push(row.teamName);
+      if (uniqueNames.length === qualifierCount) break;
+    }
   }
-  return rankingGroups.flatMap((group) => group.rows).sort(compareRankingRows).slice(0, 2).map((row) => row.teamName);
+  return uniqueNames;
 }
 
 export function finishedStageWinners(matches: MatchGame[], stage: string): string[] | null {

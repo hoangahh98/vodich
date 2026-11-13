@@ -174,3 +174,41 @@ test('buildTournamentConfig cho phép chọn Tứ kết (8 đội) khi ở thể
   assert.equal(config.quarterDrawMethod, 'WHEEL');
   assert.equal(config.semiDrawMethod, 'WHEEL');
 });
+
+test('knockoutSeeds sinh danh sách hạt giống duy nhất, không trùng lặp cho mọi số lượng bảng', () => {
+  const { knockoutSeeds } = require('../dist/tournaments/tournament-schedule');
+
+  // Case 1: 4 bảng A, B, C, D (mỗi bảng 2 đội)
+  const groups4 = [
+    { groupName: 'A', rows: [{ teamName: 'A1', won: 2, pointDiff: 5 }, { teamName: 'A2', won: 1, pointDiff: 2 }] },
+    { groupName: 'B', rows: [{ teamName: 'B1', won: 2, pointDiff: 4 }, { teamName: 'B2', won: 1, pointDiff: 1 }] },
+    { groupName: 'C', rows: [{ teamName: 'C1', won: 2, pointDiff: 3 }, { teamName: 'C2', won: 1, pointDiff: 0 }] },
+    { groupName: 'D', rows: [{ teamName: 'D1', won: 2, pointDiff: 2 }, { teamName: 'D2', won: 1, pointDiff: -1 }] },
+  ];
+  const seeds4 = knockoutSeeds(8, groups4);
+  assert.equal(seeds4.length, 8);
+  assert.equal(new Set(seeds4).size, 8, '8 đội tứ kết từ 4 bảng phải duy nhất');
+  // Chéo A1 vs B2, B1 vs A2, C1 vs D2, D1 vs C2
+  assert.deepEqual(seeds4, ['A1', 'B2', 'B1', 'A2', 'C1', 'D2', 'D1', 'C2']);
+
+  // Case 2: 2 bảng A, B (mỗi bảng 4 đội)
+  const groups2 = [
+    { groupName: 'A', rows: [{ teamName: 'A1', won: 3, pointDiff: 10 }, { teamName: 'A2', won: 2, pointDiff: 5 }, { teamName: 'A3', won: 1, pointDiff: 0 }, { teamName: 'A4', won: 0, pointDiff: -5 }] },
+    { groupName: 'B', rows: [{ teamName: 'B1', won: 3, pointDiff: 9 }, { teamName: 'B2', won: 2, pointDiff: 4 }, { teamName: 'B3', won: 1, pointDiff: -1 }, { teamName: 'B4', won: 0, pointDiff: -6 }] },
+  ];
+  const seeds2 = knockoutSeeds(8, groups2);
+  assert.equal(seeds2.length, 8);
+  assert.equal(new Set(seeds2).size, 8, '8 đội tứ kết từ 2 bảng phải duy nhất');
+  // Chéo A1-B4, B1-A4, A2-B3, B2-A3
+  assert.deepEqual(seeds2, ['A1', 'B4', 'B1', 'A4', 'A2', 'B3', 'B2', 'A3']);
+
+  // Case 3: 3 bảng A, B, C (mỗi bảng 3 đội)
+  const groups3 = [
+    { groupName: 'A', rows: [{ teamName: 'A1', won: 2, pointDiff: 6 }, { teamName: 'A2', won: 1, pointDiff: 2 }, { teamName: 'A3', won: 0, pointDiff: -4 }] },
+    { groupName: 'B', rows: [{ teamName: 'B1', won: 2, pointDiff: 5 }, { teamName: 'B2', won: 1, pointDiff: 1 }, { teamName: 'B3', won: 0, pointDiff: -5 }] },
+    { groupName: 'C', rows: [{ teamName: 'C1', won: 2, pointDiff: 4 }, { teamName: 'C2', won: 1, pointDiff: 0 }, { teamName: 'C3', won: 0, pointDiff: -6 }] },
+  ];
+  const seeds3 = knockoutSeeds(8, groups3);
+  assert.equal(seeds3.length, 8);
+  assert.equal(new Set(seeds3).size, 8, '8 đội tứ kết từ 3 bảng phải tuyệt đối duy nhất, không trùng lặp');
+});
