@@ -25,6 +25,10 @@ export type ManualTeam = { name: string; group?: string | null };
 /** Tên vòng của thể thức Đôi xoay vòng (Americano). */
 export const AMERICANO_STAGE = 'Xoay vòng';
 
+/** Trận tranh hạng ba/bốn. */
+export const STAGE_THIRD_PLACE = 'Tranh hạng 3-4';
+export const ROUND_THIRD_PLACE = 103;
+
 /** Mọi vòng đấu tính vào bảng xếp hạng (khác với các vòng loại trực tiếp phía sau). */
 export const RANKED_STAGES = ['Vòng bảng', 'Vòng tròn', AMERICANO_STAGE];
 
@@ -103,6 +107,12 @@ export function finishedStageWinners(matches: MatchGame[], stage: string): strin
   const stageMatches = matches.filter((match) => match.stage === stage).sort((a, b) => a.courtNumber - b.courtNumber || Number(a.id - b.id));
   if (!stageMatches.length || stageMatches.some((match) => match.status !== 'FINISHED')) return null;
   return stageMatches.map((match) => (match.scoreA > match.scoreB ? match.teamA : match.teamB));
+}
+
+export function finishedStageLosers(matches: MatchGame[], stage: string): string[] | null {
+  const stageMatches = matches.filter((match) => match.stage === stage).sort((a, b) => a.courtNumber - b.courtNumber || Number(a.id - b.id));
+  if (!stageMatches.length || stageMatches.some((match) => match.status !== 'FINISHED')) return null;
+  return stageMatches.map((match) => (match.scoreA > match.scoreB ? match.teamB : match.teamA));
 }
 
 function displayRegistrationName(reg: RegisteredPlayer) {
@@ -390,8 +400,9 @@ function pairName(pair: AmericanoPair): string {
 
 function buildGroupMatches(tournament: Tournament, teams: ManualTeam[]): MatchCreate[] {
   const stage = tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng' : 'Vòng tròn';
+  const count = groupCountFor(tournament, teams.length);
   const groups =
-    tournament.format === 'GROUP_KNOCKOUT' ? splitGroups(teams, groupCountFor(tournament, teams.length)) : [teams.map((team) => team.name)];
+    tournament.format === 'GROUP_KNOCKOUT' ? splitGroups(teams, count) : [teams.map((team) => team.name)];
   const matches: MatchCreate[] = [];
   const groupRounds = groups.map((groupTeams, groupIndex) => {
     const groupName = groupLetter(groupIndex);
@@ -444,7 +455,14 @@ function buildKnockout(tournament: Tournament): MatchCreate[] {
     previous = 'Bán kết';
   }
   matches.push(...stageMatches(tournament, 'Chung kết', 102, previous ? winners(previous, 2) : ['Nhất A', 'Nhất B']));
+  if (tournament.knockoutQualifierCount >= 4 && tournament.hasThirdPlace !== false) {
+    matches.push(...stageMatches(tournament, STAGE_THIRD_PLACE, ROUND_THIRD_PLACE, losers('Bán kết', 2)));
+  }
   return matches;
+}
+
+function losers(stage: string, count: number): string[] {
+  return Array.from({ length: count }, (_, index) => `Thua ${stage} ${index + 1}`);
 }
 
 function stageMatches(tournament: Tournament, stage: string, round: number, teams: string[]): MatchCreate[] {
@@ -473,9 +491,16 @@ export function groupIndexOf(letter: string | null | undefined): number {
  * quá nửa số đội (mỗi bảng ít nhất 2 đội). Form ghép tay và vòng quay cũng dùng hàm này để
  * vẽ đúng số bảng mà "Chia trận" sẽ tạo.
  */
-export function groupCountFor(tournament: Pick<Tournament, 'format' | 'knockoutQualifierCount'>, teamCount: number) {
+export function groupCountFor(
+  tournament: Pick<Tournament, 'format' | 'knockoutQualifierCount'> & { groupCount?: number | null },
+  teamCount: number,
+) {
   if (tournament.format !== 'GROUP_KNOCKOUT') return 1;
-  return Math.min(Math.max(1, Math.ceil(tournament.knockoutQualifierCount / 2)), Math.max(1, Math.floor(teamCount / 2)));
+  const maxGroups = Math.max(1, Math.floor(teamCount / 2));
+  if (tournament.groupCount && tournament.groupCount > 0) {
+    return Math.min(tournament.groupCount, maxGroups);
+  }
+  return Math.min(Math.max(1, Math.ceil(tournament.knockoutQualifierCount / 2)), maxGroups);
 }
 
 /**

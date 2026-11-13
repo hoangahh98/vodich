@@ -67,6 +67,105 @@ export class TournamentScheduleController {
     this.matchGateway.emitTournamentUpdated(id, 'schedule');
     return res.redirect(`/tournaments/${id}/schedule`);
   }
+
+  @Post('/tournaments/:id/wildcards')
+  async selectWildcards(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    if (!(await this.tournaments.canManage(req.session.user!, BigInt(id)))) return forbidden(res);
+    let teams: string[] = [];
+    if (Array.isArray(body.teams)) {
+      teams = body.teams.map(String).map((s) => s.trim()).filter(Boolean);
+    } else if (typeof body.teams === 'string') {
+      try {
+        const parsed = JSON.parse(body.teams);
+        if (Array.isArray(parsed)) teams = parsed.map(String).map((s) => s.trim()).filter(Boolean);
+      } catch {
+        teams = [body.teams.trim()].filter(Boolean);
+      }
+    } else {
+      // Form check-box fields: e.g. team_TeamName = 'on'
+      for (const [key, val] of Object.entries(body)) {
+        if (key.startsWith('wildcard_') && val === 'on') {
+          teams.push(key.replace('wildcard_', ''));
+        }
+      }
+    }
+    try {
+      await this.tournaments.selectWildcards(BigInt(id), teams);
+      req.session.flash = 'Đã cập nhật danh sách đội bổ sung vào vòng trong';
+      this.matchGateway.emitTournamentUpdated(id, 'schedule');
+    } catch (error) {
+      req.session.flash = error instanceof Error ? error.message : 'Không chọn được đội bổ sung';
+    }
+    return res.redirect(`/tournaments/${id}/schedule`);
+  }
+
+  @Post('/tournaments/:id/stage-draw')
+  async saveStageDraw(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    if (!(await this.tournaments.canManage(req.session.user!, BigInt(id)))) return forbidden(res);
+    const stage = String(body.stage || 'Tứ kết');
+    let pairs: { teamA: string; teamB: string }[] = [];
+    if (Array.isArray(body.pairs)) {
+      pairs = body.pairs as { teamA: string; teamB: string }[];
+    } else if (typeof body.pairs === 'string') {
+      try {
+        pairs = JSON.parse(body.pairs);
+      } catch {}
+    } else {
+      const pairCount = Math.max(0, Number(body.pairCount || 0));
+      for (let i = 1; i <= pairCount; i++) {
+        const teamA = String(body[`teamA_${i}`] || '').trim();
+        const teamB = String(body[`teamB_${i}`] || '').trim();
+        if (teamA && teamB) pairs.push({ teamA, teamB });
+      }
+    }
+    try {
+      await this.tournaments.saveStageDraw(BigInt(id), stage, pairs);
+      req.session.flash = `Đã lưu kết quả bốc thăm ${stage}`;
+      this.matchGateway.emitTournamentUpdated(id, 'schedule');
+      if (req.headers.accept?.includes('application/json') || req.xhr) {
+        return res.json({ ok: true });
+      }
+    } catch (error) {
+      if (req.headers.accept?.includes('application/json') || req.xhr) {
+        return res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'Lỗi bốc thăm' });
+      }
+      req.session.flash = error instanceof Error ? error.message : 'Không lưu được kết quả bốc thăm';
+    }
+    return res.redirect(`/tournaments/${id}/schedule`);
+  }
+
+  @Post('/tournaments/:id/advance-semifinals')
+  async advanceSemifinals(@Req() req: Request, @Res() res: Response, @Param('id') id: string, @Body() body: Record<string, unknown>) {
+    if (!requireFeature(req, res, this.auth, 'TOURNAMENTS', true)) return;
+    if (!(await this.tournaments.canManage(req.session.user!, BigInt(id)))) return forbidden(res);
+    const mode = body.mode === 'WHEEL' ? 'WHEEL' : 'FIXED';
+    let wheelPairs: { teamA: string; teamB: string }[] | undefined;
+    if (mode === 'WHEEL') {
+      if (Array.isArray(body.pairs)) {
+        wheelPairs = body.pairs as { teamA: string; teamB: string }[];
+      } else if (typeof body.pairs === 'string') {
+        try {
+          wheelPairs = JSON.parse(body.pairs);
+        } catch {}
+      }
+    }
+    try {
+      await this.tournaments.advanceSemifinals(BigInt(id), mode, wheelPairs);
+      req.session.flash = mode === 'WHEEL' ? 'Đã bốc thăm ghép cặp bán kết' : 'Đã chia cặp bán kết theo nhánh cố định';
+      this.matchGateway.emitTournamentUpdated(id, 'schedule');
+      if (req.headers.accept?.includes('application/json') || req.xhr) {
+        return res.json({ ok: true });
+      }
+    } catch (error) {
+      if (req.headers.accept?.includes('application/json') || req.xhr) {
+        return res.status(400).json({ ok: false, message: error instanceof Error ? error.message : 'Lỗi chuyển bán kết' });
+      }
+      req.session.flash = error instanceof Error ? error.message : 'Không chuyển được sang bán kết';
+    }
+    return res.redirect(`/tournaments/${id}/schedule`);
+  }
 }
 
 function forbidden(res: Response) {

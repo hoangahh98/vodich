@@ -1,0 +1,123 @@
+<% if (tournament.format === 'GROUP_KNOCKOUT') { %>
+  <%
+    const qfMatches = matches.filter((m) => m.stage === 'Tứ kết');
+    const sfMatches = matches.filter((m) => m.stage === 'Bán kết');
+    const finalMatch = matches.find((m) => m.stage === 'Chung kết');
+    const thirdMatch = matches.find((m) => m.stage === 'Tranh hạng 3-4');
+    const groupMatches = matches.filter((m) => m.stage === 'Vòng bảng');
+    const groupFinished = groupMatches.length > 0 && groupMatches.every((m) => m.status === 'FINISHED');
+    const qfPlayed = qfMatches.some((m) => m.status === 'FINISHED' || m.scoreA > 0 || m.scoreB > 0);
+    const qfAllDone = qfMatches.length === 4 && qfMatches.every((m) => m.status === 'FINISHED');
+    const sfPlayed = sfMatches.some((m) => m.status === 'FINISHED' || m.scoreA > 0 || m.scoreB > 0);
+    const sfAllDone = sfMatches.length === 2 && sfMatches.every((m) => m.status === 'FINISHED');
+    const hasWs = typeof wildcardStatus !== 'undefined' && wildcardStatus;
+  %>
+
+  <%# 1. Khung chọn Wildcard khi vòng bảng thiếu suất %>
+  <% if (hasWs && wildcardStatus.hasShortage && groupFinished) { %>
+    <div class="alert-lite warning p-3 mb-3">
+      <div class="section-heading mb-2">
+        <div>
+          <h3 class="section-title"><%- include('../../../partials/icon', { name: 'trophy' }) %> Chọn bổ sung <%= wildcardStatus.shortage %> đội vào vòng knockout</h3>
+          <p class="muted">
+            Đã có <%= wildcardStatus.directlyQualified.length %> đội vào thẳng: <strong><%= wildcardStatus.directlyQualified.join(', ') %></strong>.
+            Cần lấy thêm <strong><%= wildcardStatus.shortage %> đội</strong> nữa để đủ <%= wildcardStatus.targetCount %> đội.
+          </p>
+        </div>
+      </div>
+
+      <% if (wildcardStatus.currentWildcards && wildcardStatus.currentWildcards.length === wildcardStatus.shortage) { %>
+        <div class="mb-2">
+          <span class="badge bg-success">Đã chọn bổ sung:</span> <strong><%= wildcardStatus.currentWildcards.join(', ') %></strong>
+        </div>
+      <% } %>
+
+      <% if (currentUser.role === 'ADMIN') { %>
+        <form method="post" action="/tournaments/<%= tournament.id %>/wildcards" class="mt-2">
+          <div class="mb-2"><strong>Chọn danh sách <%= wildcardStatus.shortage %> đội vé vớt (gợi ý theo BXH):</strong></div>
+          <div class="flex wrap gap mb-3">
+            <% wildcardStatus.candidates.forEach((c) => {
+                 const isSuggested = wildcardStatus.suggested.some((s) => s.teamName === c.teamName);
+                 const isChecked = wildcardStatus.currentWildcards.length ? wildcardStatus.currentWildcards.includes(c.teamName) : isSuggested;
+            %>
+              <label class="option-card" style="padding: 6px 12px; margin: 0; cursor: pointer;">
+                <input type="checkbox" name="wildcard_<%= c.teamName %>" <%= isChecked ? 'checked' : '' %>>
+                <%= c.teamName %> <small class="muted">(<%= c.won %>T, hiệu số <%= c.pointDiff >= 0 ? '+' + c.pointDiff : c.pointDiff %>)</small>
+              </label>
+            <% }) %>
+          </div>
+          <button class="btn btn-primary btn-sm" data-loading-text="Đang lưu..."><%- include('../../../partials/icon', { name: 'save' }) %> Lưu đội bổ sung</button>
+        </form>
+      <% } %>
+    </div>
+  <% } %>
+
+  <%# 2. Bốc thăm vòng Tứ kết %>
+  <% if (tournament.knockoutQualifierCount >= 8 && groupFinished && !qfPlayed && hasWs) { %>
+    <%
+      let qfTeams = [];
+      if (!wildcardStatus.hasShortage) {
+        qfTeams = wildcardStatus.directlyQualified;
+      } else if (wildcardStatus.currentWildcards.length === wildcardStatus.shortage) {
+        qfTeams = [...wildcardStatus.directlyQualified, ...wildcardStatus.currentWildcards];
+      }
+    %>
+    <% if (qfTeams.length >= 8) { %>
+      <div class="alert-lite info p-3 mb-3">
+        <div class="flex between center wrap gap">
+          <div>
+            <strong>8 đội tham gia Tứ kết:</strong> <%= qfTeams.slice(0, 8).join(', ') %><br>
+            <small class="muted">Các trận Tứ kết chưa thi đấu. Ban tổ chức có thể bốc thăm vòng quay ngẫu nhiên để ghép 4 cặp đấu.</small>
+          </div>
+          <% if (currentUser.role === 'ADMIN') { %>
+            <div>
+              <button type="button" class="btn btn-warning btn-sm" data-open-ko-draw data-stage="Tứ kết" data-action="/tournaments/<%= tournament.id %>/stage-draw" data-teams="<%= JSON.stringify(qfTeams.slice(0, 8)) %>">
+                <%- include('../../../partials/icon', { name: 'wheel' }) %> Bốc thăm Tứ kết (Vòng quay)
+              </button>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+
+  <%# 3. Tiến trình Bán kết khi Tứ kết xong %>
+  <% if (tournament.knockoutQualifierCount >= 8 && qfAllDone && !sfPlayed) { %>
+    <% const qfWinners = finishedStageWinners(matches, 'Tứ kết') || []; %>
+    <% if (qfWinners.length === 4) { %>
+      <div class="alert-lite info p-3 mb-3">
+        <div class="flex between center wrap gap">
+          <div>
+            <strong>4 đội thắng Tứ kết:</strong> <%= qfWinners.join(', ') %><br>
+            <small class="muted">Chọn chia cặp Bán kết theo nhánh cố định hoặc quay vòng tròn bốc thăm.</small>
+          </div>
+          <% if (currentUser.role === 'ADMIN') { %>
+            <div class="flex gap wrap">
+              <form method="post" action="/tournaments/<%= tournament.id %>/advance-semifinals">
+                <input type="hidden" name="mode" value="FIXED">
+                <button class="btn btn-primary btn-sm"><%- include('../../../partials/icon', { name: 'scale' }) %> Nhánh cố định (TK 1-2, TK 3-4)</button>
+              </form>
+              <button type="button" class="btn btn-warning btn-sm" data-open-ko-draw data-stage="Bán kết" data-action="/tournaments/<%= tournament.id %>/advance-semifinals" data-teams="<%= JSON.stringify(qfWinners) %>">
+                <%- include('../../../partials/icon', { name: 'wheel' }) %> Bốc thăm Bán kết (Vòng quay)
+              </button>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+
+  <%# 4. Thông báo Chung kết & Tranh 3-4 khi Bán kết xong %>
+  <% if (sfAllDone) { %>
+    <%
+      const sfWinners = finishedStageWinners(matches, 'Bán kết') || [];
+      const sfLosers = finishedStageLosers(matches, 'Bán kết') || [];
+    %>
+    <div class="alert-lite success p-3 mb-3">
+      <strong>Chung kết:</strong> <%= sfWinners.join(' vs ') %>
+      <% if (tournament.hasThirdPlace !== false && sfLosers.length === 2) { %>
+        &nbsp;·&nbsp; <strong>Tranh hạng 3-4:</strong> <%= sfLosers.join(' vs ') %>
+      <% } %>
+    </div>
+  <% } %>
+<% } %>

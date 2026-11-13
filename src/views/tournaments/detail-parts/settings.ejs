@@ -36,7 +36,7 @@
         <div class="section-heading mb"><div><span class="feature-icon"><%- include('../../partials/icon', { name: 'settings' }) %></span><h2 class="section-title">Cấu hình giải</h2></div></div>
         <div class="grid kv-grid">
           <div class="kv"><span>Loại đấu</span><strong><%= tournament.playType === 'DOUBLES' ? 'Thi đôi' : 'Thi đơn' %></strong></div>
-          <div class="kv"><span>Thể thức</span><strong><%= settingsFormatLabel %></strong></div>
+          <div class="kv"><span>Thể thức</span><strong><%= settingsFormatLabel %><% if (tournament.format === 'GROUP_KNOCKOUT') { %><br><small class="muted"><%= tournament.groupCount ? tournament.groupCount + ' bảng' : 'Bảng tự động' %> · Lấy top <%= tournament.advancePerGroup || 2 %> mỗi bảng<% if (tournament.hasThirdPlace !== false) { %> · Có tranh 3-4<% } %></small><% } %></strong></div>
           <div class="kv"><span>Điểm</span><strong>Vòng bảng: chạm <%= tournament.touchScore %>, max <%= tournament.maxScore %><% if (tournament.format === 'GROUP_KNOCKOUT') { %><br>Vòng trong: chạm <%= tournament.knockoutTouchScore || 15 %>, max <%= tournament.knockoutMaxScore || 19 %><% } %></strong></div>
           <div class="kv"><span>Lệ phí / người</span><strong><%= formatMoney(minimumFee) %>đ</strong></div>
         </div>

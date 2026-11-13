@@ -129,6 +129,22 @@ export class TournamentService {
     return this.knockout.syncKnockout(tournamentId);
   }
 
+  getWildcardStatus(tournamentId: bigint) {
+    return this.knockout.getWildcardStatus(tournamentId);
+  }
+
+  selectWildcards(tournamentId: bigint, selectedTeams: string[]) {
+    return this.knockout.selectWildcards(tournamentId, selectedTeams);
+  }
+
+  saveStageDraw(tournamentId: bigint, stage: string, pairs: { teamA: string; teamB: string }[]) {
+    return this.knockout.saveStageDraw(tournamentId, stage, pairs);
+  }
+
+  advanceSemifinals(tournamentId: bigint, mode: 'FIXED' | 'WHEEL', wheelPairs?: { teamA: string; teamB: string }[]) {
+    return this.knockout.advanceSemifinals(tournamentId, mode, wheelPairs);
+  }
+
   prizeTotalPaid(tournamentId: bigint) {
     return this.crud.prizeTotalPaid(tournamentId);
   }

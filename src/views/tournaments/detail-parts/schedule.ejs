@@ -2,6 +2,7 @@
   <section class="card-lite p">
     <%- include('schedule-parts/header') %>
     <%- include('schedule-parts/manual-pairs') %>
+    <%- include('schedule-parts/knockout-controls') %>
     <div id="matchList" data-tournament-id="<%= tournament.id %>" data-play-type="<%= tournament.playType === 'DOUBLES' ? 'DOUBLES' : 'SINGLES' %>" data-touch-score="<%= tournament.touchScore || 11 %>" data-max-score="<%= tournament.maxScore || 15 %>" data-knockout-touch-score="<%= tournament.knockoutTouchScore || 15 %>" data-knockout-max-score="<%= tournament.knockoutMaxScore || 19 %>">
       <%
         const roundMap = new Map();
@@ -17,6 +18,7 @@
           if (round === 100) return 'TỨ KẾT';
           if (round === 101) return 'BÁN KẾT';
           if (round === 102) return 'CHUNG KẾT';
+          if (round === 103) return 'TRANH HẠNG 3-4';
           return tournament.format === 'GROUP_KNOCKOUT' ? `LƯỢT ${round}` : `VÒNG ${round}`;
         };
       %>
@@ -27,4 +29,5 @@
   </section>
   <%- include('schedule-parts/score-modal') %>
   <%- include('schedule-parts/spin-draw') %>
+  <%- include('schedule-parts/knockout-draw-modal') %>
 <% } %>

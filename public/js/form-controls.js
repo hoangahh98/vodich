@@ -54,8 +54,14 @@
     const syncKnockout = () => {
       if (!qualifierInput || !finalBox || !semiBox || !quarterBox) return;
       const teamCount = estimatedTeamCount();
+      const groupCountInput = document.querySelector('input[name="groupCount"]');
+      const advanceInput = document.querySelector('input[name="advancePerGroup"]');
+      const hasDynamic = Boolean(groupCountInput?.value || advanceInput?.value);
       [finalBox, semiBox, quarterBox].forEach((box) => {
-        const enoughTeams = teamCount >= (Number.parseInt(box.dataset.minTeams || '0', 10) || 0);
+        const minTeams = hasDynamic
+          ? (box.id === 'knockoutQuarter' ? 8 : box.id === 'knockoutSemi' ? 4 : 2)
+          : (Number.parseInt(box.dataset.minTeams || '0', 10) || 0);
+        const enoughTeams = teamCount >= minTeams;
         box.disabled = !enoughTeams;
         if (!enoughTeams) box.checked = false;
       });
@@ -98,8 +104,8 @@
     formatSelect?.addEventListener('change', sync);
     formatRadios.forEach((radio) => radio.addEventListener('change', sync));
     [finalBox, semiBox, quarterBox].forEach((box) => box?.addEventListener('change', syncKnockout));
-    [expectedPlayersInput, playTypeSelect].forEach((item) => item?.addEventListener('input', sync));
-    [expectedPlayersInput, playTypeSelect].forEach((item) => item?.addEventListener('change', sync));
+    [expectedPlayersInput, playTypeSelect, groupCountInput, advanceInput].forEach((item) => item?.addEventListener('input', sync));
+    [expectedPlayersInput, playTypeSelect, groupCountInput, advanceInput].forEach((item) => item?.addEventListener('change', sync));
     sync();
   };
 

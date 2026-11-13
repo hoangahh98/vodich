@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { AVAILABLE_ADMINS_ORDER, availableAdminsWhere } from '../common/admin-scope';
-import { GroupBoard, PlayerRankingRow, RankingGroup, TournamentRankingCalculator } from './tournament-ranking';
+import { GroupBoard, PlayerRankingRow, RankingGroup, TournamentRankingCalculator, aggregateCrossGroupStandings } from './tournament-ranking';
 import { RANKED_STAGES } from './tournament-schedule';
 
 @Injectable()
@@ -43,7 +43,43 @@ export class TournamentDetailService {
       tournament.format === 'AMERICANO'
         ? this.rankingCalculator.playerRankings(matches.filter((match) => RANKED_STAGES.includes(match.stage)))
         : [];
-    return { tournament, registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, playerRankings, groupBoards, admins };
+
+    let wildcardStatus: any = null;
+    if (tournament.format === 'GROUP_KNOCKOUT') {
+      const finishedGroupMatches = matches.filter((m) => m.stage === 'Vòng bảng' && m.status === 'FINISHED');
+      const allGroupMatches = matches.filter((m) => m.stage === 'Vòng bảng');
+      const groupStageFinished = allGroupMatches.length > 0 && allGroupMatches.every((m) => m.status === 'FINISHED');
+      const advancePerGroup = tournament.advancePerGroup ?? 2;
+      const targetCount = tournament.knockoutQualifierCount;
+      const crossGroup = aggregateCrossGroupStandings(
+        rankingGroups,
+        finishedGroupMatches.map((m) => ({
+          teamA: m.teamA,
+          teamB: m.teamB,
+          scoreA: m.scoreA,
+          scoreB: m.scoreB,
+          status: m.status,
+          groupName: m.groupName,
+          stage: m.stage,
+        })),
+        advancePerGroup,
+        targetCount,
+      );
+      let currentWildcards: string[] = [];
+      if (tournament.wildcardTeams) {
+        try {
+          currentWildcards = JSON.parse(tournament.wildcardTeams);
+        } catch {}
+      }
+      wildcardStatus = {
+        ...crossGroup,
+        groupStageFinished,
+        currentWildcards,
+        hasShortage: crossGroup.shortage > 0,
+      };
+    }
+
+    return { tournament, registrations, reserveRegistrations, withdrawnRegistrations, players, matches, rankingGroups, playerRankings, groupBoards, admins, wildcardStatus };
   }
 
   async groupBoards(tournamentId: bigint): Promise<GroupBoard[]> {

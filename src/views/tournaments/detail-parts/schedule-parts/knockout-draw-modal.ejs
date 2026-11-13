@@ -1,0 +1,43 @@
+<% if (currentUser.role === 'ADMIN' && tournament.format === 'GROUP_KNOCKOUT') { %>
+  <div class="score-modal hidden" id="knockoutSpinModal" data-ko-modal>
+    <div class="score-modal-backdrop" data-ko-close></div>
+    <div class="score-modal-panel">
+      <div class="score-modal-head">
+        <div>
+          <h3 data-ko-title><%- include('../../../partials/icon', { name: 'wheel' }) %> Bốc thăm vòng loại trực tiếp</h3>
+          <small class="muted" data-ko-subtitle>Quay ngẫu nhiên chia các cặp đấu</small>
+        </div>
+        <div class="score-modal-head-actions">
+          <button type="button" class="btn btn-sm" data-ko-reset>Làm lại</button>
+          <button type="button" class="btn btn-sm" data-ko-close>Đóng</button>
+        </div>
+      </div>
+      <div class="score-modal-body">
+        <div class="wheel-stage">
+          <div class="wheel-pool" data-ko-pool></div>
+          <div class="wheel-box">
+            <div class="wheel-pointer" aria-hidden="true"></div>
+            <div class="wheel-rotor" data-ko-wheel></div>
+          </div>
+          <div class="spin-picked" data-ko-picked></div>
+        </div>
+        <div class="spin-actions">
+          <button type="button" class="btn btn-primary" data-ko-once><%- include('../../../partials/icon', { name: 'wheel' }) %> Quay</button>
+          <button type="button" class="btn btn-success" data-ko-all><%- include('../../../partials/icon', { name: 'bolt' }) %> Bốc nhanh tất cả</button>
+        </div>
+        <div class="spin-results-box">
+          <h4 class="spin-results-title">Các cặp đấu đã bốc <span class="badge bg-primary rounded-pill" data-ko-total>0</span></h4>
+          <ol class="spin-results" data-ko-results></ol>
+        </div>
+        <form method="post" action="" class="spin-apply hidden" data-ko-form>
+          <input type="hidden" name="stage" value="" data-ko-stage>
+          <input type="hidden" name="mode" value="WHEEL" data-ko-mode>
+          <input type="hidden" name="pairCount" value="0" data-ko-count>
+          <div data-ko-inputs></div>
+          <button class="btn btn-success spin-apply-btn" data-loading-text="Đang lưu..."><%- include('../../../partials/icon', { name: 'check' }) %> Chốt danh sách cặp đấu</button>
+          <p class="muted mt-1">Cập nhật cặp đấu vào lịch thi đấu.</p>
+        </form>
+      </div>
+    </div>
+  </div>
+<% } %>

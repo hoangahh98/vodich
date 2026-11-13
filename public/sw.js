@@ -15,8 +15,8 @@
 // Bump số bản khi HTML đổi theo kiểu bản JS cũ không chạy nổi nữa: cache là
 // stale-while-revalidate nên lần mở đầu sau khi deploy vẫn dùng JS cũ, mà khung vòng quay mới
 // (data-spin-wheel) thì bản spin-draw.js cũ không hiểu. Đổi tên cache là `activate` quét sạch.
-// v5 (6/10/2026): selection-controls.js lọc được bảng Thành viên — bản cũ trong cache tìm gì cũng ra 0 người.
-const CACHE = 'vodich-static-v5';
+// v6 (11/2026): nâng cấp knockout động, bổ sung wildcard và knockout-draw.js.
+const CACHE = 'vodich-static-v6';
 
 // Nạp sẵn ngay khi cài để lần mở đầu tiên từ màn hình chính đã có giao diện.
 const PRECACHE = [
@@ -38,6 +38,7 @@ const PRECACHE = [
   '/js/selection-controls.js',
   '/js/modal-copy.js',
   '/js/realtime.js',
+  '/js/knockout-draw.js',
   '/js/motion.js',
   '/js/no-zoom.js',
   '/uploads/logo.png',

@@ -23,11 +23,19 @@ export function buildTournamentConfig(form: Record<string, unknown>, prizes: num
   // Mặc định THI ĐÔI: form tạo giải không còn ô Loại đấu, mà pickleball ở đây chủ yếu đánh đôi — để
   // mặc định đơn là giải mới mất luôn ghép đội thủ công / vòng quay (chủ app đã vấp, 9/2026).
   const playType = format === 'AMERICANO' ? 'DOUBLES' : oneOf(form.playType, PLAY_TYPES, 'DOUBLES');
+  const groupCount = form.groupCount ? Math.max(1, Number(form.groupCount)) : null;
+  const advancePerGroup = form.advancePerGroup ? Math.max(1, Number(form.advancePerGroup)) : null;
+  const hasThirdPlace = form.hasThirdPlace === undefined ? true : form.hasThirdPlace === 'on' || form.hasThirdPlace === 'true' || form.hasThirdPlace === true;
+  const semiDrawMethod = form.semiDrawMethod === 'WHEEL' ? 'WHEEL' : 'FIXED';
   return {
     playType,
     format,
+    groupCount,
+    advancePerGroup,
+    hasThirdPlace,
+    semiDrawMethod,
     pairingRule: normalizePairingRule(form.pairingRule),
-    knockoutQualifierCount: normalizeQualifierCount(Number(form.knockoutQualifierCount || 2), Math.max(1, expectedPlayers), playType),
+    knockoutQualifierCount: normalizeQualifierCount(Number(form.knockoutQualifierCount || 2), Math.max(1, expectedPlayers), playType, groupCount !== null || advancePerGroup !== null),
     touchScore: Math.max(1, Number(form.touchScore || 11)),
     maxScore: Math.max(1, Number(form.maxScore || 15)),
     knockoutTouchScore: Math.max(1, Number(form.knockoutTouchScore || 15)),
@@ -56,8 +64,13 @@ export function buildTournamentData(form: Record<string, unknown>, prizes: numbe
  */
 export const KNOCKOUT_MIN_TEAMS = { semi: 6, quarter: 12 } as const;
 
-export function normalizeQualifierCount(value: number, expectedPlayers = 16, playType = 'SINGLES') {
+export function normalizeQualifierCount(value: number, expectedPlayers = 16, playType = 'SINGLES', allowDynamic = false) {
   const estimatedTeams = playType === 'DOUBLES' ? Math.floor(expectedPlayers / 2) : expectedPlayers;
+  if (allowDynamic) {
+    if (value >= 8 && estimatedTeams >= 8) return 8;
+    if (value >= 4 && estimatedTeams >= 4) return 4;
+    return 2;
+  }
   if (value >= 8 && estimatedTeams >= KNOCKOUT_MIN_TEAMS.quarter) return 8;
   if (value >= 4 && estimatedTeams >= KNOCKOUT_MIN_TEAMS.semi) return 4;
   return 2;

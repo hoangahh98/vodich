@@ -22,7 +22,23 @@
         <label class="option-card"><input type="checkbox" id="knockoutQuarter" data-value="8" data-min-teams="12" <%= (tournament?.knockoutQualifierCount || 2) >= 8 ? 'checked' : '' %>> Tứ kết <small>Lấy 8 đội</small></label>
       </div>
     </div>
-    <p class="muted mt">Bán kết cần từ 6 đội (2 bảng 3, hoặc 3 + 4), tứ kết cần từ 12 đội. Số đội tính theo số thành viên dự kiến ở Thông tin giải.</p>
+    <p class="muted mt">Bán kết cần từ 4 đội, tứ kết cần từ 8 đội. Nếu số đội qua vòng bảng ít hơn số suất vòng knockout đã chọn, hệ thống sẽ gợi ý và cho phép ban tổ chức chọn bổ sung đội (wildcard).</p>
+    <div class="row mt">
+      <div class="col-6"><label>Số bảng đấu (tùy chọn)</label><input type="number" name="groupCount" min="1" max="16" placeholder="Tự động theo số đội" value="<%= tournament?.groupCount || '' %>"><span class="field-hint">Để trống để hệ thống tự tính</span></div>
+      <div class="col-6"><label>Số đội lấy mỗi bảng</label><input type="number" name="advancePerGroup" min="1" max="8" placeholder="Mặc định: 2" value="<%= tournament?.advancePerGroup || '' %>"><span class="field-hint">Số đội vào thẳng vòng trong</span></div>
+    </div>
+    <div class="row mt">
+      <div class="col-6">
+        <label class="option-card"><input type="checkbox" name="hasThirdPlace" <%= tournament?.hasThirdPlace !== false ? 'checked' : '' %>> Tranh hạng 3-4 <small>2 đội thua bán kết thi đấu</small></label>
+      </div>
+      <div class="col-6">
+        <label>Ghép cặp Bán kết</label>
+        <select name="semiDrawMethod">
+          <option value="FIXED" <%= (tournament?.semiDrawMethod || 'FIXED') === 'FIXED' ? 'selected' : '' %>>Nhánh cố định (TK 1-2, TK 3-4)</option>
+          <option value="WHEEL" <%= tournament?.semiDrawMethod === 'WHEEL' ? 'selected' : '' %>>Quay vòng tròn bốc thăm</option>
+        </select>
+      </div>
+    </div>
     <div class="row mt">
       <div class="col-6"><label>Chạm điểm vòng trong</label><input type="number" name="knockoutTouchScore" value="<%= tournament?.knockoutTouchScore || 15 %>" min="1"></div>
       <div class="col-6"><label>Max điểm vòng trong</label><input type="number" name="knockoutMaxScore" value="<%= tournament?.knockoutMaxScore || 19 %>" min="1"></div>
