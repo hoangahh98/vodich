@@ -81,6 +81,35 @@
     <% } %>
   <% } %>
 
+  <%# 2.5. Bốc thăm vòng Bán kết trực tiếp từ vòng bảng (khi giải chỉ lấy 4 đội) %>
+  <% if (tournament.knockoutQualifierCount === 4 && groupFinished && !sfPlayed && hasWs) { %>
+    <%
+      let directSfTeams = [];
+      if (!wildcardStatus.hasShortage) {
+        directSfTeams = wildcardStatus.directlyQualified;
+      } else if (wildcardStatus.currentWildcards.length === wildcardStatus.shortage) {
+        directSfTeams = [...wildcardStatus.directlyQualified, ...wildcardStatus.currentWildcards];
+      }
+    %>
+    <% if (directSfTeams.length >= 4) { %>
+      <div class="alert-lite info p-3 mb-3">
+        <div class="flex between center wrap gap">
+          <div>
+            <strong>4 đội tham gia Bán kết:</strong> <%= directSfTeams.slice(0, 4).join(', ') %><br>
+            <small class="muted">Các trận Bán kết chưa thi đấu. Ban tổ chức có thể bốc thăm vòng quay ngẫu nhiên để ghép 2 cặp đấu.</small>
+          </div>
+          <% if (currentUser.role === 'ADMIN') { %>
+            <div>
+              <button type="button" class="btn btn-warning btn-sm" data-open-ko-draw data-stage="Bán kết" data-action="/tournaments/<%= tournament.id %>/stage-draw" data-teams="<%= JSON.stringify(directSfTeams.slice(0, 4)) %>">
+                <%- include('../../../partials/icon', { name: 'wheel' }) %> Bốc thăm Bán kết (Vòng quay)
+              </button>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  <% } %>
+
   <%# 3. Tiến trình Bán kết khi Tứ kết xong %>
   <% if (tournament.knockoutQualifierCount >= 8 && qfAllDone && !sfPlayed) { %>
     <% const qfWinners = finishedStageWinners(matches, 'Tứ kết') || []; %>
