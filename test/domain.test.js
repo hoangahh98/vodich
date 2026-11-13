@@ -148,3 +148,27 @@ test('suggestMonthlyFee splits court + other cost after last month balance and r
   assert.equal(suggestMonthlyFee(300000, 0, 500000, 6), 0);
   assert.equal(suggestMonthlyFee(300000, 0, 0, 0), 0);
 });
+
+test('buildTournamentConfig cho phép chọn Tứ kết (8 đội) khi ở thể thức GROUP_KNOCKOUT động', () => {
+  const { buildTournamentConfig, normalizeQualifierCount } = require('../dist/tournaments/tournament-form');
+  // allowDynamic = true cho phép chọn 8 đội kể cả khi cấu hình động
+  assert.equal(normalizeQualifierCount(8, 10, 'DOUBLES', true), 8);
+  assert.equal(normalizeQualifierCount(4, 10, 'DOUBLES', true), 4);
+  assert.equal(normalizeQualifierCount(2, 10, 'DOUBLES', true), 2);
+
+  const config = buildTournamentConfig(
+    {
+      format: 'GROUP_KNOCKOUT',
+      knockoutQualifierCount: '8',
+      groupCount: '3',
+      advancePerGroup: '2',
+      semiDrawMethod: 'WHEEL',
+    },
+    [50, 30, 20],
+    10,
+  );
+  assert.equal(config.knockoutQualifierCount, 8);
+  assert.equal(config.groupCount, 3);
+  assert.equal(config.advancePerGroup, 2);
+  assert.equal(config.semiDrawMethod, 'WHEEL');
+});

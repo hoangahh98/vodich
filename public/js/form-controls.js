@@ -9,6 +9,21 @@
     return Math.max(0, totalPaid - operatingCost);
   };
 
+  const prizeTargetFund = (form) => {
+    if (!form) return 0;
+    const prizeCost = parseMoneyValue(form.querySelector('[name="prizeCost"]')?.value);
+    if (prizeCost > 0) return prizeCost;
+    const collectedFund = currentPrizeFund(form);
+    if (collectedFund > 0) return collectedFund;
+    const feeInput = form.querySelector('[data-fee-input]');
+    const costFields = form.querySelector('[data-cost-fields]');
+    const expectedPlayersInput = form.querySelector('input[name="expectedPlayers"]');
+    const players = Number.parseInt(expectedPlayersInput?.value || costFields?.dataset.expectedPlayers || '0', 10) || 0;
+    const fee = parseMoneyValue(feeInput?.value);
+    const operatingCost = ['courtCost', 'foodCost', 'otherCost'].reduce((sum, name) => sum + parseMoneyValue(form.querySelector(`[name="${name}"]`)?.value), 0);
+    return Math.max(0, fee * players - operatingCost);
+  };
+
   const manualPrizeTotal = (form) => ['prizeRate1', 'prizeRate2', 'prizeRate3'].reduce((sum, name) => sum + parseMoneyValue(form?.querySelector(`[name="${name}"]`)?.value), 0);
 
   const prizeSuggestion = (prizeFund) => {
@@ -43,47 +58,26 @@
     const playTypeSelect = document.querySelector('select[name="playType"]');
     const pairingRuleField = document.getElementById('pairingRuleField');
     const americanoNote = document.getElementById('americanoNote');
+    const groupCountInput = document.querySelector('input[name="groupCount"]');
+    const advanceInput = document.querySelector('input[name="advancePerGroup"]');
     if ((!formatSelect && !formatRadios.length) || !qualifierField) return;
 
     const currentFormat = () => formatSelect?.value || formatRadios.find((radio) => radio.checked)?.value;
-    const estimatedTeamCount = () => {
-      // Ở trang Cài đặt, số người không nằm trong form này mà đọc từ giải đã lưu (data-expected-players).
-      const players = Number.parseInt(expectedPlayersInput?.value || qualifierField.dataset.expectedPlayers || '0', 10) || 0;
-      return playTypeSelect?.value === 'DOUBLES' ? Math.floor(players / 2) : players;
-    };
     const syncKnockout = () => {
       if (!qualifierInput || !finalBox || !semiBox || !quarterBox) return;
-      const teamCount = estimatedTeamCount();
-      const groupCountInput = document.querySelector('input[name="groupCount"]');
-      const advanceInput = document.querySelector('input[name="advancePerGroup"]');
-      const hasDynamic = Boolean(groupCountInput?.value || advanceInput?.value);
-      [finalBox, semiBox, quarterBox].forEach((box) => {
-        const minTeams = hasDynamic
-          ? (box.id === 'knockoutQuarter' ? 8 : box.id === 'knockoutSemi' ? 4 : 2)
-          : (Number.parseInt(box.dataset.minTeams || '0', 10) || 0);
-        const enoughTeams = teamCount >= minTeams;
-        box.disabled = !enoughTeams;
-        if (!enoughTeams) box.checked = false;
-      });
-      if (finalBox.disabled) {
-        qualifierInput.value = '2';
-        return;
-      }
-      if (semiBox.disabled || !finalBox.checked) semiBox.checked = false;
-      if (quarterBox.disabled || !semiBox.checked) quarterBox.checked = false;
+      finalBox.checked = true;
+      finalBox.disabled = true;
+      semiBox.disabled = false;
+      quarterBox.disabled = false;
+
       if (quarterBox.checked) {
         semiBox.checked = true;
-        finalBox.checked = true;
         qualifierInput.value = '8';
-        return;
-      }
-      if (semiBox.checked) {
-        finalBox.checked = true;
+      } else if (semiBox.checked) {
         qualifierInput.value = '4';
-        return;
+      } else {
+        qualifierInput.value = '2';
       }
-      finalBox.checked = true;
-      qualifierInput.value = '2';
     };
     const sync = () => {
       const format = currentFormat();
@@ -103,7 +97,18 @@
     };
     formatSelect?.addEventListener('change', sync);
     formatRadios.forEach((radio) => radio.addEventListener('change', sync));
-    [finalBox, semiBox, quarterBox].forEach((box) => box?.addEventListener('change', syncKnockout));
+    quarterBox?.addEventListener('change', () => {
+      if (quarterBox.checked) semiBox.checked = true;
+      syncKnockout();
+    });
+    semiBox?.addEventListener('change', () => {
+      if (!semiBox.checked) quarterBox.checked = false;
+      syncKnockout();
+    });
+    finalBox?.addEventListener('change', () => {
+      finalBox.checked = true;
+      syncKnockout();
+    });
     [expectedPlayersInput, playTypeSelect, groupCountInput, advanceInput].forEach((item) => item?.addEventListener('input', sync));
     [expectedPlayersInput, playTypeSelect, groupCountInput, advanceInput].forEach((item) => item?.addEventListener('change', sync));
     sync();
@@ -132,22 +137,31 @@
     const suggestEl = form?.querySelector('[data-prize-cost-suggest]');
     const fillButton = form?.querySelector('[data-fill-prize-cost]');
     const prizeCostInput = form?.querySelector('[name="prizeCost"]');
+    const expectedPlayersInput = form?.querySelector('input[name="expectedPlayers"]');
+    const playersCount = () => Number.parseInt(expectedPlayersInput?.value || costFields?.dataset.expectedPlayers || '0', 10) || 0;
     const suggestedPrizeCost = () => {
-      const players = Number.parseInt(costFields?.dataset.expectedPlayers || '0', 10) || 0;
+      const players = playersCount();
       const spent = ['courtCost', 'foodCost', 'otherCost'].reduce((sum, name) => sum + parseMoneyValue(form?.querySelector(`[name="${name}"]`)?.value), 0);
       return Math.max(0, parseMoneyValue(feeInput.value) * players - spent);
     };
     const sync = () => {
       const feeOk = parseMoneyValue(feeInput.value) > 0;
       lock(costFields, !feeOk);
+      const playersEl = form?.querySelector('[data-prize-cost-players]');
+      if (playersEl) playersEl.textContent = String(playersCount());
       if (suggestEl) suggestEl.textContent = `${formatMoneyValue(suggestedPrizeCost())}đ`;
       const complete = feeOk && requiredInputs.every((input) => input.value.trim() !== '');
       lock(prizeSection, !complete);
       if (lockNote) lockNote.hidden = complete;
     };
-    [feeInput, ...requiredInputs, form?.querySelector('[name="otherCost"]')].forEach((input) => input?.addEventListener('input', sync));
+    [feeInput, ...requiredInputs, form?.querySelector('[name="otherCost"]'), expectedPlayersInput].forEach((input) => input?.addEventListener('input', sync));
     fillButton?.addEventListener('click', () => {
       if (!prizeCostInput) return;
+      requiredInputs.forEach((input) => {
+        if (input !== prizeCostInput && input.value.trim() === '') {
+          input.value = '0';
+        }
+      });
       prizeCostInput.value = formatMoneyValue(suggestedPrizeCost());
       prizeCostInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
@@ -161,8 +175,10 @@
     const sync = () => {
       const manual = prizeRadios.find((radio) => radio.checked)?.value === 'manual';
       const prizeFund = currentPrizeFund(form);
+      const targetFund = prizeTargetFund(form);
       const total = manualPrizeTotal(form);
-      const left = prizeFund - total;
+      const effectiveFund = prizeFund > 0 ? prizeFund : targetFund;
+      const left = effectiveFund - total;
       document.querySelectorAll('[data-prize-label]').forEach((label) => {
         label.textContent = `Giải ${label.dataset.prizeLabel} ${manual ? '(đ)' : '(%)'}`;
       });
@@ -170,24 +186,31 @@
       const fundEl = document.querySelector('[data-prize-fund]');
       const totalEl = document.querySelector('[data-manual-prize-total]');
       const leftEl = document.querySelector('[data-manual-prize-left]');
-      if (fundEl) fundEl.textContent = `${formatMoneyValue(prizeFund)}đ`;
+      if (fundEl) fundEl.textContent = `${formatMoneyValue(effectiveFund)}đ`;
       if (totalEl) totalEl.textContent = `${formatMoneyValue(total)}đ`;
       if (leftEl) {
         leftEl.textContent = `${formatMoneyValue(left)}đ`;
         leftEl.classList.toggle('text-danger', manual && left < 0);
       }
-      prizeSuggestion(prizeFund).forEach((value, index) => {
+      prizeSuggestion(targetFund).forEach((value, index) => {
         const el = document.querySelector(`[data-prize-suggest="${index + 1}"]`);
         if (el) el.textContent = `${formatMoneyValue(value)}đ`;
       });
       document.querySelector('[data-prize-fund-box]')?.classList.toggle('warn', manual && left < 0);
     };
     prizeRadios.forEach((radio) => radio.addEventListener('change', sync));
-    ['courtCost', 'foodCost', 'otherCost', 'prizeRate1', 'prizeRate2', 'prizeRate3'].forEach((name) => {
+    ['courtCost', 'foodCost', 'otherCost', 'prizeCost', 'feePerPlayer', 'prizeRate1', 'prizeRate2', 'prizeRate3'].forEach((name) => {
       form?.querySelector(`[name="${name}"]`)?.addEventListener('input', sync);
     });
+    form?.querySelector('input[name="expectedPlayers"]')?.addEventListener('input', sync);
     document.querySelector('[data-fill-prize-suggestion]')?.addEventListener('click', () => {
-      prizeSuggestion(currentPrizeFund(form)).forEach((value, index) => {
+      const targetFund = prizeTargetFund(form);
+      const prizeCostInput = form?.querySelector('[name="prizeCost"]');
+      if (prizeCostInput && (!prizeCostInput.value || parseMoneyValue(prizeCostInput.value) <= 0) && targetFund > 0) {
+        prizeCostInput.value = formatMoneyValue(targetFund);
+        prizeCostInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      prizeSuggestion(targetFund).forEach((value, index) => {
         const input = form?.querySelector(`[name="prizeRate${index + 1}"]`);
         if (input) input.value = formatMoneyValue(value);
       });

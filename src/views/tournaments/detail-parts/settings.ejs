@@ -1,7 +1,8 @@
   <% if (section === 'settings') { %>
     <% const settingsFormatLabel = tournament.format === 'GROUP_KNOCKOUT' ? 'Vòng bảng + loại trực tiếp' : tournament.format === 'AMERICANO' ? 'Đôi xoay vòng' : 'Vòng tròn'; %>
     <% const settingsTotalPaid = Number(typeof totalPaid !== 'undefined' ? totalPaid : 0); %>
-    <% const settingsPrizeFund = Math.max(0, settingsTotalPaid - Number(tournament.courtCost || 0) - Number(tournament.foodCost || 0) - Number(tournament.otherCost || 0)); %>
+    <% const settingsOperatingCost = Number(tournament.courtCost || 0) + Number(tournament.foodCost || 0) + Number(tournament.otherCost || 0); %>
+    <% const settingsPrizeFund = settingsTotalPaid > 0 ? Math.max(0, settingsTotalPaid - settingsOperatingCost) : Number(tournament.prizeCost || 0); %>
     <% const isSettingsAdmin = currentUser.role === 'ADMIN'; %>
     <section class="card-lite p mb">
       <div class="section-heading mb">

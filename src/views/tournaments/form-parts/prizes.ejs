@@ -6,7 +6,7 @@
     <div>
       Quỹ thưởng hiện có: <strong data-prize-fund><%= formatMoney(editPrizeFund) %>đ</strong>.
       <span data-manual-prize-summary class="<%= isManualPrize ? '' : 'hidden' %>">Đang nhập thủ công: <strong data-manual-prize-total>0đ</strong>, còn lại <strong data-manual-prize-left><%= formatMoney(editPrizeFund) %>đ</strong>.</span>
-      <div class="mt" data-manual-prize-suggestion>Gợi ý thủ công: Nhất <strong data-prize-suggest="1">0đ</strong>, Nhì <strong data-prize-suggest="2">0đ</strong>, Ba <strong data-prize-suggest="3">0đ</strong>. <button class="btn btn-sm" type="button" data-fill-prize-suggestion>Dùng gợi ý</button></div>
+      <div class="mt" data-manual-prize-suggestion>Gợi ý thủ công: Nhất <strong data-prize-suggest="1"><%= formatMoney(Math.floor(editPrizeFund * 0.5)) %>đ</strong>, Nhì <strong data-prize-suggest="2"><%= formatMoney(Math.floor(editPrizeFund * 0.3)) %>đ</strong>, Ba <strong data-prize-suggest="3"><%= formatMoney(Math.max(0, editPrizeFund - Math.floor(editPrizeFund * 0.5) - Math.floor(editPrizeFund * 0.3))) %>đ</strong>. <button class="btn btn-sm" type="button" data-fill-prize-suggestion>Dùng gợi ý</button></div>
     </div>
   </div>
   <div class="segmented mb">
