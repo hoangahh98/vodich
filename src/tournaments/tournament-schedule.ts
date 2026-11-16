@@ -238,7 +238,7 @@ function finishWithWaiting(pool: RegisteredPlayer[], teams: string[]): string[] 
 function foldByLevel(players: RegisteredPlayer[], teams: string[]): RegisteredPlayer[] {
   const byLevel = new Map<string, RegisteredPlayer[]>();
   for (const reg of players) {
-    const level = normalizeSkill(reg.skillLevel || reg.player?.skillLevel || null);
+    const level = normalizeSkill(reg.player?.skillLevel || reg.skillLevel || null);
     const bucket = byLevel.get(level);
     if (bucket) bucket.push(reg);
     else byLevel.set(level, [reg]);
@@ -323,7 +323,7 @@ export function buildAmericanoMatches(tournament: Tournament, registrations: Reg
   const players: AmericanoPlayer[] = registrations.map((reg, index) => ({
     index,
     name: displayRegistrationName(reg),
-    skill: skillRank(normalizeSkill(reg.skillLevel || reg.player?.skillLevel || null)),
+    skill: skillRank(normalizeSkill(reg.player?.skillLevel || reg.skillLevel || null)),
   }));
   // Dưới 4 người thì không có nổi một trận đôi nào, trả lịch rỗng thay vì dựng trận nửa vời.
   if (players.length < 4) return [];
