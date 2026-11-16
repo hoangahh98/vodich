@@ -155,7 +155,7 @@ test('vòng quay: preview() chỉ NHÌN lượt tới, không bốc mất ai', (
   const second = plain(draw.preview());
   assert.deepEqual(second, first, 'gọi preview hai lần phải ra y hệt nhau');
   assert.deepEqual(first.labels, ['Trình B', 'Trình D']);
-  assert.equal(first.sources[0].length, 2);
+  assert.equal(first.sources[0].length, 4, 'toàn bộ danh sách người chơi trên cùng 1 bánh xe');
 
   // Nhìn xong rồi bốc: vẫn phải đủ 4 người trong 2 đội, không ai bị preview nuốt mất.
   const teams = plain(draw.drawAll());

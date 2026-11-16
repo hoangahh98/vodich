@@ -144,7 +144,7 @@
   function showNextWheel() {
     const upcoming = draw.preview();
     if (!upcoming) return false;
-    poolBox.textContent = upcoming.labels[0];
+    poolBox.textContent = `Vòng quay bốc thăm (${upcoming.sources[0].length} người)`;
     wheel.render(upcoming.sources[0]);
     return true;
   }
@@ -162,7 +162,7 @@
     const picked = ['', ''];
     for (const slot of SLOTS) {
       const names = result.sources[slot];
-      poolBox.textContent = result.labels[slot];
+      poolBox.textContent = `${slot === 0 ? 'Thành viên 1' : 'Thành viên 2'} (${result.labels[slot]}) · Còn ${names.length} người`;
       wheel.render(names);
       renderPicked(picked);
       await wait(READY_MS);

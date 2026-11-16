@@ -102,6 +102,20 @@
       }
     }
 
+    function getAllRemainingNames() {
+      const list = [];
+      for (let i = stepIndex; i < steps.length; i++) {
+        const s = steps[i];
+        if (s.kind === 'across') {
+          list.push(...s.left.map((p) => p.name), ...s.right.map((p) => p.name));
+        } else {
+          list.push(...s.players.map((p) => p.name));
+        }
+      }
+      list.push(...leftovers.map((p) => p.name));
+      return list;
+    }
+
     return {
       /** Bốc một đội. Trả null khi không còn bốc được cặp nào nữa. */
       next() {
@@ -111,11 +125,11 @@
         const labels = acrossStep ? [step.leftLabel, step.rightLabel] : [step.label, step.label];
         const firstPool = acrossStep ? step.left : step.players;
         const secondPool = acrossStep ? step.right : step.players;
-        // Chụp danh sách nguồn NGAY TRƯỚC mỗi lần bốc: ô quay thứ hai của bước "cùng một mức"
-        // không được còn tên người vừa trúng ô thứ nhất.
-        const firstNames = firstPool.map((player) => player.name);
+
+        // Vòng quay luôn hiển thị đầy đủ các VĐV còn lại trên cùng 1 bánh xe
+        const firstNames = getAllRemainingNames();
         const first = take(firstPool);
-        const secondNames = secondPool.map((player) => player.name);
+        const secondNames = getAllRemainingNames();
         const second = take(secondPool);
         return { labels, sources: [firstNames, secondNames], team: [first.name, second ? second.name : ''] };
       },
@@ -128,10 +142,10 @@
         const step = currentStep();
         if (!step) return null;
         const acrossStep = step.kind === 'across';
-        const names = (list) => list.map((player) => player.name);
+        const rem = getAllRemainingNames();
         return {
           labels: acrossStep ? [step.leftLabel, step.rightLabel] : [step.label, step.label],
-          sources: acrossStep ? [names(step.left), names(step.right)] : [names(step.players), names(step.players)],
+          sources: [rem, rem],
         };
       },
 
