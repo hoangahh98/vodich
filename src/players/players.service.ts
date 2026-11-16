@@ -24,15 +24,21 @@ export class PlayersService {
 
   async upsert(body: Record<string, string>) {
     const email = body.email.trim().toLowerCase();
+    const skillLevel = blankToNull(body.skillLevel);
     const data = {
       displayName: body.displayName.trim(),
-      skillLevel: blankToNull(body.skillLevel),
+      skillLevel,
     };
-    return this.prisma.player.upsert({
+    const player = await this.prisma.player.upsert({
       where: { email },
       update: data,
       create: { ...data, email },
     });
+    await this.prisma.tournamentRegistration.updateMany({
+      where: { playerId: player.id },
+      data: { skillLevel },
+    });
+    return player;
   }
 
   async bulkUpdate(body: Record<string, string>) {
@@ -49,7 +55,15 @@ export class PlayersService {
         },
       }),
     );
-    if (updates.length) await this.prisma.$transaction(updates);
+    if (updates.length) {
+      await this.prisma.$transaction(updates);
+      for (const id of ids) {
+        await this.prisma.tournamentRegistration.updateMany({
+          where: { playerId: id },
+          data: { skillLevel: blankToNull(body[`skillLevel_${id}`]) },
+        });
+      }
+    }
   }
 
   /**

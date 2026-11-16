@@ -57,6 +57,25 @@ test('3 trình: thấp nhất với cao nhất, giữa với giữa (A-C, B-B)',
   });
 });
 
+test('phân trình: fallback về player.skillLevel khi reg.skillLevel là null/rỗng', () => {
+  const mixedRegs = [
+    { player: { displayName: 'A0', skillLevel: 'A' }, externalName: null, externalEmail: null, skillLevel: null },
+    { player: { displayName: 'A1', skillLevel: 'A' }, externalName: null, externalEmail: null, skillLevel: null },
+    { player: { displayName: 'B0', skillLevel: 'B' }, externalName: null, externalEmail: null, skillLevel: null },
+    { player: { displayName: 'B1', skillLevel: 'B' }, externalName: null, externalEmail: null, skillLevel: null },
+    { player: { displayName: 'C0', skillLevel: 'C' }, externalName: null, externalEmail: null, skillLevel: null },
+    { player: { displayName: 'C1', skillLevel: 'C' }, externalName: null, externalEmail: null, skillLevel: null },
+  ];
+  for (let i = 0; i < 20; i++) {
+    const teams = buildBalancedDoublesTeams(mixedRegs);
+    assert.equal(teams.length, 3);
+    for (const t of teams) {
+      const lv = teamLevels(t).join('');
+      assert.ok(lv === 'AC' || lv === 'BB', `đội không hợp lệ khi fallback: ${t}`);
+    }
+  }
+});
+
 test('1 trình: ghép random trong cùng trình', () => {
   eachRun({ C: 4 }, (teams) => {
     assert.equal(teams.length, 2);

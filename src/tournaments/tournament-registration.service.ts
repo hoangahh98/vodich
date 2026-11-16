@@ -32,7 +32,7 @@ export class TournamentRegistrationService {
       if (status === 'RESERVE') reserveCount++;
       await this.prisma.tournamentRegistration.upsert({
         where: { tournamentId_playerId: { tournamentId, playerId: player.id } },
-        update: { status, withdrawnAt: null },
+        update: { status, withdrawnAt: null, skillLevel: player.skillLevel },
         create: {
           tournamentId,
           playerId: player.id,
@@ -120,10 +120,17 @@ export class TournamentRegistrationService {
   }
 
   async updateRegistrationSkill(registrationId: bigint, skillLevel: string) {
-    await this.prisma.tournamentRegistration.update({
+    const normalized = blankToNull(skillLevel);
+    const reg = await this.prisma.tournamentRegistration.update({
       where: { id: registrationId },
-      data: { skillLevel: blankToNull(skillLevel) },
+      data: { skillLevel: normalized },
     });
+    if (reg.playerId) {
+      await this.prisma.player.update({
+        where: { id: reg.playerId },
+        data: { skillLevel: normalized },
+      });
+    }
   }
 
   async bulkRegistrations(tournamentId: bigint, registrationIds: bigint[], action: string) {

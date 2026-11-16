@@ -15,7 +15,7 @@
     const spinGroupCount = typeof manualGroupCount !== 'undefined' ? Number(manualGroupCount) || 1 : 1;
     const spinPlayers = registrations.map((reg) => ({
       name: reg.player ? reg.player.displayName : (reg.externalName || reg.externalEmail || 'Chưa đặt tên'),
-      skill: reg.skillLevel || '',
+      skill: reg.skillLevel || (reg.player && reg.player.skillLevel) || '',
     }));
   %>
   <div class="score-modal hidden" id="spinDrawModal" data-spin-modal
