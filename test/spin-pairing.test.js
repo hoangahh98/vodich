@@ -273,3 +273,76 @@ test('vòng quay theo preset: đội thiếu người hoặc tên lạ thì tự
   const first = plain(draw.next());
   assert.deepEqual(first.team, ['A1', 'B1']);
 });
+
+test('vòng quay ghép đôi theo slot cụ thể: gài ở đội 3 và đội 6 thì đến đúng lượt 3 và 6 mới trúng', () => {
+  const players = spinPlayers({ A: 4, B: 4, C: 4, D: 4 }); // 16 người -> 8 đội
+  const preset = [
+    { slot: 3, team: ['A0', 'D1'], group: 'A' },
+    { slot: 6, team: ['B0', 'C1'], group: 'B' },
+  ];
+  const draw = pairing.createDraw(players, 'BY_SKILL', undefined, preset);
+
+  // Lượt 1 (Đội 1): bốc từ người chưa gài
+  const t1 = plain(draw.next());
+  assert.notDeepEqual(t1.team, ['A0', 'D1']);
+  assert.notDeepEqual(t1.team, ['B0', 'C1']);
+  assert.equal(t1.sources[0].length, 16, 'Lượt 1 bánh xe phải thấy đủ cả 16 người');
+
+  // Lượt 2 (Đội 2): bốc từ người chưa gài
+  const t2 = plain(draw.next());
+  assert.notDeepEqual(t2.team, ['A0', 'D1']);
+  assert.notDeepEqual(t2.team, ['B0', 'C1']);
+  assert.equal(t2.sources[0].length, 14, 'Lượt 2 bánh xe còn 14 người');
+
+  // Lượt 3 (Đội 3): ĐÚNG ĐỘI ĐÃ GÀI Ở SLOT 3
+  const t3 = plain(draw.next());
+  assert.deepEqual(t3.team, ['A0', 'D1']);
+  assert.equal(t3.group, 'A');
+  assert.ok(t3.sources[0].includes('A0'), 'bánh xe phải có A0');
+  assert.ok(t3.sources[1].includes('D1'), 'bánh xe phải có D1');
+
+  // Lượt 4 (Đội 4): bốc bình thường
+  const t4 = plain(draw.next());
+  assert.notDeepEqual(t4.team, ['B0', 'C1']);
+
+  // Lượt 5 (Đội 5): bốc bình thường
+  const t5 = plain(draw.next());
+  assert.notDeepEqual(t5.team, ['B0', 'C1']);
+
+  // Lượt 6 (Đội 6): ĐÚNG ĐỘI ĐÃ GÀI Ở SLOT 6
+  const t6 = plain(draw.next());
+  assert.deepEqual(t6.team, ['B0', 'C1']);
+  assert.equal(t6.group, 'B');
+
+  // Lượt 7 và 8
+  const rest = plain(draw.drawAll());
+  assert.equal(rest.length, 2);
+
+  const allTeams = [t1.team, t2.team, t3.team, t4.team, t5.team, t6.team, ...rest];
+  const allNames = allTeams.flat().filter(Boolean);
+  assert.equal(allNames.length, 16);
+  assert.equal(new Set(allNames).size, 16);
+});
+
+test('vòng quay thi đơn theo slot cụ thể: gài ở vị trí 3 thì đúng lượt 3 mới trúng', () => {
+  const players = spinPlayers({ A: 2, B: 2, C: 2 }); // 6 người
+  const preset = [{ slot: 3, team: ['C1'], group: 'B' }];
+  const draw = pairing.createSinglesDraw(players, undefined, preset);
+
+  const t1 = plain(draw.next());
+  assert.notDeepEqual(t1.team, ['C1']);
+
+  const t2 = plain(draw.next());
+  assert.notDeepEqual(t2.team, ['C1']);
+
+  const t3 = plain(draw.next());
+  assert.deepEqual(t3.team, ['C1']);
+  assert.equal(t3.group, 'B');
+
+  const rest = plain(draw.drawAll());
+  assert.equal(rest.length, 3);
+  const allTeams = [t1.team, t2.team, t3.team, ...rest];
+  const allNames = allTeams.map((t) => t[0]);
+  assert.equal(allNames.length, 6);
+  assert.equal(new Set(allNames).size, 6);
+});

@@ -11,7 +11,6 @@
     const clearBtn = document.querySelector('[data-manual-clear-preset]');
     const openSpinBtn = document.querySelector('[data-manual-open-spin]');
     const statusBox = document.querySelector('[data-manual-preset-status]');
-    const detailsBox = document.querySelector('.manual-pair-box');
 
     selects.forEach((select) => {
       select.dataset.options = JSON.stringify([...select.options].map((option) => ({ value: option.value, text: option.textContent || '' })));
@@ -34,7 +33,8 @@
     const renderPresetStatus = (preset) => {
       if (!statusBox) return;
       if (Array.isArray(preset) && preset.length > 0) {
-        statusBox.textContent = `✓ Đang lưu ${preset.length} đội thủ công cho vòng quay (kết quả quay sẽ trúng các đội này).`;
+        const slotDesc = preset.map((item, idx) => (item.slot ? `Đội ${item.slot}` : `Đội ${idx + 1}`)).join(', ');
+        statusBox.textContent = `✓ Đang lưu ${preset.length} đội thủ công cho vòng quay (${slotDesc}). Vòng quay sẽ bốc trúng các đội này tại đúng vị trí đó.`;
         statusBox.classList.remove('hidden');
         if (clearBtn) clearBtn.classList.remove('hidden');
         if (openSpinBtn) openSpinBtn.classList.remove('hidden');
@@ -57,11 +57,11 @@
       }
     };
 
-    // Nạp lại cấu hình đã lưu vào form nếu có
+    // Nạp lại cấu hình đã lưu vào form nếu có (giữ nguyên ở trạng thái thu nhỏ theo mặc định)
     const initialPreset = loadSavedPreset();
     if (initialPreset && initialPreset.length > 0) {
       initialPreset.forEach((item, index) => {
-        const slotIdx = index + 1;
+        const slotIdx = Number.isInteger(item.slot) && item.slot > 0 ? item.slot : (index + 1);
         const selectA = document.querySelector(`select[name="teamA_${slotIdx}"]`);
         const selectB = document.querySelector(`select[name="teamB_${slotIdx}"]`);
         const groupSel = document.querySelector(`select[name="group_${slotIdx}"]`);
@@ -71,7 +71,6 @@
       });
       sync();
       renderPresetStatus(initialPreset);
-      if (detailsBox) detailsBox.open = true;
     } else {
       sync();
     }
@@ -92,12 +91,12 @@
           if (selectB) {
             // Đôi: cần đủ cả 2 người
             if (valA && valB && valA !== valB) {
-              teams.push({ team: [valA, valB], group: group || null });
+              teams.push({ slot, team: [valA, valB], group: group || null });
             }
           } else {
             // Đơn: cần 1 người
             if (valA) {
-              teams.push({ team: [valA], group: group || null });
+              teams.push({ slot, team: [valA], group: group || null });
             }
           }
         });

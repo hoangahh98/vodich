@@ -64,7 +64,7 @@
 
   /**
    * Tạo một lượt bốc. `pickIndex` cho phép test bơm bộ chọn tất định thay cho ngẫu nhiên.
-   * `preset`: danh sách đội chốt sẵn từ ghép thủ công [{ team: [A, B], group: 'A' }].
+   * `preset`: danh sách đội chốt sẵn từ ghép thủ công [{ slot: 3, team: [A, B], group: 'A' }].
    */
   function createDraw(players, rule, pickIndex, preset) {
     const bySkill = rule !== 'RANDOM';
@@ -78,6 +78,7 @@
       for (const item of preset) {
         const rawTeam = Array.isArray(item) ? item : item && item.team;
         const group = item && item.group ? String(item.group).trim() : null;
+        const slot = item && Number.isInteger(item.slot) && item.slot >= 1 ? item.slot : null;
         if (!Array.isArray(rawTeam) || rawTeam.length < 2) continue;
         const a = String(rawTeam[0] || '').trim();
         const b = String(rawTeam[1] || '').trim();
@@ -86,11 +87,33 @@
         if (usedPresetNames.has(a) || usedPresetNames.has(b)) continue;
         usedPresetNames.add(a);
         usedPresetNames.add(b);
-        validPresets.push({ team: [a, b], group });
+        validPresets.push({ slot, team: [a, b], group });
       }
     }
 
-    let presetIndex = 0;
+    const totalTeams = Math.floor((players || []).length / 2);
+    const presetBySlot = new Map();
+    // Lượt 1: Đặt các đội có khai slot cụ thể (1..totalTeams)
+    for (const item of validPresets) {
+      if (item.slot && item.slot >= 1 && item.slot <= totalTeams) {
+        const sIdx = item.slot - 1;
+        if (!presetBySlot.has(sIdx)) presetBySlot.set(sIdx, item);
+      }
+    }
+    // Lượt 2: Đặt các đội không khai slot hoặc slot trùng/vượt tổng số đội vào vị trí trống đầu tiên
+    for (const item of validPresets) {
+      if (![...presetBySlot.values()].includes(item)) {
+        for (let sIdx = 0; sIdx < totalTeams; sIdx++) {
+          if (!presetBySlot.has(sIdx)) {
+            presetBySlot.set(sIdx, item);
+            break;
+          }
+        }
+      }
+    }
+
+    let currentTeamIndex = 0;
+    const drawnPlayerNames = new Set();
 
     // Rổ người còn lại sau khi đã tách các đội ghép thủ công
     const remainingPlayers = (players || []).filter((p) => !usedPresetNames.has(p.name));
@@ -129,44 +152,32 @@
       }
     }
 
-    function getPoolRemainingNames() {
-      const list = [];
-      for (let i = stepIndex; i < steps.length; i++) {
-        const s = steps[i];
-        if (s.kind === 'across') {
-          list.push(...s.left.map((p) => p.name), ...s.right.map((p) => p.name));
-        } else {
-          list.push(...s.players.map((p) => p.name));
-        }
-      }
-      list.push(...leftovers.map((p) => p.name));
-      return list;
-    }
-
-    function getAllRemainingNames(fromPresetIndex = presetIndex) {
-      const list = [];
-      for (let i = fromPresetIndex; i < validPresets.length; i++) {
-        list.push(validPresets[i].team[0], validPresets[i].team[1]);
-      }
-      list.push(...getPoolRemainingNames());
-      return list;
+    function getRemainingTournamentNames() {
+      return (players || []).map((p) => p.name).filter((name) => !drawnPlayerNames.has(name));
     }
 
     return {
       /** Bốc một đội. Trả null khi không còn bốc được cặp nào nữa. */
       next() {
-        if (presetIndex < validPresets.length) {
-          const target = validPresets[presetIndex];
-          presetIndex++;
-          const remainingAfterThisTeam = getAllRemainingNames(presetIndex);
-          const firstNames = [target.team[0], target.team[1], ...remainingAfterThisTeam];
-          const secondNames = [target.team[1], ...remainingAfterThisTeam];
+        if (currentTeamIndex >= totalTeams) return null;
+        const slotIndex = currentTeamIndex;
+        currentTeamIndex++;
+
+        if (presetBySlot.has(slotIndex)) {
+          const target = presetBySlot.get(slotIndex);
+          const remAll = getRemainingTournamentNames();
           const skillA = skillMap.get(target.team[0]);
           const skillB = skillMap.get(target.team[1]);
           const labels = [
             bySkill && skillA ? levelLabel(skillA) : 'Thành viên 1',
             bySkill && skillB ? levelLabel(skillB) : 'Thành viên 2',
           ];
+          const firstNames = [target.team[0], ...remAll.filter((n) => n !== target.team[0])];
+          const secondNames = [target.team[1], ...remAll.filter((n) => n !== target.team[0] && n !== target.team[1])];
+
+          drawnPlayerNames.add(target.team[0]);
+          drawnPlayerNames.add(target.team[1]);
+
           return { labels, sources: [firstNames, secondNames], team: target.team, group: target.group || null };
         }
 
@@ -177,12 +188,20 @@
         const firstPool = acrossStep ? step.left : step.players;
         const secondPool = acrossStep ? step.right : step.players;
 
-        // Vòng quay luôn hiển thị đầy đủ các VĐV còn lại trên cùng 1 bánh xe
-        const firstNames = getPoolRemainingNames();
         const first = take(firstPool);
-        const secondNames = getPoolRemainingNames();
         const second = take(secondPool);
-        return { labels, sources: [firstNames, secondNames], team: [first.name, second ? second.name : ''] };
+        const firstTeam = [first.name, second ? second.name : ''];
+
+        const remAll = getRemainingTournamentNames();
+        const firstNames = [first.name, ...remAll.filter((n) => n !== first.name)];
+        const secondNames = second
+          ? [second.name, ...remAll.filter((n) => n !== first.name && n !== second.name)]
+          : remAll.filter((n) => n !== first.name);
+
+        drawnPlayerNames.add(first.name);
+        if (second) drawnPlayerNames.add(second.name);
+
+        return { labels, sources: [firstNames, secondNames], team: firstTeam, group: null };
       },
 
       /**
@@ -190,9 +209,12 @@
        * khi mở khung, thay vì vẽ đại danh sách rồi nhảy sang nhóm khác lúc bấm quay.
        */
       preview() {
-        if (presetIndex < validPresets.length) {
-          const target = validPresets[presetIndex];
-          const rem = getAllRemainingNames(presetIndex);
+        if (currentTeamIndex >= totalTeams) return null;
+        const slotIndex = currentTeamIndex;
+        if (presetBySlot.has(slotIndex)) {
+          const target = presetBySlot.get(slotIndex);
+          const rem = getRemainingTournamentNames();
+          if (!rem.length) return null;
           const skillA = skillMap.get(target.team[0]);
           const skillB = skillMap.get(target.team[1]);
           const labels = [
@@ -207,7 +229,8 @@
         const step = currentStep();
         if (!step) return null;
         const acrossStep = step.kind === 'across';
-        const rem = getPoolRemainingNames();
+        const rem = getRemainingTournamentNames();
+        if (!rem.length) return null;
         return {
           labels: acrossStep ? [step.leftLabel, step.rightLabel] : [step.label, step.label],
           sources: [rem, rem],
@@ -243,50 +266,73 @@
       for (const item of preset) {
         const rawTeam = Array.isArray(item) ? item : item && item.team;
         const group = item && item.group ? String(item.group).trim() : null;
+        const slot = item && Number.isInteger(item.slot) && item.slot >= 1 ? item.slot : null;
         if (!Array.isArray(rawTeam) || rawTeam.length < 1) continue;
         const name = String(rawTeam[0] || '').trim();
         if (!name || !allPlayerNames.has(name) || usedPresetNames.has(name)) continue;
         usedPresetNames.add(name);
-        validPresets.push({ team: [name], group });
+        validPresets.push({ slot, team: [name], group });
       }
     }
 
-    let presetIndex = 0;
+    const totalTeams = (players || []).length;
+    const presetBySlot = new Map();
+    for (const item of validPresets) {
+      if (item.slot && item.slot >= 1 && item.slot <= totalTeams) {
+        const sIdx = item.slot - 1;
+        if (!presetBySlot.has(sIdx)) presetBySlot.set(sIdx, item);
+      }
+    }
+    for (const item of validPresets) {
+      if (![...presetBySlot.values()].includes(item)) {
+        for (let sIdx = 0; sIdx < totalTeams; sIdx++) {
+          if (!presetBySlot.has(sIdx)) {
+            presetBySlot.set(sIdx, item);
+            break;
+          }
+        }
+      }
+    }
+
+    let currentTeamIndex = 0;
+    const drawnPlayerNames = new Set();
     const pool = (players || []).filter((p) => !usedPresetNames.has(p.name)).map((player) => player.name);
     const choose = typeof pickIndex === 'function' ? pickIndex : (size) => Math.floor(Math.random() * size);
 
-    function getAllRemainingNames(fromPresetIndex = presetIndex) {
-      const list = [];
-      for (let i = fromPresetIndex; i < validPresets.length; i++) {
-        list.push(validPresets[i].team[0]);
-      }
-      list.push(...pool);
-      return list;
+    function getRemainingTournamentNames() {
+      return (players || []).map((p) => p.name).filter((name) => !drawnPlayerNames.has(name));
     }
 
     const label = () => {
-      const count = getAllRemainingNames().length;
+      const count = getRemainingTournamentNames().length;
       return count ? 'Còn ' + count + ' người' : 'Đã bốc xong';
     };
 
     return {
       next() {
-        if (presetIndex < validPresets.length) {
-          const target = validPresets[presetIndex];
-          presetIndex++;
-          const names = [target.team[0], ...getAllRemainingNames(presetIndex)];
-          const labels = [label()];
-          return { labels, sources: [names], team: target.team, group: target.group || null };
+        if (currentTeamIndex >= totalTeams) return null;
+        const slotIndex = currentTeamIndex;
+        currentTeamIndex++;
+
+        if (presetBySlot.has(slotIndex)) {
+          const target = presetBySlot.get(slotIndex);
+          const remAll = getRemainingTournamentNames();
+          const names = [target.team[0], ...remAll.filter((n) => n !== target.team[0])];
+          drawnPlayerNames.add(target.team[0]);
+          return { labels: [label()], sources: [names], team: target.team, group: target.group || null };
         }
+
         if (!pool.length) return null;
-        const names = [...pool];
-        const labels = [label()];
         const name = pool.splice(choose(pool.length), 1)[0];
-        return { labels, sources: [names], team: [name] };
+        const remAll = getRemainingTournamentNames();
+        const names = [name, ...remAll.filter((n) => n !== name)];
+        drawnPlayerNames.add(name);
+        return { labels: [label()], sources: [names], team: [name], group: null };
       },
       preview() {
-        const allRem = getAllRemainingNames();
-        return allRem.length ? { labels: [label()], sources: [[...allRem]] } : null;
+        if (currentTeamIndex >= totalTeams) return null;
+        const remAll = getRemainingTournamentNames();
+        return remAll.length ? { labels: [label()], sources: [[...remAll]] } : null;
       },
       /** Đơn thì không có ai "lẻ": mỗi người là một đội trọn vẹn. */
       leftoverName() {

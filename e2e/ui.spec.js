@@ -470,7 +470,7 @@ test('vòng quay chia trận giữ được bản nháp khi lỡ đóng khung', 
 });
 
 /** Tên dài phải hiện ĐỦ và nằm gọn trong bánh xe — trước đây bị cắt thành "Nguyễn Văn A…". */
-test('vòng quay chia trận áp dụng cấu hình thủ công đã lưu, bốc trúng các đội đó và xoá lưu khi chốt', async ({ page }) => {
+test('vòng quay chia trận áp dụng cấu hình thủ công đã lưu theo đúng vị trí slot và xoá lưu khi chốt', async ({ page }) => {
   const players = [
     { name: 'An', skill: 'A' },
     { name: 'Bao', skill: 'A' },
@@ -479,6 +479,23 @@ test('vòng quay chia trận áp dụng cấu hình thủ công đã lưu, bốc
   ];
   await page.goto('/healthz');
   await page.setContent(`
+    <details class="manual-pair-box">
+      <summary>Ghép đội thủ công</summary>
+      <form data-manual-pairs-form data-tournament-id="88">
+        <div class="manual-pair-card">
+          <select name="teamA_1" data-manual-pair-select><option value="">-</option><option value="An">An</option><option value="Bao">Bao</option></select>
+          <select name="teamB_1" data-manual-pair-select><option value="">-</option><option value="Dung">Dung</option><option value="Duy">Duy</option></select>
+        </div>
+        <div class="manual-pair-card">
+          <select name="teamA_2" data-manual-pair-select><option value="">-</option><option value="An">An</option><option value="Bao">Bao</option></select>
+          <select name="teamB_2" data-manual-pair-select><option value="">-</option><option value="Dung">Dung</option><option value="Duy">Duy</option></select>
+        </div>
+        <button type="button" data-manual-save-preset>Lưu đội để quay</button>
+        <button type="button" data-manual-clear-preset class="hidden">Xoá lưu</button>
+        <button type="button" data-manual-open-spin class="hidden">Mở vòng quay</button>
+        <div data-manual-preset-status class="hidden"></div>
+      </form>
+    </details>
     <button type="button" data-spin-open>Vòng quay</button>
     <div class="score-modal hidden" data-spin-modal data-players='${JSON.stringify(players)}' data-tournament-id="88" data-rule="BY_SKILL" data-group-count="2">
       <small data-spin-hint></small>
@@ -495,29 +512,43 @@ test('vòng quay chia trận áp dụng cấu hình thủ công đã lưu, bốc
       </form>
     </div>
   `);
+  // Gài sẵn cấu hình ở Đội 2 (slot 2)
   await page.evaluate(() => {
     window.localStorage.setItem('vodich.manual_preset.88', JSON.stringify([
-      { team: ['An', 'Duy'], group: 'B' }
+      { slot: 2, team: ['Bao', 'Dung'], group: 'B' }
     ]));
   });
   await page.addStyleTag({ url: '/css/app.css' });
-  for (const src of ['/js/spin-pairing.js', '/js/wheel.js', '/js/spin-draw.js']) await page.addScriptTag({ url: src });
+  for (const src of ['/js/selection-controls.js', '/js/spin-pairing.js', '/js/wheel.js', '/js/spin-draw.js']) await page.addScriptTag({ url: src });
 
+  // Kiểm tra 1: Khung thủ công MẶC ĐỊNH LÀ THU NHỎ (không có thuộc tính open)
+  const isDetailsOpen = await page.locator('.manual-pair-box').evaluate((el) => el.open);
+  expect(isDetailsOpen).toBe(false);
+
+  // Kiểm tra 2: Cấu hình gài ở đội 2 vẫn nằm ở đội 2, KHÔNG bị nhảy lên đội 1
+  const teamA1 = await page.locator('select[name="teamA_1"]').inputValue();
+  const teamA2 = await page.locator('select[name="teamA_2"]').inputValue();
+  const teamB2 = await page.locator('select[name="teamB_2"]').inputValue();
+  expect(teamA1).toBe('');
+  expect(teamA2).toBe('Bao');
+  expect(teamB2).toBe('Dung');
+
+  // Kiểm tra 3: Vòng quay lượt 1 bốc đội 1 (An + Duy), lượt 2 bốc trúng đội 2 (Bao + Dung ở Bảng B)
   await page.locator('[data-spin-open]').click();
   await page.locator('[data-spin-once]').click();
   await expect(page.locator('[data-spin-results] li')).toHaveCount(1, { timeout: 20000 });
   const first = await page.locator('[data-spin-results] li').first().innerText();
   expect(first).toContain('An');
   expect(first).toContain('Duy');
-  expect(first).toContain('Bảng B');
 
-  await page.locator('[data-spin-all]').click();
-  await expect(page.locator('[data-spin-results] li')).toHaveCount(2);
+  await page.locator('[data-spin-once]').click();
+  await expect(page.locator('[data-spin-results] li')).toHaveCount(2, { timeout: 20000 });
   const second = await page.locator('[data-spin-results] li').nth(1).innerText();
   expect(second).toContain('Bao');
   expect(second).toContain('Dung');
+  expect(second).toContain('Bảng B');
 
-  // Khi form submit, cấu hình lưu thủ công phải bị xoá
+  // Kiểm tra 4: Khi form submit, cấu hình lưu thủ công phải bị xoá
   await page.locator('[data-spin-form]').evaluate((f) => f.dispatchEvent(new Event('submit')));
   const presetAfter = await page.evaluate(() => window.localStorage.getItem('vodich.manual_preset.88'));
   expect(presetAfter).toBeNull();
