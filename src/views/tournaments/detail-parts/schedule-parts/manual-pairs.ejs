@@ -13,7 +13,7 @@
   %>
   <details class="manual-pair-box mb">
     <summary><%- include('../../../partials/icon', { name: 'users' }) %> <%= manualDoubles ? 'Ghép đội thủ công' : 'Chọn đội thủ công' %></summary>
-    <form method="post" action="/tournaments/<%= tournament.id %>/manual-schedule" data-confirm="Chọn đội thủ công sẽ xóa các trận và tỷ số hiện tại. Tiếp tục?">
+    <form method="post" action="/tournaments/<%= tournament.id %>/manual-schedule" data-manual-pairs-form data-tournament-id="<%= tournament.id %>" data-confirm="Chọn đội thủ công sẽ xóa các trận và tỷ số hiện tại. Tiếp tục?">
       <input type="hidden" name="pairCount" value="<%= manualSlotCount %>">
       <div class="grid manual-pair-grid">
         <% for (let i = 1; i <= manualSlotCount; i++) { %>
@@ -38,8 +38,14 @@
           </div>
         <% } %>
       </div>
-      <div class="mt">
-        <button class="btn btn-primary" data-loading-text="Đang tạo..."><%- include('../../../partials/icon', { name: 'check' }) %> Tạo trận từ đội đã chọn</button>
+      <div class="mt manual-pair-actions">
+        <div class="manual-pair-buttons">
+          <button class="btn btn-primary" data-loading-text="Đang tạo..."><%- include('../../../partials/icon', { name: 'check' }) %> Tạo trận từ đội đã chọn</button>
+          <button type="button" class="btn btn-warning" data-manual-save-preset><%- include('../../../partials/icon', { name: 'save' }) %> Lưu đội để quay</button>
+          <button type="button" class="btn btn-outline-danger hidden" data-manual-clear-preset>Xoá lưu</button>
+          <button type="button" class="btn btn-warning hidden" data-manual-open-spin data-spin-open><%- include('../../../partials/icon', { name: 'wheel' }) %> Mở vòng quay</button>
+        </div>
+        <div class="manual-preset-status mt hidden" data-manual-preset-status></div>
         <% if (manualDoubles) { %>
           <p class="muted mt">Chỉ cần chốt những đội muốn cố định — ai chưa được xếp sẽ được ghép nốt theo quy tắc của giải
             (<strong><%= tournament.pairingRule === 'RANDOM' ? 'không phân trình' : 'phân trình' %></strong>).
@@ -50,6 +56,7 @@
         <% if (manualGroups > 1) { %>
           <p class="muted">Đánh bảng <%= manualGroups %> bảng (<%= manualGroupLetters.join(', ') %>): chọn <strong>Bảng</strong> để chốt đội vào bảng đó; để "Tự xếp" thì máy rải vào bảng đang ít đội nhất.</p>
         <% } %>
+        <p class="muted">Bấm <strong>Lưu đội để quay</strong> để cố định các đội đã chọn khi quay (vòng quay sẽ bốc trúng các đội này). Khi chốt và lưu lịch thi đấu ở vòng quay, cấu hình lưu sẽ tự động xoá.</p>
       </div>
     </form>
   </details>

@@ -293,8 +293,8 @@ test('vòng quay chia trận quay thật rồi chốt được danh sách đội
   await expect(modal).not.toHaveClass(/hidden/);
 
   // Mở ra là đã thấy sẵn bánh xe của lượt tới: 2 người trình A, không phải hình tròn trống.
-  await expect(page.locator('[data-spin-pool]')).toHaveText('Trình A');
-  await expect(page.locator('.wheel-svg path')).toHaveCount(2);
+  await expect(page.locator('[data-spin-pool]')).toHaveText('Vòng quay bốc thăm (4 người)');
+  await expect(page.locator('.wheel-svg path')).toHaveCount(4);
 
   const rotor = page.locator('[data-spin-wheel]');
   await page.locator('[data-spin-once]').click();
@@ -341,14 +341,14 @@ test('vòng quay thi đơn bốc từng người, xếp bảng luân phiên và 
   await page.locator('[data-spin-open]').click();
   await expect(page.locator('[data-spin-modal]')).not.toHaveClass(/hidden/);
   // Thi đơn: một ô quay duy nhất, bánh xe đủ cả 4 người.
-  await expect(page.locator('[data-spin-pool]')).toHaveText('Còn 4 người');
+  await expect(page.locator('[data-spin-pool]')).toHaveText('Vòng quay bốc thăm (4 người)');
   await expect(page.locator('.wheel-svg path')).toHaveCount(4);
   await expect(page.locator('[data-spin-picked] .spin-slot')).toHaveCount(1);
 
   await page.locator('[data-spin-once]').click();
   await expect(page.locator('[data-spin-results] li')).toHaveCount(1, { timeout: 20000 });
   await expect(page.locator('[data-spin-results] li').first()).toContainText('Bảng A');
-  await expect(page.locator('[data-spin-pool]')).toHaveText('Còn 3 người');
+  await expect(page.locator('[data-spin-pool]')).toHaveText('Vòng quay bốc thăm (3 người)');
 
   await page.locator('[data-spin-all]').click();
   await expect(page.locator('[data-spin-results] li')).toHaveCount(4);
@@ -470,6 +470,59 @@ test('vòng quay chia trận giữ được bản nháp khi lỡ đóng khung', 
 });
 
 /** Tên dài phải hiện ĐỦ và nằm gọn trong bánh xe — trước đây bị cắt thành "Nguyễn Văn A…". */
+test('vòng quay chia trận áp dụng cấu hình thủ công đã lưu, bốc trúng các đội đó và xoá lưu khi chốt', async ({ page }) => {
+  const players = [
+    { name: 'An', skill: 'A' },
+    { name: 'Bao', skill: 'A' },
+    { name: 'Dung', skill: 'D' },
+    { name: 'Duy', skill: 'D' },
+  ];
+  await page.goto('/healthz');
+  await page.setContent(`
+    <button type="button" data-spin-open>Vòng quay</button>
+    <div class="score-modal hidden" data-spin-modal data-players='${JSON.stringify(players)}' data-tournament-id="88" data-rule="BY_SKILL" data-group-count="2">
+      <small data-spin-hint></small>
+      <div class="wheel-pool" data-spin-pool></div>
+      <div class="wheel-box"><div class="wheel-rotor" data-spin-wheel></div></div>
+      <div data-spin-picked></div>
+      <button type="button" data-spin-once>Quay</button>
+      <button type="button" data-spin-all>Bốc nhanh</button>
+      <button type="button" data-spin-reset>Làm lại</button>
+      <button type="button" data-spin-close>Đóng</button>
+      <ol data-spin-results></ol><span data-spin-total>0</span>
+      <form action="/tournaments/88/manual-schedule" class="hidden" data-spin-form>
+        <input type="hidden" name="pairCount" value="0" data-spin-count><div data-spin-inputs></div>
+      </form>
+    </div>
+  `);
+  await page.evaluate(() => {
+    window.localStorage.setItem('vodich.manual_preset.88', JSON.stringify([
+      { team: ['An', 'Duy'], group: 'B' }
+    ]));
+  });
+  await page.addStyleTag({ url: '/css/app.css' });
+  for (const src of ['/js/spin-pairing.js', '/js/wheel.js', '/js/spin-draw.js']) await page.addScriptTag({ url: src });
+
+  await page.locator('[data-spin-open]').click();
+  await page.locator('[data-spin-once]').click();
+  await expect(page.locator('[data-spin-results] li')).toHaveCount(1, { timeout: 20000 });
+  const first = await page.locator('[data-spin-results] li').first().innerText();
+  expect(first).toContain('An');
+  expect(first).toContain('Duy');
+  expect(first).toContain('Bảng B');
+
+  await page.locator('[data-spin-all]').click();
+  await expect(page.locator('[data-spin-results] li')).toHaveCount(2);
+  const second = await page.locator('[data-spin-results] li').nth(1).innerText();
+  expect(second).toContain('Bao');
+  expect(second).toContain('Dung');
+
+  // Khi form submit, cấu hình lưu thủ công phải bị xoá
+  await page.locator('[data-spin-form]').evaluate((f) => f.dispatchEvent(new Event('submit')));
+  const presetAfter = await page.evaluate(() => window.localStorage.getItem('vodich.manual_preset.88'));
+  expect(presetAfter).toBeNull();
+});
+
 test('bánh xe hiện đủ tên dài, không cắt và không tràn ra ngoài', async ({ page }) => {
   await page.setContent('<div class="wheel-box"><div class="wheel-rotor" data-wheel-rotor></div></div>');
   await page.addStyleTag({ path: path.join(root, 'public/css/app.css') });

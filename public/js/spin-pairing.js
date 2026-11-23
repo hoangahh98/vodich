@@ -64,10 +64,37 @@
 
   /**
    * Tạo một lượt bốc. `pickIndex` cho phép test bơm bộ chọn tất định thay cho ngẫu nhiên.
+   * `preset`: danh sách đội chốt sẵn từ ghép thủ công [{ team: [A, B], group: 'A' }].
    */
-  function createDraw(players, rule, pickIndex) {
+  function createDraw(players, rule, pickIndex, preset) {
     const bySkill = rule !== 'RANDOM';
-    const pool = (players || []).map((player) => ({ name: player.name, level: normalizeSkill(player.skill) }));
+    const allPlayerNames = new Set((players || []).map((player) => player.name));
+    const skillMap = new Map((players || []).map((player) => [player.name, normalizeSkill(player.skill)]));
+
+    // Lọc các đội ghép thủ công hợp lệ
+    const validPresets = [];
+    const usedPresetNames = new Set();
+    if (Array.isArray(preset)) {
+      for (const item of preset) {
+        const rawTeam = Array.isArray(item) ? item : item && item.team;
+        const group = item && item.group ? String(item.group).trim() : null;
+        if (!Array.isArray(rawTeam) || rawTeam.length < 2) continue;
+        const a = String(rawTeam[0] || '').trim();
+        const b = String(rawTeam[1] || '').trim();
+        if (!a || !b || a === b) continue;
+        if (!allPlayerNames.has(a) || !allPlayerNames.has(b)) continue;
+        if (usedPresetNames.has(a) || usedPresetNames.has(b)) continue;
+        usedPresetNames.add(a);
+        usedPresetNames.add(b);
+        validPresets.push({ team: [a, b], group });
+      }
+    }
+
+    let presetIndex = 0;
+
+    // Rổ người còn lại sau khi đã tách các đội ghép thủ công
+    const remainingPlayers = (players || []).filter((p) => !usedPresetNames.has(p.name));
+    const pool = remainingPlayers.map((player) => ({ name: player.name, level: normalizeSkill(player.skill) }));
     let steps = bySkill ? buildSteps(pool) : [{ kind: 'within', players: pool, label: 'Tất cả' }];
     let stepIndex = 0;
     let leftovers = [];
@@ -102,7 +129,7 @@
       }
     }
 
-    function getAllRemainingNames() {
+    function getPoolRemainingNames() {
       const list = [];
       for (let i = stepIndex; i < steps.length; i++) {
         const s = steps[i];
@@ -116,9 +143,33 @@
       return list;
     }
 
+    function getAllRemainingNames(fromPresetIndex = presetIndex) {
+      const list = [];
+      for (let i = fromPresetIndex; i < validPresets.length; i++) {
+        list.push(validPresets[i].team[0], validPresets[i].team[1]);
+      }
+      list.push(...getPoolRemainingNames());
+      return list;
+    }
+
     return {
       /** Bốc một đội. Trả null khi không còn bốc được cặp nào nữa. */
       next() {
+        if (presetIndex < validPresets.length) {
+          const target = validPresets[presetIndex];
+          presetIndex++;
+          const remainingAfterThisTeam = getAllRemainingNames(presetIndex);
+          const firstNames = [target.team[0], target.team[1], ...remainingAfterThisTeam];
+          const secondNames = [target.team[1], ...remainingAfterThisTeam];
+          const skillA = skillMap.get(target.team[0]);
+          const skillB = skillMap.get(target.team[1]);
+          const labels = [
+            bySkill && skillA ? levelLabel(skillA) : 'Thành viên 1',
+            bySkill && skillB ? levelLabel(skillB) : 'Thành viên 2',
+          ];
+          return { labels, sources: [firstNames, secondNames], team: target.team, group: target.group || null };
+        }
+
         const step = currentStep();
         if (!step) return null;
         const acrossStep = step.kind === 'across';
@@ -127,9 +178,9 @@
         const secondPool = acrossStep ? step.right : step.players;
 
         // Vòng quay luôn hiển thị đầy đủ các VĐV còn lại trên cùng 1 bánh xe
-        const firstNames = getAllRemainingNames();
+        const firstNames = getPoolRemainingNames();
         const first = take(firstPool);
-        const secondNames = getAllRemainingNames();
+        const secondNames = getPoolRemainingNames();
         const second = take(secondPool);
         return { labels, sources: [firstNames, secondNames], team: [first.name, second ? second.name : ''] };
       },
@@ -139,10 +190,24 @@
        * khi mở khung, thay vì vẽ đại danh sách rồi nhảy sang nhóm khác lúc bấm quay.
        */
       preview() {
+        if (presetIndex < validPresets.length) {
+          const target = validPresets[presetIndex];
+          const rem = getAllRemainingNames(presetIndex);
+          const skillA = skillMap.get(target.team[0]);
+          const skillB = skillMap.get(target.team[1]);
+          const labels = [
+            bySkill && skillA ? levelLabel(skillA) : 'Thành viên 1',
+            bySkill && skillB ? levelLabel(skillB) : 'Thành viên 2',
+          ];
+          return {
+            labels,
+            sources: [rem, rem],
+          };
+        }
         const step = currentStep();
         if (!step) return null;
         const acrossStep = step.kind === 'across';
-        const rem = getAllRemainingNames();
+        const rem = getPoolRemainingNames();
         return {
           labels: acrossStep ? [step.leftLabel, step.rightLabel] : [step.label, step.label],
           sources: [rem, rem],
@@ -170,12 +235,49 @@
    * Lượt bốc cho giải ĐƠN: cùng giao diện next/preview/leftoverName/drawAll với `createDraw`
    * để spin-draw.js dùng chung, nhưng mỗi lượt chỉ có MỘT ô quay và `team` chỉ có một tên.
    */
-  function createSinglesDraw(players, pickIndex) {
-    const pool = (players || []).map((player) => player.name);
+  function createSinglesDraw(players, pickIndex, preset) {
+    const allPlayerNames = new Set((players || []).map((player) => player.name));
+    const validPresets = [];
+    const usedPresetNames = new Set();
+    if (Array.isArray(preset)) {
+      for (const item of preset) {
+        const rawTeam = Array.isArray(item) ? item : item && item.team;
+        const group = item && item.group ? String(item.group).trim() : null;
+        if (!Array.isArray(rawTeam) || rawTeam.length < 1) continue;
+        const name = String(rawTeam[0] || '').trim();
+        if (!name || !allPlayerNames.has(name) || usedPresetNames.has(name)) continue;
+        usedPresetNames.add(name);
+        validPresets.push({ team: [name], group });
+      }
+    }
+
+    let presetIndex = 0;
+    const pool = (players || []).filter((p) => !usedPresetNames.has(p.name)).map((player) => player.name);
     const choose = typeof pickIndex === 'function' ? pickIndex : (size) => Math.floor(Math.random() * size);
-    const label = () => (pool.length ? 'Còn ' + pool.length + ' người' : 'Đã bốc xong');
+
+    function getAllRemainingNames(fromPresetIndex = presetIndex) {
+      const list = [];
+      for (let i = fromPresetIndex; i < validPresets.length; i++) {
+        list.push(validPresets[i].team[0]);
+      }
+      list.push(...pool);
+      return list;
+    }
+
+    const label = () => {
+      const count = getAllRemainingNames().length;
+      return count ? 'Còn ' + count + ' người' : 'Đã bốc xong';
+    };
+
     return {
       next() {
+        if (presetIndex < validPresets.length) {
+          const target = validPresets[presetIndex];
+          presetIndex++;
+          const names = [target.team[0], ...getAllRemainingNames(presetIndex)];
+          const labels = [label()];
+          return { labels, sources: [names], team: target.team, group: target.group || null };
+        }
         if (!pool.length) return null;
         const names = [...pool];
         const labels = [label()];
@@ -183,7 +285,8 @@
         return { labels, sources: [names], team: [name] };
       },
       preview() {
-        return pool.length ? { labels: [label()], sources: [[...pool]] } : null;
+        const allRem = getAllRemainingNames();
+        return allRem.length ? { labels: [label()], sources: [[...allRem]] } : null;
       },
       /** Đơn thì không có ai "lẻ": mỗi người là một đội trọn vẹn. */
       leftoverName() {

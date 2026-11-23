@@ -43,7 +43,10 @@
   const SLOTS = singles ? [0] : [0, 1];
   const groupLetter = (index) => String.fromCharCode(65 + (index % groupCount));
   /** Đội đủ người mới có bảng: đội đôi mới có một người thì server ghép nốt rồi tự rải bảng. */
-  const groupOfTeam = (team, index) => (groupCount > 1 && team.every(Boolean) ? groupLetter(index) : '');
+  const groupOfTeam = (team, index) => {
+    if (teamGroups[index]) return teamGroups[index];
+    return groupCount > 1 && team.every(Boolean) ? groupLetter(index) : '';
+  };
 
   const wheel = wheelKit.attach(modal.querySelector('[data-spin-wheel]'), { spinMs: 3400 });
   const poolBox = modal.querySelector('[data-spin-pool]');
@@ -58,6 +61,7 @@
 
   let draw = null;
   let teams = [];
+  let teamGroups = [];
   let spinning = false;
   let seed = 0;
 
@@ -77,8 +81,31 @@
   // nếu quay một mạch, tức là đóng ra mở vào lại đổi kèo.
 
   const STORAGE_KEY = `vodich.spin.${modal.dataset.tournamentId || '0'}`;
-  /** Danh sách VĐV/rule đổi (thêm người, rút người) thì bản nháp cũ không còn đúng nữa. */
-  const fingerprint = `${rule}|${singles ? 'SINGLES' : 'DOUBLES'}|${groupCount}|${players.map((player) => `${player.name}:${player.skill}`).join(',')}`;
+  const PRESET_KEY = `vodich.manual_preset.${modal.dataset.tournamentId || '0'}`;
+
+  function loadPreset() {
+    try {
+      const raw = window.localStorage.getItem(PRESET_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function clearPreset() {
+    try {
+      window.localStorage.removeItem(PRESET_KEY);
+    } catch (_) {}
+  }
+
+  /** Danh sách VĐV/rule/preset đổi (thêm người, rút người, sửa ghép tay) thì bản nháp cũ không còn đúng nữa. */
+  function currentFingerprint() {
+    const p = loadPreset();
+    const pKey = p ? JSON.stringify(p) : '';
+    return `${rule}|${singles ? 'SINGLES' : 'DOUBLES'}|${groupCount}|${pKey}|${players.map((player) => `${player.name}:${player.skill}`).join(',')}`;
+  }
 
   /**
    * Bộ bốc ngẫu nhiên CÓ HẠT GIỐNG (mulberry32) tiêm vào `createDraw` thay cho `Math.random`.
@@ -98,7 +125,7 @@
   /** localStorage có thể bị chặn (chế độ riêng tư, iOS khoá) — hỏng chỗ này không được phá vòng quay. */
   function saveState() {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fingerprint, seed, drawn: teams.length }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fingerprint: currentFingerprint(), seed, drawn: teams.length }));
     } catch (_) {
       /* không lưu được thì thôi */
     }
@@ -115,7 +142,7 @@
   function loadState() {
     try {
       const state = JSON.parse(window.localStorage.getItem(STORAGE_KEY) || 'null');
-      if (!state || state.fingerprint !== fingerprint) return null;
+      if (!state || state.fingerprint !== currentFingerprint()) return null;
       if (!Number.isFinite(state.seed) || !Number.isFinite(state.drawn) || state.drawn < 1) return null;
       return state;
     } catch (_) {
@@ -174,6 +201,7 @@
     }
 
     teams.push(result.team);
+    teamGroups.push(result.group || '');
     renderResults();
     saveState();
     spinning = false;
@@ -191,13 +219,19 @@
    */
   function drawRest() {
     if (spinning) return;
-    for (let result = draw.next(); result; result = draw.next()) teams.push(result.team);
+    for (let result = draw.next(); result; result = draw.next()) {
+      teams.push(result.team);
+      teamGroups.push(result.group || '');
+    }
     finish();
   }
 
   function finish() {
     const remaining = draw.leftoverName();
-    if (remaining) teams.push([remaining, '']);
+    if (remaining) {
+      teams.push([remaining, '']);
+      teamGroups.push('');
+    }
     renderResults();
     saveState();
     poolBox.textContent = teams.length ? 'Đã bốc xong' : 'Chưa có vận động viên';
@@ -235,13 +269,16 @@
   /** Dựng lượt bốc từ một hạt giống, quay lại `replay` lượt đầu để về đúng trạng thái cũ. */
   function start(nextSeed, replay) {
     seed = nextSeed >>> 0;
-    draw = singles ? pairing.createSinglesDraw(players, seededPick(seed)) : pairing.createDraw(players, rule, seededPick(seed));
+    const preset = loadPreset();
+    draw = singles ? pairing.createSinglesDraw(players, seededPick(seed), preset) : pairing.createDraw(players, rule, seededPick(seed), preset);
     teams = [];
+    teamGroups = [];
     spinning = false;
     for (let index = 0; index < replay; index++) {
       const result = draw.next();
       if (!result) break;
       teams.push(result.team);
+      teamGroups.push(result.group || '');
     }
   }
 
@@ -303,7 +340,11 @@
   });
 
   // Chốt danh sách xong là bản nháp hết việc; để lại thì lần sau mở ra tưởng còn dở.
-  form.addEventListener('submit', clearState);
+  // Đồng thời xoá cấu hình ghép thủ công đã lưu theo yêu cầu người dùng.
+  form.addEventListener('submit', () => {
+    clearState();
+    clearPreset();
+  });
 
   if (!restore()) reset();
 })();

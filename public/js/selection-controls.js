@@ -2,9 +2,21 @@
   const initManualPairs = () => {
     const selects = [...document.querySelectorAll('[data-manual-pair-select]')];
     if (!selects.length) return;
+    const form = document.querySelector('[data-manual-pairs-form]');
+    const tournamentId = form?.dataset.tournamentId || document.querySelector('[data-tournament-id]')?.dataset.tournamentId || '0';
+    const PRESET_KEY = `vodich.manual_preset.${tournamentId}`;
+    const SPIN_KEY = `vodich.spin.${tournamentId}`;
+
+    const saveBtn = document.querySelector('[data-manual-save-preset]');
+    const clearBtn = document.querySelector('[data-manual-clear-preset]');
+    const openSpinBtn = document.querySelector('[data-manual-open-spin]');
+    const statusBox = document.querySelector('[data-manual-preset-status]');
+    const detailsBox = document.querySelector('.manual-pair-box');
+
     selects.forEach((select) => {
       select.dataset.options = JSON.stringify([...select.options].map((option) => ({ value: option.value, text: option.textContent || '' })));
     });
+
     const sync = () => {
       const selected = new Set(selects.map((select) => select.value).filter(Boolean));
       selects.forEach((select) => {
@@ -18,7 +30,114 @@
       });
     };
     selects.forEach((select) => select.addEventListener('change', sync));
-    sync();
+
+    const renderPresetStatus = (preset) => {
+      if (!statusBox) return;
+      if (Array.isArray(preset) && preset.length > 0) {
+        statusBox.textContent = `✓ Đang lưu ${preset.length} đội thủ công cho vòng quay (kết quả quay sẽ trúng các đội này).`;
+        statusBox.classList.remove('hidden');
+        if (clearBtn) clearBtn.classList.remove('hidden');
+        if (openSpinBtn) openSpinBtn.classList.remove('hidden');
+      } else {
+        statusBox.textContent = '';
+        statusBox.classList.add('hidden');
+        if (clearBtn) clearBtn.classList.add('hidden');
+        if (openSpinBtn) openSpinBtn.classList.add('hidden');
+      }
+    };
+
+    const loadSavedPreset = () => {
+      try {
+        const raw = window.localStorage.getItem(PRESET_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+      } catch (_) {
+        return null;
+      }
+    };
+
+    // Nạp lại cấu hình đã lưu vào form nếu có
+    const initialPreset = loadSavedPreset();
+    if (initialPreset && initialPreset.length > 0) {
+      initialPreset.forEach((item, index) => {
+        const slotIdx = index + 1;
+        const selectA = document.querySelector(`select[name="teamA_${slotIdx}"]`);
+        const selectB = document.querySelector(`select[name="teamB_${slotIdx}"]`);
+        const groupSel = document.querySelector(`select[name="group_${slotIdx}"]`);
+        if (selectA && item.team && item.team[0]) selectA.value = item.team[0];
+        if (selectB && item.team && item.team[1]) selectB.value = item.team[1];
+        if (groupSel && item.group) groupSel.value = item.group;
+      });
+      sync();
+      renderPresetStatus(initialPreset);
+      if (detailsBox) detailsBox.open = true;
+    } else {
+      sync();
+    }
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', () => {
+        const cards = [...document.querySelectorAll('.manual-pair-card')];
+        const teams = [];
+        cards.forEach((card, idx) => {
+          const slot = idx + 1;
+          const selectA = card.querySelector(`select[name="teamA_${slot}"]`);
+          const selectB = card.querySelector(`select[name="teamB_${slot}"]`);
+          const groupSel = card.querySelector(`select[name="group_${slot}"]`);
+          const valA = selectA ? selectA.value.trim() : '';
+          const valB = selectB ? selectB.value.trim() : '';
+          const group = groupSel ? groupSel.value.trim() : null;
+
+          if (selectB) {
+            // Đôi: cần đủ cả 2 người
+            if (valA && valB && valA !== valB) {
+              teams.push({ team: [valA, valB], group: group || null });
+            }
+          } else {
+            // Đơn: cần 1 người
+            if (valA) {
+              teams.push({ team: [valA], group: group || null });
+            }
+          }
+        });
+
+        if (!teams.length) {
+          alert('Vui lòng chọn ít nhất một đội đủ thành viên trước khi lưu.');
+          return;
+        }
+
+        try {
+          window.localStorage.setItem(PRESET_KEY, JSON.stringify(teams));
+          window.localStorage.removeItem(SPIN_KEY); // Xoá nháp vòng quay cũ để vòng quay nhận cấu hình mới
+        } catch (_) {}
+
+        renderPresetStatus(teams);
+      });
+    }
+
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => {
+        try {
+          window.localStorage.removeItem(PRESET_KEY);
+          window.localStorage.removeItem(SPIN_KEY);
+        } catch (_) {}
+        selects.forEach((select) => { select.value = ''; });
+        document.querySelectorAll('[data-manual-group-select]').forEach((sel) => { sel.value = ''; });
+        sync();
+        renderPresetStatus(null);
+      });
+    }
+
+    if (form) {
+      // Khi bấm "Tạo trận từ đội đã chọn", tạo lịch xong cũng xoá lưu thủ công
+      form.addEventListener('submit', () => {
+        try {
+          window.localStorage.removeItem(PRESET_KEY);
+          window.localStorage.removeItem(SPIN_KEY);
+        } catch (_) {}
+      });
+    }
   };
 
   const initTeamMemberPicker = () => {

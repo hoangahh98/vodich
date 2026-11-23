@@ -1,4 +1,4 @@
-﻿const assert = require('node:assert/strict');
+const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
@@ -209,4 +209,67 @@ test('vòng quay thi đơn: bộ chọn tất định cho ra thứ tự tất đ
   const twice = plain(pairing.createSinglesDraw(players, pick).drawAll());
   assert.deepEqual(once, twice);
   assert.deepEqual(once.map((team) => team[0]), players.map((player) => player.name));
+});
+
+
+test('vòng quay ghép đôi theo preset: bốc trúng các đội đã gài sẵn trước, phần còn lại bốc bình thường', () => {
+  const players = spinPlayers({ A: 2, B: 2, C: 2, D: 2 });
+  const preset = [
+    { team: ['A0', 'D1'], group: 'A' },
+    { team: ['B0', 'C1'], group: 'B' },
+  ];
+  const draw = pairing.createDraw(players, 'BY_SKILL', undefined, preset);
+
+  // Lượt 1: trúng A0 + D1
+  const first = plain(draw.next());
+  assert.deepEqual(first.team, ['A0', 'D1']);
+  assert.equal(first.group, 'A');
+  assert.ok(first.sources[0].includes('A0'), 'ô 1 phải có A0');
+  assert.ok(first.sources[1].includes('D1'), 'ô 2 phải có D1');
+
+  // Lượt 2: trúng B0 + C1
+  const second = plain(draw.next());
+  assert.deepEqual(second.team, ['B0', 'C1']);
+  assert.equal(second.group, 'B');
+
+  // Lượt còn lại: tự bốc nốt 4 người còn lại (A1, B1, C0, D0)
+  const rest = plain(draw.drawAll());
+  assert.equal(rest.length, 2);
+  const allTeams = [first.team, second.team, ...rest];
+  const allNames = allTeams.flat().filter(Boolean);
+  assert.equal(allNames.length, players.length);
+  assert.equal(new Set(allNames).size, players.length);
+});
+
+test('vòng quay thi đơn theo preset: bốc trúng người đã gài sẵn trước', () => {
+  const players = spinPlayers({ A: 2, B: 2 });
+  const preset = [{ team: ['B1'], group: 'B' }, { team: ['A0'], group: 'A' }];
+  const draw = pairing.createSinglesDraw(players, undefined, preset);
+
+  const first = plain(draw.next());
+  assert.deepEqual(first.team, ['B1']);
+  assert.equal(first.group, 'B');
+
+  const second = plain(draw.next());
+  assert.deepEqual(second.team, ['A0']);
+  assert.equal(second.group, 'A');
+
+  const rest = plain(draw.drawAll());
+  assert.equal(rest.length, 2);
+  const allNames = [first.team[0], second.team[0], ...rest.map((t) => t[0])];
+  assert.equal(allNames.length, players.length);
+  assert.equal(new Set(allNames).size, players.length);
+});
+
+test('vòng quay theo preset: đội thiếu người hoặc tên lạ thì tự bỏ qua', () => {
+  const players = spinPlayers({ A: 2, B: 2 });
+  const preset = [
+    { team: ['A0'] }, // thiếu người thứ hai
+    { team: ['A0', 'TênLạ'] }, // tên lạ không có trong giải
+    { team: ['A0', 'A0'] }, // trùng tên
+    { team: ['A1', 'B1'] }, // hợp lệ
+  ];
+  const draw = pairing.createDraw(players, 'BY_SKILL', undefined, preset);
+  const first = plain(draw.next());
+  assert.deepEqual(first.team, ['A1', 'B1']);
 });
